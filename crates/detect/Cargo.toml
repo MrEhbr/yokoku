@@ -12,6 +12,7 @@ workspace = true
 yokoku-domain.workspace = true
 
 hunch.workspace = true
+isolang.workspace = true
 jiff.workspace = true
 regex.workspace = true
 strsim.workspace = true

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use isolang::Language;
 use yokoku_domain::SubtitleTags;
 
 const VIDEO_EXTENSIONS: &[&str] =
@@ -16,56 +17,28 @@ const EXTRAS_FOLDERS: &[&str] = &[
     "interviews",
     "shorts",
 ];
-const LANGUAGE_CODES: &[&str] = &[
-    "en", "ru", "ja", "de", "fr", "es", "it", "pt", "uk", "zh", "ko", "pl", "nl", "sv", "no", "nb", "da", "fi", "tr",
-    "ar", "he", "cs", "hu", "ro", "el", "bg", "sr", "hr", "sk", "sl", "lt", "lv", "et", "id", "th", "vi", "fa", "ms",
-];
-/// ISO 639-2 codes and English names mapped to ISO 639-1.
-const LANGUAGE_ALIASES: &[(&str, &str)] = &[
-    ("eng", "en"),
-    ("english", "en"),
-    ("rus", "ru"),
-    ("russian", "ru"),
-    ("jpn", "ja"),
-    ("japanese", "ja"),
-    ("ger", "de"),
-    ("deu", "de"),
-    ("german", "de"),
-    ("fre", "fr"),
-    ("fra", "fr"),
-    ("french", "fr"),
-    ("spa", "es"),
-    ("spanish", "es"),
-    ("ita", "it"),
-    ("italian", "it"),
-    ("por", "pt"),
-    ("portuguese", "pt"),
-    ("ukr", "uk"),
-    ("ukrainian", "uk"),
-    ("chi", "zh"),
-    ("zho", "zh"),
-    ("chinese", "zh"),
-    ("kor", "ko"),
-    ("korean", "ko"),
-    ("pol", "pl"),
-    ("polish", "pl"),
-    ("dut", "nl"),
-    ("nld", "nl"),
-    ("dutch", "nl"),
-    ("swe", "sv"),
-    ("swedish", "sv"),
-    ("nor", "no"),
-    ("norwegian", "no"),
-    ("dan", "da"),
-    ("danish", "da"),
-    ("fin", "fi"),
-    ("finnish", "fi"),
-    ("tur", "tr"),
-    ("turkish", "tr"),
-    ("ara", "ar"),
-    ("arabic", "ar"),
-    ("heb", "he"),
-    ("hebrew", "he"),
+/// ISO 639-2/B codes and their ISO 639-3 equivalents.
+const BIBLIOGRAPHIC_CODES: [(&str, &str); 20] = [
+    ("alb", "sqi"),
+    ("arm", "hye"),
+    ("baq", "eus"),
+    ("bur", "mya"),
+    ("chi", "zho"),
+    ("cze", "ces"),
+    ("dut", "nld"),
+    ("fre", "fra"),
+    ("geo", "kat"),
+    ("ger", "deu"),
+    ("gre", "ell"),
+    ("ice", "isl"),
+    ("mac", "mkd"),
+    ("mao", "mri"),
+    ("may", "msa"),
+    ("per", "fas"),
+    ("rum", "ron"),
+    ("slo", "slk"),
+    ("tib", "bod"),
+    ("wel", "cym"),
 ];
 
 /// A file inside a download, relative to the download's root.
@@ -189,17 +162,18 @@ impl Subtitle {
 
     /// An ISO 639-1 code, with the region kept: `en`, `pt-br`.
     fn language(word: &str) -> Option<String> {
-        if LANGUAGE_CODES.contains(&word) {
-            return Some(word.to_owned());
+        if let Some((code, region)) = word.split_once('-') {
+            let valid_region = (2..=3).contains(&region.len()) && region.chars().all(|c| c.is_ascii_alphanumeric());
+            return (valid_region && Language::from_639_1(code).is_some()).then(|| word.to_owned());
         }
-        if let Some((code, region)) = word.split_once('-')
-            && LANGUAGE_CODES.contains(&code)
-            && (2..=3).contains(&region.len())
-            && region.chars().all(|c| c.is_ascii_alphanumeric())
-        {
-            return Some(word.to_owned());
-        }
-        LANGUAGE_ALIASES.iter().find(|(alias, _)| *alias == word).map(|(_, code)| (*code).to_owned())
+        let code =
+            BIBLIOGRAPHIC_CODES.iter().find(|(bibliographic, _)| *bibliographic == word).map_or(word, |(_, code)| code);
+        let language = match code.len() {
+            2 => Language::from_639_1(code),
+            3 => Language::from_639_3(code),
+            _ => Language::from_name_lowercase(code),
+        };
+        language?.to_639_1().map(str::to_owned)
     }
 }
 

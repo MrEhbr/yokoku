@@ -33,6 +33,7 @@ clap-verbosity-flag = { version = "3.0", features = ["tracing"], default-feature
 config = { version = "0.15", features = ["json", "toml"], default-features = false }
 console-subscriber = "0.5"
 hunch = { version = "2.0.2", default-features = false }
+isolang = { version = "2.4", features = ["lowercase_names"] }
 jiff = "0.2"
 jiff-cron = "0.3"
 regex = "1.13"
