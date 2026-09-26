@@ -9,12 +9,23 @@ repository = "https://github.com/mrehbr/yokoku"
 license = "MIT"
 
 [workspace.dependencies]
+yokoku-db = { path = "crates/db" }
+yokoku-domain = { path = "crates/domain" }
+yokoku-events = { path = "crates/events" }
+
 anyhow = "1.0"
+async-trait = "0.1"
 clap = { version = "4.5", features = ["derive"] }
 clap-verbosity-flag = { version = "3.0", features = ["tracing"], default-features = false }
 config = { version = "0.15", features = ["toml"], default-features = false }
 console-subscriber = "0.5"
+jiff = "0.2"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+thiserror = "2.0"
+tokio = "1"
+tokio-util = "0.7"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
@@ -22,6 +33,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"]
 assert_cmd = "2.1"
 criterion = "0.8"
 predicates = "3.1"
+proptest = "1.11"
+rstest = "0.27"
 tempfile = "3.14"
 
 [workspace.lints.rust]

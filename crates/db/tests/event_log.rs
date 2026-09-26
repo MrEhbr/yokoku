@@ -1,0 +1,115 @@
+use jiff::{SignedDuration, Timestamp};
+use rstest::{fixture, rstest};
+use yokoku_db::Database;
+use yokoku_domain::{MovieId, SeriesId};
+use yokoku_events::{Event, EventId, EventLog, Failure, Recorded};
+
+fn series_added(id: i64) -> Event {
+    Event::SeriesAdded { series: SeriesId(id), title: format!("Series {id}") }
+}
+
+fn ids(recorded: &[Recorded]) -> Vec<i64> {
+    recorded.iter().map(|recorded| recorded.id.0).collect()
+}
+
+#[fixture]
+async fn db() -> Database {
+    Database::open_in_memory().await.unwrap()
+}
+
+async fn commit(db: &Database, events: &[Event]) {
+    let tx = db.begin().await.unwrap();
+    db.commit(tx, events).await.unwrap();
+}
+
+#[rstest]
+#[tokio::test]
+async fn commit_appends_events_in_order(#[future(awt)] db: Database) {
+    let events = [series_added(1), Event::MovieAdded { movie: MovieId(2), title: "Dune".into() }];
+
+    commit(&db, &events).await;
+
+    let recorded = db.event_log().read_after(None, 10).await.unwrap();
+    assert_eq!(ids(&recorded), [1, 2]);
+    assert_eq!(recorded.iter().map(|recorded| recorded.event.clone()).collect::<Vec<_>>(), events);
+}
+
+#[rstest]
+#[tokio::test]
+async fn records_when_events_occurred(#[future(awt)] db: Database) {
+    commit(&db, &[series_added(1)]).await;
+
+    let recorded = db.event_log().read_after(None, 1).await.unwrap();
+    let age = Timestamp::now().duration_since(recorded[0].occurred_at);
+    assert!(age >= SignedDuration::ZERO && age < SignedDuration::from_secs(60), "age was {age}");
+}
+
+#[rstest]
+#[case::from_the_start(None, 10, vec![1, 2, 3, 4])]
+#[case::after_a_position(Some(2), 10, vec![3, 4])]
+#[case::limited(None, 2, vec![1, 2])]
+#[case::after_the_end(Some(4), 10, vec![])]
+#[tokio::test]
+async fn read_after_returns_later_events_up_to_the_limit(
+    #[future(awt)] db: Database,
+    #[case] after: Option<i64>,
+    #[case] limit: u32,
+    #[case] expected: Vec<i64>,
+) {
+    commit(&db, &[series_added(1), series_added(2), series_added(3), series_added(4)]).await;
+
+    let recorded = db.event_log().read_after(after.map(EventId), limit).await.unwrap();
+
+    assert_eq!(ids(&recorded), expected);
+}
+
+#[rstest]
+#[tokio::test]
+async fn keeps_a_position_per_subscriber(#[future(awt)] db: Database) {
+    commit(&db, &[series_added(1), series_added(2)]).await;
+    let log = db.event_log();
+
+    assert_eq!(log.last_delivered("a").await.unwrap(), None);
+    log.mark_delivered("a", EventId(1)).await.unwrap();
+    log.mark_delivered("a", EventId(2)).await.unwrap();
+    log.mark_delivered("b", EventId(1)).await.unwrap();
+
+    assert_eq!(log.last_delivered("a").await.unwrap(), Some(EventId(2)));
+    assert_eq!(log.last_delivered("b").await.unwrap(), Some(EventId(1)));
+}
+
+#[rstest]
+#[tokio::test]
+async fn give_up_records_the_failure_and_advances(#[future(awt)] db: Database) {
+    commit(&db, &[series_added(1)]).await;
+    let log = db.event_log();
+    let failure = Failure { event: EventId(1), error: "boom".into(), attempts: 5 };
+
+    log.give_up("a", &failure).await.unwrap();
+    log.give_up("a", &failure).await.unwrap();
+
+    assert_eq!(log.last_delivered("a").await.unwrap(), Some(EventId(1)));
+    assert_eq!(log.failed_deliveries("a").await.unwrap(), [failure]);
+}
+
+#[rstest]
+#[tokio::test]
+async fn rejects_a_position_for_an_unknown_event(#[future(awt)] db: Database) {
+    assert!(db.event_log().mark_delivered("a", EventId(42)).await.is_err());
+}
+
+#[tokio::test]
+async fn events_and_positions_survive_reopening() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+
+    let db = Database::open(&path).await.unwrap();
+    commit(&db, &[series_added(1)]).await;
+    db.event_log().mark_delivered("a", EventId(1)).await.unwrap();
+    drop(db);
+
+    let db = Database::open(&path).await.unwrap();
+    let log = db.event_log();
+    assert_eq!(ids(&log.read_after(None, 10).await.unwrap()), [1]);
+    assert_eq!(log.last_delivered("a").await.unwrap(), Some(EventId(1)));
+}

@@ -37,7 +37,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 | Errors | `thiserror` in libraries, `anyhow` only in the binary | |
 | Async ports | `async-trait`, used as `Arc<dyn Port>` | Boxing cost is irrelevant next to network and disk IO. |
 | Logging | `tracing` | A correlation id follows a command through its events, handlers and jobs. |
-| Tests | `rstest`, `wiremock`, `tempfile`, `cargo-nextest` | |
+| Tests | `rstest`, `proptest`, `wiremock`, `tempfile`, `cargo-nextest` | `rstest` for case tables and fixtures, `proptest` for invariants. |
 
 Versions are pinned in `[workspace.dependencies]` when the workspace is set up.
 
@@ -215,19 +215,21 @@ scan: unknown file ┘                                                  │
 The event log records **what happened**. It is not event sourcing: state tables remain the source of truth, and events are written next to them.
 
 ```
-events              (id INTEGER PRIMARY KEY AUTOINCREMENT, kind, payload JSON,
-                     occurred_at, correlation_id)
-subscriber_position (subscriber TEXT PRIMARY KEY, last_event_id)
-failed_deliveries   (subscriber, event_id, error, attempts, failed_at)
+events               (id INTEGER PRIMARY KEY AUTOINCREMENT, payload JSON, occurred_at)
+subscriber_positions (subscriber TEXT PRIMARY KEY, last_event_id)
+failed_deliveries    (subscriber, event_id, error, attempts, failed_at)
 ```
+
+The payload carries the event's `type` tag, so no separate kind column is needed; `json_extract(payload, '$.type')` filters by type.
 
 - **Atomic append.** A module passes the events of a command to its repository, for example `ImportRepo::complete(&import, &events)`. The `db` adapter writes the state and the events in **one transaction**. Modules never see transactions.
 - **Ordered delivery.** Each subscriber runs as one task that reads events after its saved position, in id order, and advances its position after each success.
 - **Order is safe.** SQLite allows one writer at a time, so ids are always committed in id order. A reader can never skip an event whose transaction commits late.
 - **At-least-once.** Handlers are idempotent.
 - **Failures.** Retried with exponential backoff. After N attempts the failure is recorded in `failed_deliveries` and the subscriber moves on.
-- **Wake-up.** A `tokio::sync::Notify` fires after each commit, with a slow periodic poll as fallback. The poll also picks up events written by CLI commands running in another process.
-- **Rebuild.** A projection is rebuilt by resetting its position to 0.
+- **Wake-up.** `Database::commit` signals a `tokio::sync::watch` channel after each commit that wrote events. A signal sent while a subscriber is busy is not lost. A slow periodic poll is the fallback, and it also picks up events written by CLI commands running in another process.
+- **Shutdown.** Delivery stops at the next await point. An event interrupted mid-handler is delivered again on the next run.
+- **Rebuild.** A projection is rebuilt by deleting its row in `subscriber_positions`.
 - **History (FR-9.1)** is a query over the event log. There is no separate history table.
 
 ### 7.2 Contract
@@ -238,8 +240,8 @@ failed_deliveries   (subscriber, event_id, error, attempts, failed_at)
 
 | Event | Emitted by | Subscribers |
 |---|---|---|
-| `SeriesAdded { series }` | library | — (history) |
-| `MovieAdded { movie }` | library | — (history) |
+| `SeriesAdded { series, title }` | library | — (history) |
+| `MovieAdded { movie, title }` | library | — (history) |
 | `ItemRemoved { item, delete_files }` | library | media |
 | `TorrentAdded { download, linked_item }` | downloads | — (history) |
 | `DownloadCompleted { download, content_path, linked_item }` | downloads | media |
@@ -248,6 +250,8 @@ failed_deliveries   (subscriber, event_id, error, attempts, failed_at)
 | `ImportFailed { import, reason }` | media | — (history) |
 | `FileRenamed { file, from, to }` | media | library, integrations |
 | `FileDeleted { file, item, reason, recycled }` | media | library, integrations |
+
+Events carry the titles and paths that history needs to display, so history still reads correctly after the item is removed.
 
 `FileDeleted.reason` is one of `User`, `ItemRemoved`, `Replaced`, `External`. A file removed outside the app is reported by the next scan with `External` (FR-8.7).
 
@@ -294,11 +298,13 @@ One binary.
 
 | Layer | How |
 |---|---|
-| `domain`, `detect`, `naming` | Table-driven with `rstest`. `detect` has a corpus of real release names with expected results. |
-| Modules | Use cases against in-memory fakes of their ports, including a fake `Clock` and `FileSystem`. |
+| `domain`, `detect`, `naming` | Case tables with `rstest`, invariants with `proptest`. `detect` has a corpus of real release names with expected results. |
+| Modules | Use cases against real adapters: storage through `yokoku-db` on SQLite `:memory:`, the real filesystem on a temporary directory, and a fixed `Clock`. No in-memory fakes of storage. |
 | `db` | In-memory SQLite with real migrations. |
 | `metadata`, `transmission`, `system` | HTTP adapters against `wiremock`. |
-| End-to-end | Binary with a temporary directory, a real SQLite file and a fake download client. |
+| End-to-end | Binary with a temporary directory, a real SQLite file and Transmission RPC served by `wiremock`. |
+
+Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modules) take it as a dev-dependency and live in `tests/`. Cargo allows that cycle for integration tests. `#[cfg(test)]` unit tests would compile the crate a second time, so their trait implementations would not match.
 
 ### Workspace conventions
 
