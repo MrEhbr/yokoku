@@ -112,6 +112,7 @@ impl Importer {
                     .collect();
                 events.push(Event::FilesImported {
                     import: import.id,
+                    download: import.download,
                     files: placed.added.iter().map(MediaFile::linked).collect(),
                 });
                 let changes = Changes {

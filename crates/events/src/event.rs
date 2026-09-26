@@ -32,6 +32,9 @@ pub enum Event {
     /// An approved import placed files in the library.
     FilesImported {
         import: ImportId,
+        /// `None` for scanned files, and in events stored before imports carried it.
+        #[serde(default)]
+        download: Option<DownloadId>,
         files: Vec<LinkedFile>,
     },
     FileDeleted {
@@ -160,12 +163,12 @@ mod tests {
         }] }),
     )]
     #[case::files_imported(
-        Event::FilesImported { import: ImportId(Uuid::from_u128(9)), files: vec![LinkedFile {
+        Event::FilesImported { import: ImportId(Uuid::from_u128(9)), download: Some(DownloadId(Uuid::from_u128(4))), files: vec![LinkedFile {
             file: MediaFileId(Uuid::from_u128(5)),
             path: "/movies/Dune.mkv".into(),
             target: FileTarget::Movie(MovieId(Uuid::from_u128(3))),
         }] },
-        json!({ "type": "FilesImported", "import": "00000000-0000-0000-0000-000000000009", "files": [{
+        json!({ "type": "FilesImported", "import": "00000000-0000-0000-0000-000000000009", "download": "00000000-0000-0000-0000-000000000004", "files": [{
             "file": "00000000-0000-0000-0000-000000000005",
             "path": "/movies/Dune.mkv",
             "target": { "Movie": "00000000-0000-0000-0000-000000000003" },
@@ -255,9 +258,12 @@ mod tests {
         });
         let renamed =
             json!({ "type": "FileRenamed", "file": "00000000-0000-0000-0000-000000000005", "from": "/a", "to": "/b" });
+        let imported =
+            json!({ "type": "FilesImported", "import": "00000000-0000-0000-0000-000000000009", "files": [] });
 
         assert!(matches!(serde_json::from_value(deleted).unwrap(), Event::FileDeleted { recycled: false, .. }));
         assert!(matches!(serde_json::from_value(renamed).unwrap(), Event::FileRenamed { target: None, .. }));
+        assert!(matches!(serde_json::from_value(imported).unwrap(), Event::FilesImported { download: None, .. }));
     }
 
     fn any_id() -> impl Strategy<Value = Uuid> {
@@ -311,8 +317,13 @@ mod tests {
                 Event::MovieRemoved { movie: MovieId(Uuid::from_u128(id)), title, delete_files }
             }),
             prop::collection::vec(any_linked_file(), 0..3).prop_map(|files| Event::FilesFound { files }),
-            (any_id(), prop::collection::vec(any_linked_file(), 0..3))
-                .prop_map(|(import, files)| Event::FilesImported { import: ImportId(import), files }),
+            (any_id(), prop::option::of(any_id()), prop::collection::vec(any_linked_file(), 0..3)).prop_map(
+                |(import, download, files)| Event::FilesImported {
+                    import: ImportId(import),
+                    download: download.map(DownloadId),
+                    files,
+                },
+            ),
             (any_linked_file(), any_reason(), any::<bool>()).prop_map(|(linked, reason, recycled)| {
                 Event::FileDeleted { file: linked.file, path: linked.path, target: linked.target, reason, recycled }
             }),

@@ -35,7 +35,10 @@ async fn approving_links_matched_rows_and_leaves_skipped_ones() {
     );
     assert_eq!(app.db_files().await.len(), 2);
     let linked = files.iter().map(|file| LinkedFile { file: file.id, path: file.path.clone(), target: file.target });
-    assert_eq!(app.events().await.last(), Some(&Event::FilesImported { import: id, files: linked.collect() }));
+    assert_eq!(
+        app.events().await.last(),
+        Some(&Event::FilesImported { import: id, download: None, files: linked.collect() })
+    );
     assert!(app.review.pending().await.unwrap().is_empty());
 }
 

@@ -132,7 +132,11 @@ impl Review {
             })
             .collect();
         import.status = ImportStatus::Done;
-        let event = Event::FilesImported { import: id, files: files.iter().map(MediaFile::linked).collect() };
+        let event = Event::FilesImported {
+            import: id,
+            download: import.download,
+            files: files.iter().map(MediaFile::linked).collect(),
+        };
         let changes = Changes { added_files: files.clone(), imports: vec![import], ..Changes::default() };
         self.repo.save(&changes, &[event]).await?;
         Ok(Approval::Linked(files))

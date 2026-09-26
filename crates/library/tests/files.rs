@@ -67,6 +67,7 @@ async fn imported_files_are_linked_like_found_ones() {
     let file = MediaFileId::generate();
     let event = Event::FilesImported {
         import: yokoku_domain::ImportId::generate(),
+        download: None,
         files: vec![LinkedFile { file, path: "/media/file.mkv".into(), target: episodes(setup.series.id, 3, 3) }],
     };
 

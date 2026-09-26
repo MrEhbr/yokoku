@@ -43,7 +43,9 @@ async fn hard_links_the_video_and_its_subtitles_into_the_library() {
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01]);
     assert_eq!(files[0].target, app.episodes(1, 1, 1));
     let linked = vec![LinkedFile { file: files[0].id, path: files[0].path.clone(), target: files[0].target }];
-    assert_eq!(app.events().await.last(), Some(&Event::FilesImported { import: id, files: linked }));
+    let download = MediaRepo::import(&app.db, id).await.unwrap().unwrap().download;
+    assert!(download.is_some());
+    assert_eq!(app.events().await.last(), Some(&Event::FilesImported { import: id, download, files: linked }));
 }
 
 #[tokio::test]
