@@ -7,7 +7,7 @@ use std::{
 use jiff::Timestamp;
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, MediaFileId};
-use yokoku_events::{DeleteReason, Event, LinkedFile};
+use yokoku_events::{DeleteReason, Event};
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError, MediaFile, RootKind,
@@ -179,10 +179,4 @@ fn group_by_entry(root: &Path, files: impl Iterator<Item = DownloadFile>) -> BTr
             .push(DownloadFile { path: relative, size: file.size });
     }
     groups
-}
-
-impl MediaFile {
-    pub(crate) fn linked(&self) -> LinkedFile {
-        LinkedFile { file: self.id, path: self.path.clone(), target: self.target }
-    }
 }

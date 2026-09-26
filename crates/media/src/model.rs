@@ -2,6 +2,7 @@ use std::{path::PathBuf, time::Duration};
 
 use jiff::Timestamp;
 use yokoku_domain::{Confidence, DownloadId, FileTarget, ImportId, MediaFileId};
+use yokoku_events::LinkedFile;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RootKind {
@@ -38,6 +39,12 @@ pub struct MediaFile {
     pub size: u64,
     pub target: FileTarget,
     pub added_at: Timestamp,
+}
+
+impl MediaFile {
+    pub(crate) fn linked(&self) -> LinkedFile {
+        LinkedFile { file: self.id, path: self.path.clone(), target: self.target }
+    }
 }
 
 /// Files waiting for the user to confirm what they hold (FR-4.11, FR-8.3).
