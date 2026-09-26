@@ -10,12 +10,12 @@ use jiff::{
     tz::TimeZone,
 };
 use yokoku_db::Database;
-use yokoku_domain::{Clock, ItemId, MovieId};
+use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, MovieId};
 use yokoku_downloads::{
     Download, DownloadError, DownloadState, DownloadStatus, Downloads,
     ports::{AddedTorrent, ClientError, DownloadClient, Torrent, TorrentSource},
 };
-use yokoku_events::{Event, EventLog};
+use yokoku_events::{Event, EventId, EventLog, Recorded, Subscriber};
 
 const TODAY: Date = date(2026, 9, 26);
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
@@ -250,4 +250,34 @@ async fn concurrent_syncs_complete_a_download_once() {
     assert_eq!(completed, [added.id]);
     let events = setup.events().await;
     assert_eq!(events.iter().filter(|event| matches!(event, Event::DownloadCompleted { .. })).count(), 1);
+}
+
+fn imported(download: Option<DownloadId>) -> Recorded {
+    let event = Event::FilesImported { import: ImportId::generate(), download, files: Vec::new() };
+    Recorded { id: EventId(1), occurred_at: FixedClock.now().timestamp(), event }
+}
+
+#[tokio::test]
+async fn an_import_from_a_download_marks_it_imported_once() {
+    let setup = setup().await;
+    setup.client.set(1000, 1000);
+    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+
+    setup.downloads.handle(&imported(Some(added.id))).await.unwrap();
+    let first = setup.only_download().await;
+    setup.downloads.handle(&imported(Some(added.id))).await.unwrap();
+
+    assert_eq!(first.imported_at, Some(FixedClock.now().timestamp()));
+    assert_eq!(setup.only_download().await.revision, first.revision);
+}
+
+#[tokio::test]
+async fn imports_of_scanned_files_or_unknown_downloads_change_nothing() {
+    let setup = setup().await;
+    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+
+    setup.downloads.handle(&imported(None)).await.unwrap();
+    setup.downloads.handle(&imported(Some(DownloadId::generate()))).await.unwrap();
+
+    assert_eq!(setup.only_download().await, added);
 }

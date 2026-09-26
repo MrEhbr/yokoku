@@ -1,7 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
+use async_trait::async_trait;
 use yokoku_domain::{Clock, DownloadId, ItemId};
-use yokoku_events::Event;
+use yokoku_events::{Event, HandlerError, Recorded, Subscriber};
 
 use crate::{
     Download, DownloadError, DownloadState, DownloadStatus,
@@ -54,6 +55,7 @@ impl Downloads {
             status: DownloadStatus::unknown(),
             added_at: self.clock.now().timestamp(),
             completed_at: None,
+            imported_at: None,
             revision: 0,
         };
         let torrent = self.client.torrents(std::slice::from_ref(&download.hash)).await?.pop();
@@ -96,6 +98,16 @@ impl Downloads {
         Ok(report)
     }
 
+    /// Records that files from the download reached the library; the first import counts.
+    pub async fn mark_imported(&self, id: DownloadId) -> Result<(), DownloadError> {
+        let Some(mut download) = self.repo.get(id).await? else { return Ok(()) };
+        if download.imported_at.is_none() {
+            download.imported_at = Some(self.clock.now().timestamp());
+            self.repo.save(&mut download, &[]).await?;
+        }
+        Ok(())
+    }
+
     /// Returns `DownloadCompleted` when the download has just finished.
     fn apply(&self, download: &mut Download, torrent: Option<Torrent>) -> Option<Event> {
         let Some(torrent) = torrent else {
@@ -119,5 +131,19 @@ impl Downloads {
             content_path: download.content_path(),
             item: download.item,
         })
+    }
+}
+
+#[async_trait]
+impl Subscriber for Downloads {
+    fn name(&self) -> &'static str {
+        "downloads.imports"
+    }
+
+    async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
+        if let Event::FilesImported { download: Some(download), .. } = &recorded.event {
+            self.mark_imported(*download).await?;
+        }
+        Ok(())
     }
 }

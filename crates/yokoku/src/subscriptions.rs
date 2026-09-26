@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use yokoku_db::Database;
 use yokoku_domain::Clock;
+use yokoku_downloads::Downloads;
 use yokoku_events::Subscriber;
 use yokoku_integrations::Rescans;
 use yokoku_library::FileTracker;
@@ -14,12 +15,14 @@ pub fn subscribers(
     fs: &Arc<dyn FileSystem>,
     clock: &Arc<dyn Clock>,
     deleter: &Arc<Deleter>,
+    downloads: &Arc<Downloads>,
     rescans: Option<&Arc<Rescans>>,
 ) -> Vec<Arc<dyn Subscriber>> {
     let mut subscribers: Vec<Arc<dyn Subscriber>> = vec![
         Arc::new(FileTracker::new(db.clone(), db.clone())),
         Arc::new(ImportPlanner::new(db.clone(), db.clone(), fs.clone(), clock.clone())),
         deleter.clone(),
+        downloads.clone(),
     ];
     subscribers.extend(rescans.map(|rescans| rescans.clone() as Arc<dyn Subscriber>));
     subscribers

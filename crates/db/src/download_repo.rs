@@ -26,6 +26,7 @@ struct DownloadRow {
     error: Option<String>,
     added_at: String,
     completed_at: Option<String>,
+    imported_at: Option<String>,
     revision: i64,
 }
 
@@ -34,7 +35,7 @@ impl DownloadRepo for Database {
     async fn get(&self, id: DownloadId) -> Result<Option<Download>, StorageError> {
         let row: Option<DownloadRow> = sqlx::query_as(
             "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
-                    added_at, completed_at, revision
+                    added_at, completed_at, imported_at, revision
              FROM downloads WHERE id = ?",
         )
         .bind(id.to_string())
@@ -47,7 +48,7 @@ impl DownloadRepo for Database {
     async fn find_by_hash(&self, hash: &str) -> Result<Option<Download>, StorageError> {
         let row: Option<DownloadRow> = sqlx::query_as(
             "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
-                    added_at, completed_at, revision
+                    added_at, completed_at, imported_at, revision
              FROM downloads WHERE hash = ?",
         )
         .bind(hash)
@@ -60,7 +61,7 @@ impl DownloadRepo for Database {
     async fn list(&self) -> Result<Vec<Download>, StorageError> {
         let rows: Vec<DownloadRow> = sqlx::query_as(
             "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
-                    added_at, completed_at, revision
+                    added_at, completed_at, imported_at, revision
              FROM downloads ORDER BY added_at DESC, id DESC",
         )
         .fetch_all(self.pool())
@@ -100,13 +101,13 @@ impl Database {
         }
         sqlx::query(
             "INSERT INTO downloads (id, hash, name, series_id, movie_id, state, size, done, download_rate, eta,
-                                    download_dir, error, added_at, completed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    download_dir, error, added_at, completed_at, imported_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                  name = excluded.name, series_id = excluded.series_id, movie_id = excluded.movie_id,
                  state = excluded.state, size = excluded.size, done = excluded.done,
                  download_rate = excluded.download_rate, eta = excluded.eta, download_dir = excluded.download_dir,
-                 error = excluded.error, completed_at = excluded.completed_at",
+                 error = excluded.error, completed_at = excluded.completed_at, imported_at = excluded.imported_at",
         )
         .bind(download.id.to_string())
         .bind(&download.hash)
@@ -122,6 +123,7 @@ impl Database {
         .bind(&status.error)
         .bind(download.added_at.to_string())
         .bind(download.completed_at.map(|at| at.to_string()))
+        .bind(download.imported_at.map(|at| at.to_string()))
         .execute(&mut *tx)
         .await?;
         self.commit(tx, events).await?;
@@ -153,6 +155,7 @@ fn download(row: DownloadRow) -> Result<Download, DbError> {
         },
         added_at: codec::timestamp(&row.added_at)?,
         completed_at: row.completed_at.as_deref().map(codec::timestamp).transpose()?,
+        imported_at: row.imported_at.as_deref().map(codec::timestamp).transpose()?,
         revision: codec::revision(row.revision)?,
     })
 }

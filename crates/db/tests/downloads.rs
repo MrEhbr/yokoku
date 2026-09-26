@@ -42,8 +42,8 @@ fn any_download() -> impl Strategy<Value = Download> {
             download_dir: download_dir.into(),
             error,
         });
-    ("[0-9a-f]{40}", "\\PC{1,30}", any_item(), status, any::<bool>()).prop_map(
-        |(hash, name, item, status, completed)| {
+    ("[0-9a-f]{40}", "\\PC{1,30}", any_item(), status, any::<bool>(), any::<bool>()).prop_map(
+        |(hash, name, item, status, completed, imported)| {
             let added_at: Timestamp = "2026-09-26T12:00:00.5Z".parse().unwrap();
             Download {
                 id: DownloadId::generate(),
@@ -53,6 +53,7 @@ fn any_download() -> impl Strategy<Value = Download> {
                 status,
                 added_at,
                 completed_at: completed.then_some(added_at),
+                imported_at: (completed && imported).then_some(added_at),
                 revision: 0,
             }
         },
@@ -91,6 +92,7 @@ async fn downloads_are_listed_newest_first() {
         status: DownloadStatus::unknown(),
         added_at: added_at.parse().unwrap(),
         completed_at: None,
+        imported_at: None,
         revision: 0,
     };
     let mut older = download("a", "2026-09-25T12:00:00Z");

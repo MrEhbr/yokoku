@@ -150,6 +150,7 @@ impl App {
         if let Some(username) = &transmission.username {
             client = client.with_credentials(username, transmission.password.clone().unwrap_or_default());
         }
+        let downloads = Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone()));
 
         Ok(Self {
             library: Library::new(db.clone(), db.clone(), clock.clone()),
@@ -157,7 +158,7 @@ impl App {
             roots: RootFolders::new(db.clone(), fs.clone()),
             scanner: Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone())),
             review: Review::new(db.clone(), db.clone(), clock.clone()),
-            downloads: Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone())),
+            downloads: downloads.clone(),
             renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), Naming::default()),
             importer: Arc::new(Importer::new(
                 db.clone(),
@@ -169,7 +170,7 @@ impl App {
                 config.import.mode.into(),
             )),
             history: History::new(Arc::new(db.event_log())),
-            subscribers: subscriptions::subscribers(&db, &fs, &clock, &deleter, rescans.as_ref()),
+            subscribers: subscriptions::subscribers(&db, &fs, &clock, &deleter, &downloads, rescans.as_ref()),
             deleter,
             rescans,
             sync,
