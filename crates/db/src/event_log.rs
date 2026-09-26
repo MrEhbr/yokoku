@@ -1,8 +1,9 @@
 use async_trait::async_trait;
-use sqlx::{SqliteConnection, SqlitePool};
+use jiff::Timestamp;
+use sqlx::{SqliteConnection, SqlitePool, types::Json};
 use yokoku_events::{Event, EventId, EventLog, EventLogError, Failure, Recorded};
 
-use crate::DbError;
+use crate::{DbError, codec::Text};
 
 const UPSERT_POSITION: &str = "
     INSERT INTO subscriber_positions (subscriber, last_event_id) VALUES (?, ?)
@@ -55,7 +56,7 @@ impl EventLog for SqliteEventLog {
     }
 
     async fn read_after(&self, after: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, EventLogError> {
-        let rows: Vec<(i64, String, String)> =
+        let rows: Vec<EventRow> =
             sqlx::query_as("SELECT id, payload, occurred_at FROM events WHERE id > ? ORDER BY id LIMIT ?")
                 .bind(after.map_or(0, |id| id.0))
                 .bind(limit)
@@ -63,18 +64,18 @@ impl EventLog for SqliteEventLog {
                 .await
                 .map_err(EventLogError::new)?;
 
-        rows.into_iter().map(recorded).collect()
+        Ok(rows.into_iter().map(Recorded::from).collect())
     }
 
     async fn read_before(&self, before: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, EventLogError> {
-        let rows: Vec<(i64, String, String)> =
+        let rows: Vec<EventRow> =
             sqlx::query_as("SELECT id, payload, occurred_at FROM events WHERE id < ? ORDER BY id DESC LIMIT ?")
                 .bind(before.map_or(i64::MAX, |id| id.0))
                 .bind(limit)
                 .fetch_all(&self.pool)
                 .await
                 .map_err(EventLogError::new)?;
-        rows.into_iter().map(recorded).collect()
+        Ok(rows.into_iter().map(Recorded::from).collect())
     }
 
     async fn mark_delivered(&self, subscriber: &str, event: EventId) -> Result<(), EventLogError> {
@@ -89,7 +90,7 @@ impl EventLog for SqliteEventLog {
     }
 
     async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, Failure)>, EventLogError> {
-        let rows: Vec<(i64, String, String, String, u32)> = sqlx::query_as(
+        let rows: Vec<FailedRow> = sqlx::query_as(
             "SELECT events.id, events.payload, events.occurred_at, failed_deliveries.error, failed_deliveries.attempts
              FROM failed_deliveries JOIN events ON events.id = failed_deliveries.event_id
              WHERE failed_deliveries.subscriber = ? ORDER BY events.id",
@@ -99,16 +100,13 @@ impl EventLog for SqliteEventLog {
         .await
         .map_err(EventLogError::new)?;
 
-        rows.into_iter()
-            .map(|(id, payload, occurred_at, error, attempts)| {
-                let recorded = Recorded {
-                    id: EventId(id),
-                    occurred_at: occurred_at.parse().map_err(EventLogError::new)?,
-                    event: serde_json::from_str(&payload).map_err(EventLogError::new)?,
-                };
-                Ok((recorded, Failure { event: EventId(id), error, attempts }))
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let failure = Failure { event: EventId(row.event.id), error: row.error, attempts: row.attempts };
+                (row.event.into(), failure)
             })
-            .collect()
+            .collect())
     }
 
     async fn record_failure(&self, subscriber: &str, failure: &Failure) -> Result<(), EventLogError> {
@@ -164,10 +162,23 @@ impl EventLog for SqliteEventLog {
     }
 }
 
-fn recorded((id, payload, occurred_at): (i64, String, String)) -> Result<Recorded, EventLogError> {
-    Ok(Recorded {
-        id: EventId(id),
-        occurred_at: occurred_at.parse().map_err(EventLogError::new)?,
-        event: serde_json::from_str(&payload).map_err(EventLogError::new)?,
-    })
+#[derive(sqlx::FromRow)]
+struct EventRow {
+    id: i64,
+    payload: Json<Event>,
+    occurred_at: Text<Timestamp>,
+}
+
+#[derive(sqlx::FromRow)]
+struct FailedRow {
+    #[sqlx(flatten)]
+    event: EventRow,
+    error: String,
+    attempts: u32,
+}
+
+impl From<EventRow> for Recorded {
+    fn from(row: EventRow) -> Self {
+        Self { id: EventId(row.id), occurred_at: row.occurred_at.0, event: row.payload.0 }
+    }
 }

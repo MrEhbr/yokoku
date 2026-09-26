@@ -1,28 +1,33 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use yokoku_domain::{Episode, ExternalId, Season, Series, SeriesId};
+use jiff::{Timestamp, civil::Date};
+use sqlx::types::Json;
+use yokoku_domain::{Episode, EpisodeId, ExternalId, MediaFileId, Numbering, Season, Series, SeriesId, SourceStatus};
 use yokoku_events::Event;
 use yokoku_library::ports::{SeriesRepo, StorageError};
 
-use crate::{Database, DbError, codec};
+use crate::{
+    Database, DbError,
+    codec::{Int, SourceColumns, Text},
+};
 
 #[derive(sqlx::FromRow)]
 struct SeriesRow {
-    id: String,
-    source_kind: String,
-    source_id: i64,
+    id: Text<SeriesId>,
+    #[sqlx(flatten)]
+    source: SourceColumns,
     title: String,
     original_title: String,
-    alternate_titles: String,
+    alternate_titles: Json<Vec<String>>,
     year: Option<i16>,
     poster_path: Option<String>,
-    source_status: String,
-    numbering: String,
+    source_status: Text<SourceStatus>,
+    numbering: Text<Numbering>,
     monitored: bool,
-    added_at: String,
-    refreshed_at: String,
-    revision: i64,
+    added_at: Text<Timestamp>,
+    refreshed_at: Text<Timestamp>,
+    revision: u64,
 }
 
 #[derive(sqlx::FromRow)]
@@ -33,14 +38,14 @@ struct SeasonRow {
 
 #[derive(sqlx::FromRow)]
 struct EpisodeRow {
-    id: String,
+    id: Text<EpisodeId>,
     season_number: u16,
-    source_id: i64,
+    source_id: u64,
     number: u16,
     title: String,
-    air_date: Option<String>,
+    air_date: Option<Text<Date>>,
     monitored: bool,
-    file_id: Option<String>,
+    file_id: Option<Text<MediaFileId>>,
 }
 
 #[async_trait]
@@ -50,16 +55,17 @@ impl SeriesRepo for Database {
     }
 
     async fn find_by_source(&self, source: ExternalId) -> Result<Option<Series>, StorageError> {
-        let (kind, source_id) = codec::source_columns(source)?;
-        let id: Option<String> = sqlx::query_scalar("SELECT id FROM series WHERE source_kind = ? AND source_id = ?")
-            .bind(kind)
-            .bind(source_id)
-            .fetch_optional(self.pool())
-            .await
-            .map_err(DbError::from)?;
+        let source = SourceColumns::from(source);
+        let id: Option<Text<SeriesId>> =
+            sqlx::query_scalar("SELECT id FROM series WHERE source_kind = ? AND source_id = ?")
+                .bind(source.source_kind)
+                .bind(Int(source.source_id))
+                .fetch_optional(self.pool())
+                .await
+                .map_err(DbError::from)?;
 
         match id {
-            Some(id) => Ok(self.load_series(SeriesId(codec::uuid(&id)?)).await?),
+            Some(id) => Ok(self.load_series(id.0).await?),
             None => Ok(None),
         }
     }
@@ -85,8 +91,9 @@ impl SeriesRepo for Database {
 
 impl Database {
     pub(crate) async fn series_ids(&self) -> Result<Vec<SeriesId>, DbError> {
-        let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM series ORDER BY id").fetch_all(self.pool()).await?;
-        ids.iter().map(|id| codec::uuid(id).map(SeriesId)).collect()
+        let ids: Vec<Text<SeriesId>> =
+            sqlx::query_scalar("SELECT id FROM series ORDER BY id").fetch_all(self.pool()).await?;
+        Ok(ids.into_iter().map(|id| id.0).collect())
     }
 
     pub(crate) async fn load_series(&self, id: SeriesId) -> Result<Option<Series>, DbError> {
@@ -116,17 +123,17 @@ impl Database {
         .fetch_all(self.pool())
         .await?;
 
-        Ok(Some(assemble(row, seasons, episodes)?))
+        Ok(Some(row.into_series(seasons, episodes)?))
     }
 
     async fn save_series(&self, series: &mut Series, events: &[Event]) -> Result<(), DbError> {
         let id = series.id.to_string();
-        let (source_kind, source_id) = codec::source_columns(series.source)?;
+        let source = SourceColumns::from(series.source);
         let mut tx = self.begin().await?;
         if series.revision > 0 {
             let claimed = sqlx::query("UPDATE series SET revision = revision + 1 WHERE id = ? AND revision = ?")
                 .bind(&id)
-                .bind(codec::revision_to_i64(series.revision)?)
+                .bind(Int(series.revision))
                 .execute(&mut *tx)
                 .await?;
             if claimed.rows_affected() == 0 {
@@ -146,15 +153,15 @@ impl Database {
                  refreshed_at = excluded.refreshed_at",
         )
         .bind(&id)
-        .bind(source_kind)
-        .bind(source_id)
+        .bind(source.source_kind)
+        .bind(Int(source.source_id))
         .bind(&series.title)
         .bind(&series.original_title)
-        .bind(codec::titles_to_json(&series.alternate_titles)?)
+        .bind(Json(&series.alternate_titles))
         .bind(series.year)
         .bind(&series.poster_path)
-        .bind(codec::source_status_to_str(series.source_status))
-        .bind(codec::numbering_to_str(series.numbering))
+        .bind(series.source_status.as_str())
+        .bind(series.numbering.as_str())
         .bind(series.monitored)
         .bind(series.added_at.to_string())
         .bind(series.refreshed_at.to_string())
@@ -185,7 +192,7 @@ impl Database {
                 .bind(episode.id.to_string())
                 .bind(&id)
                 .bind(season.number)
-                .bind(codec::source_id_to_i64(episode.source_id)?)
+                .bind(Int(episode.source_id))
                 .bind(episode.number)
                 .bind(&episode.title)
                 .bind(episode.air_date.map(|date| date.to_string()))
@@ -199,14 +206,14 @@ impl Database {
         let episode_ids: Vec<String> = series.episodes().map(|episode| episode.id.to_string()).collect();
         sqlx::query("DELETE FROM episodes WHERE series_id = ? AND id NOT IN (SELECT value FROM json_each(?))")
             .bind(&id)
-            .bind(serde_json::to_string(&episode_ids)?)
+            .bind(Json(&episode_ids))
             .execute(&mut *tx)
             .await?;
 
         let season_numbers: Vec<u16> = series.seasons.iter().map(|season| season.number).collect();
         sqlx::query("DELETE FROM seasons WHERE series_id = ? AND number NOT IN (SELECT value FROM json_each(?))")
             .bind(&id)
-            .bind(serde_json::to_string(&season_numbers)?)
+            .bind(Json(&season_numbers))
             .execute(&mut *tx)
             .await?;
 
@@ -216,43 +223,51 @@ impl Database {
     }
 }
 
-fn assemble(row: SeriesRow, seasons: Vec<SeasonRow>, episodes: Vec<EpisodeRow>) -> Result<Series, DbError> {
-    let mut episodes_by_season: BTreeMap<u16, Vec<Episode>> = BTreeMap::new();
-    for episode in episodes {
-        episodes_by_season.entry(episode.season_number).or_default().push(Episode {
-            id: yokoku_domain::EpisodeId(codec::uuid(&episode.id)?),
-            source_id: codec::source_id_from_i64(episode.source_id)?,
+impl From<EpisodeRow> for Episode {
+    fn from(episode: EpisodeRow) -> Self {
+        Self {
+            id: episode.id.0,
+            source_id: episode.source_id,
             number: episode.number,
             title: episode.title,
-            air_date: codec::date(episode.air_date.as_deref())?,
+            air_date: episode.air_date.map(|date| date.0),
             monitored: episode.monitored,
-            file: codec::file_id(episode.file_id.as_deref())?,
-        });
+            file: episode.file_id.map(|file| file.0),
+        }
     }
+}
 
-    let seasons = seasons
-        .into_iter()
-        .map(|season| Season {
-            number: season.number,
-            monitored: season.monitored,
-            episodes: episodes_by_season.remove(&season.number).unwrap_or_default(),
+impl SeriesRow {
+    fn into_series(self, seasons: Vec<SeasonRow>, episodes: Vec<EpisodeRow>) -> Result<Series, DbError> {
+        let mut episodes_by_season: BTreeMap<u16, Vec<Episode>> = BTreeMap::new();
+        for episode in episodes {
+            episodes_by_season.entry(episode.season_number).or_default().push(episode.into());
+        }
+
+        let seasons = seasons
+            .into_iter()
+            .map(|season| Season {
+                number: season.number,
+                monitored: season.monitored,
+                episodes: episodes_by_season.remove(&season.number).unwrap_or_default(),
+            })
+            .collect();
+
+        Ok(Series {
+            id: self.id.0,
+            source: self.source.try_into()?,
+            title: self.title,
+            original_title: self.original_title,
+            alternate_titles: self.alternate_titles.0,
+            year: self.year,
+            poster_path: self.poster_path,
+            source_status: self.source_status.0,
+            numbering: self.numbering.0,
+            monitored: self.monitored,
+            seasons,
+            added_at: self.added_at.0,
+            refreshed_at: self.refreshed_at.0,
+            revision: self.revision,
         })
-        .collect();
-
-    Ok(Series {
-        id: SeriesId(codec::uuid(&row.id)?),
-        source: codec::source_from_columns(&row.source_kind, row.source_id)?,
-        title: row.title,
-        original_title: row.original_title,
-        alternate_titles: codec::titles_from_json(&row.alternate_titles)?,
-        year: row.year,
-        poster_path: row.poster_path,
-        source_status: codec::source_status_from_str(&row.source_status)?,
-        numbering: codec::numbering_from_str(&row.numbering)?,
-        monitored: row.monitored,
-        seasons,
-        added_at: codec::timestamp(&row.added_at)?,
-        refreshed_at: codec::timestamp(&row.refreshed_at)?,
-        revision: codec::revision(row.revision)?,
-    })
+    }
 }

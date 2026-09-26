@@ -19,6 +19,16 @@ pub enum SourceStatus {
     Unknown,
 }
 
+crate::string_enum!(SourceStatus, "source status" {
+    Returning => "returning",
+    Planned => "planned",
+    InProduction => "in_production",
+    Pilot => "pilot",
+    Ended => "ended",
+    Canceled => "canceled",
+    Unknown => "unknown",
+});
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SeriesStatus {
     Continuing,
@@ -32,6 +42,11 @@ pub enum Numbering {
     Standard,
     Absolute,
 }
+
+crate::string_enum!(Numbering, "numbering" {
+    Standard => "standard",
+    Absolute => "absolute",
+});
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MonitorPreset {

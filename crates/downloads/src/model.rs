@@ -47,6 +47,15 @@ pub enum DownloadState {
     Removed,
 }
 
+yokoku_domain::string_enum!(DownloadState, "download state" {
+    Queued => "queued",
+    Checking => "checking",
+    Downloading => "downloading",
+    Seeding => "seeding",
+    Stopped => "stopped",
+    Removed => "removed",
+});
+
 impl Download {
     /// Where the client puts the torrent's file or folder.
     pub fn content_path(&self) -> PathBuf {

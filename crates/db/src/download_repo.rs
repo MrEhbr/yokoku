@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use async_trait::async_trait;
+use jiff::Timestamp;
 use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId};
 use yokoku_downloads::{
     Download, DownloadState, DownloadStatus,
@@ -8,26 +9,29 @@ use yokoku_downloads::{
 };
 use yokoku_events::Event;
 
-use crate::{Database, DbError, codec};
+use crate::{
+    Database, DbError,
+    codec::{Int, PathText, Text},
+};
 
 #[derive(sqlx::FromRow)]
 struct DownloadRow {
-    id: String,
+    id: Text<DownloadId>,
     hash: String,
     name: String,
-    series_id: Option<String>,
-    movie_id: Option<String>,
-    state: String,
-    size: i64,
-    done: i64,
-    download_rate: i64,
-    eta: Option<i64>,
+    series_id: Option<Text<SeriesId>>,
+    movie_id: Option<Text<MovieId>>,
+    state: Text<DownloadState>,
+    size: u64,
+    done: u64,
+    download_rate: u64,
+    eta: Option<u64>,
     download_dir: String,
     error: Option<String>,
-    added_at: String,
-    completed_at: Option<String>,
-    imported_at: Option<String>,
-    revision: i64,
+    added_at: Text<Timestamp>,
+    completed_at: Option<Text<Timestamp>>,
+    imported_at: Option<Text<Timestamp>>,
+    revision: u64,
 }
 
 #[async_trait]
@@ -42,7 +46,7 @@ impl DownloadRepo for Database {
         .fetch_optional(self.pool())
         .await
         .map_err(DbError::from)?;
-        Ok(row.map(download).transpose()?)
+        Ok(row.map(Download::try_from).transpose()?)
     }
 
     async fn find_by_hash(&self, hash: &str) -> Result<Option<Download>, StorageError> {
@@ -55,7 +59,7 @@ impl DownloadRepo for Database {
         .fetch_optional(self.pool())
         .await
         .map_err(DbError::from)?;
-        Ok(row.map(download).transpose()?)
+        Ok(row.map(Download::try_from).transpose()?)
     }
 
     async fn list(&self) -> Result<Vec<Download>, StorageError> {
@@ -67,7 +71,7 @@ impl DownloadRepo for Database {
         .fetch_all(self.pool())
         .await
         .map_err(DbError::from)?;
-        Ok(rows.into_iter().map(download).collect::<Result<_, _>>()?)
+        Ok(rows.into_iter().map(Download::try_from).collect::<Result<_, _>>()?)
     }
 
     async fn save(&self, download: &mut Download, events: &[Event]) -> Result<(), StorageError> {
@@ -83,16 +87,12 @@ impl Database {
             Some(ItemId::Movie(id)) => (None, Some(id.to_string())),
             None => (None, None),
         };
-        let download_dir = status
-            .download_dir
-            .to_str()
-            .ok_or_else(|| DbError::InvalidValue(format!("path {} is not UTF-8", status.download_dir.display())))?;
 
         let mut tx = self.begin().await?;
         if download.revision > 0 {
             let claimed = sqlx::query("UPDATE downloads SET revision = revision + 1 WHERE id = ? AND revision = ?")
                 .bind(download.id.to_string())
-                .bind(codec::revision_to_i64(download.revision)?)
+                .bind(Int(download.revision))
                 .execute(&mut *tx)
                 .await?;
             if claimed.rows_affected() == 0 {
@@ -114,12 +114,12 @@ impl Database {
         .bind(&download.name)
         .bind(series_id)
         .bind(movie_id)
-        .bind(state_to_str(status.state))
-        .bind(to_i64(status.size)?)
-        .bind(to_i64(status.done)?)
-        .bind(to_i64(status.download_rate)?)
-        .bind(status.eta.map(to_i64).transpose()?)
-        .bind(download_dir)
+        .bind(status.state.as_str())
+        .bind(Int(status.size))
+        .bind(Int(status.done))
+        .bind(Int(status.download_rate))
+        .bind(status.eta.map(Int))
+        .bind(PathText(&status.download_dir))
         .bind(&status.error)
         .bind(download.added_at.to_string())
         .bind(download.completed_at.map(|at| at.to_string()))
@@ -136,61 +136,34 @@ impl Database {
     }
 }
 
-fn download(row: DownloadRow) -> Result<Download, DbError> {
-    let item = match (row.series_id, row.movie_id) {
-        (Some(id), None) => Some(ItemId::Series(SeriesId(codec::uuid(&id)?))),
-        (None, Some(id)) => Some(ItemId::Movie(MovieId(codec::uuid(&id)?))),
-        (None, None) => None,
-        (Some(_), Some(_)) => return Err(DbError::InvalidValue("download linked to a series and a movie".into())),
-    };
-    Ok(Download {
-        id: DownloadId(codec::uuid(&row.id)?),
-        hash: row.hash,
-        name: row.name,
-        item,
-        status: DownloadStatus {
-            state: state_from_str(&row.state)?,
-            size: from_i64(row.size)?,
-            done: from_i64(row.done)?,
-            download_rate: from_i64(row.download_rate)?,
-            eta: row.eta.map(from_i64).transpose()?,
-            download_dir: PathBuf::from(row.download_dir),
-            error: row.error,
-        },
-        added_at: codec::timestamp(&row.added_at)?,
-        completed_at: row.completed_at.as_deref().map(codec::timestamp).transpose()?,
-        imported_at: row.imported_at.as_deref().map(codec::timestamp).transpose()?,
-        revision: codec::revision(row.revision)?,
-    })
-}
+impl TryFrom<DownloadRow> for Download {
+    type Error = DbError;
 
-fn state_to_str(state: DownloadState) -> &'static str {
-    match state {
-        DownloadState::Queued => "queued",
-        DownloadState::Checking => "checking",
-        DownloadState::Downloading => "downloading",
-        DownloadState::Seeding => "seeding",
-        DownloadState::Stopped => "stopped",
-        DownloadState::Removed => "removed",
+    fn try_from(row: DownloadRow) -> Result<Self, Self::Error> {
+        let item = match (row.series_id, row.movie_id) {
+            (Some(id), None) => Some(ItemId::Series(id.0)),
+            (None, Some(id)) => Some(ItemId::Movie(id.0)),
+            (None, None) => None,
+            (Some(_), Some(_)) => return Err(DbError::InvalidValue("download linked to a series and a movie".into())),
+        };
+        Ok(Download {
+            id: row.id.0,
+            hash: row.hash,
+            name: row.name,
+            item,
+            status: DownloadStatus {
+                state: row.state.0,
+                size: row.size,
+                done: row.done,
+                download_rate: row.download_rate,
+                eta: row.eta,
+                download_dir: PathBuf::from(row.download_dir),
+                error: row.error,
+            },
+            added_at: row.added_at.0,
+            completed_at: row.completed_at.map(|at| at.0),
+            imported_at: row.imported_at.map(|at| at.0),
+            revision: row.revision,
+        })
     }
-}
-
-fn state_from_str(value: &str) -> Result<DownloadState, DbError> {
-    Ok(match value {
-        "queued" => DownloadState::Queued,
-        "checking" => DownloadState::Checking,
-        "downloading" => DownloadState::Downloading,
-        "seeding" => DownloadState::Seeding,
-        "stopped" => DownloadState::Stopped,
-        "removed" => DownloadState::Removed,
-        other => return Err(DbError::InvalidValue(format!("download state {other:?}"))),
-    })
-}
-
-fn to_i64(value: u64) -> Result<i64, DbError> {
-    i64::try_from(value).map_err(|_| DbError::InvalidValue(format!("{value} out of range")))
-}
-
-fn from_i64(value: i64) -> Result<u64, DbError> {
-    u64::try_from(value).map_err(|_| DbError::InvalidValue(format!("{value} out of range")))
 }

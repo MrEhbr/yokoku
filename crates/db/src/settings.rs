@@ -1,13 +1,14 @@
 use serde_json::Value;
+use sqlx::types::Json;
 
 use crate::{Database, DbError};
 
 impl Database {
     /// Stored settings by dotted key, ordered by key.
     pub async fn settings(&self) -> Result<Vec<(String, Value)>, DbError> {
-        let rows: Vec<(String, String)> =
+        let rows: Vec<(String, Json<Value>)> =
             sqlx::query_as("SELECT key, value FROM settings ORDER BY key").fetch_all(self.pool()).await?;
-        rows.into_iter().map(|(key, value)| Ok((key, serde_json::from_str(&value)?))).collect()
+        Ok(rows.into_iter().map(|(key, value)| (key, value.0)).collect())
     }
 
     pub async fn set_setting(&self, key: &str, value: &Value) -> Result<(), DbError> {
@@ -15,7 +16,7 @@ impl Database {
             "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
         )
         .bind(key)
-        .bind(serde_json::to_string(value)?)
+        .bind(Json(value))
         .execute(self.pool())
         .await?;
         Ok(())

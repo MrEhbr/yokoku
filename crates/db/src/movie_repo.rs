@@ -1,28 +1,33 @@
 use async_trait::async_trait;
-use yokoku_domain::{ExternalId, Movie, MovieId, Releases};
+use jiff::{Timestamp, civil::Date};
+use sqlx::types::Json;
+use yokoku_domain::{ExternalId, MediaFileId, Movie, MovieId, Releases};
 use yokoku_events::Event;
 use yokoku_library::ports::{MovieRepo, StorageError};
 
-use crate::{Database, DbError, codec};
+use crate::{
+    Database, DbError,
+    codec::{Int, SourceColumns, Text},
+};
 
 #[derive(sqlx::FromRow)]
 struct MovieRow {
-    id: String,
-    source_kind: String,
-    source_id: i64,
+    id: Text<MovieId>,
+    #[sqlx(flatten)]
+    source: SourceColumns,
     title: String,
     original_title: String,
-    alternate_titles: String,
+    alternate_titles: Json<Vec<String>>,
     year: Option<i16>,
     poster_path: Option<String>,
-    cinema_date: Option<String>,
-    digital_date: Option<String>,
-    physical_date: Option<String>,
+    cinema_date: Option<Text<Date>>,
+    digital_date: Option<Text<Date>>,
+    physical_date: Option<Text<Date>>,
     monitored: bool,
-    file_id: Option<String>,
-    added_at: String,
-    refreshed_at: String,
-    revision: i64,
+    file_id: Option<Text<MediaFileId>>,
+    added_at: Text<Timestamp>,
+    refreshed_at: Text<Timestamp>,
+    revision: u64,
 }
 
 #[async_trait]
@@ -32,16 +37,17 @@ impl MovieRepo for Database {
     }
 
     async fn find_by_source(&self, source: ExternalId) -> Result<Option<Movie>, StorageError> {
-        let (kind, source_id) = codec::source_columns(source)?;
-        let id: Option<String> = sqlx::query_scalar("SELECT id FROM movies WHERE source_kind = ? AND source_id = ?")
-            .bind(kind)
-            .bind(source_id)
-            .fetch_optional(self.pool())
-            .await
-            .map_err(DbError::from)?;
+        let source = SourceColumns::from(source);
+        let id: Option<Text<MovieId>> =
+            sqlx::query_scalar("SELECT id FROM movies WHERE source_kind = ? AND source_id = ?")
+                .bind(source.source_kind)
+                .bind(Int(source.source_id))
+                .fetch_optional(self.pool())
+                .await
+                .map_err(DbError::from)?;
 
         match id {
-            Some(id) => Ok(self.load_movie(MovieId(codec::uuid(&id)?)).await?),
+            Some(id) => Ok(self.load_movie(id.0).await?),
             None => Ok(None),
         }
     }
@@ -67,13 +73,13 @@ impl MovieRepo for Database {
 
 impl Database {
     async fn save_movie(&self, movie: &mut Movie, events: &[Event]) -> Result<(), DbError> {
-        let (source_kind, source_id) = codec::source_columns(movie.source)?;
-        let date = |date: Option<jiff::civil::Date>| date.map(|date| date.to_string());
+        let source = SourceColumns::from(movie.source);
+        let date = |date: Option<Date>| date.map(|date| date.to_string());
         let mut tx = self.begin().await?;
         if movie.revision > 0 {
             let claimed = sqlx::query("UPDATE movies SET revision = revision + 1 WHERE id = ? AND revision = ?")
                 .bind(movie.id.to_string())
-                .bind(codec::revision_to_i64(movie.revision)?)
+                .bind(Int(movie.revision))
                 .execute(&mut *tx)
                 .await?;
             if claimed.rows_affected() == 0 {
@@ -94,11 +100,11 @@ impl Database {
                  refreshed_at = excluded.refreshed_at",
         )
         .bind(movie.id.to_string())
-        .bind(source_kind)
-        .bind(source_id)
+        .bind(source.source_kind)
+        .bind(Int(source.source_id))
         .bind(&movie.title)
         .bind(&movie.original_title)
-        .bind(codec::titles_to_json(&movie.alternate_titles)?)
+        .bind(Json(&movie.alternate_titles))
         .bind(movie.year)
         .bind(&movie.poster_path)
         .bind(date(movie.releases.cinema))
@@ -126,33 +132,38 @@ impl Database {
         .fetch_optional(self.pool())
         .await?;
 
-        row.map(movie).transpose()
+        row.map(Movie::try_from).transpose()
     }
 
     pub(crate) async fn movie_ids(&self) -> Result<Vec<MovieId>, DbError> {
-        let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM movies ORDER BY id").fetch_all(self.pool()).await?;
-        ids.iter().map(|id| codec::uuid(id).map(MovieId)).collect()
+        let ids: Vec<Text<MovieId>> =
+            sqlx::query_scalar("SELECT id FROM movies ORDER BY id").fetch_all(self.pool()).await?;
+        Ok(ids.into_iter().map(|id| id.0).collect())
     }
 }
 
-fn movie(row: MovieRow) -> Result<Movie, DbError> {
-    Ok(Movie {
-        id: MovieId(codec::uuid(&row.id)?),
-        source: codec::source_from_columns(&row.source_kind, row.source_id)?,
-        title: row.title,
-        original_title: row.original_title,
-        alternate_titles: codec::titles_from_json(&row.alternate_titles)?,
-        year: row.year,
-        poster_path: row.poster_path,
-        releases: Releases {
-            cinema: codec::date(row.cinema_date.as_deref())?,
-            digital: codec::date(row.digital_date.as_deref())?,
-            physical: codec::date(row.physical_date.as_deref())?,
-        },
-        monitored: row.monitored,
-        file: codec::file_id(row.file_id.as_deref())?,
-        added_at: codec::timestamp(&row.added_at)?,
-        refreshed_at: codec::timestamp(&row.refreshed_at)?,
-        revision: codec::revision(row.revision)?,
-    })
+impl TryFrom<MovieRow> for Movie {
+    type Error = DbError;
+
+    fn try_from(row: MovieRow) -> Result<Self, Self::Error> {
+        Ok(Movie {
+            id: row.id.0,
+            source: row.source.try_into()?,
+            title: row.title,
+            original_title: row.original_title,
+            alternate_titles: row.alternate_titles.0,
+            year: row.year,
+            poster_path: row.poster_path,
+            releases: Releases {
+                cinema: row.cinema_date.map(|date| date.0),
+                digital: row.digital_date.map(|date| date.0),
+                physical: row.physical_date.map(|date| date.0),
+            },
+            monitored: row.monitored,
+            file: row.file_id.map(|file| file.0),
+            added_at: row.added_at.0,
+            refreshed_at: row.refreshed_at.0,
+            revision: row.revision,
+        })
+    }
 }

@@ -1,102 +1,99 @@
-use jiff::{Timestamp, civil::Date};
-use uuid::Uuid;
-use yokoku_domain::{ExternalId, MediaFileId, Numbering, SourceStatus};
+use std::{error::Error, fmt::Display, path::Path, str::FromStr};
+
+use sqlx::{
+    Decode, Encode, Sqlite, Type,
+    encode::IsNull,
+    error::BoxDynError,
+    sqlite::{SqliteArgumentsBuffer, SqliteTypeInfo, SqliteValueRef},
+};
+use yokoku_domain::ExternalId;
 
 use crate::DbError;
 
-pub(crate) fn source_columns(source: ExternalId) -> Result<(&'static str, i64), DbError> {
-    let (kind, id) = match source {
-        ExternalId::Tmdb(id) => ("tmdb", id),
-        ExternalId::Tvdb(id) => ("tvdb", id),
-    };
-    Ok((kind, source_id_to_i64(id)?))
-}
+/// A TEXT column holding `T` in its `Display`/`FromStr` form.
+pub(crate) struct Text<T>(pub(crate) T);
 
-pub(crate) fn source_from_columns(kind: &str, id: i64) -> Result<ExternalId, DbError> {
-    let id = source_id_from_i64(id)?;
-    match kind {
-        "tmdb" => Ok(ExternalId::Tmdb(id)),
-        "tvdb" => Ok(ExternalId::Tvdb(id)),
-        other => Err(DbError::InvalidValue(format!("source kind {other:?}"))),
+impl<T> Type<Sqlite> for Text<T> {
+    fn type_info() -> SqliteTypeInfo {
+        <str as Type<Sqlite>>::type_info()
     }
 }
 
-pub(crate) fn source_id_to_i64(id: u64) -> Result<i64, DbError> {
-    i64::try_from(id).map_err(|_| DbError::InvalidValue(format!("source id {id} out of range")))
-}
-
-pub(crate) fn source_id_from_i64(id: i64) -> Result<u64, DbError> {
-    u64::try_from(id).map_err(|_| DbError::InvalidValue(format!("source id {id}")))
-}
-
-pub(crate) fn source_status_to_str(status: SourceStatus) -> &'static str {
-    match status {
-        SourceStatus::Returning => "returning",
-        SourceStatus::Planned => "planned",
-        SourceStatus::InProduction => "in_production",
-        SourceStatus::Pilot => "pilot",
-        SourceStatus::Ended => "ended",
-        SourceStatus::Canceled => "canceled",
-        SourceStatus::Unknown => "unknown",
+impl<T: Display> Encode<'_, Sqlite> for Text<T> {
+    fn encode_by_ref(&self, buf: &mut SqliteArgumentsBuffer) -> Result<IsNull, BoxDynError> {
+        <String as Encode<Sqlite>>::encode(self.0.to_string(), buf)
     }
 }
 
-pub(crate) fn source_status_from_str(value: &str) -> Result<SourceStatus, DbError> {
-    Ok(match value {
-        "returning" => SourceStatus::Returning,
-        "planned" => SourceStatus::Planned,
-        "in_production" => SourceStatus::InProduction,
-        "pilot" => SourceStatus::Pilot,
-        "ended" => SourceStatus::Ended,
-        "canceled" => SourceStatus::Canceled,
-        "unknown" => SourceStatus::Unknown,
-        other => return Err(DbError::InvalidValue(format!("source status {other:?}"))),
-    })
-}
-
-pub(crate) fn numbering_to_str(numbering: Numbering) -> &'static str {
-    match numbering {
-        Numbering::Standard => "standard",
-        Numbering::Absolute => "absolute",
+impl<'r, T> Decode<'r, Sqlite> for Text<T>
+where
+    T: FromStr,
+    T::Err: Error + Send + Sync + 'static,
+{
+    fn decode(value: SqliteValueRef<'r>) -> Result<Self, BoxDynError> {
+        Ok(Self(<&str as Decode<Sqlite>>::decode(value)?.parse()?))
     }
 }
 
-pub(crate) fn numbering_from_str(value: &str) -> Result<Numbering, DbError> {
-    match value {
-        "standard" => Ok(Numbering::Standard),
-        "absolute" => Ok(Numbering::Absolute),
-        other => Err(DbError::InvalidValue(format!("numbering {other:?}"))),
+/// An INTEGER bind value; encoding fails when `T` does not fit in `i64`.
+pub(crate) struct Int<T>(pub(crate) T);
+
+impl<T> Type<Sqlite> for Int<T> {
+    fn type_info() -> SqliteTypeInfo {
+        <i64 as Type<Sqlite>>::type_info()
     }
 }
 
-pub(crate) fn uuid(value: &str) -> Result<Uuid, DbError> {
-    value.parse().map_err(|_| DbError::InvalidValue(format!("id {value:?}")))
+impl<T: Copy> Encode<'_, Sqlite> for Int<T>
+where
+    i64: TryFrom<T>,
+    <i64 as TryFrom<T>>::Error: Error + Send + Sync + 'static,
+{
+    fn encode_by_ref(&self, buf: &mut SqliteArgumentsBuffer) -> Result<IsNull, BoxDynError> {
+        <i64 as Encode<Sqlite>>::encode(i64::try_from(self.0)?, buf)
+    }
 }
 
-pub(crate) fn timestamp(value: &str) -> Result<Timestamp, DbError> {
-    value.parse().map_err(|_| DbError::InvalidValue(format!("timestamp {value:?}")))
+/// A TEXT bind value; encoding fails when the path is not UTF-8.
+pub(crate) struct PathText<'a>(pub(crate) &'a Path);
+
+impl Type<Sqlite> for PathText<'_> {
+    fn type_info() -> SqliteTypeInfo {
+        <str as Type<Sqlite>>::type_info()
+    }
 }
 
-pub(crate) fn date(value: Option<&str>) -> Result<Option<Date>, DbError> {
-    value.map(|value| value.parse().map_err(|_| DbError::InvalidValue(format!("date {value:?}")))).transpose()
+impl Encode<'_, Sqlite> for PathText<'_> {
+    fn encode_by_ref(&self, buf: &mut SqliteArgumentsBuffer) -> Result<IsNull, BoxDynError> {
+        let path = self.0.to_str().ok_or_else(|| format!("path {} is not UTF-8", self.0.display()))?;
+        <&str as Encode<Sqlite>>::encode(path, buf)
+    }
 }
 
-pub(crate) fn file_id(value: Option<&str>) -> Result<Option<MediaFileId>, DbError> {
-    value.map(|value| uuid(value).map(MediaFileId)).transpose()
+#[derive(sqlx::FromRow)]
+pub(crate) struct SourceColumns {
+    pub(crate) source_kind: String,
+    pub(crate) source_id: u64,
 }
 
-pub(crate) fn revision(value: i64) -> Result<u64, DbError> {
-    u64::try_from(value).map_err(|_| DbError::InvalidValue(format!("revision {value}")))
+impl From<ExternalId> for SourceColumns {
+    fn from(source: ExternalId) -> Self {
+        let (kind, id) = match source {
+            ExternalId::Tmdb(id) => ("tmdb", id),
+            ExternalId::Tvdb(id) => ("tvdb", id),
+        };
+        Self { source_kind: kind.to_owned(), source_id: id }
+    }
 }
 
-pub(crate) fn revision_to_i64(revision: u64) -> Result<i64, DbError> {
-    i64::try_from(revision).map_err(|_| DbError::InvalidValue(format!("revision {revision}")))
-}
+impl TryFrom<SourceColumns> for ExternalId {
+    type Error = DbError;
 
-pub(crate) fn titles_to_json(titles: &[String]) -> Result<String, DbError> {
-    Ok(serde_json::to_string(titles)?)
-}
-
-pub(crate) fn titles_from_json(value: &str) -> Result<Vec<String>, DbError> {
-    Ok(serde_json::from_str(value)?)
+    fn try_from(columns: SourceColumns) -> Result<Self, Self::Error> {
+        match columns.source_kind.as_str() {
+            "tmdb" => Ok(Self::Tmdb(columns.source_id)),
+            "tvdb" => Ok(Self::Tvdb(columns.source_id)),
+            other => Err(DbError::InvalidValue(format!("source kind {other:?}"))),
+        }
+    }
 }

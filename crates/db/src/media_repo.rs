@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
+use jiff::Timestamp;
 use sqlx::{Sqlite, Transaction};
 use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId,
@@ -11,52 +12,55 @@ use yokoku_media::{
     ports::{Catalog, Changes, MediaRepo, StorageError},
 };
 
-use crate::{Database, DbError, codec};
+use crate::{
+    Database, DbError,
+    codec::{Int, PathText, Text},
+};
 
 #[derive(sqlx::FromRow)]
 struct RootFolderRow {
     path: String,
-    kind: String,
+    kind: Text<RootKind>,
 }
 
 #[derive(sqlx::FromRow)]
 struct MediaFileRow {
-    id: String,
+    id: Text<MediaFileId>,
     path: String,
-    size: i64,
+    size: u64,
     #[sqlx(flatten)]
     target: TargetColumns,
-    added_at: String,
+    added_at: Text<Timestamp>,
 }
 
 #[derive(sqlx::FromRow)]
 struct ImportRecord {
-    id: String,
+    id: Text<ImportId>,
     source: String,
-    download_id: Option<String>,
-    status: String,
+    download_id: Option<Text<DownloadId>>,
+    status: Text<ImportStatus>,
     error: Option<String>,
-    created_at: String,
+    created_at: Text<Timestamp>,
 }
 
 #[derive(sqlx::FromRow)]
 struct ImportRowRecord {
     path: String,
-    size: i64,
+    size: u64,
     #[sqlx(flatten)]
     target: TargetColumns,
-    confidence: String,
+    confidence: Text<Confidence>,
     skipped: bool,
     replace_file: bool,
 }
 
 #[derive(sqlx::FromRow)]
 struct TargetColumns {
-    series_id: Option<String>,
+    series_id: Option<Text<SeriesId>>,
     season: Option<u16>,
     first_episode: Option<u16>,
     last_episode: Option<u16>,
-    movie_id: Option<String>,
+    movie_id: Option<Text<MovieId>>,
 }
 
 #[async_trait]
@@ -67,13 +71,13 @@ impl MediaRepo for Database {
             .await
             .map_err(DbError::from)?;
 
-        Ok(rows.into_iter().map(root_folder).collect::<Result<_, _>>()?)
+        Ok(rows.into_iter().map(RootFolder::from).collect())
     }
 
     async fn add_root_folder(&self, root: &RootFolder) -> Result<(), StorageError> {
         sqlx::query("INSERT INTO root_folders (path, kind) VALUES (?, ?)")
-            .bind(path_str(&root.path)?)
-            .bind(root_kind_to_str(root.kind))
+            .bind(PathText(&root.path))
+            .bind(root.kind.as_str())
             .execute(self.pool())
             .await
             .map_err(DbError::from)?;
@@ -82,7 +86,7 @@ impl MediaRepo for Database {
 
     async fn remove_root_folder(&self, path: &Path) -> Result<bool, StorageError> {
         let result = sqlx::query("DELETE FROM root_folders WHERE path = ?")
-            .bind(path_str(path)?)
+            .bind(PathText(path))
             .execute(self.pool())
             .await
             .map_err(DbError::from)?;
@@ -98,7 +102,7 @@ impl MediaRepo for Database {
         .await
         .map_err(DbError::from)?;
 
-        Ok(rows.into_iter().map(media_file).collect::<Result<_, _>>()?)
+        Ok(rows.into_iter().map(MediaFile::try_from).collect::<Result<_, _>>()?)
     }
 
     async fn import(&self, id: ImportId) -> Result<Option<Import>, StorageError> {
@@ -120,7 +124,7 @@ impl MediaRepo for Database {
             "SELECT id, source, download_id, status, error, created_at FROM imports WHERE status = ?
              ORDER BY created_at, id",
         )
-        .bind(import_status_to_str(status))
+        .bind(status.as_str())
         .fetch_all(self.pool())
         .await
         .map_err(DbError::from)?;
@@ -187,7 +191,7 @@ impl MediaRepo for Database {
         .fetch_all(self.pool())
         .await
         .map_err(DbError::from)?;
-        Ok(rows.into_iter().map(media_file).collect::<Result<_, _>>()?)
+        Ok(rows.into_iter().map(MediaFile::try_from).collect::<Result<_, _>>()?)
     }
 
     async fn save(&self, changes: &Changes, events: &[Event]) -> Result<(), StorageError> {
@@ -204,7 +208,7 @@ impl MediaRepo for Database {
         }
         for (id, path) in &changes.renamed_files {
             sqlx::query("UPDATE media_files SET path = ? WHERE id = ?")
-                .bind(path_str(path)?)
+                .bind(PathText(path))
                 .bind(id.to_string())
                 .execute(&mut *tx)
                 .await
@@ -256,13 +260,13 @@ impl Database {
         .await?;
 
         Ok(Import {
-            id: ImportId(codec::uuid(&record.id)?),
+            id: record.id.0,
             source: PathBuf::from(record.source),
-            download: record.download_id.as_deref().map(codec::uuid).transpose()?.map(DownloadId),
-            status: import_status_from_str(&record.status)?,
+            download: record.download_id.map(|download| download.0),
+            status: record.status.0,
             error: record.error,
-            rows: rows.into_iter().map(import_row).collect::<Result<_, _>>()?,
-            created_at: codec::timestamp(&record.created_at)?,
+            rows: rows.into_iter().map(ImportRow::try_from).collect::<Result<_, _>>()?,
+            created_at: record.created_at.0,
         })
     }
 }
@@ -274,8 +278,8 @@ async fn insert_file(tx: &mut Transaction<'static, Sqlite>, file: &MediaFile) ->
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(file.id.to_string())
-    .bind(path_str(&file.path)?)
-    .bind(size_to_i64(file.size)?)
+    .bind(PathText(&file.path))
+    .bind(Int(file.size))
     .bind(target.series_id)
     .bind(target.season)
     .bind(target.first_episode)
@@ -295,9 +299,9 @@ async fn save_import(tx: &mut Transaction<'static, Sqlite>, import: &Import) -> 
          ON CONFLICT (id) DO UPDATE SET source = excluded.source, status = excluded.status, error = excluded.error",
     )
     .bind(&id)
-    .bind(path_str(&import.source)?)
+    .bind(PathText(&import.source))
     .bind(import.download.map(|download| download.to_string()))
-    .bind(import_status_to_str(import.status))
+    .bind(import.status.as_str())
     .bind(&import.error)
     .bind(import.created_at.to_string())
     .execute(&mut **tx)
@@ -313,14 +317,14 @@ async fn save_import(tx: &mut Transaction<'static, Sqlite>, import: &Import) -> 
         )
         .bind(&id)
         .bind(position)
-        .bind(path_str(&row.path)?)
-        .bind(size_to_i64(row.size)?)
+        .bind(PathText(&row.path))
+        .bind(Int(row.size))
         .bind(target.series_id)
         .bind(target.season)
         .bind(target.first_episode)
         .bind(target.last_episode)
         .bind(target.movie_id)
-        .bind(confidence_to_str(row.confidence))
+        .bind(row.confidence.as_str())
         .bind(row.skipped)
         .bind(row.replace)
         .execute(&mut **tx)
@@ -329,34 +333,42 @@ async fn save_import(tx: &mut Transaction<'static, Sqlite>, import: &Import) -> 
     Ok(())
 }
 
-fn root_folder(row: RootFolderRow) -> Result<RootFolder, DbError> {
-    let kind = match row.kind.as_str() {
-        "series" => RootKind::Series,
-        "movies" => RootKind::Movies,
-        other => return Err(DbError::InvalidValue(format!("root folder kind {other:?}"))),
-    };
-    Ok(RootFolder { kind, path: PathBuf::from(row.path) })
+impl From<RootFolderRow> for RootFolder {
+    fn from(row: RootFolderRow) -> Self {
+        RootFolder { kind: row.kind.0, path: PathBuf::from(row.path) }
+    }
 }
 
-fn media_file(row: MediaFileRow) -> Result<MediaFile, DbError> {
-    Ok(MediaFile {
-        id: MediaFileId(codec::uuid(&row.id)?),
-        path: PathBuf::from(row.path),
-        size: size_from_i64(row.size)?,
-        target: row.target.into_target()?.ok_or_else(|| DbError::InvalidValue("media file without target".into()))?,
-        added_at: codec::timestamp(&row.added_at)?,
-    })
+impl TryFrom<MediaFileRow> for MediaFile {
+    type Error = DbError;
+
+    fn try_from(row: MediaFileRow) -> Result<Self, Self::Error> {
+        Ok(MediaFile {
+            id: row.id.0,
+            path: PathBuf::from(row.path),
+            size: row.size,
+            target: row
+                .target
+                .into_target()?
+                .ok_or_else(|| DbError::InvalidValue("media file without target".into()))?,
+            added_at: row.added_at.0,
+        })
+    }
 }
 
-fn import_row(row: ImportRowRecord) -> Result<ImportRow, DbError> {
-    Ok(ImportRow {
-        path: PathBuf::from(row.path),
-        size: size_from_i64(row.size)?,
-        target: row.target.into_target()?,
-        confidence: confidence_from_str(&row.confidence)?,
-        skipped: row.skipped,
-        replace: row.replace_file,
-    })
+impl TryFrom<ImportRowRecord> for ImportRow {
+    type Error = DbError;
+
+    fn try_from(row: ImportRowRecord) -> Result<Self, Self::Error> {
+        Ok(ImportRow {
+            path: PathBuf::from(row.path),
+            size: row.size,
+            target: row.target.into_target()?,
+            confidence: row.confidence.0,
+            skipped: row.skipped,
+            replace: row.replace_file,
+        })
+    }
 }
 
 impl From<Option<FileTarget>> for TargetColumns {
@@ -365,13 +377,13 @@ impl From<Option<FileTarget>> for TargetColumns {
         match target {
             None => empty,
             Some(FileTarget::Episodes { series, span }) => Self {
-                series_id: Some(series.to_string()),
+                series_id: Some(Text(series)),
                 season: Some(span.season()),
                 first_episode: Some(span.first()),
                 last_episode: Some(span.last()),
                 ..empty
             },
-            Some(FileTarget::Movie(movie)) => Self { movie_id: Some(movie.to_string()), ..empty },
+            Some(FileTarget::Movie(movie)) => Self { movie_id: Some(Text(movie)), ..empty },
         }
     }
 }
@@ -381,7 +393,7 @@ impl TargetColumns {
         match self {
             Self { series_id: None, season: None, first_episode: None, last_episode: None, movie_id: None } => Ok(None),
             Self { series_id: None, season: None, first_episode: None, last_episode: None, movie_id: Some(movie) } => {
-                Ok(Some(FileTarget::Movie(MovieId(codec::uuid(&movie)?))))
+                Ok(Some(FileTarget::Movie(movie.0)))
             },
             Self {
                 series_id: Some(series),
@@ -392,66 +404,9 @@ impl TargetColumns {
             } => {
                 let span = EpisodeSpan::new(season, first, last)
                     .ok_or_else(|| DbError::InvalidValue(format!("episodes {first}-{last}")))?;
-                Ok(Some(FileTarget::Episodes { series: SeriesId(codec::uuid(&series)?), span }))
+                Ok(Some(FileTarget::Episodes { series: series.0, span }))
             },
             _ => Err(DbError::InvalidValue("incomplete file target".into())),
         }
-    }
-}
-
-fn path_str(path: &Path) -> Result<&str, DbError> {
-    path.to_str().ok_or_else(|| DbError::InvalidValue(format!("path {} is not UTF-8", path.display())))
-}
-
-fn size_to_i64(size: u64) -> Result<i64, DbError> {
-    i64::try_from(size).map_err(|_| DbError::InvalidValue(format!("size {size}")))
-}
-
-fn size_from_i64(size: i64) -> Result<u64, DbError> {
-    u64::try_from(size).map_err(|_| DbError::InvalidValue(format!("size {size}")))
-}
-
-fn root_kind_to_str(kind: RootKind) -> &'static str {
-    match kind {
-        RootKind::Series => "series",
-        RootKind::Movies => "movies",
-    }
-}
-
-fn import_status_to_str(status: ImportStatus) -> &'static str {
-    match status {
-        ImportStatus::NeedsReview => "needs_review",
-        ImportStatus::Approved => "approved",
-        ImportStatus::Importing => "importing",
-        ImportStatus::Done => "done",
-        ImportStatus::Failed => "failed",
-    }
-}
-
-fn import_status_from_str(value: &str) -> Result<ImportStatus, DbError> {
-    match value {
-        "needs_review" => Ok(ImportStatus::NeedsReview),
-        "approved" => Ok(ImportStatus::Approved),
-        "importing" => Ok(ImportStatus::Importing),
-        "done" => Ok(ImportStatus::Done),
-        "failed" => Ok(ImportStatus::Failed),
-        other => Err(DbError::InvalidValue(format!("import status {other:?}"))),
-    }
-}
-
-fn confidence_to_str(confidence: Confidence) -> &'static str {
-    match confidence {
-        Confidence::Unknown => "unknown",
-        Confidence::Guess => "guess",
-        Confidence::Certain => "certain",
-    }
-}
-
-fn confidence_from_str(value: &str) -> Result<Confidence, DbError> {
-    match value {
-        "unknown" => Ok(Confidence::Unknown),
-        "guess" => Ok(Confidence::Guess),
-        "certain" => Ok(Confidence::Certain),
-        other => Err(DbError::InvalidValue(format!("confidence {other:?}"))),
     }
 }

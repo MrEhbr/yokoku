@@ -9,6 +9,11 @@ pub enum RootKind {
     Movies,
 }
 
+yokoku_domain::string_enum!(RootKind, "root folder kind" {
+    Series => "series",
+    Movies => "movies",
+});
+
 /// A folder holding the library's series or movies (FR-8.1).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootFolder {
@@ -51,6 +56,14 @@ pub enum ImportStatus {
     Done,
     Failed,
 }
+
+yokoku_domain::string_enum!(ImportStatus, "import status" {
+    NeedsReview => "needs_review",
+    Approved => "approved",
+    Importing => "importing",
+    Done => "done",
+    Failed => "failed",
+});
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportRow {

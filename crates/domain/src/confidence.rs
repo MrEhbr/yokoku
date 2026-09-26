@@ -6,3 +6,9 @@ pub enum Confidence {
     /// Imported without review.
     Certain,
 }
+
+crate::string_enum!(Confidence, "confidence" {
+    Unknown => "unknown",
+    Guess => "guess",
+    Certain => "certain",
+});

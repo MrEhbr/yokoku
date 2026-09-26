@@ -3,14 +3,14 @@ use std::time::Duration;
 use yokoku_domain::MediaFileId;
 use yokoku_media::{AudioStream, MediaInfo, SubtitleStream, VideoStream};
 
-use crate::{Database, DbError};
+use crate::{Database, DbError, codec::Int};
 
 #[derive(sqlx::FromRow)]
 struct InfoRow {
-    duration_ms: Option<i64>,
+    duration_ms: Option<u64>,
     video_codec: Option<String>,
-    width: Option<i64>,
-    height: Option<i64>,
+    width: Option<u32>,
+    height: Option<u32>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -18,7 +18,7 @@ struct StreamRow {
     kind: String,
     codec: String,
     language: Option<String>,
-    channels: Option<i64>,
+    channels: Option<u16>,
     forced: bool,
 }
 
@@ -42,23 +42,16 @@ impl Database {
         .await?;
 
         let video = match (row.video_codec, row.width, row.height) {
-            (Some(codec), Some(width), Some(height)) => {
-                Some(VideoStream { codec, width: number(width)?, height: number(height)? })
-            },
+            (Some(codec), Some(width), Some(height)) => Some(VideoStream { codec, width, height }),
             _ => None,
         };
-        let mut info = MediaInfo {
-            duration: row.duration_ms.map(|ms| Ok::<_, DbError>(Duration::from_millis(number(ms)?))).transpose()?,
-            video,
-            ..MediaInfo::default()
-        };
+        let mut info =
+            MediaInfo { duration: row.duration_ms.map(Duration::from_millis), video, ..MediaInfo::default() };
         for stream in streams {
             match (stream.kind.as_str(), stream.channels) {
-                ("audio", Some(channels)) => info.audio.push(AudioStream {
-                    codec: stream.codec,
-                    language: stream.language,
-                    channels: number(channels)?,
-                }),
+                ("audio", Some(channels)) => {
+                    info.audio.push(AudioStream { codec: stream.codec, language: stream.language, channels })
+                },
                 ("subtitle", None) => info.subtitles.push(SubtitleStream {
                     codec: stream.codec,
                     language: stream.language,
@@ -78,7 +71,7 @@ impl Database {
             "INSERT INTO media_info (file_id, duration_ms, video_codec, width, height)
              SELECT id, ?, ?, ?, ? FROM media_files WHERE id = ?",
         )
-        .bind(info.duration.map(|duration| i64::try_from(duration.as_millis())).transpose().map_err(invalid)?)
+        .bind(info.duration.map(|duration| Int(duration.as_millis())))
         .bind(info.video.as_ref().map(|video| &video.codec))
         .bind(info.video.as_ref().map(|video| video.width))
         .bind(info.video.as_ref().map(|video| video.height))
@@ -113,12 +106,4 @@ impl Database {
         tx.commit().await?;
         Ok(())
     }
-}
-
-fn number<T: TryFrom<i64>>(value: i64) -> Result<T, DbError> {
-    T::try_from(value).map_err(|_| DbError::InvalidValue(format!("number {value} out of range")))
-}
-
-fn invalid(error: std::num::TryFromIntError) -> DbError {
-    DbError::InvalidValue(error.to_string())
 }
