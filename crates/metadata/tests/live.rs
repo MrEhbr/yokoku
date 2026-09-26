@@ -18,7 +18,9 @@ async fn real_tmdb_matches_the_recorded_shapes() {
 
     let frieren = client.series(ExternalId::Tmdb(209867)).await.unwrap();
     assert_eq!(frieren.seasons[1].episodes[0].air_date, Some(date(2023, 9, 29)));
+    assert!(frieren.alternate_titles.contains(&"Sousou no Frieren".to_owned()));
 
     let dune = client.movie(ExternalId::Tmdb(438631)).await.unwrap();
     assert_eq!(dune.releases.cinema, Some(date(2021, 10, 22)));
+    assert!(dune.alternate_titles.contains(&"Dune: Part One".to_owned()));
 }

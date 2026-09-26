@@ -318,5 +318,94 @@
   "tagline": "Living means being known and remembered by someone.",
   "type": "Scripted",
   "vote_average": 8.809,
-  "vote_count": 973
+  "vote_count": 973,
+  "alternative_titles": {
+    "results": [
+      {
+        "iso_3166_1": "CN",
+        "title": "葬送的芙莉莲",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "CZ",
+        "title": "Sósó no Frieren",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "HK",
+        "title": "葬送的芙莉蓮",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "IL",
+        "title": "פרירן: מעבר לסוף המסע",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "IN",
+        "title": "फ्रायरन : यात्रा के अंत से परे",
+        "type": "देवनागरी"
+      },
+      {
+        "iso_3166_1": "JP",
+        "title": "そうそうのフリーレン",
+        "type": "Kana"
+      },
+      {
+        "iso_3166_1": "JP",
+        "title": "Sōsō no Furīren",
+        "type": "Hepburn Romanization"
+      },
+      {
+        "iso_3166_1": "JP",
+        "title": "Sousou no Frieren",
+        "type": "Romaji"
+      },
+      {
+        "iso_3166_1": "LY",
+        "title": "فريرِن: ما وراء نهاية الرّحلة",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "RU",
+        "title": "Фрирен, провожающая в последний путь",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "RU",
+        "title": "Провожающая в последний путь Фрирен",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "SA",
+        "title": "فريرن: ما وراء نهاية الرحلة",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "TW",
+        "title": "葬送的芙莉莲",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "UA",
+        "title": "Фрірен після кінця пригоди",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "US",
+        "title": "Frieren of the Funeral",
+        "type": "Literal translation"
+      },
+      {
+        "iso_3166_1": "US",
+        "title": "Frieren: Beyond Journey's End",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "US",
+        "title": "Frieren Beyond Journeys End",
+        "type": ""
+      }
+    ]
+  }
 }

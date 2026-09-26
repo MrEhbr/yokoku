@@ -46,6 +46,8 @@ pub(crate) struct TvDetails {
     pub poster_path: Option<String>,
     pub status: Option<String>,
     pub seasons: Vec<SeasonSummary>,
+    #[serde(default)]
+    pub alternative_titles: AlternativeTitles,
     /// Appended `season/N` objects, among other fields.
     #[serde(flatten)]
     pub appended: HashMap<String, serde_json::Value>,
@@ -77,6 +79,20 @@ pub(crate) struct MovieDetails {
     pub release_date: Option<String>,
     pub poster_path: Option<String>,
     pub release_dates: Option<ReleaseDatesByCountry>,
+    #[serde(default)]
+    pub alternative_titles: AlternativeTitles,
+}
+
+/// `results` for series, `titles` for movies.
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct AlternativeTitles {
+    #[serde(alias = "titles")]
+    pub results: Vec<AlternativeTitle>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct AlternativeTitle {
+    pub title: String,
 }
 
 #[derive(Debug, Deserialize)]

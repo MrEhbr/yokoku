@@ -1096,5 +1096,119 @@
         ]
       }
     ]
+  },
+  "alternative_titles": {
+    "titles": [
+      {
+        "iso_3166_1": "JP",
+        "title": "デューン",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "US",
+        "title": "Dune: Part One",
+        "type": "on-screen title"
+      },
+      {
+        "iso_3166_1": "IL",
+        "title": "חולית: חלק ראשון",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "JP",
+        "title": "デューン 砂の惑星",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "JP",
+        "title": "DUNE デューン 砂の惑星",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "KR",
+        "title": "듄",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "RU",
+        "title": "Дюна",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "GB",
+        "title": "Dune: Part One",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "BR",
+        "title": "Duna: Parte Um",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "BR",
+        "title": "Duna: Primeira Part",
+        "type": "Voice-over (TV Globo)"
+      },
+      {
+        "iso_3166_1": "CN",
+        "title": "沙丘",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "FR",
+        "title": "Dune - Première partie",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "AL",
+        "title": "Duna: Pjesa e Parë",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "ES",
+        "title": "Dune: Parte uno",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "BR",
+        "title": "Duna: Parte 1",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "GE",
+        "title": "დიუნი",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "HK",
+        "title": "沙丘瀚戰：第一章",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "AM",
+        "title": "Դյունա",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "JP",
+        "title": "デューン 砂の惑星PART1",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "UZ",
+        "title": "Dyuna",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "GE",
+        "title": "სილახვავი",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "AZ",
+        "title": "Dyun",
+        "type": ""
+      }
+    ]
   }
 }

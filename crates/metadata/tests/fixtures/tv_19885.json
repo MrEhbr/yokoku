@@ -173,5 +173,69 @@
   "tagline": "A new sleuth for the 21st century.",
   "type": "Scripted",
   "vote_average": 8.506,
-  "vote_count": 6725
+  "vote_count": 6725,
+  "alternative_titles": {
+    "results": [
+      {
+        "iso_3166_1": "AZ",
+        "title": "Şerlok",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "CN",
+        "title": "神探夏洛克",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "GR",
+        "title": "Σέρλοκ",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "HK",
+        "title": "新福尔摩斯",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "HK",
+        "title": "神探福爾摩斯",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "IR",
+        "title": "شرلوک هلمز",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "KR",
+        "title": "셜록",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "LT",
+        "title": "Šerlokas",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "RU",
+        "title": "Шерлок",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "TH",
+        "title": "เชอร์ล็อกโฮมส์ อัจฉริยะยอดนักสืบ",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "TW",
+        "title": "新世紀福爾摩斯",
+        "type": ""
+      },
+      {
+        "iso_3166_1": "UZ",
+        "title": "Sherlok Xolms",
+        "type": ""
+      }
+    ]
+  }
 }

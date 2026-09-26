@@ -4,7 +4,7 @@ use serde::de::DeserializeOwned;
 use yokoku_domain::{EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
-use crate::wire::{self, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails};
+use crate::wire::{self, AlternativeTitles, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails};
 
 const BASE_URL: &str = "https://api.themoviedb.org/3";
 /// TMDB's limit on `append_to_response` entries per request.
@@ -95,7 +95,8 @@ impl MetadataProvider for TmdbClient {
     async fn series(&self, source: ExternalId) -> Result<SeriesMetadata, MetadataError> {
         let id = tmdb_id(source)?;
         let endpoint = format!("tv/{id}");
-        let details: TvDetails = self.get(&endpoint, &[], Some(source)).await?;
+        let details: TvDetails =
+            self.get(&endpoint, &[("append_to_response", "alternative_titles")], Some(source)).await?;
         let numbers: Vec<u16> = details.seasons.iter().map(|season| season.season_number).collect();
 
         let mut seasons = Vec::new();
@@ -123,11 +124,11 @@ impl MetadataProvider for TmdbClient {
 
         Ok(SeriesMetadata {
             source,
+            alternate_titles: alternate_titles(details.alternative_titles, &details.name, &details.original_name),
             year: wire::year(details.first_air_date.as_deref()),
             status: wire::source_status(details.status.as_deref()),
             title: details.name,
             original_title: details.original_name,
-            alternate_titles: Vec::new(),
             poster_path: details.poster_path,
             seasons,
         })
@@ -135,16 +136,16 @@ impl MetadataProvider for TmdbClient {
 
     async fn movie(&self, source: ExternalId) -> Result<MovieMetadata, MetadataError> {
         let id = tmdb_id(source)?;
-        let details: MovieDetails =
-            self.get(&format!("movie/{id}"), &[("append_to_response", "release_dates")], Some(source)).await?;
+        let append = [("append_to_response", "release_dates,alternative_titles")];
+        let details: MovieDetails = self.get(&format!("movie/{id}"), &append, Some(source)).await?;
 
         Ok(MovieMetadata {
             source,
             year: wire::year(details.release_date.as_deref()),
             releases: releases(&details, &self.region),
+            alternate_titles: alternate_titles(details.alternative_titles, &details.title, &details.original_title),
             title: details.title,
             original_title: details.original_title,
-            alternate_titles: Vec::new(),
             poster_path: details.poster_path,
         })
     }
@@ -167,6 +168,17 @@ fn releases(details: &MovieDetails, region: &str) -> Releases {
         digital: earliest(&[4]),
         physical: earliest(&[5]),
     }
+}
+
+/// Distinct titles other than `title` and `original_title`, in TMDB's order.
+fn alternate_titles(alternatives: AlternativeTitles, title: &str, original_title: &str) -> Vec<String> {
+    let mut titles: Vec<String> = Vec::new();
+    for alternative in alternatives.results {
+        if alternative.title != title && alternative.title != original_title && !titles.contains(&alternative.title) {
+            titles.push(alternative.title);
+        }
+    }
+    titles
 }
 
 fn tmdb_id(source: ExternalId) -> Result<u64, MetadataError> {

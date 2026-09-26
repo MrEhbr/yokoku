@@ -6,7 +6,7 @@ use serde_json::Value;
 use tempfile::TempDir;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{path, query_param, query_param_is_missing},
+    matchers::{path, query_param},
 };
 
 struct Tmdb {
@@ -20,12 +20,8 @@ fn fixture(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap()
 }
 
-async fn respond(server: &MockServer, endpoint: &str, append: Option<&str>, body: &str) {
-    let mock = Mock::given(path(endpoint));
-    let mock = match append {
-        Some(append) => mock.and(query_param("append_to_response", append)),
-        None => mock.and(query_param_is_missing("append_to_response")),
-    };
+async fn respond(server: &MockServer, endpoint: &str, append: &str, body: &str) {
+    let mock = Mock::given(path(endpoint)).and(query_param("append_to_response", append));
     mock.respond_with(ResponseTemplate::new(200).set_body_json(fixture(body))).mount(server).await;
 }
 
@@ -36,9 +32,9 @@ async fn tmdb() -> Tmdb {
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture("search_dune.json")))
         .mount(&server)
         .await;
-    respond(&server, "/tv/209867", None, "tv_209867.json").await;
-    respond(&server, "/tv/209867", Some("season/0,season/1"), "tv_209867_seasons.json").await;
-    respond(&server, "/movie/438631", Some("release_dates"), "movie_438631.json").await;
+    respond(&server, "/tv/209867", "alternative_titles", "tv_209867.json").await;
+    respond(&server, "/tv/209867", "season/0,season/1", "tv_209867_seasons.json").await;
+    respond(&server, "/movie/438631", "release_dates,alternative_titles", "movie_438631.json").await;
 
     let dir = tempfile::tempdir().unwrap();
     let database = dir.path().join("yokoku.db");

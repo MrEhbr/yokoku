@@ -3,7 +3,7 @@ use rstest::rstest;
 use serde_json::{Value, json};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{header, method, path, query_param, query_param_is_missing},
+    matchers::{header, method, path, query_param},
 };
 use yokoku_domain::{ExternalId, MediaKind, SourceStatus};
 use yokoku_library::ports::{MetadataError, MetadataProvider};
@@ -24,12 +24,12 @@ fn client(server: &MockServer, region: &str) -> TmdbClient {
     TmdbClient::new(TOKEN, "en-US", region).with_base_url(server.uri())
 }
 
-/// Serves `tv/{id}` for the season list and `tv/{id}?append_to_response=...` for the seasons.
+/// Serves `tv/{id}` with alternative titles for the season list, and `tv/{id}?append_to_response=...` for the seasons.
 async fn mount_series(server: &MockServer, id: u64, append: &str) {
     let endpoint = format!("/tv/{id}");
     Mock::given(method("GET"))
         .and(path(&endpoint))
-        .and(query_param_is_missing("append_to_response"))
+        .and(query_param("append_to_response", "alternative_titles"))
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture(&format!("tv_{id}.json"))))
         .mount(server)
         .await;
@@ -134,7 +134,7 @@ async fn long_series_load_seasons_twenty_at_a_time() {
     };
     let append = |chunk: &[u16]| chunk.iter().map(|n| format!("season/{n}")).collect::<Vec<_>>().join(",");
     Mock::given(path("/tv/1"))
-        .and(query_param_is_missing("append_to_response"))
+        .and(query_param("append_to_response", "alternative_titles"))
         .respond_with(ResponseTemplate::new(200).set_body_json(details.clone()))
         .mount(&server)
         .await;
@@ -164,7 +164,7 @@ async fn movies_take_release_dates_for_the_region(
 ) {
     let server = server().await;
     Mock::given(path("/movie/438631"))
-        .and(query_param("append_to_response", "release_dates"))
+        .and(query_param("append_to_response", "release_dates,alternative_titles"))
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture("movie_438631.json")))
         .mount(&server)
         .await;
@@ -207,4 +207,32 @@ async fn tvdb_ids_are_not_looked_up_on_tmdb() {
 
     assert!(matches!(error, MetadataError::Unavailable(_)));
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn series_keep_other_titles_once() {
+    let server = server().await;
+    mount_series(&server, 209867, "season/0,season/1").await;
+
+    let frieren = client(&server, "US").series(ExternalId::Tmdb(209867)).await.unwrap();
+
+    assert!(frieren.alternate_titles.contains(&"Sousou no Frieren".to_owned()));
+    assert!(frieren.alternate_titles.contains(&"Провожающая в последний путь Фрирен".to_owned()));
+    assert!(!frieren.alternate_titles.contains(&frieren.title));
+    assert_eq!(frieren.alternate_titles.iter().filter(|title| *title == "葬送的芙莉莲").count(), 1);
+}
+
+#[tokio::test]
+async fn movies_keep_other_titles_once() {
+    let server = server().await;
+    Mock::given(path("/movie/438631"))
+        .and(query_param("append_to_response", "release_dates,alternative_titles"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(fixture("movie_438631.json")))
+        .mount(&server)
+        .await;
+
+    let dune = client(&server, "US").movie(ExternalId::Tmdb(438631)).await.unwrap();
+
+    assert_eq!(dune.alternate_titles.iter().filter(|title| *title == "Dune: Part One").count(), 1);
+    assert!(dune.alternate_titles.contains(&"Дюна".to_owned()));
 }
