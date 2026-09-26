@@ -26,14 +26,12 @@ pub(crate) fn best_match<'a>(parsed: &str, titles: impl IntoIterator<Item = &'a 
 }
 
 fn compare(parsed: &str, title: &str) -> Option<TitleMatch> {
+    let extends = |text: &str, prefix: &str| text.strip_prefix(prefix).is_some_and(|rest| rest.starts_with(' '));
     if title.is_empty() {
         None
     } else if parsed.replace(' ', "") == title.replace(' ', "") {
         Some(TitleMatch::Exact)
-    } else if parsed.starts_with(&format!("{title} "))
-        || title.starts_with(&format!("{parsed} "))
-        || jaro_winkler(parsed, title) >= CLOSE_SIMILARITY
-    {
+    } else if extends(parsed, title) || extends(title, parsed) || jaro_winkler(parsed, title) >= CLOSE_SIMILARITY {
         Some(TitleMatch::Close)
     } else {
         None

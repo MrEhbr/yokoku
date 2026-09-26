@@ -108,7 +108,7 @@ impl Classified {
             .enumerate()
             .filter(|(_, video)| {
                 let video_stem = stem(&video.path);
-                subtitle_stem == video_stem || subtitle_stem.starts_with(&format!("{video_stem}."))
+                subtitle_stem.strip_prefix(&video_stem).is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
             })
             .max_by_key(|(_, video)| stem(&video.path).len())
             .map(|(index, _)| index);
