@@ -1,4 +1,5 @@
 use yokoku_downloads::ports::StorageError as DownloadStorageError;
+use yokoku_integrations::ports::StorageError as IntegrationsStorageError;
 use yokoku_library::ports::StorageError;
 use yokoku_media::ports::StorageError as MediaStorageError;
 
@@ -37,5 +38,11 @@ impl From<DbError> for DownloadStorageError {
             DbError::Conflict => Self::Conflict,
             error => Self::new(error),
         }
+    }
+}
+
+impl From<DbError> for IntegrationsStorageError {
+    fn from(error: DbError) -> Self {
+        Self::new(error)
     }
 }

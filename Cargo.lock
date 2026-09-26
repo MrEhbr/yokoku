@@ -3928,6 +3928,7 @@ dependencies = [
  "yokoku-domain",
  "yokoku-downloads",
  "yokoku-events",
+ "yokoku-integrations",
  "yokoku-library",
  "yokoku-media",
 ]
@@ -3996,6 +3997,16 @@ dependencies = [
 [[package]]
 name = "yokoku-integrations"
 version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "jiff",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "yokoku-db",
+ "yokoku-domain",
+ "yokoku-events",
+]
 
 [[package]]
 name = "yokoku-jobs"
