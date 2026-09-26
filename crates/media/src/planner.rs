@@ -1,7 +1,7 @@
 use std::{path::Path, sync::Arc};
 
 use async_trait::async_trait;
-use yokoku_detect::{DownloadFile, Target, plan};
+use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series};
 use yokoku_events::{Event, HandlerError, Recorded, Subscriber};
 
@@ -52,7 +52,7 @@ impl ImportPlanner {
             .collect();
 
         let scope = self.scope(item).await?;
-        let plan = plan(&files, scope.target());
+        let plan = ImportPlan::new(&files, scope.target());
         let linked: Vec<FileTarget> = self.repo.files().await?.into_iter().map(|file| file.target).collect();
         let takes_linked =
             |target: &Option<FileTarget>| target.is_some_and(|target| linked.iter().any(|file| file.overlaps(&target)));

@@ -5,7 +5,7 @@ use std::{
 };
 
 use jiff::Timestamp;
-use yokoku_detect::{DownloadFile, Target, plan};
+use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, MediaFileId};
 use yokoku_events::{DeleteReason, Event, LinkedFile};
 
@@ -104,7 +104,7 @@ fn scan_root(
         listed.into_iter().filter(|file| !known_paths.contains(file.path.as_path()) && !claimed.contains(&file.path));
     for (entry, files) in group_by_entry(root, new_files) {
         let mut rows = Vec::new();
-        for row in plan(&files, target).rows {
+        for row in ImportPlan::new(&files, target).rows {
             let path = root.join(&row.video.path);
             let size = row.video.size;
             let certain = row.confidence == Confidence::Certain && row.conflicts.is_empty();

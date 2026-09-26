@@ -7,4 +7,4 @@ mod titles;
 
 pub use classify::{Classified, DownloadFile, Subtitle, Video};
 pub use parse::{Numbers, ParsedName};
-pub use plan::{Conflict, ImportPlan, PlanRow, Target, plan};
+pub use plan::{Conflict, ImportPlan, PlanRow, Target};

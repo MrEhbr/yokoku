@@ -72,6 +72,15 @@ impl EpisodeSpan {
         Self { season: reference.season, first: reference.episode, last: reference.episode }
     }
 
+    /// `None` unless the sorted `episodes` are non-empty and have no gaps.
+    pub fn consecutive(season: u16, episodes: &[u16]) -> Option<Self> {
+        let (&first, &last) = (episodes.first()?, episodes.last()?);
+        if usize::from(last.checked_sub(first)?) + 1 != episodes.len() {
+            return None;
+        }
+        Self::new(season, first, last)
+    }
+
     pub fn season(&self) -> u16 {
         self.season
     }
@@ -381,6 +390,23 @@ impl Series {
                 season.episodes.iter().map(|episode| EpisodeRef { season: season.number, episode: episode.number })
             })
             .nth(index)
+    }
+
+    /// The consecutive `episodes` of a season, when every one of them exists.
+    pub fn span(&self, season: u16, episodes: &[u16]) -> Option<EpisodeSpan> {
+        let span = EpisodeSpan::consecutive(season, episodes)?;
+        span.refs().all(|reference| self.episode(reference).is_some()).then_some(span)
+    }
+
+    /// The consecutive absolute `episodes`, when they fall in one season.
+    pub fn absolute_span(&self, episodes: &[u16]) -> Option<EpisodeSpan> {
+        let refs: Vec<EpisodeRef> =
+            episodes.iter().map(|&number| self.absolute_to_ref(u32::from(number))).collect::<Option<_>>()?;
+        let season = refs.first()?.season;
+        if refs.iter().any(|reference| reference.season != season) {
+            return None;
+        }
+        EpisodeSpan::consecutive(season, &refs.iter().map(|reference| reference.episode).collect::<Vec<_>>())
     }
 
     fn sort(&mut self) {
