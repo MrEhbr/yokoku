@@ -19,6 +19,9 @@ url = "http://localhost:9091/transmission/rpc"
 # username = "yokoku"
 # Removes imported torrents with their data once Transmission finished seeding them.
 remove_after_seeding = false
+# Takes on torrents added directly in Transmission that carry one of these labels or download under the folder.
+pick_up_labels = []
+# pick_up_folder = "/downloads/tv"
 
 [add]
 monitor = "all"

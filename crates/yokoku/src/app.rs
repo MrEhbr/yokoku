@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_db::Database;
 use yokoku_domain::Clock;
-use yokoku_downloads::{DownloadOptions, Downloads};
+use yokoku_downloads::{DownloadOptions, Downloads, PickUp};
 use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
 use yokoku_integrations::Rescans;
 use yokoku_library::{Library, MetadataSync, Schedule};
@@ -89,6 +89,11 @@ pub struct TransmissionConfig {
     pub password: Option<String>,
     /// Removes imported torrents, with their data, once Transmission finished seeding them.
     pub remove_after_seeding: bool,
+    /// Torrents added outside Yokoku with any of these labels are taken on.
+    #[serde(default)]
+    pub pick_up_labels: Vec<String>,
+    /// Torrents added outside Yokoku that download at or under this folder are taken on.
+    pub pick_up_folder: Option<PathBuf>,
 }
 
 impl Default for TransmissionConfig {
@@ -98,13 +103,17 @@ impl Default for TransmissionConfig {
             username: None,
             password: None,
             remove_after_seeding: false,
+            pick_up_labels: Vec::new(),
+            pick_up_folder: None,
         }
     }
 }
 
 impl TransmissionConfig {
     fn options(&self) -> DownloadOptions {
-        DownloadOptions { remove_after_seeding: self.remove_after_seeding }
+        let pick_up = (!self.pick_up_labels.is_empty() || self.pick_up_folder.is_some())
+            .then(|| PickUp { labels: self.pick_up_labels.clone(), folder: self.pick_up_folder.clone() });
+        DownloadOptions { remove_after_seeding: self.remove_after_seeding, pick_up }
     }
 }
 
@@ -115,6 +124,8 @@ impl fmt::Debug for TransmissionConfig {
             .field("username", &self.username)
             .field("password", &self.password.as_ref().map(|_| "<redacted>"))
             .field("remove_after_seeding", &self.remove_after_seeding)
+            .field("pick_up_labels", &self.pick_up_labels)
+            .field("pick_up_folder", &self.pick_up_folder)
             .finish()
     }
 }

@@ -94,6 +94,9 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             if report.removed > 0 {
                 writeln!(out, "{} are no longer in Transmission", report.removed)?;
             }
+            if report.picked_up > 0 {
+                writeln!(out, "Picked up {} torrents added in Transmission", report.picked_up)?;
+            }
             if report.cleaned_up > 0 {
                 writeln!(out, "{} removed from Transmission after seeding", report.cleaned_up)?;
             }

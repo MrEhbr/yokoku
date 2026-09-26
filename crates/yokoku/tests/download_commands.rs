@@ -277,3 +277,24 @@ async fn imported_downloads_leave_transmission_with_their_data_once_seeded() {
     assert!(setup.events().await.iter().any(|event| matches!(event, Event::TorrentRemoved { .. })));
     assert!(setup.stdout(&["download", "list"]).contains("removed"));
 }
+
+#[tokio::test]
+async fn torrents_added_in_transmission_under_the_pick_up_folder_are_imported() {
+    let setup = Setup::new().await;
+    setup.torrent_at(0).await;
+    let folder = setup.dir.path().join("downloads");
+
+    let synced =
+        setup.command().args(["download", "sync"]).env("APP__TRANSMISSION__PICK_UP_FOLDER", &folder).output().unwrap();
+
+    let stdout = String::from_utf8(synced.stdout).unwrap();
+    let content = folder.join("Dune.2021.1080p");
+    assert_eq!(
+        stdout,
+        format!(
+            "Synced 0 downloads; 1 finished\nPicked up 1 torrents added in Transmission\nImported {}\n",
+            content.display()
+        )
+    );
+    assert!(setup.dir.path().join("movies/Dune (2021)/Dune (2021).mkv").exists());
+}

@@ -13,7 +13,7 @@ use rstest::rstest;
 use yokoku_db::Database;
 use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, MovieId};
 use yokoku_downloads::{
-    Download, DownloadError, DownloadOptions, DownloadState, DownloadStatus, Downloads,
+    Download, DownloadError, DownloadOptions, DownloadState, DownloadStatus, Downloads, PickUp,
     ports::{AddedTorrent, ClientError, DownloadClient, Torrent, TorrentSource},
 };
 use yokoku_events::{Event, EventId, EventLog, Recorded, Subscriber};
@@ -46,6 +46,10 @@ impl ScriptedClient {
 
     fn forget(&self) {
         self.torrents.lock().unwrap().clear();
+    }
+
+    fn put(&self, torrent: Torrent) {
+        self.torrents.lock().unwrap().insert(torrent.hash.clone(), torrent);
     }
 
     fn finish_seeding(&self) {
@@ -291,7 +295,7 @@ async fn imports_of_scanned_files_or_unknown_downloads_change_nothing() {
     assert_eq!(setup.only_download().await, added);
 }
 
-const CLEAN_UP: DownloadOptions = DownloadOptions { remove_after_seeding: true };
+const CLEAN_UP: DownloadOptions = DownloadOptions { remove_after_seeding: true, pick_up: None };
 
 #[tokio::test]
 async fn an_imported_download_is_removed_with_its_data_once_seeded() {
@@ -338,4 +342,77 @@ async fn other_downloads_stay_in_the_client(
     assert_eq!(report.cleaned_up, 0);
     assert!(setup.client.removed.lock().unwrap().is_empty());
     assert_eq!(setup.only_download().await.status.state, DownloadState::Seeding);
+}
+
+/// A finished torrent added outside Yokoku.
+fn outside(hash: &str, labels: &[&str], folder: &str) -> Torrent {
+    let mut torrent = torrent(1000, 1000);
+    torrent.hash = hash.into();
+    torrent.name = format!("Show {hash}");
+    torrent.labels = labels.iter().map(|label| (*label).to_owned()).collect();
+    torrent.status.download_dir = folder.into();
+    torrent
+}
+
+fn picking_up(labels: &[&str], folder: Option<&str>) -> DownloadOptions {
+    let labels = labels.iter().map(|label| (*label).to_owned()).collect();
+    DownloadOptions { pick_up: Some(PickUp { labels, folder: folder.map(Into::into) }), ..DownloadOptions::default() }
+}
+
+#[rstest]
+#[case::by_label(picking_up(&["tv"], None))]
+#[case::by_folder(picking_up(&[], Some("/downloads/tv")))]
+#[tokio::test]
+async fn qualifying_torrents_from_outside_are_taken_on_once(#[case] options: DownloadOptions) {
+    let setup = setup_with(options).await;
+    setup.client.put(outside("aa", &["tv"], "/downloads/tv/shows"));
+    setup.client.put(outside("bb", &["music"], "/downloads/music"));
+
+    let first = setup.downloads.sync().await.unwrap();
+    let second = setup.downloads.sync().await.unwrap();
+
+    assert_eq!((first.picked_up, second.picked_up, second.synced), (1, 0, 1));
+    let download = setup.only_download().await;
+    assert_eq!((download.hash.as_str(), download.item), ("aa", None));
+    assert_eq!(first.completed, [download.id]);
+    assert_eq!(
+        setup.events().await,
+        [
+            Event::TorrentAdded { download: download.id, name: "Show aa".into(), item: None },
+            Event::DownloadCompleted {
+                download: download.id,
+                name: "Show aa".into(),
+                content_path: "/downloads/tv/shows/Show aa".into(),
+                item: None,
+            },
+        ]
+    );
+}
+
+#[tokio::test]
+async fn torrents_from_outside_are_left_alone_unless_asked_for() {
+    let setup = setup().await;
+    setup.client.put(outside("aa", &["tv"], "/downloads/tv"));
+
+    let report = setup.downloads.sync().await.unwrap();
+
+    assert_eq!(report.picked_up, 0);
+    assert!(setup.downloads.list().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_download_that_was_removed_is_not_taken_on_again() {
+    let setup = setup_with(picking_up(&["yokoku"], None)).await;
+    setup.client.set(1000, 1000);
+    setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.client.forget();
+    setup.downloads.sync().await.unwrap();
+    let mut back = torrent(1000, 1000);
+    back.labels = vec!["yokoku".into()];
+    setup.client.put(back);
+
+    let report = setup.downloads.sync().await.unwrap();
+
+    assert_eq!(report.picked_up, 0);
+    assert_eq!(setup.only_download().await.status.state, DownloadState::Removed);
 }
