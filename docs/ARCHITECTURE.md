@@ -308,10 +308,9 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | Job | Trigger | Calls |
 |---|---|---|
 | `SyncDownloads` | cron, every 30 s, one tick at a time | `Downloads::sync` |
-| `RefreshMetadata` | cron, every 6 h | enqueues `RefreshItem` for each item |
-| `RefreshItem { item }` | queue | `library::refresh` |
+| `RefreshMetadata` | cron, every 6 h; only with a TMDB token | `MetadataSync::refresh_all` (one item's failure is logged and the rest continue) |
 | `ExecuteImports` | cron, every 5 s, one tick at a time | `Importer::run_pending` |
-| `ScanLibrary` | cron, daily; on demand | `media::scan` |
+| `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` | `Scanner::scan` (FR-8.7) |
 | `CleanupRecycle` | cron, daily at 04:00 | `Deleter::clean_recycle` |
 | `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
 

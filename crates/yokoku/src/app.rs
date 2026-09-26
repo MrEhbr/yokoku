@@ -210,6 +210,11 @@ impl App {
     pub fn sync(&self) -> Result<&MetadataSync> {
         self.sync.as_deref().context("No TMDB token configured; set APP__METADATA__TMDB_TOKEN")
     }
+
+    /// `None` while no TMDB token is configured.
+    pub fn metadata(&self) -> Option<Arc<MetadataSync>> {
+        self.sync.clone()
+    }
 }
 
 /// Gives up after three quick attempts; the event is tried again on the next catch-up or by `serve`.

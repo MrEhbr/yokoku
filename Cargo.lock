@@ -4019,6 +4019,7 @@ dependencies = [
  "tracing",
  "yokoku-downloads",
  "yokoku-integrations",
+ "yokoku-library",
  "yokoku-media",
 ]
 

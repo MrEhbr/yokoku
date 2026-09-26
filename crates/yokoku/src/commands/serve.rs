@@ -21,6 +21,10 @@ pub struct ServeConfig {
     pub cleanup_recycle: String,
     /// Cron schedule with seconds for checking whether Jellyfin should rescan.
     pub rescan_media_server: String,
+    /// Cron schedule with seconds for refreshing every item from TMDB.
+    pub refresh_metadata: String,
+    /// Cron schedule with seconds for scanning root folders for outside changes.
+    pub scan_library: String,
 }
 
 impl Default for ServeConfig {
@@ -30,6 +34,8 @@ impl Default for ServeConfig {
             execute_imports: "*/5 * * * * *".into(),
             cleanup_recycle: "0 0 4 * * *".into(),
             rescan_media_server: "*/10 * * * * *".into(),
+            refresh_metadata: "0 0 */6 * * *".into(),
+            scan_library: "0 0 5 * * *".into(),
         }
     }
 }
@@ -44,6 +50,8 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
         execute_imports: schedule(&config.serve.execute_imports)?,
         cleanup_recycle: schedule(&config.serve.cleanup_recycle)?,
         rescan_media_server: schedule(&config.serve.rescan_media_server)?,
+        refresh_metadata: schedule(&config.serve.refresh_metadata)?,
+        scan_library: schedule(&config.serve.scan_library)?,
     };
     let app = App::open(config).await?;
     let recovered = app.importer.recover().await?;
@@ -58,6 +66,8 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
             downloads: app.downloads.clone(),
             importer: app.importer.clone(),
             deleter: app.deleter.clone(),
+            scanner: app.scanner.clone(),
+            metadata: app.metadata(),
             rescans: app.rescans.clone(),
         },
         schedules,
