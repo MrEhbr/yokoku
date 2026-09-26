@@ -4,11 +4,13 @@ use anyhow::{Context, Result};
 use jiff::tz::TimeZone;
 use serde::{Deserialize, Serialize};
 use yokoku_db::Database;
+use yokoku_events::{Delivery, DeliveryConfig};
 use yokoku_library::{Library, MetadataSync, Schedule};
+use yokoku_media::{Review, RootFolders, Scanner};
 use yokoku_metadata::TmdbClient;
-use yokoku_system::SystemClock;
+use yokoku_system::{LocalFileSystem, SystemClock};
 
-use crate::config::Config;
+use crate::{config::Config, subscriptions};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DatabaseConfig {
@@ -72,7 +74,11 @@ impl fmt::Debug for MetadataConfig {
 pub struct App {
     pub library: Library,
     pub schedule: Schedule,
+    pub roots: RootFolders,
+    pub scanner: Scanner,
+    pub review: Review,
     sync: Option<MetadataSync>,
+    db: Arc<Database>,
 }
 
 impl App {
@@ -87,11 +93,27 @@ impl App {
             MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), clock.clone())
         });
 
+        let fs = Arc::new(LocalFileSystem);
+
         Ok(Self {
             library: Library::new(db.clone(), db.clone(), clock.clone()),
-            schedule: Schedule::new(db.clone(), db, clock),
+            schedule: Schedule::new(db.clone(), db.clone(), clock.clone()),
+            roots: RootFolders::new(db.clone(), fs.clone()),
+            scanner: Scanner::new(db.clone(), db.clone(), fs, clock.clone()),
+            review: Review::new(db.clone(), db.clone(), clock),
             sync,
+            db,
         })
+    }
+
+    /// Delivers pending events to every subscriber.
+    pub async fn deliver_events(&self) -> Result<()> {
+        for subscriber in subscriptions::subscribers(&self.db) {
+            let log = Arc::new(self.db.event_log());
+            let delivery = Delivery::new(log, subscriber, self.db.new_events().listen(), DeliveryConfig::default());
+            delivery.catch_up().await.context("Failed to deliver events")?;
+        }
+        Ok(())
     }
 
     /// Use cases that need the metadata source.

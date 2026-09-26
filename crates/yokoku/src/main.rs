@@ -5,6 +5,7 @@ mod args;
 mod commands;
 mod config;
 mod logging;
+mod subscriptions;
 
 use std::io;
 

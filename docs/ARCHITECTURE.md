@@ -291,7 +291,7 @@ Events carry the titles and paths that history needs to display, so history stil
 
 ### 7.4 Registry
 
-All subscriptions are declared in one file in the `yokoku` binary, so every reaction in the system can be read in one place.
+All subscriptions are declared in one file in the `yokoku` binary (`subscriptions.rs`), so every reaction in the system can be read in one place.
 
 ---
 
@@ -319,7 +319,7 @@ Job handlers are thin. They decode the job and call one use case. Modules enqueu
 
 One binary.
 - `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM.
-- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `detect --dry-run`, `import`, `scan`) call the same use cases against the same database. They let every feature be used and tested before the UI exists.
+- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `detect --dry-run`, `import`, `scan`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
 
 ### Storage
 

@@ -45,6 +45,12 @@ pub enum Command {
     Calendar(commands::calendar::Args),
     /// List monitored episodes and movies that are out but have no file
     Missing(commands::missing::Args),
+    /// Manage the folders that hold series and movies
+    Root(commands::root::Args),
+    /// Link files in the root folders to the library
+    Scan(commands::scan::Args),
+    /// Match files the scan was unsure about
+    Review(commands::review::Args),
 }
 
 impl Args {
@@ -80,5 +86,8 @@ pub async fn route(args: Args) -> Result<()> {
         Upcoming(cmd_args) => commands::upcoming::run(&config, cmd_args).await,
         Calendar(cmd_args) => commands::calendar::run(&config, cmd_args).await,
         Missing(cmd_args) => commands::missing::run(&config, cmd_args).await,
+        Root(cmd_args) => commands::root::run(&config, cmd_args).await,
+        Scan(cmd_args) => commands::scan::run(&config, cmd_args).await,
+        Review(cmd_args) => commands::review::run(&config, cmd_args).await,
     }
 }

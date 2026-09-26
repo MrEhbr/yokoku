@@ -3743,9 +3743,11 @@ dependencies = [
  "tracing-subscriber",
  "wiremock",
  "yokoku-db",
+ "yokoku-detect",
  "yokoku-domain",
  "yokoku-events",
  "yokoku-library",
+ "yokoku-media",
  "yokoku-metadata",
  "yokoku-system",
 ]
