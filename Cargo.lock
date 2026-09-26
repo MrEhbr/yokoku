@@ -3768,6 +3768,7 @@ dependencies = [
  "tokio",
  "uuid",
  "yokoku-domain",
+ "yokoku-downloads",
  "yokoku-events",
  "yokoku-library",
  "yokoku-media",
@@ -3804,6 +3805,15 @@ dependencies = [
 [[package]]
 name = "yokoku-downloads"
 version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "jiff",
+ "thiserror",
+ "tokio",
+ "yokoku-db",
+ "yokoku-domain",
+ "yokoku-events",
+]
 
 [[package]]
 name = "yokoku-events"

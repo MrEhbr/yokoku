@@ -12,6 +12,7 @@ license = "MIT"
 yokoku-db = { path = "crates/db" }
 yokoku-detect = { path = "crates/detect" }
 yokoku-domain = { path = "crates/domain" }
+yokoku-downloads = { path = "crates/downloads" }
 yokoku-events = { path = "crates/events" }
 yokoku-library = { path = "crates/library" }
 yokoku-media = { path = "crates/media" }

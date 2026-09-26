@@ -2,6 +2,7 @@
 
 mod codec;
 mod database;
+mod download_repo;
 mod error;
 mod event_log;
 mod media_repo;

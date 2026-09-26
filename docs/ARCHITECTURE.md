@@ -165,7 +165,8 @@ Owns the downloads Yokoku knows about and the Transmission connection settings.
   - Add a torrent (magnet link or .torrent file), linked to a movie or series or left unlinked.
   - Sync with the client: progress, state, completion, and optionally torrents picked up by label or folder.
   - Remove a torrent once seeding is finished.
-- **Ports:** `DownloadRepo`, `DownloadClient`, `Clock`.
+- **Ports:** `DownloadRepo`, `DownloadClient` (version, add, torrents by info hash), `Clock`.
+- **Sync:** every download not yet `Removed` takes the client's status (state, bytes done, rate, ETA, folder). The first sync that sees it complete sets `completed_at` and emits `DownloadCompleted` in the same transaction; a torrent missing from the client becomes `Removed` and is no longer synced. Adding a torrent syncs it at once, so a torrent that is already complete emits both events.
 - **Emits:** `TorrentAdded`, `DownloadCompleted` (once per download; the sync is idempotent).
 - **Subscribes to:** `FilesImported` (marks the download imported so it can be removed after seeding).
 
