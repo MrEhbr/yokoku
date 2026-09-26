@@ -23,9 +23,7 @@ impl FileTarget {
             _ => false,
         }
     }
-}
 
-impl FileTarget {
     /// The series or movie the file belongs to.
     pub fn item(&self) -> ItemId {
         match self {
