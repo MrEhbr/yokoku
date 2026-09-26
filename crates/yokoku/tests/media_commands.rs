@@ -263,3 +263,51 @@ async fn an_unreachable_jellyfin_does_not_fail_the_change() {
         .success()
         .stdout(predicate::str::starts_with("Deleted "));
 }
+
+/// A stand-in for ffprobe that reports the recorded sample: 320x180 h264, English and Japanese
+/// audio, and forced Russian subtitles.
+fn stand_in_ffprobe(dir: &std::path::Path) -> PathBuf {
+    let report = format!("{}/../system/tests/fixtures/ffprobe_sample.json", env!("CARGO_MANIFEST_DIR"));
+    let program = dir.join("ffprobe");
+    fs::write(&program, format!("#!/bin/sh\ncat '{report}'\n")).unwrap();
+    fs::set_permissions(&program, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+    program
+}
+
+#[tokio::test]
+async fn found_files_are_probed_and_shown_with_their_details() {
+    let setup = Setup::new().await;
+    let episode = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
+    setup.write(episode);
+    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.en.sdh.srt");
+    let ffprobe = stand_in_ffprobe(setup.dir.path());
+
+    setup.command().arg("scan").env("APP__FILES__FFPROBE", &ffprobe).assert().success();
+    let shown = setup.stdout(&["files", "show", "series", "tmdb:1"]);
+
+    let path = setup.path("tv").canonicalize().unwrap().join("Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
+    assert_eq!(
+        shown,
+        format!(
+            "{}\n  0.0 GB, 0h 00m, 320x180 h264\n  Audio      eng aac stereo, jpn aac mono\n  Subtitles  rus (forced) in the file; en (SDH) beside it\n",
+            path.display()
+        )
+    );
+}
+
+#[tokio::test]
+async fn files_are_probed_on_request_once_ffprobe_is_there() {
+    let setup = Setup::new().await;
+    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
+    let missing = [("APP__FILES__FFPROBE", "/nonexistent/ffprobe")];
+    setup.command().arg("scan").envs(missing).assert().success();
+
+    let unprobed = setup.command().args(["files", "show", "series", "tmdb:1"]).envs(missing).output().unwrap();
+    let failure = setup.command().args(["files", "probe"]).envs(missing).output().unwrap();
+    let ffprobe = stand_in_ffprobe(setup.dir.path());
+    let probed = setup.command().args(["files", "probe"]).env("APP__FILES__FFPROBE", &ffprobe).output().unwrap();
+
+    assert!(String::from_utf8(unprobed.stdout).unwrap().contains("not probed yet; run `yokoku files probe`"));
+    assert!(String::from_utf8(failure.stderr).unwrap().contains("/nonexistent/ffprobe is not installed"));
+    assert_eq!(String::from_utf8(probed.stdout).unwrap(), "Probed 1 files\n");
+}

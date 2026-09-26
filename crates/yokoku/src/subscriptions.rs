@@ -8,7 +8,7 @@ use yokoku_downloads::Downloads;
 use yokoku_events::Subscriber;
 use yokoku_integrations::Rescans;
 use yokoku_library::FileTracker;
-use yokoku_media::{Deleter, ImportPlanner, ports::FileSystem};
+use yokoku_media::{Deleter, ImportPlanner, Prober, ports::FileSystem};
 
 pub fn subscribers(
     db: &Arc<Database>,
@@ -16,6 +16,7 @@ pub fn subscribers(
     clock: &Arc<dyn Clock>,
     deleter: &Arc<Deleter>,
     downloads: &Arc<Downloads>,
+    prober: &Arc<Prober>,
     rescans: Option<&Arc<Rescans>>,
 ) -> Vec<Arc<dyn Subscriber>> {
     let mut subscribers: Vec<Arc<dyn Subscriber>> = vec![
@@ -23,6 +24,7 @@ pub fn subscribers(
         Arc::new(ImportPlanner::new(db.clone(), db.clone(), fs.clone(), clock.clone())),
         deleter.clone(),
         downloads.clone(),
+        prober.clone(),
     ];
     subscribers.extend(rescans.map(|rescans| rescans.clone() as Arc<dyn Subscriber>));
     subscribers

@@ -2,6 +2,7 @@ pub mod add;
 pub mod calendar;
 pub mod delete;
 pub mod download;
+pub mod files;
 pub mod greet;
 pub mod history;
 pub mod import;

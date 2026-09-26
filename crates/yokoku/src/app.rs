@@ -13,12 +13,12 @@ use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
 use yokoku_integrations::Rescans;
 use yokoku_library::{Library, MetadataSync, Schedule};
 use yokoku_media::{
-    Deleter, Importer, Renamer, Review, RootFolders, Scanner,
+    Deleter, Importer, Prober, Renamer, Review, RootFolders, Scanner,
     ports::{FileSystem, LibraryLock},
 };
 use yokoku_metadata::TmdbClient;
 use yokoku_naming::Naming;
-use yokoku_system::{JellyfinClient, LocalFileSystem, LockFile, SystemClock};
+use yokoku_system::{FfProbe, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
 use crate::{config::Config, subscriptions};
@@ -142,6 +142,7 @@ pub struct App {
     pub importer: Arc<Importer>,
     pub history: History,
     pub deleter: Arc<Deleter>,
+    pub prober: Arc<Prober>,
     /// `None` while no Jellyfin is configured.
     pub rescans: Option<Arc<Rescans>>,
     sync: Option<Arc<MetadataSync>>,
@@ -163,6 +164,7 @@ impl App {
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
         let lock: Arc<dyn LibraryLock> = Arc::new(LockFile::new(path.with_extension("lock")));
+        let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(FfProbe::new(&config.files.ffprobe))));
         let deleter =
             Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone(), clock.clone(), config.recycle.recycle()));
         let jellyfin = &config.jellyfin;
@@ -195,8 +197,9 @@ impl App {
                 config.import.mode.into(),
             )),
             history: History::new(Arc::new(db.event_log())),
-            subscribers: subscriptions::subscribers(&db, &fs, &clock, &deleter, &downloads, rescans.as_ref()),
+            subscribers: subscriptions::subscribers(&db, &fs, &clock, &deleter, &downloads, &prober, rescans.as_ref()),
             deleter,
+            prober,
             rescans,
             sync,
             db,

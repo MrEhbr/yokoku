@@ -188,8 +188,9 @@ Owns library files, root folders, naming settings, imports and the recycle folde
   - Rename with preview (FR-5.7): `Renamer::preview(scope)` lists the moves naming asks for, for the whole library, a series or a movie; `apply` makes them file by file. Subtitles beside a video (named after it) move with it and get normalised language tags. Files outside every root, whose item is gone, or that would share a path are skipped; a file already at the new path is never replaced, and that move is reported as failed. Folders left empty are removed up to the root.
   - Delete or recycle files (FR-8.4, 8.5): `Deleter::delete(target)` removes the files holding an episode span or movie, with their subtitles and folders left empty, committing each file with `FileDeleted { reason: User }`. With `[recycle] folder` set they move to `<recycle>/<day>/<root folder name>/<path>` (`recycled: true`; under the file id when that path is taken that day), and `clean_recycle` removes day folders older than `keep_days` (daily `CleanupRecycle` job); the folder name is the only record needed. Removing a series or movie with `delete_files` does the same for all its files (`ItemRemoved`).
   - Retry a failed import.
+  - File details (FR-8.6): the `media.probe` subscriber probes the files of `FilesFound` and `FilesImported` with `ffprobe` (`[files] ffprobe`) and stores duration, the video stream (codec, size; cover art is skipped) and each audio (language, codec, channels) and subtitle stream (language, forced) per file; details go with the file when it is removed and stay through renames. A file that cannot be probed, or a missing `ffprobe`, is only logged; `Prober::probe_missing` (`yokoku files probe`) reads every file never probed. `Prober::details(item)` adds the subtitle files beside each video.
 - **Library lock:** scan, import, rename and delete change files on disk before they commit, so each holds the `LibraryLock` from its first read of library files until its last commit; a scan never sees a file that is placed but not yet stored. `LockFile` in `system` takes an exclusive `flock` on `<database>.lock`, so the CLI and `serve` wait for each other as well. An import holds it per import, from its claim to its commit.
-- **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `LibraryLock`, `Clock`; later `MediaProbe`, `ImportQueue`.
+- **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `LibraryLock`, `MediaProbe` (`FfProbe` in `system`), `Clock`; later `ImportQueue`.
 - **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`, `FileRenamed`; later `ImportFailed`.
 - **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesRemoved`, `MovieRemoved` (delete or recycle files when asked).
 
@@ -287,8 +288,8 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 | `DownloadCompleted { download, name, content_path, item }` | downloads | media |
 | `TorrentRemoved { download, name, item }` | downloads | — (history) |
 | `ImportNeedsReview { import, source }` | media | — (history) |
-| `FilesFound { files }` | media (scan) | library, integrations |
-| `FilesImported { import, download, files }` | media | library, downloads, integrations |
+| `FilesFound { files }` | media (scan) | library, media (probe), integrations |
+| `FilesImported { import, download, files }` | media | library, media (probe), downloads, integrations |
 | `ImportFailed { import, source, reason }` | media | — (history) |
 | `FileRenamed { file, from, to, target }` | media | integrations |
 | `FileDeleted { file, path, target, reason, recycled }` | media | library, integrations |
