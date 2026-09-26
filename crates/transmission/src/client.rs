@@ -94,12 +94,12 @@ impl DownloadClient for TransmissionClient {
         }
         let torrents: wire::Torrents =
             self.call("torrent-get", json!({ "fields": wire::TORRENT_FIELDS, "ids": hashes })).await?;
-        Ok(torrents.torrents.into_iter().map(torrent).collect())
+        Ok(torrents.torrents.into_iter().map(Torrent::from).collect())
     }
 
     async fn all_torrents(&self) -> Result<Vec<Torrent>, ClientError> {
         let torrents: wire::Torrents = self.call("torrent-get", json!({ "fields": wire::TORRENT_FIELDS })).await?;
-        Ok(torrents.torrents.into_iter().map(torrent).collect())
+        Ok(torrents.torrents.into_iter().map(Torrent::from).collect())
     }
 
     async fn remove(&self, hash: &str, delete_data: bool) -> Result<(), ClientError> {
@@ -108,32 +108,36 @@ impl DownloadClient for TransmissionClient {
     }
 }
 
-fn torrent(torrent: wire::Torrent) -> Torrent {
-    let state = match torrent.status {
-        0 => DownloadState::Stopped,
-        1 | 2 => DownloadState::Checking,
-        3 => DownloadState::Queued,
-        4 => DownloadState::Downloading,
-        _ => DownloadState::Seeding,
-    };
-    let has_metadata = torrent.metadata_percent_complete >= 1.0;
-    let complete =
-        has_metadata && torrent.size_when_done > 0 && torrent.left_until_done == 0 && state != DownloadState::Checking;
-    Torrent {
-        hash: torrent.hash_string.to_ascii_lowercase(),
-        name: torrent.name,
-        status: DownloadStatus {
-            state,
-            size: torrent.size_when_done,
-            done: torrent.size_when_done.saturating_sub(torrent.left_until_done),
-            download_rate: torrent.rate_download,
-            eta: u64::try_from(torrent.eta).ok(),
-            download_dir: torrent.download_dir.into(),
-            error: (torrent.error != 0).then_some(torrent.error_string),
-        },
-        complete,
-        seeding_done: torrent.is_finished,
-        labels: torrent.labels,
+impl From<wire::Torrent> for Torrent {
+    fn from(torrent: wire::Torrent) -> Self {
+        let state = match torrent.status {
+            0 => DownloadState::Stopped,
+            1 | 2 => DownloadState::Checking,
+            3 => DownloadState::Queued,
+            4 => DownloadState::Downloading,
+            _ => DownloadState::Seeding,
+        };
+        let has_metadata = torrent.metadata_percent_complete >= 1.0;
+        let complete = has_metadata
+            && torrent.size_when_done > 0
+            && torrent.left_until_done == 0
+            && state != DownloadState::Checking;
+        Torrent {
+            hash: torrent.hash_string.to_ascii_lowercase(),
+            name: torrent.name,
+            status: DownloadStatus {
+                state,
+                size: torrent.size_when_done,
+                done: torrent.size_when_done.saturating_sub(torrent.left_until_done),
+                download_rate: torrent.rate_download,
+                eta: u64::try_from(torrent.eta).ok(),
+                download_dir: torrent.download_dir.into(),
+                error: (torrent.error != 0).then_some(torrent.error_string),
+            },
+            complete,
+            seeding_done: torrent.is_finished,
+            labels: torrent.labels,
+        }
     }
 }
 
