@@ -3076,6 +3076,7 @@ dependencies = [
  "proptest",
  "regex",
  "rstest",
+ "yokoku-domain",
 ]
 
 [[package]]

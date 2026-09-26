@@ -9,6 +9,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+yokoku-domain.workspace = true
+
 hunch.workspace = true
 jiff.workspace = true
 regex.workspace = true

@@ -4,3 +4,4 @@
 [default.extend-words]
 # Add project-specific words/abbreviations here
 # example = "example"
+fre = "fre"
