@@ -102,7 +102,7 @@ Value types and rules shared by all modules. Examples:
 - `ExternalId { Tmdb(u64), Tvdb(u64) }`. An item stays bound to the provider it was added with.
 - `Series` → `Season` → `Episode` and `Movie`: aggregates with public fields. Seasons and episodes are kept ordered by number.
 - `SeriesMetadata`, `MovieMetadata`: an item as its source describes it. `library::MetadataProvider` returns these.
-- `EpisodeRef { season, episode }`; later `EpisodeSpan` (multi-episode files).
+- `EpisodeRef { season, episode }` (`S01E02`) and `EpisodeSpan`, consecutive episodes of one season for multi-episode files (`S01E01-E03`).
 - `Numbering { Standard, Absolute }` (FR-1.8).
 - Air dates are dates only (`jiff::civil::Date`). TMDB provides no time; a nullable time column is added when a source provides one.
 - `MonitorPreset { All, Future, LatestSeason, None }` (FR-2.2).
@@ -216,7 +216,11 @@ scan: unknown file ┘                                                  │
 ```
 
 - **`detect::plan`** is a pure function. It classifies files (video, subtitle, junk), parses names, matches them against the real episode list, converts absolute numbers, assigns confidence and finds conflicts (FR-4.1 – 4.13).
-- **`naming`** renders the target path from a `NamingTemplate` that was parsed and validated when settings were saved (FR-5).
+- **`naming`** renders the target path, relative to the root folder, from patterns validated when settings are saved (FR-5):
+  - One pattern per path component with tokens `{title}`, `{year}`, `{season}`, `{episodes}`, `{episode_title}`. A `[...]` group is dropped when a token inside has no value.
+  - Defaults follow Jellyfin: `Title (Year)/Season 01/Title (Year) - S01E01 - Episode Title.ext` and `Title (Year)/Title (Year).ext`.
+  - Every component is sanitised for Linux, macOS, Windows and SMB. File stems are capped at 200 bytes so subtitle suffixes always fit; folders at 255.
+  - Subtitles take the video stem plus `.language[.sdh][.forced].ext`.
 - **Execution** is idempotent per file. A row whose target already exists with the expected size, and whose source is gone (move mode), counts as done. Re-running after a crash is safe.
 - **Concurrency 1** for `ExecuteImport` means two imports can never race on the same episode.
 - **Hard links** that fail across filesystems fall back to copy, with a warning.

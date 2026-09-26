@@ -52,6 +52,44 @@ impl fmt::Display for EpisodeRef {
     }
 }
 
+/// Consecutive episodes of one season, as held by a multi-episode file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct EpisodeSpan {
+    season: u16,
+    first: u16,
+    last: u16,
+}
+
+impl EpisodeSpan {
+    /// `None` when `first` comes after `last`.
+    pub fn new(season: u16, first: u16, last: u16) -> Option<Self> {
+        (first <= last).then_some(Self { season, first, last })
+    }
+
+    pub fn single(reference: EpisodeRef) -> Self {
+        Self { season: reference.season, first: reference.episode, last: reference.episode }
+    }
+
+    pub fn season(&self) -> u16 {
+        self.season
+    }
+
+    pub fn refs(&self) -> impl Iterator<Item = EpisodeRef> {
+        let season = self.season;
+        (self.first..=self.last).map(move |episode| EpisodeRef { season, episode })
+    }
+}
+
+impl fmt::Display for EpisodeSpan {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", EpisodeRef { season: self.season, episode: self.first })?;
+        if self.last != self.first {
+            write!(f, "-E{:02}", self.last)?;
+        }
+        Ok(())
+    }
+}
+
 /// A series as its metadata source describes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeriesMetadata {
@@ -257,6 +295,10 @@ impl Series {
 
     pub fn season_mut(&mut self, number: u16) -> Option<&mut Season> {
         self.seasons.iter_mut().find(|season| season.number == number)
+    }
+
+    pub fn episode(&self, reference: EpisodeRef) -> Option<&Episode> {
+        self.numbered_episodes().find(|&(candidate, _)| candidate == reference).map(|(_, episode)| episode)
     }
 
     pub fn episode_mut(&mut self, reference: EpisodeRef) -> Option<&mut Episode> {

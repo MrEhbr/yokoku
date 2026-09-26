@@ -3119,6 +3119,13 @@ version = "0.0.1"
 [[package]]
 name = "yokoku-naming"
 version = "0.0.1"
+dependencies = [
+ "jiff",
+ "proptest",
+ "rstest",
+ "thiserror",
+ "yokoku-domain",
+]
 
 [[package]]
 name = "yokoku-system"

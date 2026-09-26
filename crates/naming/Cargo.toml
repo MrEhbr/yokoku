@@ -7,3 +7,13 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+yokoku-domain.workspace = true
+
+thiserror.workspace = true
+
+[dev-dependencies]
+jiff.workspace = true
+proptest.workspace = true
+rstest.workspace = true

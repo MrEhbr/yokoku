@@ -7,8 +7,8 @@ use jiff::{
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::{
-    EpisodeMetadata, EpisodeRef, ExternalId, FileStatus, MonitorPreset, SeasonMetadata, Series, SeriesMetadata,
-    SeriesStatus, SourceStatus,
+    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, MonitorPreset, SeasonMetadata, Series,
+    SeriesMetadata, SeriesStatus, SourceStatus,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -343,4 +343,22 @@ proptest! {
 
         prop_assert_eq!(last, aired.iter().copied().max());
     }
+}
+
+#[rstest]
+#[case::single(EpisodeSpan::single(EpisodeRef { season: 1, episode: 2 }), "S01E02", &[(1, 2)])]
+#[case::range(EpisodeSpan::new(1, 1, 3).unwrap(), "S01E01-E03", &[(1, 1), (1, 2), (1, 3)])]
+#[case::special(EpisodeSpan::new(0, 4, 4).unwrap(), "S00E04", &[(0, 4)])]
+fn episode_spans_display_and_list_their_episodes(
+    #[case] span: EpisodeSpan,
+    #[case] display: &str,
+    #[case] expected: &[(u16, u16)],
+) {
+    assert_eq!(span.to_string(), display);
+    assert_eq!(span.refs().collect::<Vec<_>>(), refs(expected));
+}
+
+#[test]
+fn episode_spans_reject_reversed_ranges() {
+    assert_eq!(EpisodeSpan::new(1, 3, 2), None);
 }
