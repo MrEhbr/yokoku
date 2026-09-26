@@ -298,7 +298,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 
 Events carry the titles and paths that history needs to display, so history still reads correctly after the item is removed. File events list each file as `LinkedFile { file, path, target }`, where `target` is a `FileTarget`.
 
-`FileDeleted.reason` is `External`, `Replaced` (an import replaced the file), `User` or `ItemRemoved`; `recycled` says the file went to the recycle folder. Fields added to a variant later default when older events are read (`recycled: false`, `FileRenamed.target: None`, `FilesImported.download: None`; migration 0010 marks downloads with a finished import as imported), so stored events keep their meaning. `Event::items()` names the series and movies an event concerns, for history by item. A file removed outside the app is reported by the next scan with `External` (FR-8.7).
+`FileDeleted.reason` is `External`, `Replaced` (an import replaced the file), `User` or `ItemRemoved`; `recycled` says the file went to the recycle folder. Fields added to a variant later default when older events are read (`recycled: false`, `FileRenamed.target: None`, `FilesImported.download: None`), so stored events keep their meaning. `Event::items()` names the series and movies an event concerns, for history by item. A file removed outside the app is reported by the next scan with `External` (FR-8.7).
 
 ### 7.4 Registry
 

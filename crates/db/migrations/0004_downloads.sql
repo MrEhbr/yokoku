@@ -14,5 +14,7 @@ CREATE TABLE downloads (
     error         TEXT,
     added_at      TEXT    NOT NULL,
     completed_at  TEXT,
+    imported_at   TEXT,
+    revision      INTEGER NOT NULL DEFAULT 1,
     CHECK (series_id IS NULL OR movie_id IS NULL)
 ) STRICT;

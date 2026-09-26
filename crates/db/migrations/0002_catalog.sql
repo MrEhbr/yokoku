@@ -1,16 +1,18 @@
 CREATE TABLE series (
-    id             TEXT    PRIMARY KEY,
-    source_kind    TEXT    NOT NULL CHECK (source_kind IN ('tmdb', 'tvdb')),
-    source_id      INTEGER NOT NULL,
-    title          TEXT    NOT NULL,
-    original_title TEXT    NOT NULL,
-    year           INTEGER,
-    poster_path    TEXT,
-    source_status  TEXT    NOT NULL,
-    numbering      TEXT    NOT NULL,
-    monitored      INTEGER NOT NULL,
-    added_at       TEXT    NOT NULL,
-    refreshed_at   TEXT    NOT NULL,
+    id               TEXT    PRIMARY KEY,
+    source_kind      TEXT    NOT NULL CHECK (source_kind IN ('tmdb', 'tvdb')),
+    source_id        INTEGER NOT NULL,
+    title            TEXT    NOT NULL,
+    original_title   TEXT    NOT NULL,
+    alternate_titles TEXT    NOT NULL DEFAULT '[]', -- JSON array of strings
+    year             INTEGER,
+    poster_path      TEXT,
+    source_status    TEXT    NOT NULL,
+    numbering        TEXT    NOT NULL,
+    monitored        INTEGER NOT NULL,
+    added_at         TEXT    NOT NULL,
+    refreshed_at     TEXT    NOT NULL,
+    revision         INTEGER NOT NULL DEFAULT 1,
     UNIQUE (source_kind, source_id)
 ) STRICT;
 
@@ -30,25 +32,27 @@ CREATE TABLE episodes (
     title         TEXT    NOT NULL,
     air_date      TEXT,
     monitored     INTEGER NOT NULL,
-    has_file      INTEGER NOT NULL,
+    file_id       TEXT,
     FOREIGN KEY (series_id, season_number) REFERENCES seasons (series_id, number) ON DELETE CASCADE,
     UNIQUE (series_id, source_id)
 ) STRICT;
 
 CREATE TABLE movies (
-    id             TEXT    PRIMARY KEY,
-    source_kind    TEXT    NOT NULL CHECK (source_kind IN ('tmdb', 'tvdb')),
-    source_id      INTEGER NOT NULL,
-    title          TEXT    NOT NULL,
-    original_title TEXT    NOT NULL,
-    year           INTEGER,
-    poster_path    TEXT,
-    cinema_date    TEXT,
-    digital_date   TEXT,
-    physical_date  TEXT,
-    monitored      INTEGER NOT NULL,
-    has_file       INTEGER NOT NULL,
-    added_at       TEXT    NOT NULL,
-    refreshed_at   TEXT    NOT NULL,
+    id               TEXT    PRIMARY KEY,
+    source_kind      TEXT    NOT NULL CHECK (source_kind IN ('tmdb', 'tvdb')),
+    source_id        INTEGER NOT NULL,
+    title            TEXT    NOT NULL,
+    original_title   TEXT    NOT NULL,
+    alternate_titles TEXT    NOT NULL DEFAULT '[]', -- JSON array of strings
+    year             INTEGER,
+    poster_path      TEXT,
+    cinema_date      TEXT,
+    digital_date     TEXT,
+    physical_date    TEXT,
+    monitored        INTEGER NOT NULL,
+    file_id          TEXT,
+    added_at         TEXT    NOT NULL,
+    refreshed_at     TEXT    NOT NULL,
+    revision         INTEGER NOT NULL DEFAULT 1,
     UNIQUE (source_kind, source_id)
 ) STRICT;
