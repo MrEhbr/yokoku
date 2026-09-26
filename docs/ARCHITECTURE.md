@@ -284,13 +284,13 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 | `ImportNeedsReview { import, source }` | media | — (history) |
 | `FilesFound { files }` | media (scan) | library, integrations |
 | `FilesImported { import, files }` | media | library, downloads, integrations |
-| `ImportFailed { import, reason }` | media | — (history) |
+| `ImportFailed { import, source, reason }` | media | — (history) |
 | `FileRenamed { file, from, to }` | media | integrations |
 | `FileDeleted { file, path, target, reason }` | media | library, integrations |
 
 Events carry the titles and paths that history needs to display, so history still reads correctly after the item is removed. File events list each file as `LinkedFile { file, path, target }`, where `target` is a `FileTarget`.
 
-`FileDeleted.reason` is `External` for now; `User`, `ItemRemoved` and `Replaced` (with a `recycled` flag) come with deleting files from the app. A file removed outside the app is reported by the next scan with `External` (FR-8.7).
+`FileDeleted.reason` is `External` or `Replaced` (an import replaced the file); `User` and `ItemRemoved` (with a `recycled` flag) come with deleting files from the app. A file removed outside the app is reported by the next scan with `External` (FR-8.7).
 
 ### 7.4 Registry
 

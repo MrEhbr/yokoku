@@ -49,6 +49,11 @@ pub enum Event {
         import: ImportId,
         source: PathBuf,
     },
+    ImportFailed {
+        import: ImportId,
+        source: PathBuf,
+        reason: String,
+    },
     TorrentAdded {
         download: DownloadId,
         name: String,
@@ -74,6 +79,8 @@ pub struct LinkedFile {
 pub enum DeleteReason {
     /// The file disappeared outside the app.
     External,
+    /// An imported file took its place.
+    Replaced,
 }
 
 #[cfg(test)]
@@ -186,6 +193,10 @@ mod tests {
             "item": null,
         }),
     )]
+    #[case::import_failed(
+        Event::ImportFailed { import: ImportId(Uuid::from_u128(9)), source: "/downloads/Dune".into(), reason: "disk full".into() },
+        json!({ "type": "ImportFailed", "import": "00000000-0000-0000-0000-000000000009", "source": "/downloads/Dune", "reason": "disk full" }),
+    )]
     fn stored_format_is_stable(#[case] event: Event, #[case] stored: serde_json::Value) {
         assert_eq!(serde_json::to_value(&event).unwrap(), stored);
         assert_eq!(serde_json::from_value::<Event>(stored).unwrap(), event);
@@ -240,6 +251,11 @@ mod tests {
                 path: linked.path,
                 target: linked.target,
                 reason: DeleteReason::External,
+            }),
+            (any_id(), any::<String>(), any::<String>()).prop_map(|(import, source, reason)| Event::ImportFailed {
+                import: ImportId(import),
+                source: source.into(),
+                reason,
             }),
             (any_id(), any::<String>(), any::<String>()).prop_map(|(file, from, to)| Event::FileRenamed {
                 file: MediaFileId(file),
