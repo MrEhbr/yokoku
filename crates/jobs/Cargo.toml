@@ -7,3 +7,11 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+yokoku-downloads.workspace = true
+
+apalis.workspace = true
+apalis-cron.workspace = true
+jiff-cron.workspace = true
+tracing.workspace = true
