@@ -33,7 +33,7 @@ macro_rules! events {
 }
 
 /// One type of event; `Event::get` finds it in an `Event`.
-pub trait EventKind: Into<Event> {
+pub trait EventKind: Into<Event> + Send + Sync + 'static {
     fn from_event(event: &Event) -> Option<&Self>;
 }
 

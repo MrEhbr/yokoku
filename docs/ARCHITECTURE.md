@@ -48,7 +48,7 @@ Versions are pinned in `[workspace.dependencies]` when the workspace is set up.
 ```
 crates/
   domain/         yokoku-domain        Shared value types and rules, event contract
-  events/         yokoku-events        Subscriber trait, delivery loop; re-exports the event contract
+  events/         yokoku-events        Handlers, subscriptions, delivery loop; re-exports the event contract
   detect/         yokoku-detect        Pure: downloaded files → ImportPlan
   naming/         yokoku-naming        Pure: NamingTemplate parse/render, sanitising
 
@@ -140,9 +140,10 @@ src/
   lib.rs        public API: the use cases
   model.rs      module-owned entities and state machines
   ports.rs      traits the module needs; implemented by adapters
-  subscriber.rs reactions to events from other modules (if any)
   error.rs
 ```
+
+A use case that reacts to events from other modules implements `Handler<E>` for each event type, next to its code.
 
 ### 5.1 `library`
 
@@ -304,7 +305,7 @@ Events carry the titles and paths that history needs to display, so history stil
 
 ### 7.4 Registry
 
-All subscriptions are declared in one file in the `yokoku` binary (`subscriptions.rs`), so every reaction in the system can be read in one place.
+All subscriptions are declared in one file in the `yokoku` binary (`subscriptions.rs`), so every reaction in the system can be read in one place. A module reacts to an event by implementing `Handler<E>` for that event type. A `Subscription` names a subscriber and lists its handlers, e.g. `Subscription::new("library.files").on::<FilesFound>(tracker.clone()).on::<FileDeleted>(tracker)`; each event goes to the handlers of its type in the order they were added, and a subscription is delivered as one subscriber with one position. The name keys the stored position, so renaming a subscription delivers the whole log to it again.
 
 ---
 

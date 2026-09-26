@@ -3,13 +3,10 @@ mod common;
 use std::sync::Arc;
 
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
-use jiff::Timestamp;
 use yokoku_domain::{
     EpisodeSpan, ExternalId, FileTarget, MediaFileId, MonitorPreset, Movie, Releases, Series, SeriesId, SourceStatus,
 };
-use yokoku_events::{
-    DeleteReason, Event, EventId, FileDeleted, FilesFound, FilesImported, LinkedFile, Recorded, Subscriber,
-};
+use yokoku_events::{DeleteReason, FileDeleted, FilesFound, FilesImported, Handler, LinkedFile};
 use yokoku_library::FileTracker;
 
 struct Setup {
@@ -30,20 +27,16 @@ async fn setup() -> Setup {
     Setup { app, tracker, series, movie }
 }
 
-fn recorded(event: Event) -> Recorded {
-    Recorded { id: EventId(1), occurred_at: Timestamp::UNIX_EPOCH, event }
-}
-
 fn episodes(series: SeriesId, first: u16, last: u16) -> FileTarget {
     FileTarget::Episodes { series, span: EpisodeSpan::new(1, first, last).unwrap() }
 }
 
-fn found(file: MediaFileId, target: FileTarget) -> Event {
-    FilesFound { files: vec![LinkedFile { file, path: "/media/file.mkv".into(), target }] }.into()
+fn found(file: MediaFileId, target: FileTarget) -> FilesFound {
+    FilesFound { files: vec![LinkedFile { file, path: "/media/file.mkv".into(), target }] }
 }
 
-fn deleted(file: MediaFileId, target: FileTarget) -> Event {
-    FileDeleted { file, path: "/media/file.mkv".into(), target, reason: DeleteReason::External }.into()
+fn deleted(file: MediaFileId, target: FileTarget) -> FileDeleted {
+    FileDeleted { file, path: "/media/file.mkv".into(), target, reason: DeleteReason::External }
 }
 
 async fn episode_files(setup: &Setup) -> Vec<Option<MediaFileId>> {
@@ -56,8 +49,8 @@ async fn found_files_link_every_episode_they_hold_and_movies() {
     let setup = setup().await;
     let (episode_file, movie_file) = (MediaFileId::generate(), MediaFileId::generate());
 
-    setup.tracker.handle(&recorded(found(episode_file, episodes(setup.series.id, 1, 2)))).await.unwrap();
-    setup.tracker.handle(&recorded(found(movie_file, FileTarget::Movie(setup.movie.id)))).await.unwrap();
+    setup.tracker.handle(&found(episode_file, episodes(setup.series.id, 1, 2))).await.unwrap();
+    setup.tracker.handle(&found(movie_file, FileTarget::Movie(setup.movie.id))).await.unwrap();
 
     assert_eq!(episode_files(&setup).await, [Some(episode_file), Some(episode_file), None]);
     assert_eq!(setup.app.library.movie(setup.movie.id).await.unwrap().file, Some(movie_file));
@@ -71,10 +64,9 @@ async fn imported_files_are_linked_like_found_ones() {
         import: yokoku_domain::ImportId::generate(),
         download: None,
         files: vec![LinkedFile { file, path: "/media/file.mkv".into(), target: episodes(setup.series.id, 3, 3) }],
-    }
-    .into();
+    };
 
-    setup.tracker.handle(&recorded(event)).await.unwrap();
+    setup.tracker.handle(&event).await.unwrap();
 
     assert_eq!(episode_files(&setup).await, [None, None, Some(file)]);
 }
@@ -83,10 +75,10 @@ async fn imported_files_are_linked_like_found_ones() {
 async fn deleting_a_file_unlinks_only_that_file() {
     let setup = setup().await;
     let (old, new) = (MediaFileId::generate(), MediaFileId::generate());
-    setup.tracker.handle(&recorded(found(old, episodes(setup.series.id, 1, 2)))).await.unwrap();
-    setup.tracker.handle(&recorded(found(new, episodes(setup.series.id, 2, 2)))).await.unwrap();
+    setup.tracker.handle(&found(old, episodes(setup.series.id, 1, 2))).await.unwrap();
+    setup.tracker.handle(&found(new, episodes(setup.series.id, 2, 2))).await.unwrap();
 
-    setup.tracker.handle(&recorded(deleted(old, episodes(setup.series.id, 1, 2)))).await.unwrap();
+    setup.tracker.handle(&deleted(old, episodes(setup.series.id, 1, 2))).await.unwrap();
 
     assert_eq!(episode_files(&setup).await, [None, Some(new), None]);
 }
@@ -95,10 +87,11 @@ async fn deleting_a_file_unlinks_only_that_file() {
 async fn redelivered_events_change_nothing() {
     let setup = setup().await;
     let file = MediaFileId::generate();
-    let events = [found(file, FileTarget::Movie(setup.movie.id)), deleted(file, FileTarget::Movie(setup.movie.id))];
+    let movie = FileTarget::Movie(setup.movie.id);
 
-    for event in events.iter().chain(&events) {
-        setup.tracker.handle(&recorded(event.clone())).await.unwrap();
+    for _ in 0..2 {
+        setup.tracker.handle(&found(file, movie)).await.unwrap();
+        setup.tracker.handle(&deleted(file, movie)).await.unwrap();
     }
 
     assert_eq!(setup.app.library.movie(setup.movie.id).await.unwrap().file, None);
@@ -109,8 +102,8 @@ async fn files_of_removed_items_and_missing_episodes_are_skipped() {
     let setup = setup().await;
     let file = MediaFileId::generate();
 
-    setup.tracker.handle(&recorded(found(file, episodes(SeriesId::generate(), 1, 1)))).await.unwrap();
-    setup.tracker.handle(&recorded(found(file, episodes(setup.series.id, 3, 9)))).await.unwrap();
+    setup.tracker.handle(&found(file, episodes(SeriesId::generate(), 1, 1))).await.unwrap();
+    setup.tracker.handle(&found(file, episodes(setup.series.id, 3, 9))).await.unwrap();
 
     assert_eq!(episode_files(&setup).await, [None, None, Some(file)]);
 }
@@ -122,7 +115,7 @@ async fn file_links_survive_concurrent_refreshes() {
 
     let link = async {
         for (number, file) in (1..).zip(&files) {
-            setup.tracker.handle(&recorded(found(*file, episodes(setup.series.id, number, number)))).await.unwrap();
+            setup.tracker.handle(&found(*file, episodes(setup.series.id, number, number))).await.unwrap();
         }
     };
     let refresh = async {

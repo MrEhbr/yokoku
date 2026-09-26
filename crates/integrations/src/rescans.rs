@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use jiff::SignedDuration;
 use yokoku_domain::{Clock, StorageError};
-use yokoku_events::{FileDeleted, FileRenamed, FilesImported, HandlerError, Recorded, Subscriber};
+use yokoku_events::{FileDeleted, FileRenamed, FilesImported, Handler, HandlerError};
 
 use crate::ports::{MediaServer, MediaServerError, RescanStore};
 
@@ -55,20 +55,29 @@ impl Rescans {
     }
 }
 
-#[async_trait]
-impl Subscriber for Rescans {
-    fn name(&self) -> &'static str {
-        "integrations.rescans"
+impl Rescans {
+    async fn request(&self) -> Result<(), HandlerError> {
+        Ok(self.store.request(self.clock.now().timestamp()).await?)
     }
+}
 
-    async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        let event = &recorded.event;
-        if event.get::<FilesImported>().is_some()
-            || event.get::<FileRenamed>().is_some()
-            || event.get::<FileDeleted>().is_some()
-        {
-            self.store.request(self.clock.now().timestamp()).await?;
-        }
-        Ok(())
+#[async_trait]
+impl Handler<FilesImported> for Rescans {
+    async fn handle(&self, _: &FilesImported) -> Result<(), HandlerError> {
+        self.request().await
+    }
+}
+
+#[async_trait]
+impl Handler<FileRenamed> for Rescans {
+    async fn handle(&self, _: &FileRenamed) -> Result<(), HandlerError> {
+        self.request().await
+    }
+}
+
+#[async_trait]
+impl Handler<FileDeleted> for Rescans {
+    async fn handle(&self, _: &FileDeleted) -> Result<(), HandlerError> {
+        self.request().await
     }
 }

@@ -9,8 +9,7 @@ use jiff::Timestamp;
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId};
 use yokoku_events::{
-    DeleteReason, Event, FileDeleted, FilesFound, HandlerError, ImportNeedsReview, MovieAdded, Recorded, SeriesAdded,
-    Subscriber,
+    DeleteReason, Event, FileDeleted, FilesFound, Handler, HandlerError, ImportNeedsReview, MovieAdded, SeriesAdded,
 };
 
 use crate::{
@@ -137,21 +136,17 @@ impl Scanner {
 }
 
 #[async_trait]
-impl Subscriber for Scanner {
-    fn name(&self) -> &'static str {
-        "media.scan_added"
+impl Handler<SeriesAdded> for Scanner {
+    async fn handle(&self, event: &SeriesAdded) -> Result<(), HandlerError> {
+        self.scan_item(ItemId::Series(event.series)).await?;
+        Ok(())
     }
+}
 
-    async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        let event = &recorded.event;
-        let item = if let Some(SeriesAdded { series, .. }) = event.get() {
-            ItemId::Series(*series)
-        } else if let Some(MovieAdded { movie, .. }) = event.get() {
-            ItemId::Movie(*movie)
-        } else {
-            return Ok(());
-        };
-        self.scan_item(item).await?;
+#[async_trait]
+impl Handler<MovieAdded> for Scanner {
+    async fn handle(&self, event: &MovieAdded) -> Result<(), HandlerError> {
+        self.scan_item(ItemId::Movie(event.movie)).await?;
         Ok(())
     }
 }

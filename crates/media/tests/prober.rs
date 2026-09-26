@@ -7,9 +7,9 @@ use std::{
 };
 
 use async_trait::async_trait;
-use common::{App, now};
+use common::App;
 use yokoku_domain::{ItemId, SubtitleTags};
-use yokoku_events::{EventId, EventLog, MovieAdded, Recorded, Subscriber};
+use yokoku_events::{EventLog, FilesFound, Handler};
 use yokoku_media::{
     MediaError, MediaInfo, Prober, VideoStream,
     ports::{MediaProbe, ProbeError},
@@ -58,11 +58,13 @@ async fn setup() -> Setup {
 }
 
 impl Setup {
-    /// Scans, then hands every recorded event to the prober.
+    /// Scans, then hands every `FilesFound` it recorded to the prober.
     async fn scan_and_deliver(&self) {
         self.app.scanner.scan().await.unwrap();
         for recorded in self.app.db.event_log().read_after(None, 100).await.unwrap() {
-            self.prober.handle(&recorded).await.unwrap();
+            if let Some(found) = recorded.event.get::<FilesFound>() {
+                self.prober.handle(found).await.unwrap();
+            }
         }
     }
 
@@ -117,18 +119,4 @@ async fn without_a_probe_new_files_stay_unknown_and_probing_fails() {
 
     assert_eq!(setup.prober.details(setup.dune()).await.unwrap()[0].info, None);
     assert!(matches!(error, MediaError::Probe(ProbeError::Missing)), "{error}");
-}
-
-#[tokio::test]
-async fn other_events_are_ignored() {
-    let setup = setup().await;
-    let recorded = Recorded {
-        id: EventId(1),
-        occurred_at: now(),
-        event: MovieAdded { movie: setup.app.dune.id, title: "Dune".into() }.into(),
-    };
-
-    setup.prober.handle(&recorded).await.unwrap();
-
-    assert_eq!(setup.prober.probe_missing().await.unwrap().probed, 0);
 }

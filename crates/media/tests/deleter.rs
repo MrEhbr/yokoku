@@ -3,8 +3,7 @@ mod common;
 use std::{fs, os::unix::fs::PermissionsExt};
 
 use common::App;
-use jiff::Timestamp;
-use yokoku_events::{DeleteReason, Event, EventId, FileDeleted, Recorded, SeriesRemoved, Subscriber};
+use yokoku_events::{DeleteReason, Event, FileDeleted, Handler, SeriesRemoved};
 use yokoku_media::MediaError;
 
 const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
@@ -61,11 +60,7 @@ async fn deleting_what_has_no_file_fails() {
 async fn removing_a_series_with_its_files_deletes_them_all() {
     let app = App::new().await;
     linked(&app, &[E01, E02, "movies/Dune (2021)/Dune (2021).mkv"]).await;
-    let removed = |delete_files| Recorded {
-        id: EventId(1),
-        occurred_at: Timestamp::UNIX_EPOCH,
-        event: SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files }.into(),
-    };
+    let removed = |delete_files| SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files };
     let deleter = app.deleter();
 
     deleter.handle(&removed(false)).await.unwrap();

@@ -4,9 +4,7 @@ use async_trait::async_trait;
 use jiff::{SignedDuration, Timestamp, Zoned, tz::TimeZone};
 use yokoku_db::Database;
 use yokoku_domain::{Clock, MediaFileId, MovieId};
-use yokoku_events::{
-    DeleteReason, Event, EventId, FileDeleted, FileRenamed, FilesFound, MovieAdded, Recorded, Subscriber,
-};
+use yokoku_events::{DeleteReason, EventKind, FileDeleted, FileRenamed, Handler};
 use yokoku_integrations::{
     Rescans,
     ports::{MediaServer, MediaServerError, RescanStore},
@@ -72,8 +70,11 @@ async fn setup() -> Setup {
 }
 
 impl Setup {
-    async fn handle(&self, event: Event) {
-        self.rescans.handle(&Recorded { id: EventId(1), occurred_at: Timestamp::UNIX_EPOCH, event }).await.unwrap();
+    async fn handle<E: EventKind>(&self, event: E)
+    where
+        Rescans: Handler<E>,
+    {
+        self.rescans.handle(&event).await.unwrap();
     }
 
     fn refreshes(&self) -> u32 {
@@ -81,14 +82,13 @@ impl Setup {
     }
 }
 
-fn deleted() -> Event {
+fn deleted() -> FileDeleted {
     FileDeleted {
         file: MediaFileId::generate(),
         path: "/movies/Dune.mkv".into(),
         target: yokoku_domain::FileTarget::Movie(MovieId::generate()),
         reason: DeleteReason::User,
     }
-    .into()
 }
 
 #[tokio::test]
@@ -146,16 +146,11 @@ async fn a_failed_rescan_stays_pending() {
 }
 
 #[tokio::test]
-async fn only_changes_to_library_files_ask_for_a_rescan() {
+async fn a_renamed_file_asks_for_a_rescan() {
     let setup = setup().await;
 
-    setup.handle(FilesFound { files: vec![] }.into()).await;
-    setup.handle(MovieAdded { movie: MovieId::generate(), title: "Dune".into() }.into()).await;
-    assert_eq!(setup.db.requested_at().await.unwrap(), None);
+    setup.handle(FileRenamed { file: MediaFileId::generate(), from: "/a".into(), to: "/b".into(), target: None }).await;
 
-    setup
-        .handle(FileRenamed { file: MediaFileId::generate(), from: "/a".into(), to: "/b".into(), target: None }.into())
-        .await;
     assert!(setup.db.requested_at().await.unwrap().is_some());
 }
 

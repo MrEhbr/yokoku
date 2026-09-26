@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use async_trait::async_trait;
 use tracing::warn;
 use yokoku_domain::{ItemId, SubtitleTags};
-use yokoku_events::{FilesFound, FilesImported, HandlerError, LinkedFile, Recorded, Subscriber};
+use yokoku_events::{FilesFound, FilesImported, Handler, HandlerError, LinkedFile};
 
 use crate::{
     MediaError, MediaFile, MediaInfo, files,
@@ -84,18 +84,15 @@ impl Prober {
 }
 
 #[async_trait]
-impl Subscriber for Prober {
-    fn name(&self) -> &'static str {
-        "media.probe"
+impl Handler<FilesFound> for Prober {
+    async fn handle(&self, event: &FilesFound) -> Result<(), HandlerError> {
+        Ok(self.probe_new(&event.files).await?)
     }
+}
 
-    async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        let event = &recorded.event;
-        if let Some(FilesFound { files }) = event.get() {
-            self.probe_new(files).await?;
-        } else if let Some(FilesImported { files, .. }) = event.get() {
-            self.probe_new(files).await?;
-        }
-        Ok(())
+#[async_trait]
+impl Handler<FilesImported> for Prober {
+    async fn handle(&self, event: &FilesImported) -> Result<(), HandlerError> {
+        Ok(self.probe_new(&event.files).await?)
     }
 }

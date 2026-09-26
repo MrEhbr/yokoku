@@ -16,9 +16,7 @@ use yokoku_downloads::{
     Download, DownloadError, DownloadOptions, DownloadState, DownloadStatus, Downloads, PickUp,
     ports::{AddedTorrent, ClientError, DownloadClient, Torrent, TorrentSource},
 };
-use yokoku_events::{
-    DownloadCompleted, Event, EventId, EventLog, FilesImported, Recorded, Subscriber, TorrentAdded, TorrentRemoved,
-};
+use yokoku_events::{DownloadCompleted, Event, EventLog, FilesImported, Handler, TorrentAdded, TorrentRemoved};
 
 const TODAY: Date = date(2026, 9, 26);
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
@@ -269,9 +267,8 @@ async fn concurrent_syncs_complete_a_download_once() {
     assert_eq!(events.iter().filter_map(Event::get::<DownloadCompleted>).count(), 1);
 }
 
-fn imported(download: Option<DownloadId>) -> Recorded {
-    let event = FilesImported { import: ImportId::generate(), download, files: Vec::new() }.into();
-    Recorded { id: EventId(1), occurred_at: FixedClock.now().timestamp(), event }
+fn imported(download: Option<DownloadId>) -> FilesImported {
+    FilesImported { import: ImportId::generate(), download, files: Vec::new() }
 }
 
 #[tokio::test]

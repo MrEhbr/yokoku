@@ -1,9 +1,8 @@
 mod common;
 
 use common::{App, relative};
-use jiff::Timestamp;
 use yokoku_domain::{Confidence, DownloadId, ItemId};
-use yokoku_events::{DownloadCompleted, EventId, ImportFailed, ImportNeedsReview, Recorded, Subscriber};
+use yokoku_events::{DownloadCompleted, Handler, ImportFailed, ImportNeedsReview};
 use yokoku_media::{ImportStatus, ports::MediaRepo};
 
 #[tokio::test]
@@ -98,12 +97,7 @@ async fn a_redelivered_completion_plans_once() {
     let app = App::new().await;
     let file = app.write("downloads/Dune.2021.1080p.mkv", 10);
     let download = DownloadId::generate();
-    let completed = Recorded {
-        id: EventId(1),
-        occurred_at: Timestamp::UNIX_EPOCH,
-        event: DownloadCompleted { download, name: "Dune.2021.1080p.mkv".into(), content_path: file, item: None }
-            .into(),
-    };
+    let completed = DownloadCompleted { download, name: "Dune.2021.1080p.mkv".into(), content_path: file, item: None };
 
     app.planner.handle(&completed).await.unwrap();
     app.planner.handle(&completed).await.unwrap();

@@ -6,9 +6,7 @@ use std::{
 
 use async_trait::async_trait;
 use yokoku_domain::{Clock, DownloadId, ItemId, StorageError};
-use yokoku_events::{
-    DownloadCompleted, Event, FilesImported, HandlerError, Recorded, Subscriber, TorrentAdded, TorrentRemoved,
-};
+use yokoku_events::{DownloadCompleted, Event, FilesImported, Handler, HandlerError, TorrentAdded, TorrentRemoved};
 
 use crate::{
     Download, DownloadError, DownloadState, DownloadStatus,
@@ -219,14 +217,10 @@ impl Downloads {
 }
 
 #[async_trait]
-impl Subscriber for Downloads {
-    fn name(&self) -> &'static str {
-        "downloads.imports"
-    }
-
-    async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        if let Some(FilesImported { download: Some(download), .. }) = recorded.event.get() {
-            self.mark_imported(*download).await?;
+impl Handler<FilesImported> for Downloads {
+    async fn handle(&self, event: &FilesImported) -> Result<(), HandlerError> {
+        if let Some(download) = event.download {
+            self.mark_imported(download).await?;
         }
         Ok(())
     }

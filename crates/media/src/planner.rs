@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use async_trait::async_trait;
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series};
-use yokoku_events::{DownloadCompleted, HandlerError, ImportFailed, ImportNeedsReview, Recorded, Subscriber};
+use yokoku_events::{DownloadCompleted, Handler, HandlerError, ImportFailed, ImportNeedsReview};
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError,
@@ -144,15 +144,9 @@ impl Scope {
 }
 
 #[async_trait]
-impl Subscriber for ImportPlanner {
-    fn name(&self) -> &'static str {
-        "media.imports"
-    }
-
-    async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        if let Some(DownloadCompleted { download, content_path, item, .. }) = recorded.event.get() {
-            self.plan(*download, content_path, *item).await?;
-        }
+impl Handler<DownloadCompleted> for ImportPlanner {
+    async fn handle(&self, event: &DownloadCompleted) -> Result<(), HandlerError> {
+        self.plan(event.download, &event.content_path, event.item).await?;
         Ok(())
     }
 }
