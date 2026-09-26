@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tracing::warn;
 use yokoku_domain::{FileTarget, ItemId};
 use yokoku_events::{DeleteReason, Event, HandlerError, Recorded, Subscriber};
 
@@ -41,22 +42,27 @@ impl Deleter {
         self.remove(files, DeleteReason::User).await
     }
 
-    /// Each file is removed and committed on its own, so storage matches the disk if one fails.
+    /// Each video is removed and committed on its own, so storage matches the disk if one fails.
+    /// Subtitles and emptied folders go afterwards; a failure there is only logged.
     async fn remove(&self, files: Vec<MediaFile>, reason: DeleteReason) -> Result<Vec<MediaFile>, MediaError> {
         let roots = self.repo.root_folders().await?;
         for file in &files {
-            let root = roots.iter().map(|root| root.path.as_path()).find(|root| file.path.starts_with(root));
             let subtitles = files::sidecar_subtitles(self.fs.as_ref(), &file.path).await?;
-            let paths = std::iter::once(file.path.clone()).chain(subtitles.into_iter().map(|subtitle| subtitle.path));
-            for path in paths {
-                self.fs.remove_file(&path).await?;
-            }
-            if let (Some(root), Some(folder)) = (root, file.path.parent()) {
-                self.fs.remove_empty_folders(folder, root).await?;
-            }
-
+            self.fs.remove_file(&file.path).await?;
             let event = Event::FileDeleted { file: file.id, path: file.path.clone(), target: file.target, reason };
             self.repo.save(&Changes { removed_files: vec![file.id], ..Changes::default() }, &[event]).await?;
+
+            for subtitle in subtitles {
+                if let Err(error) = self.fs.remove_file(&subtitle.path).await {
+                    warn!(%error, "could not delete a subtitle of a deleted file");
+                }
+            }
+            let root = roots.iter().map(|root| root.path.as_path()).find(|root| file.path.starts_with(root));
+            if let (Some(root), Some(folder)) = (root, file.path.parent())
+                && let Err(error) = self.fs.remove_empty_folders(folder, root).await
+            {
+                warn!(%error, "could not remove the folder of a deleted file");
+            }
         }
         Ok(files)
     }

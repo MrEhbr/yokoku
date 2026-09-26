@@ -1,5 +1,7 @@
 mod common;
 
+use std::{fs, os::unix::fs::PermissionsExt};
+
 use common::App;
 use jiff::Timestamp;
 use yokoku_events::{DeleteReason, Event, EventId, Recorded, Subscriber};
@@ -80,4 +82,21 @@ async fn removing_a_series_with_its_files_deletes_them_all() {
     assert!(!app.path(E01).exists() && !app.path(E02).exists());
     assert_eq!(app.db_files().await.len(), 1);
     assert_eq!(deleted_events(&app.events().await), [DeleteReason::ItemRemoved; 2]);
+}
+
+#[tokio::test]
+async fn a_folder_that_cannot_be_removed_does_not_keep_the_deleted_file() {
+    let app = App::new().await;
+    linked(&app, &[E01, E01_SUBTITLE]).await;
+    let series = app.path("tv/Frieren (2023)");
+    fs::set_permissions(&series, fs::Permissions::from_mode(0o555)).unwrap();
+
+    let result = app.deleter().delete(app.episodes(1, 1, 1)).await;
+
+    fs::set_permissions(&series, fs::Permissions::from_mode(0o755)).unwrap();
+    result.unwrap();
+    assert!(!app.path(E01).exists() && !app.path(E01_SUBTITLE).exists());
+    assert!(app.path("tv/Frieren (2023)/Season 01").exists());
+    assert!(app.db_files().await.is_empty());
+    assert_eq!(deleted_events(&app.events().await), [DeleteReason::User]);
 }
