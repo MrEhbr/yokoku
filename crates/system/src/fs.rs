@@ -97,13 +97,15 @@ impl FileSystem for LocalFileSystem {
     }
 }
 
-async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, FsError> + Send + 'static) -> Result<T, FsError> {
+pub(crate) async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, FsError> + Send + 'static,
+) -> Result<T, FsError> {
     task::spawn_blocking(work)
         .await
         .map_err(|error| FsError { path: PathBuf::new(), source: io::Error::other(error) })?
 }
 
-fn at(path: &Path) -> impl FnOnce(io::Error) -> FsError + '_ {
+pub(crate) fn at(path: &Path) -> impl FnOnce(io::Error) -> FsError + '_ {
     move |source| FsError { path: path.to_owned(), source }
 }
 

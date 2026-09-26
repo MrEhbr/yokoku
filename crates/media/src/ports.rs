@@ -49,6 +49,23 @@ pub trait FileSystem: Send + Sync {
     async fn remove_folder(&self, dir: &Path) -> Result<(), FsError>;
 }
 
+/// Exclusive right to change library files, shared by every process using the library.
+#[async_trait]
+pub trait LibraryLock: Send + Sync {
+    /// Waits until no one else holds the lock; it is released when the guard drops.
+    async fn acquire(&self) -> Result<LockGuard, FsError>;
+}
+
+pub struct LockGuard {
+    _held: Box<dyn Send + Sync>,
+}
+
+impl LockGuard {
+    pub fn new(held: impl Send + Sync + 'static) -> Self {
+        Self { _held: Box::new(held) }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FileStat {
     pub size: u64,
