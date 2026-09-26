@@ -107,7 +107,6 @@ impl Importer {
                         path: file.path.clone(),
                         target: file.target,
                         reason: DeleteReason::Replaced,
-                        recycled: false,
                     })
                     .collect();
                 events.push(Event::FilesImported {

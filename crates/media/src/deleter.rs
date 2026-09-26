@@ -46,13 +46,7 @@ impl Deleter {
                 self.fs.remove_empty_folders(folder, root).await?;
             }
 
-            let event = Event::FileDeleted {
-                file: file.id,
-                path: file.path.clone(),
-                target: file.target,
-                reason,
-                recycled: false,
-            };
+            let event = Event::FileDeleted { file: file.id, path: file.path.clone(), target: file.target, reason };
             self.repo.save(&Changes { removed_files: vec![file.id], ..Changes::default() }, &[event]).await?;
         }
         Ok(files)

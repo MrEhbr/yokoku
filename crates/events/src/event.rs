@@ -42,9 +42,6 @@ pub enum Event {
         path: PathBuf,
         target: FileTarget,
         reason: DeleteReason,
-        /// Moved to the recycle folder rather than deleted.
-        #[serde(default)]
-        recycled: bool,
     },
     FileRenamed {
         file: MediaFileId,
@@ -184,7 +181,6 @@ mod tests {
             path: "/movies/Dune.mkv".into(),
             target: FileTarget::Movie(MovieId(Uuid::from_u128(3))),
             reason: DeleteReason::User,
-            recycled: true,
         },
         json!({
             "type": "FileDeleted",
@@ -192,7 +188,6 @@ mod tests {
             "path": "/movies/Dune.mkv",
             "target": { "Movie": "00000000-0000-0000-0000-000000000003" },
             "reason": "User",
-            "recycled": true,
         }),
     )]
     #[case::file_renamed(
@@ -256,6 +251,23 @@ mod tests {
     }
 
     #[test]
+    fn events_stored_with_dropped_fields_still_read() {
+        let deleted = json!({
+            "type": "FileDeleted",
+            "file": "00000000-0000-0000-0000-000000000005",
+            "path": "/movies/Dune.mkv",
+            "target": { "Movie": "00000000-0000-0000-0000-000000000003" },
+            "reason": "User",
+            "recycled": true,
+        });
+
+        assert!(matches!(
+            serde_json::from_value(deleted).unwrap(),
+            Event::FileDeleted { reason: DeleteReason::User, .. }
+        ));
+    }
+
+    #[test]
     fn events_stored_before_new_fields_read_with_defaults() {
         let deleted = json!({
             "type": "FileDeleted",
@@ -269,7 +281,7 @@ mod tests {
         let imported =
             json!({ "type": "FilesImported", "import": "00000000-0000-0000-0000-000000000009", "files": [] });
 
-        assert!(matches!(serde_json::from_value(deleted).unwrap(), Event::FileDeleted { recycled: false, .. }));
+        assert!(matches!(serde_json::from_value(deleted).unwrap(), Event::FileDeleted { .. }));
         assert!(matches!(serde_json::from_value(renamed).unwrap(), Event::FileRenamed { target: None, .. }));
         assert!(matches!(serde_json::from_value(imported).unwrap(), Event::FilesImported { download: None, .. }));
     }
@@ -332,8 +344,11 @@ mod tests {
                     files,
                 },
             ),
-            (any_linked_file(), any_reason(), any::<bool>()).prop_map(|(linked, reason, recycled)| {
-                Event::FileDeleted { file: linked.file, path: linked.path, target: linked.target, reason, recycled }
+            (any_linked_file(), any_reason()).prop_map(|(linked, reason)| Event::FileDeleted {
+                file: linked.file,
+                path: linked.path,
+                target: linked.target,
+                reason,
             }),
             (any_id(), any::<String>(), any::<String>()).prop_map(|(import, source, reason)| Event::ImportFailed {
                 import: ImportId(import),

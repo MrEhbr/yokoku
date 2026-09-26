@@ -16,11 +16,11 @@ async fn linked(app: &App, paths: &[&str]) {
     app.scanner.scan().await.unwrap();
 }
 
-fn deleted_events(events: &[Event]) -> Vec<(DeleteReason, bool)> {
+fn deleted_events(events: &[Event]) -> Vec<DeleteReason> {
     events
         .iter()
         .filter_map(|event| match event {
-            Event::FileDeleted { reason, recycled, .. } => Some((*reason, *recycled)),
+            Event::FileDeleted { reason, .. } => Some(*reason),
             _ => None,
         })
         .collect()
@@ -38,7 +38,7 @@ async fn deleting_removes_the_file_its_subtitles_and_empty_folders() {
     assert!(!app.path("tv/Frieren (2023)/Season 01").exists());
     assert!(app.path(E02).exists());
     assert_eq!(app.db_files().await.len(), 1);
-    assert_eq!(deleted_events(&app.events().await), [(DeleteReason::User, false)]);
+    assert_eq!(deleted_events(&app.events().await), [DeleteReason::User]);
 }
 
 #[tokio::test]
@@ -79,5 +79,5 @@ async fn removing_a_series_with_its_files_deletes_them_all() {
 
     assert!(!app.path(E01).exists() && !app.path(E02).exists());
     assert_eq!(app.db_files().await.len(), 1);
-    assert_eq!(deleted_events(&app.events().await), [(DeleteReason::ItemRemoved, false); 2]);
+    assert_eq!(deleted_events(&app.events().await), [DeleteReason::ItemRemoved; 2]);
 }

@@ -208,7 +208,6 @@ fn scan_folder(
             path: file.path.clone(),
             target: file.target,
             reason: DeleteReason::External,
-            recycled: false,
         })
         .collect();
     if !changes.added_files.is_empty() {

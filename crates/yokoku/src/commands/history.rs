@@ -65,15 +65,14 @@ fn describe(event: &Event) -> Vec<String> {
         Event::MovieRemoved { title, delete_files, .. } => vec![removed("movie", title, *delete_files)],
         Event::FilesFound { files: found } => files("Found", found),
         Event::FilesImported { files: imported, .. } => files("Imported", imported),
-        Event::FileDeleted { path, reason, recycled, .. } => {
-            let verb = if *recycled { "Recycled" } else { "Deleted" };
+        Event::FileDeleted { path, reason, .. } => {
             let reason = match reason {
                 DeleteReason::External => "gone from disk",
                 DeleteReason::Replaced => "replaced by an import",
                 DeleteReason::User => "by request",
                 DeleteReason::ItemRemoved => "its item was removed",
             };
-            vec![format!("{verb} {} ({reason})", path.display())]
+            vec![format!("Deleted {} ({reason})", path.display())]
         },
         Event::FileRenamed { from, to, .. } => {
             vec![format!("Renamed {}", from.display()), format!("-> {}", to.display())]

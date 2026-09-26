@@ -27,7 +27,7 @@ fn linked(target: FileTarget) -> LinkedFile {
     vec![ItemId::Series(series()), ItemId::Movie(movie())],
 )]
 #[case::deleted(
-    Event::FileDeleted { file: MediaFileId::generate(), path: "/a".into(), target: episodes(1), reason: DeleteReason::User, recycled: true },
+    Event::FileDeleted { file: MediaFileId::generate(), path: "/a".into(), target: episodes(1), reason: DeleteReason::User },
     vec![ItemId::Series(series())],
 )]
 #[case::renamed_before_targets(Event::FileRenamed { file: MediaFileId::generate(), from: "/a".into(), to: "/b".into(), target: None }, vec![])]

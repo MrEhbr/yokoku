@@ -85,7 +85,6 @@ fn deleted() -> Event {
         path: "/movies/Dune.mkv".into(),
         target: yokoku_domain::FileTarget::Movie(MovieId::generate()),
         reason: DeleteReason::User,
-        recycled: false,
     }
 }
 
