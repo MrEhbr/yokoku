@@ -16,8 +16,10 @@ pub enum MediaError {
     RootNotFound(PathBuf),
     #[error("import {0} does not exist")]
     ImportNotFound(ImportId),
-    #[error("import {0} is already done")]
-    ImportDone(ImportId),
+    #[error("import {0} is not waiting for review")]
+    NotInReview(ImportId),
+    #[error("only files from a download can replace library files")]
+    ReplaceInPlace,
     #[error("import has no row {0}")]
     RowNotFound(usize),
     #[error("series {0} is not in the library")]

@@ -6,7 +6,7 @@ use rstest::{fixture, rstest};
 use uuid::Uuid;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Confidence, EpisodeSpan, ExternalId, FileTarget, ImportId, MediaFileId, MonitorPreset, Movie, MovieId,
+    Confidence, DownloadId, EpisodeSpan, ExternalId, FileTarget, ImportId, MediaFileId, MonitorPreset, Movie, MovieId,
     MovieMetadata, Releases, Series, SeriesId, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{DeleteReason, Event, EventLog};
@@ -34,11 +34,19 @@ fn file(path: &str, target: FileTarget) -> MediaFile {
 }
 
 fn import(source: &str, created_at: Timestamp, rows: Vec<ImportRow>) -> Import {
-    Import { id: ImportId::generate(), source: source.into(), status: ImportStatus::NeedsReview, rows, created_at }
+    Import {
+        id: ImportId::generate(),
+        source: source.into(),
+        download: None,
+        status: ImportStatus::NeedsReview,
+        error: None,
+        rows,
+        created_at,
+    }
 }
 
 fn row(path: &str, target: Option<FileTarget>) -> ImportRow {
-    ImportRow { path: path.into(), size: 7, target, confidence: Confidence::Guess, skipped: false }
+    ImportRow { path: path.into(), size: 7, target, confidence: Confidence::Guess, skipped: false, replace: false }
 }
 
 #[rstest]
@@ -145,17 +153,27 @@ fn any_target() -> impl Strategy<Value = FileTarget> {
     ]
 }
 
+fn any_status() -> impl Strategy<Value = ImportStatus> {
+    prop_oneof![
+        Just(ImportStatus::NeedsReview),
+        Just(ImportStatus::Approved),
+        Just(ImportStatus::Importing),
+        Just(ImportStatus::Done),
+        Just(ImportStatus::Failed),
+    ]
+}
+
 fn any_row() -> impl Strategy<Value = ImportRow> {
     let confidence = prop_oneof![Just(Confidence::Unknown), Just(Confidence::Guess), Just(Confidence::Certain)];
-    ("\\PC{1,40}", 0..=i64::MAX as u64, proptest::option::of(any_target()), confidence, any::<bool>()).prop_map(
-        |(path, size, target, confidence, skipped)| ImportRow {
+    ("\\PC{1,40}", 0..=i64::MAX as u64, proptest::option::of(any_target()), confidence, any::<bool>(), any::<bool>())
+        .prop_map(|(path, size, target, confidence, skipped, replace)| ImportRow {
             path: PathBuf::from(path),
             size,
             target,
             confidence,
             skipped,
-        },
-    )
+            replace,
+        })
 }
 
 proptest! {
@@ -166,8 +184,16 @@ proptest! {
         rows in prop::collection::vec(any_row(), 0..6),
         target in any_target(),
         size in 0..=i64::MAX as u64,
+        download in proptest::option::of(any::<u128>()),
+        status in any_status(),
+        error in proptest::option::of("\\PC{0,40}"),
     ) {
-        let pending = import("/tv/b", now(), rows);
+        let pending = Import {
+            download: download.map(|id| DownloadId(Uuid::from_u128(id))),
+            status,
+            error,
+            ..import("/tv/b", now(), rows)
+        };
         let linked = MediaFile { size, ..file("/tv/a.mkv", target) };
 
         let (stored_import, stored_files) = block_on(async {
@@ -233,4 +259,44 @@ async fn renamed_files_keep_their_id_and_target(#[future] db: Database) {
     MediaRepo::save(&db, &changes, &[]).await.unwrap();
 
     assert_eq!(db.files().await.unwrap(), [MediaFile { path: "/tv/Frieren/a.mkv".into(), ..moved }]);
+}
+
+#[rstest]
+#[tokio::test]
+async fn approved_imports_are_claimed_oldest_first_and_once(#[future] db: Database) {
+    let db = db.await;
+    let approved = |source: &str, created_at: Timestamp| Import {
+        status: ImportStatus::Approved,
+        ..import(source, created_at, vec![row(&format!("{source}/a.mkv"), None)])
+    };
+    let (older, newer) = (approved("/downloads/a", now()), approved("/downloads/b", now() + 1.hour()));
+    let waiting = import("/downloads/c", now() - 1.hour(), vec![]);
+    let changes = Changes { imports: vec![newer.clone(), older.clone(), waiting], ..Changes::default() };
+    MediaRepo::save(&db, &changes, &[]).await.unwrap();
+
+    let first = db.claim_next_approved().await.unwrap().unwrap();
+    let second = db.claim_next_approved().await.unwrap().unwrap();
+    let none = db.claim_next_approved().await.unwrap();
+
+    assert_eq!((first.id, first.status, first.rows), (older.id, ImportStatus::Importing, older.rows));
+    assert_eq!(second.id, newer.id);
+    assert_eq!(none, None);
+    assert_eq!(db.reset_importing().await.unwrap(), 2);
+    assert_eq!(db.imports(ImportStatus::Approved).await.unwrap().len(), 2);
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_download_has_at_most_one_import(#[future] db: Database) {
+    let db = db.await;
+    let download = DownloadId::generate();
+    let first = Import { download: Some(download), ..import("/downloads/a", now(), vec![]) };
+    let second = Import { download: Some(download), ..import("/downloads/a", now(), vec![]) };
+    MediaRepo::save(&db, &Changes { imports: vec![first.clone()], ..Changes::default() }, &[]).await.unwrap();
+
+    let duplicate = MediaRepo::save(&db, &Changes { imports: vec![second], ..Changes::default() }, &[]).await;
+
+    assert!(duplicate.is_err());
+    assert_eq!(db.import_for_download(download).await.unwrap(), Some(first));
+    assert_eq!(db.import_for_download(DownloadId::generate()).await.unwrap(), None);
 }

@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use sqlx::{Sqlite, Transaction};
-use yokoku_domain::{Confidence, EpisodeSpan, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId};
+use yokoku_domain::{
+    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId,
+};
 use yokoku_events::Event;
 use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind,
@@ -31,7 +33,9 @@ struct MediaFileRow {
 struct ImportRecord {
     id: String,
     source: String,
+    download_id: Option<String>,
     status: String,
+    error: Option<String>,
     created_at: String,
 }
 
@@ -43,6 +47,7 @@ struct ImportRowRecord {
     target: TargetColumns,
     confidence: String,
     skipped: bool,
+    replace_file: bool,
 }
 
 #[derive(sqlx::FromRow)]
@@ -98,7 +103,7 @@ impl MediaRepo for Database {
 
     async fn import(&self, id: ImportId) -> Result<Option<Import>, StorageError> {
         let record: Option<ImportRecord> =
-            sqlx::query_as("SELECT id, source, status, created_at FROM imports WHERE id = ?")
+            sqlx::query_as("SELECT id, source, download_id, status, error, created_at FROM imports WHERE id = ?")
                 .bind(id.to_string())
                 .fetch_optional(self.pool())
                 .await
@@ -112,7 +117,8 @@ impl MediaRepo for Database {
 
     async fn imports(&self, status: ImportStatus) -> Result<Vec<Import>, StorageError> {
         let records: Vec<ImportRecord> = sqlx::query_as(
-            "SELECT id, source, status, created_at FROM imports WHERE status = ? ORDER BY created_at, id",
+            "SELECT id, source, download_id, status, error, created_at FROM imports WHERE status = ?
+             ORDER BY created_at, id",
         )
         .bind(import_status_to_str(status))
         .fetch_all(self.pool())
@@ -124,6 +130,45 @@ impl MediaRepo for Database {
             imports.push(self.load_import(record).await?);
         }
         Ok(imports)
+    }
+
+    async fn import_for_download(&self, download: DownloadId) -> Result<Option<Import>, StorageError> {
+        let record: Option<ImportRecord> = sqlx::query_as(
+            "SELECT id, source, download_id, status, error, created_at FROM imports WHERE download_id = ?",
+        )
+        .bind(download.to_string())
+        .fetch_optional(self.pool())
+        .await
+        .map_err(DbError::from)?;
+
+        match record {
+            Some(record) => Ok(Some(self.load_import(record).await?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn claim_next_approved(&self) -> Result<Option<Import>, StorageError> {
+        let record: Option<ImportRecord> = sqlx::query_as(
+            "UPDATE imports SET status = 'importing'
+             WHERE id = (SELECT id FROM imports WHERE status = 'approved' ORDER BY created_at, id LIMIT 1)
+             RETURNING id, source, download_id, status, error, created_at",
+        )
+        .fetch_optional(self.pool())
+        .await
+        .map_err(DbError::from)?;
+
+        match record {
+            Some(record) => Ok(Some(self.load_import(record).await?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn reset_importing(&self) -> Result<u64, StorageError> {
+        let result = sqlx::query("UPDATE imports SET status = 'approved' WHERE status = 'importing'")
+            .execute(self.pool())
+            .await
+            .map_err(DbError::from)?;
+        Ok(result.rows_affected())
     }
 
     async fn save(&self, changes: &Changes, events: &[Event]) -> Result<(), StorageError> {
@@ -183,7 +228,8 @@ impl Catalog for Database {
 impl Database {
     async fn load_import(&self, record: ImportRecord) -> Result<Import, DbError> {
         let rows: Vec<ImportRowRecord> = sqlx::query_as(
-            "SELECT path, size, series_id, season, first_episode, last_episode, movie_id, confidence, skipped
+            "SELECT path, size, series_id, season, first_episode, last_episode, movie_id, confidence, skipped,
+                    replace_file
              FROM import_rows WHERE import_id = ? ORDER BY position",
         )
         .bind(&record.id)
@@ -193,7 +239,9 @@ impl Database {
         Ok(Import {
             id: ImportId(codec::uuid(&record.id)?),
             source: PathBuf::from(record.source),
+            download: record.download_id.as_deref().map(codec::uuid).transpose()?.map(DownloadId),
             status: import_status_from_str(&record.status)?,
+            error: record.error,
             rows: rows.into_iter().map(import_row).collect::<Result<_, _>>()?,
             created_at: codec::timestamp(&record.created_at)?,
         })
@@ -224,12 +272,14 @@ async fn insert_file(tx: &mut Transaction<'static, Sqlite>, file: &MediaFile) ->
 async fn save_import(tx: &mut Transaction<'static, Sqlite>, import: &Import) -> Result<(), DbError> {
     let id = import.id.to_string();
     sqlx::query(
-        "INSERT INTO imports (id, source, status, created_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT (id) DO UPDATE SET source = excluded.source, status = excluded.status",
+        "INSERT INTO imports (id, source, download_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET source = excluded.source, status = excluded.status, error = excluded.error",
     )
     .bind(&id)
     .bind(path_str(&import.source)?)
+    .bind(import.download.map(|download| download.to_string()))
     .bind(import_status_to_str(import.status))
+    .bind(&import.error)
     .bind(import.created_at.to_string())
     .execute(&mut **tx)
     .await?;
@@ -239,8 +289,8 @@ async fn save_import(tx: &mut Transaction<'static, Sqlite>, import: &Import) -> 
         let target = TargetColumns::from(row.target);
         sqlx::query(
             "INSERT INTO import_rows (import_id, position, path, size, series_id, season, first_episode,
-                                      last_episode, movie_id, confidence, skipped)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                      last_episode, movie_id, confidence, skipped, replace_file)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&id)
         .bind(position)
@@ -253,6 +303,7 @@ async fn save_import(tx: &mut Transaction<'static, Sqlite>, import: &Import) -> 
         .bind(target.movie_id)
         .bind(confidence_to_str(row.confidence))
         .bind(row.skipped)
+        .bind(row.replace)
         .execute(&mut **tx)
         .await?;
     }
@@ -285,6 +336,7 @@ fn import_row(row: ImportRowRecord) -> Result<ImportRow, DbError> {
         target: row.target.into_target()?,
         confidence: confidence_from_str(&row.confidence)?,
         skipped: row.skipped,
+        replace: row.replace_file,
     })
 }
 
@@ -350,14 +402,20 @@ fn root_kind_to_str(kind: RootKind) -> &'static str {
 fn import_status_to_str(status: ImportStatus) -> &'static str {
     match status {
         ImportStatus::NeedsReview => "needs_review",
+        ImportStatus::Approved => "approved",
+        ImportStatus::Importing => "importing",
         ImportStatus::Done => "done",
+        ImportStatus::Failed => "failed",
     }
 }
 
 fn import_status_from_str(value: &str) -> Result<ImportStatus, DbError> {
     match value {
         "needs_review" => Ok(ImportStatus::NeedsReview),
+        "approved" => Ok(ImportStatus::Approved),
+        "importing" => Ok(ImportStatus::Importing),
         "done" => Ok(ImportStatus::Done),
+        "failed" => Ok(ImportStatus::Failed),
         other => Err(DbError::InvalidValue(format!("import status {other:?}"))),
     }
 }

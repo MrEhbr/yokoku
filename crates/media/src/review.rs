@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use jiff::Timestamp;
 use yokoku_detect::Conflict;
-use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
+use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, MediaFileId};
 use yokoku_events::Event;
 
 use crate::{
@@ -22,8 +22,17 @@ pub struct Review {
 pub struct ImportReview {
     pub id: ImportId,
     pub source: PathBuf,
+    pub download: Option<DownloadId>,
     pub created_at: Timestamp,
     pub rows: Vec<ReviewRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Approval {
+    /// Found by a scan: linked where they are.
+    Linked(Vec<MediaFile>),
+    /// From a download: waiting to be placed.
+    Queued,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,7 +57,13 @@ impl Review {
         let conflicts = self.conflicts(&import).await?;
         let rows =
             import.rows.into_iter().zip(conflicts).map(|(row, conflicts)| ReviewRow { row, conflicts }).collect();
-        Ok(ImportReview { id: import.id, source: import.source, created_at: import.created_at, rows })
+        Ok(ImportReview {
+            id: import.id,
+            source: import.source,
+            download: import.download,
+            created_at: import.created_at,
+            rows,
+        })
     }
 
     /// The episodes or movie must be in the library.
@@ -57,6 +72,7 @@ impl Review {
         self.update_row(id, row, |row| {
             row.target = Some(target);
             row.skipped = false;
+            row.replace = false;
         })
         .await
     }
@@ -65,8 +81,21 @@ impl Review {
         self.update_row(id, row, |row| row.skipped = true).await
     }
 
-    /// Links every row that is not skipped; all of them need a match free of conflicts.
-    pub async fn approve(&self, id: ImportId) -> Result<Vec<MediaFile>, MediaError> {
+    /// Marks a row to replace the library file that holds its target; only for downloads.
+    pub async fn replace_row(&self, id: ImportId, row: usize) -> Result<(), MediaError> {
+        if self.pending_import(id).await?.download.is_none() {
+            return Err(MediaError::ReplaceInPlace);
+        }
+        self.update_row(id, row, |row| {
+            row.replace = true;
+            row.skipped = false;
+        })
+        .await
+    }
+
+    /// Every row that is not skipped needs a match free of conflicts. Files found by a scan are
+    /// linked where they are; files from a download wait for `Importer` to place them.
+    pub async fn approve(&self, id: ImportId) -> Result<Approval, MediaError> {
         let mut import = self.pending_import(id).await?;
         let conflicts = self.conflicts(&import).await?;
         let numbered = || import.rows.iter().zip(&conflicts).zip(1..).filter(|((row, _), _)| !row.skipped);
@@ -79,6 +108,12 @@ impl Review {
             numbered().filter(|((_, conflicts), _)| !conflicts.is_empty()).map(|(_, n)| n).collect();
         if !conflicting.is_empty() {
             return Err(MediaError::ConflictingRows(conflicting));
+        }
+
+        if import.download.is_some() {
+            import.status = ImportStatus::Approved;
+            self.repo.save(&Changes { imports: vec![import], ..Changes::default() }, &[]).await?;
+            return Ok(Approval::Queued);
         }
 
         let now = self.clock.now().timestamp();
@@ -100,14 +135,14 @@ impl Review {
         let event = Event::FilesImported { import: id, files: files.iter().map(MediaFile::linked).collect() };
         let changes = Changes { added_files: files.clone(), imports: vec![import], ..Changes::default() };
         self.repo.save(&changes, &[event]).await?;
-        Ok(files)
+        Ok(Approval::Linked(files))
     }
 
     async fn pending_import(&self, id: ImportId) -> Result<Import, MediaError> {
         let import = self.repo.import(id).await?.ok_or(MediaError::ImportNotFound(id))?;
         match import.status {
             ImportStatus::NeedsReview => Ok(import),
-            ImportStatus::Done => Err(MediaError::ImportDone(id)),
+            _ => Err(MediaError::NotInReview(id)),
         }
     }
 
@@ -140,7 +175,8 @@ impl Review {
         Ok(())
     }
 
-    /// Per row: another row holds the same episode or movie, or a library file already does.
+    /// Per row: another row holds the same episode or movie, or a library file already does and the
+    /// row does not replace it.
     async fn conflicts(&self, import: &Import) -> Result<Vec<Vec<Conflict>>, MediaError> {
         let linked: Vec<FileTarget> = self.repo.files().await?.into_iter().map(|file| file.target).collect();
         let active = |row: &ImportRow| row.target.filter(|_| !row.skipped);
@@ -156,7 +192,7 @@ impl Review {
                     .iter()
                     .enumerate()
                     .any(|(other, row)| other != index && active(row).is_some_and(|other| other.overlaps(&target)));
-                let taken = linked.iter().any(|file| file.overlaps(&target));
+                let taken = !row.replace && linked.iter().any(|file| file.overlaps(&target));
                 [(shared, Conflict::SharedTarget), (taken, Conflict::AlreadyHasFile)]
                     .into_iter()
                     .filter_map(|(present, conflict)| present.then_some(conflict))

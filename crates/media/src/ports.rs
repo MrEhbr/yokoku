@@ -6,7 +6,7 @@ use std::{
 
 use async_trait::async_trait;
 use yokoku_detect::DownloadFile;
-use yokoku_domain::{ImportId, MediaFileId, Movie, MovieId, Series, SeriesId};
+use yokoku_domain::{DownloadId, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId};
 use yokoku_events::Event;
 
 use crate::{Import, ImportStatus, MediaFile, RootFolder};
@@ -85,6 +85,11 @@ pub trait MediaRepo: Send + Sync {
     async fn import(&self, id: ImportId) -> Result<Option<Import>, StorageError>;
     /// Oldest first.
     async fn imports(&self, status: ImportStatus) -> Result<Vec<Import>, StorageError>;
+    async fn import_for_download(&self, download: DownloadId) -> Result<Option<Import>, StorageError>;
+    /// Moves the oldest `Approved` import to `Importing` and returns it; one caller wins each import.
+    async fn claim_next_approved(&self) -> Result<Option<Import>, StorageError>;
+    /// Moves every `Importing` import back to `Approved`; returns how many.
+    async fn reset_importing(&self) -> Result<u64, StorageError>;
 
     /// Stores `changes` and appends `events` in one transaction.
     async fn save(&self, changes: &Changes, events: &[Event]) -> Result<(), StorageError>;

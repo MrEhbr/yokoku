@@ -68,9 +68,13 @@ impl Scanner {
         Ok(report)
     }
 
-    /// Files waiting in review, and files the user chose to skip.
+    /// Files of imports not yet done, and files the user chose to skip.
     async fn claimed_paths(&self) -> Result<HashSet<PathBuf>, MediaError> {
-        let pending = self.repo.imports(ImportStatus::NeedsReview).await?;
+        let mut pending = Vec::new();
+        for status in [ImportStatus::NeedsReview, ImportStatus::Approved, ImportStatus::Importing, ImportStatus::Failed]
+        {
+            pending.extend(self.repo.imports(status).await?);
+        }
         let done = self.repo.imports(ImportStatus::Done).await?;
         let pending_rows = pending.into_iter().flat_map(|import| import.rows);
         let skipped_rows = done.into_iter().flat_map(|import| import.rows).filter(|row| row.skipped);
@@ -112,7 +116,14 @@ fn scan_root(
                         added_at: now,
                     });
                 },
-                target => rows.push(ImportRow { path, size, target, confidence: row.confidence, skipped: false }),
+                target => rows.push(ImportRow {
+                    path,
+                    size,
+                    target,
+                    confidence: row.confidence,
+                    skipped: false,
+                    replace: false,
+                }),
             }
         }
         if !rows.is_empty() {
@@ -120,7 +131,9 @@ fn scan_root(
             changes.imports.push(Import {
                 id,
                 source: root.join(entry),
+                download: None,
                 status: ImportStatus::NeedsReview,
+                error: None,
                 rows,
                 created_at: now,
             });

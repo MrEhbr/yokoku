@@ -3,9 +3,12 @@ mod common;
 use common::App;
 use rstest::rstest;
 use yokoku_detect::Conflict;
-use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, MovieId, SeriesId};
+use yokoku_domain::{Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MovieId, SeriesId};
 use yokoku_events::{Event, LinkedFile};
-use yokoku_media::{ImportStatus, MediaError};
+use yokoku_media::{
+    Approval, Import, ImportRow, ImportStatus, MediaError,
+    ports::{Changes, MediaRepo},
+};
 
 /// Scans three unrecognised files in one folder and returns their import.
 async fn pending(app: &App) -> ImportId {
@@ -24,7 +27,7 @@ async fn approving_links_matched_rows_and_leaves_skipped_ones() {
     app.review.match_row(id, 2, app.movie()).await.unwrap();
     app.review.skip_row(id, 3).await.unwrap();
 
-    let files = app.review.approve(id).await.unwrap();
+    let Approval::Linked(files) = app.review.approve(id).await.unwrap() else { panic!("scan imports are linked") };
 
     assert_eq!(
         files.iter().map(|file| (file.path.clone(), file.target)).collect::<Vec<_>>(),
@@ -134,8 +137,71 @@ async fn done_and_unknown_imports_cannot_be_reviewed() {
     let done = app.review.approve(id).await.unwrap_err();
     let unknown = app.review.get(ImportId::generate()).await.unwrap_err();
 
-    assert!(matches!(done, MediaError::ImportDone(_)), "{done}");
+    assert!(matches!(done, MediaError::NotInReview(_)), "{done}");
     assert!(matches!(unknown, MediaError::ImportNotFound(_)), "{unknown}");
     let stored = yokoku_media::ports::MediaRepo::import(&app.db, id).await.unwrap().unwrap();
     assert_eq!(stored.status, ImportStatus::Done);
+}
+
+/// An import of a download with one file, matched to S01E01.
+async fn downloaded(app: &App) -> ImportId {
+    let import = Import {
+        id: ImportId::generate(),
+        source: app.path("downloads/Frieren.S01E01"),
+        download: Some(DownloadId::generate()),
+        status: ImportStatus::NeedsReview,
+        error: None,
+        rows: vec![ImportRow {
+            path: app.path("downloads/Frieren.S01E01/Frieren.S01E01.mkv"),
+            size: 10,
+            target: Some(app.episodes(1, 1, 1)),
+            confidence: Confidence::Certain,
+            skipped: false,
+            replace: false,
+        }],
+        created_at: common::now(),
+    };
+    MediaRepo::save(&app.db, &Changes { imports: vec![import.clone()], ..Changes::default() }, &[]).await.unwrap();
+    import.id
+}
+
+#[tokio::test]
+async fn approving_a_download_queues_it_for_placing() {
+    let app = App::new().await;
+    let id = downloaded(&app).await;
+
+    let approval = app.review.approve(id).await.unwrap();
+
+    assert_eq!(approval, Approval::Queued);
+    let stored = MediaRepo::import(&app.db, id).await.unwrap().unwrap();
+    assert_eq!(stored.status, ImportStatus::Approved);
+    assert!(app.db_files().await.is_empty());
+    assert!(app.events().await.is_empty());
+}
+
+#[tokio::test]
+async fn a_download_row_can_replace_the_library_file() {
+    let app = App::new().await;
+    app.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv", 10);
+    app.scanner.scan().await.unwrap();
+    let id = downloaded(&app).await;
+    let conflicts = |review: yokoku_media::ImportReview| review.rows[0].conflicts.clone();
+    assert_eq!(conflicts(app.review.get(id).await.unwrap()), [Conflict::AlreadyHasFile]);
+
+    app.review.replace_row(id, 1).await.unwrap();
+
+    let review = app.review.get(id).await.unwrap();
+    assert!(review.rows[0].row.replace);
+    assert_eq!(conflicts(review), []);
+    assert_eq!(app.review.approve(id).await.unwrap(), Approval::Queued);
+}
+
+#[tokio::test]
+async fn files_found_by_a_scan_cannot_replace_library_files() {
+    let app = App::new().await;
+    let id = pending(&app).await;
+
+    let error = app.review.replace_row(id, 1).await.unwrap_err();
+
+    assert!(matches!(error, MediaError::ReplaceInPlace), "{error}");
 }

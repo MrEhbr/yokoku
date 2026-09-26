@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use yokoku_detect::Conflict;
 use yokoku_domain::{Confidence, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemId};
 use yokoku_library::Library;
-use yokoku_media::ReviewRow;
+use yokoku_media::{Approval, ReviewRow};
 
 use crate::{
     app::App,
@@ -77,10 +77,12 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             app.review.skip_row(import, row).await?;
             writeln!(out, "Skipped row {row}")?;
         },
-        Command::Approve { import } => {
-            let files = app.review.approve(import).await?;
-            app.deliver_events().await?;
-            writeln!(out, "Linked {} files", files.len())?;
+        Command::Approve { import } => match app.review.approve(import).await? {
+            Approval::Linked(files) => {
+                app.deliver_events().await?;
+                writeln!(out, "Linked {} files", files.len())?;
+            },
+            Approval::Queued => writeln!(out, "Queued for import")?,
         },
     }
 
