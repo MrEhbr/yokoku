@@ -135,3 +135,16 @@ async fn failed_events_are_listed_updated_and_resolved_without_moving_the_positi
     assert!(log.failed("files").await.unwrap().is_empty());
     assert_eq!(log.last_delivered("files").await.unwrap(), Some(EventId(2)));
 }
+
+#[rstest]
+#[tokio::test]
+async fn append_adds_events_in_order_after_those_already_logged(#[future(awt)] db: Database) {
+    commit(&db, &[series_added(1)]).await;
+    let appended = [series_added(2), MovieAdded { movie: MovieId::generate(), title: "Dune".into() }.into()];
+
+    db.event_log().append(&appended).await.unwrap();
+
+    let recorded = db.event_log().read_after(Some(EventId(1)), 10).await.unwrap();
+    assert_eq!(ids(&recorded), [2, 3]);
+    assert_eq!(recorded.into_iter().map(|recorded| recorded.event).collect::<Vec<_>>(), appended);
+}

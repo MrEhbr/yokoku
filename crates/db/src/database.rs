@@ -47,7 +47,7 @@ impl Database {
     }
 
     pub fn event_log(&self) -> SqliteEventLog {
-        SqliteEventLog::new(self.pool.clone())
+        SqliteEventLog::new(self.pool.clone(), self.new_events.clone())
     }
 
     pub async fn begin(&self) -> Result<Transaction<'static, Sqlite>, DbError> {

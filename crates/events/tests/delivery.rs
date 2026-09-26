@@ -270,3 +270,15 @@ async fn the_delivery_loop_retries_failed_events_on_its_interval(#[future(awt)] 
     .await
     .expect("the failure is resolved in time");
 }
+
+#[rstest]
+#[tokio::test]
+async fn wakes_up_when_events_are_appended(#[future(awt)] mut harness: Harness) {
+    harness.start(NO_POLLING);
+    sleep(Duration::from_millis(50)).await;
+
+    let event = SeriesAdded { series: SeriesId::generate(), title: "Series 1".into() }.into();
+    harness.db.event_log().append(&[event]).await.unwrap();
+
+    assert_eq!(harness.next_handled().await, EventId(1));
+}

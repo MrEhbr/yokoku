@@ -4,6 +4,7 @@
 mod delivery;
 mod history;
 mod log;
+mod publisher;
 mod signal;
 mod subscriber;
 mod subscription;
@@ -11,6 +12,7 @@ mod subscription;
 pub use delivery::{Delivery, DeliveryConfig};
 pub use history::History;
 pub use log::{EventId, EventLog, Failure, Recorded};
+pub use publisher::Publisher;
 pub use signal::{Listener, NewEvents};
 pub use subscriber::{HandlerError, Subscriber};
 pub use subscription::{Handler, Subscription};

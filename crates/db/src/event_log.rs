@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use jiff::Timestamp;
 use sqlx::{SqliteConnection, SqlitePool, types::Json};
 use yokoku_domain::StorageError;
-use yokoku_events::{Event, EventId, EventLog, Failure, Recorded};
+use yokoku_events::{Event, EventId, EventLog, Failure, NewEvents, Recorded};
 
 use crate::{DbError, codec::Text};
 
@@ -20,11 +20,12 @@ pub(crate) async fn append(conn: &mut SqliteConnection, events: &[Event]) -> Res
 #[derive(Debug, Clone)]
 pub struct SqliteEventLog {
     pool: SqlitePool,
+    new_events: NewEvents,
 }
 
 impl SqliteEventLog {
-    pub(crate) fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+    pub(crate) fn new(pool: SqlitePool, new_events: NewEvents) -> Self {
+        Self { pool, new_events }
     }
 
     pub async fn failed_deliveries(&self, subscriber: &str) -> Result<Vec<Failure>, DbError> {
@@ -44,6 +45,16 @@ impl SqliteEventLog {
 
 #[async_trait]
 impl EventLog for SqliteEventLog {
+    async fn append(&self, events: &[Event]) -> Result<(), StorageError> {
+        let mut tx = self.pool.begin().await.map_err(StorageError::new)?;
+        append(&mut tx, events).await?;
+        tx.commit().await.map_err(StorageError::new)?;
+        if !events.is_empty() {
+            self.new_events.notify();
+        }
+        Ok(())
+    }
+
     async fn last_delivered(&self, subscriber: &str) -> Result<Option<EventId>, StorageError> {
         let position: Option<i64> =
             sqlx::query_scalar("SELECT last_event_id FROM subscriber_positions WHERE subscriber = ?")

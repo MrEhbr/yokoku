@@ -31,6 +31,9 @@ pub struct Failure {
 
 #[async_trait]
 pub trait EventLog: Send + Sync {
+    /// Appends `events` in one transaction, in order, then wakes event deliveries.
+    async fn append(&self, events: &[Event]) -> Result<(), StorageError>;
+
     /// `None` until the subscriber's first delivery.
     async fn last_delivered(&self, subscriber: &str) -> Result<Option<EventId>, StorageError>;
 
