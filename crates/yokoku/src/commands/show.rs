@@ -40,6 +40,20 @@ fn print_series(series: &Series, today: Date) {
         status_label(LibraryStatus::Series(series.status(today))),
         monitored_label(series.monitored),
     );
+    match series.next_episode(today) {
+        Some((reference, episode)) => {
+            println!("Next      {reference}  {}  {}", date_label(episode.air_date), episode.title)
+        },
+        None => println!("Next      -"),
+    }
+    match series.last_aired(today) {
+        Some((reference, episode)) => println!(
+            "Last      {reference}  {}  {}",
+            date_label(episode.air_date),
+            file_status_label(episode.file_status(today))
+        ),
+        None => println!("Last      -"),
+    }
 
     for season in &series.seasons {
         println!("Season {}  {}", season.number, monitored_label(season.monitored));

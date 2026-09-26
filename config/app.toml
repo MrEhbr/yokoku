@@ -11,6 +11,9 @@ path = "yokoku.db"
 [list]
 sort = "title"
 
+[upcoming]
+days = 14
+
 [greet]
 greeting = "Hello"
 count = 1

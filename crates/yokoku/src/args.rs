@@ -33,6 +33,12 @@ pub enum Command {
     Numbering(commands::numbering::Args),
     /// Remove a series or movie from the library
     Remove(commands::remove::Args),
+    /// List monitored releases coming up
+    Upcoming(commands::upcoming::Args),
+    /// Show monitored releases for a week or month
+    Calendar(commands::calendar::Args),
+    /// List monitored episodes and movies that are out but have no file
+    Missing(commands::missing::Args),
 }
 
 impl Args {
@@ -62,5 +68,8 @@ pub async fn route(args: Args) -> Result<()> {
         Monitor(cmd_args) => commands::monitor::run(&config, cmd_args).await,
         Numbering(cmd_args) => commands::numbering::run(&config, cmd_args).await,
         Remove(cmd_args) => commands::remove::run(&config, cmd_args).await,
+        Upcoming(cmd_args) => commands::upcoming::run(&config, cmd_args).await,
+        Calendar(cmd_args) => commands::calendar::run(&config, cmd_args).await,
+        Missing(cmd_args) => commands::missing::run(&config, cmd_args).await,
     }
 }

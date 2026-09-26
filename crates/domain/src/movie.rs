@@ -9,6 +9,26 @@ pub struct Releases {
     pub physical: Option<Date>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ReleaseKind {
+    Cinema,
+    Digital,
+    Physical,
+}
+
+impl Releases {
+    /// Known release dates, in kind order.
+    pub fn dates(&self) -> impl Iterator<Item = (ReleaseKind, Date)> {
+        [
+            (ReleaseKind::Cinema, self.cinema),
+            (ReleaseKind::Digital, self.digital),
+            (ReleaseKind::Physical, self.physical),
+        ]
+        .into_iter()
+        .filter_map(|(kind, date)| Some((kind, date?)))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MovieStatus {
     Announced,

@@ -3,7 +3,7 @@ use jiff::{
     civil::{Date, date},
 };
 use rstest::rstest;
-use yokoku_domain::{ExternalId, FileStatus, Movie, MovieMetadata, MovieStatus, Releases};
+use yokoku_domain::{ExternalId, FileStatus, Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
 
 const TODAY: Date = date(2026, 9, 26);
 
@@ -74,4 +74,13 @@ fn refresh_updates_metadata_and_keeps_identity() {
     assert_eq!(movie.title, "Dune: Part One");
     assert_eq!(movie.status(TODAY), MovieStatus::InCinemas);
     assert_eq!(movie.refreshed_at, later);
+}
+
+#[test]
+fn release_dates_are_listed_in_kind_order() {
+    let movie = movie(Some(-30), None, Some(10));
+
+    let dates: Vec<_> = movie.releases.dates().collect();
+
+    assert_eq!(dates, [(ReleaseKind::Cinema, TODAY - 30.days()), (ReleaseKind::Physical, TODAY + 10.days())]);
 }

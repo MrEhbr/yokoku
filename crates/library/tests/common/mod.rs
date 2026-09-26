@@ -16,7 +16,7 @@ use yokoku_domain::{
 };
 use yokoku_events::{Event, EventLog};
 use yokoku_library::{
-    Library, MetadataSync,
+    Library, MetadataSync, Schedule,
     ports::{Clock, MediaKind, MetadataError, MetadataProvider, SearchResult},
 };
 
@@ -149,6 +149,7 @@ pub struct App {
     pub clock: Arc<FixedClock>,
     pub metadata: Arc<StaticMetadata>,
     pub library: Library,
+    pub schedule: Schedule,
     pub sync: MetadataSync,
 }
 
@@ -159,8 +160,9 @@ impl App {
         let metadata = Arc::new(StaticMetadata::default());
         let repo = Arc::new(db.clone());
         let library = Library::new(repo.clone(), repo.clone(), clock.clone());
+        let schedule = Schedule::new(repo.clone(), repo.clone(), clock.clone());
         let sync = MetadataSync::new(repo.clone(), repo, metadata.clone(), clock.clone());
-        Self { db, clock, metadata, library, sync }
+        Self { db, clock, metadata, library, schedule, sync }
     }
 
     pub async fn events(&self) -> Vec<Event> {

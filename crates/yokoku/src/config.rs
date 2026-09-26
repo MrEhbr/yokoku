@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     app::{ClockConfig, DatabaseConfig},
-    commands::{greet::GreetConfig, list::ListConfig},
+    commands::{greet::GreetConfig, list::ListConfig, upcoming::UpcomingConfig},
     logging::LogConfig,
 };
 
@@ -24,6 +24,8 @@ pub struct Config {
     pub greet: GreetConfig,
     #[serde(default)]
     pub list: ListConfig,
+    #[serde(default)]
+    pub upcoming: UpcomingConfig,
 }
 
 /// Load configuration with precedence: env vars (APP__*) > config file > defaults.

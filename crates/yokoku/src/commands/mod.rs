@@ -1,13 +1,16 @@
+pub mod calendar;
 pub mod greet;
 pub mod list;
+pub mod missing;
 pub mod monitor;
 pub mod numbering;
 pub mod remove;
 pub mod show;
+pub mod upcoming;
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;
-use yokoku_domain::{ExternalId, FileStatus, MovieStatus, SeriesStatus};
+use yokoku_domain::{ExternalId, FileStatus, MovieStatus, ReleaseKind, SeriesStatus};
 use yokoku_library::{ItemId, Library, LibraryStatus, ports::MediaKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -68,6 +71,14 @@ pub fn file_status_label(status: FileStatus) -> &'static str {
         FileStatus::Downloaded => "downloaded",
         FileStatus::Missing => "missing",
         FileStatus::Upcoming => "upcoming",
+    }
+}
+
+pub fn release_label(kind: ReleaseKind) -> &'static str {
+    match kind {
+        ReleaseKind::Cinema => "cinema release",
+        ReleaseKind::Digital => "digital release",
+        ReleaseKind::Physical => "physical release",
     }
 }
 

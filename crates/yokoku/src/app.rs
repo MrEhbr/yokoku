@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use jiff::tz::TimeZone;
 use serde::{Deserialize, Serialize};
 use yokoku_db::Database;
-use yokoku_library::Library;
+use yokoku_library::{Library, Schedule};
 use yokoku_system::SystemClock;
 
 use crate::config::Config;
@@ -38,6 +38,7 @@ impl ClockConfig {
 /// Use cases wired to their adapters.
 pub struct App {
     pub library: Library,
+    pub schedule: Schedule,
 }
 
 impl App {
@@ -47,6 +48,9 @@ impl App {
         let db = Arc::new(db);
         let clock = Arc::new(SystemClock::new(config.clock.time_zone()?));
 
-        Ok(Self { library: Library::new(db.clone(), db, clock) })
+        Ok(Self {
+            library: Library::new(db.clone(), db.clone(), clock.clone()),
+            schedule: Schedule::new(db.clone(), db, clock),
+        })
     }
 }

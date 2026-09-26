@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use jiff::{Timestamp, civil::Date};
 
@@ -44,6 +44,12 @@ pub enum MonitorPreset {
 pub struct EpisodeRef {
     pub season: u16,
     pub episode: u16,
+}
+
+impl fmt::Display for EpisodeRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "S{:02}E{:02}", self.season, self.episode)
+    }
 }
 
 /// A series as its metadata source describes it.
@@ -209,6 +215,33 @@ impl Series {
 
     pub fn episodes(&self) -> impl Iterator<Item = &Episode> {
         self.seasons.iter().flat_map(|season| &season.episodes)
+    }
+
+    pub fn numbered_episodes(&self) -> impl Iterator<Item = (EpisodeRef, &Episode)> {
+        self.seasons.iter().flat_map(|season| {
+            season
+                .episodes
+                .iter()
+                .map(|episode| (EpisodeRef { season: season.number, episode: episode.number }, episode))
+        })
+    }
+
+    /// The earliest episode airing today or later.
+    pub fn next_episode(&self, today: Date) -> Option<(EpisodeRef, &Episode)> {
+        self.numbered_episodes()
+            .filter_map(|(reference, episode)| Some((episode.air_date?, reference, episode)))
+            .filter(|&(date, ..)| date >= today)
+            .min_by_key(|&(date, reference, _)| (date, reference))
+            .map(|(_, reference, episode)| (reference, episode))
+    }
+
+    /// The latest episode that aired before today.
+    pub fn last_aired(&self, today: Date) -> Option<(EpisodeRef, &Episode)> {
+        self.numbered_episodes()
+            .filter_map(|(reference, episode)| Some((episode.air_date?, reference, episode)))
+            .filter(|&(date, ..)| date < today)
+            .max_by_key(|&(date, reference, _)| (date, reference))
+            .map(|(_, reference, episode)| (reference, episode))
     }
 
     /// Episodes monitored at series, season and episode level.

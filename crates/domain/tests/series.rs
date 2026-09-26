@@ -281,3 +281,66 @@ proptest! {
         prop_assert_eq!(series.absolute_to_ref(count + 1), None);
     }
 }
+
+#[rstest]
+#[case::airing_today_is_next(&[Some(YESTERDAY), Some(TODAY), Some(TOMORROW)], Some((1, 2)), Some((1, 1)))]
+#[case::nothing_scheduled(&[Some(YESTERDAY), None], None, Some((1, 1)))]
+#[case::nothing_aired(&[None, Some(TOMORROW)], Some((1, 2)), None)]
+#[case::no_dates(&[None, None], None, None)]
+fn next_and_last_aired_episodes(
+    #[case] dates: &[Option<Date>],
+    #[case] next: Option<(u16, u16)>,
+    #[case] last: Option<(u16, u16)>,
+) {
+    let series = Series::add(metadata(SourceStatus::Returning, &[(1, dates)]), MonitorPreset::All, TODAY, now());
+    let reference = |pair: Option<(u16, u16)>| pair.map(|(season, episode)| EpisodeRef { season, episode });
+
+    assert_eq!(series.next_episode(TODAY).map(|(reference, _)| reference), reference(next));
+    assert_eq!(series.last_aired(TODAY).map(|(reference, _)| reference), reference(last));
+}
+
+#[test]
+fn same_day_episodes_are_ordered_by_number() {
+    let series = Series::add(
+        metadata(
+            SourceStatus::Returning,
+            &[(1, &[Some(TOMORROW), Some(TOMORROW)]), (2, &[Some(YESTERDAY), Some(YESTERDAY)])],
+        ),
+        MonitorPreset::All,
+        TODAY,
+        now(),
+    );
+
+    assert_eq!(series.next_episode(TODAY).map(|(reference, _)| reference), Some(EpisodeRef { season: 1, episode: 1 }));
+    assert_eq!(series.last_aired(TODAY).map(|(reference, _)| reference), Some(EpisodeRef { season: 2, episode: 2 }));
+}
+
+#[rstest]
+#[case(1, 2, "S01E02")]
+#[case(0, 13, "S00E13")]
+#[case(12, 104, "S12E104")]
+fn episode_refs_display_as_sxxexx(#[case] season: u16, #[case] episode: u16, #[case] expected: &str) {
+    assert_eq!(EpisodeRef { season, episode }.to_string(), expected);
+}
+
+proptest! {
+    #[test]
+    fn next_episode_is_the_earliest_on_or_after_today(metadata in any_metadata(), today in any_date()) {
+        let series = Series::add(metadata, MonitorPreset::All, today, now());
+        let upcoming: Vec<Date> = series.episodes().filter_map(|e| e.air_date).filter(|&d| d >= today).collect();
+
+        let next = series.next_episode(today).and_then(|(_, episode)| episode.air_date);
+
+        prop_assert_eq!(next, upcoming.iter().copied().min());
+    }
+
+    #[test]
+    fn last_aired_is_the_latest_before_today(metadata in any_metadata(), today in any_date()) {
+        let series = Series::add(metadata, MonitorPreset::All, today, now());
+        let aired: Vec<Date> = series.episodes().filter_map(|e| e.air_date).filter(|&d| d < today).collect();
+
+        let last = series.last_aired(today).and_then(|(_, episode)| episode.air_date);
+
+        prop_assert_eq!(last, aired.iter().copied().max());
+    }
+}

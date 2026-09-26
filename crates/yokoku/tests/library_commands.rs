@@ -200,3 +200,61 @@ async fn remove_deletes_the_item_and_records_it() {
         [Event::SeriesRemoved { title, delete_files: true, .. }] if title == "Frieren"
     ));
 }
+
+#[tokio::test]
+async fn show_prints_next_and_last_aired_episodes() {
+    let library = seeded_library().await;
+
+    let stdout = library.stdout(&["show", "series", "tmdb:1"]);
+
+    assert!(stdout.contains(&format!("Next      S01E02  {}  Episode 2", today() + 7.days())));
+    assert!(stdout.contains(&format!("Last      S01E01  {}  missing", today() - 7.days())));
+}
+
+#[tokio::test]
+async fn upcoming_lists_releases_within_the_window() {
+    let library = seeded_library().await;
+
+    let stdout = library.stdout(&["upcoming"]);
+
+    assert!(stdout.contains(&(today() + 7.days()).to_string()));
+    assert!(
+        stdout.lines().any(|line| line.contains("Frieren") && line.contains("S01E02") && line.contains("upcoming"))
+    );
+    library.command().args(["upcoming", "--days", "3"]).assert().success().stdout("Nothing scheduled.\n");
+}
+
+#[tokio::test]
+async fn calendar_shows_the_week_or_month_of_a_date() {
+    let library = seeded_library().await;
+    let aired = today() - 7.days();
+
+    let week = library.stdout(&["calendar", "--date", &aired.to_string()]);
+    let month = library.stdout(&["calendar", "--month", "--date", &(today() - 30.days()).to_string()]);
+
+    assert!(week.lines().any(|line| line.contains("S01E01") && line.contains("missing")));
+    assert!(!week.contains("S01E02"));
+    assert!(month.lines().any(|line| line.contains("Dune") && line.contains("digital release")));
+}
+
+#[tokio::test]
+async fn missing_lists_aired_episodes_and_released_movies_without_files() {
+    let library = seeded_library().await;
+
+    let stdout = library.stdout(&["missing"]);
+
+    assert_eq!(
+        stdout,
+        format!(
+            "Frieren (2023)  tmdb:1\n  S01E01  {}  Episode 1\nMovies\n  Dune (2021)  tmdb:10\n",
+            today() - 7.days()
+        )
+    );
+}
+
+#[tokio::test]
+async fn missing_reports_when_nothing_is_missing() {
+    let library = empty_library().await;
+
+    library.command().arg("missing").assert().success().stdout("Nothing missing.\n");
+}
