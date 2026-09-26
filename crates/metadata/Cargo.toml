@@ -7,3 +7,18 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+yokoku-domain.workspace = true
+yokoku-library.workspace = true
+
+async-trait.workspace = true
+jiff.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }
+wiremock.workspace = true

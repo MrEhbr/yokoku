@@ -1,6 +1,9 @@
 # typos configuration
 # See: https://github.com/crate-ci/typos
 
+[files]
+extend-exclude = ["**/tests/fixtures/**"]
+
 [default.extend-words]
 # Add project-specific words/abbreviations here
 # example = "example"

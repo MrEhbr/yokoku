@@ -1,0 +1,588 @@
+{
+  "adult": false,
+  "backdrop_path": "/8rvLEmdI4gLrMO1rLqbNdnNcPFE.jpg",
+  "created_by": [
+    {
+      "id": 34546,
+      "credit_id": "52585c91760ee34661116ec4",
+      "name": "Mark Gatiss",
+      "original_name": "Mark Gatiss",
+      "gender": 2,
+      "profile_path": "/rkZKKDRbnGqqg2fjd5iPYDS4syy.jpg"
+    },
+    {
+      "id": 146459,
+      "credit_id": "5619db68c3a368244a00400a",
+      "name": "Steven Moffat",
+      "original_name": "Steven Moffat",
+      "gender": 2,
+      "profile_path": "/fjW3laJlDnHxQbuj9LLc6EYEDy.jpg"
+    }
+  ],
+  "episode_run_time": [
+    90
+  ],
+  "first_air_date": "2010-07-25",
+  "genres": [
+    {
+      "id": 80,
+      "name": "Crime"
+    },
+    {
+      "id": 18,
+      "name": "Drama"
+    },
+    {
+      "id": 9648,
+      "name": "Mystery"
+    }
+  ],
+  "homepage": "http://www.bbc.co.uk/programmes/b018ttws",
+  "id": 19885,
+  "in_production": false,
+  "languages": [
+    "en"
+  ],
+  "last_air_date": "2017-01-15",
+  "last_episode_to_air": {
+    "id": 1251091,
+    "name": "The Final Problem",
+    "overview": "Holmes and Watson travel to Europe to escape Moriarty's vengeance.",
+    "vote_average": 7.506,
+    "vote_count": 158,
+    "air_date": "2017-01-15",
+    "episode_number": 3,
+    "episode_type": "finale",
+    "production_code": "403",
+    "runtime": 89,
+    "season_number": 4,
+    "show_id": 19885,
+    "still_path": "/mZHXncZhEd6X7U7n24KLOdfN6Z2.jpg"
+  },
+  "name": "Sherlock",
+  "next_episode_to_air": null,
+  "networks": [
+    {
+      "id": 4,
+      "logo_path": "/uJjcCg3O4DMEjM0xtno9OWFciRP.png",
+      "name": "BBC One",
+      "origin_country": "GB"
+    }
+  ],
+  "number_of_episodes": 12,
+  "number_of_seasons": 4,
+  "origin_country": [
+    "GB"
+  ],
+  "original_language": "en",
+  "original_name": "Sherlock",
+  "overview": "A modern update finds the famous sleuth and his doctor partner solving crime in 21st century London.",
+  "popularity": 43.4491,
+  "poster_path": "/7WTsnHkbA0FaG6R9twfFde0I9hl.jpg",
+  "production_companies": [
+    {
+      "id": 9166,
+      "logo_path": null,
+      "name": "Hartswood Films",
+      "origin_country": "GB"
+    },
+    {
+      "id": 4762,
+      "logo_path": "/igWZmjr5Zhbnxf7DinSOLoiggLU.png",
+      "name": "BBC Cymru Wales",
+      "origin_country": "GB"
+    },
+    {
+      "id": 24790,
+      "logo_path": "/4nuVPYbtH7zRngO6TaC6TAdtgOG.png",
+      "name": "Masterpiece",
+      "origin_country": "US"
+    }
+  ],
+  "production_countries": [
+    {
+      "iso_3166_1": "GB",
+      "name": "United Kingdom"
+    },
+    {
+      "iso_3166_1": "US",
+      "name": "United States of America"
+    }
+  ],
+  "seasons": [
+    {
+      "air_date": "2010-08-30",
+      "episode_count": 9,
+      "id": 30120,
+      "name": "Specials",
+      "overview": "",
+      "poster_path": "/zTlz1py47FtTrlaaV82cq5WQhXT.jpg",
+      "season_number": 0,
+      "vote_average": 0.0
+    },
+    {
+      "air_date": "2010-07-25",
+      "episode_count": 3,
+      "id": 30121,
+      "name": "Series 1",
+      "overview": "When a chance encounter brings soldier John Watson into Sherlock's life, it's apparent the two men couldn't be more different, but Sherlock's intellect coupled with John's pragmatism soon forges an unbreakable alliance as they investigate a series of baffling cases together.",
+      "poster_path": "/wQczbo7IKtHjmO49pVWTc2u5pSt.jpg",
+      "season_number": 1,
+      "vote_average": 8.0
+    },
+    {
+      "air_date": "2012-01-01",
+      "episode_count": 3,
+      "id": 30122,
+      "name": "Series 2",
+      "overview": "A Royal scandal, a dazzling game of cat and mouse. The seductive Irene Adler is cold, calculating, brilliant. Has Sherlock finally met his match?",
+      "poster_path": "/hSf2frcLiEWAPUZ6wbOMTTNZ7b0.jpg",
+      "season_number": 2,
+      "vote_average": 8.3
+    },
+    {
+      "air_date": "2014-01-01",
+      "episode_count": 3,
+      "id": 30123,
+      "name": "Series 3",
+      "overview": "Sherlock is back, but will things ever be the same again?",
+      "poster_path": "/z9ljxwZUQA2349ZBZAssBXpd0i6.jpg",
+      "season_number": 3,
+      "vote_average": 8.0
+    },
+    {
+      "air_date": "2017-01-01",
+      "episode_count": 3,
+      "id": 62206,
+      "name": "Series 4",
+      "overview": "The fourth series begins with the nation’s favourite detective, the mercurial Sherlock Holmes, back once more on British soil, as Doctor Watson and his wife, Mary, prepare for their biggest ever challenge - becoming parents for the first time.",
+      "poster_path": "/yVaWUlLmln0xqUDxVFc8JBuzHzK.jpg",
+      "season_number": 4,
+      "vote_average": 7.6
+    }
+  ],
+  "softcore": false,
+  "spoken_languages": [
+    {
+      "english_name": "English",
+      "iso_639_1": "en",
+      "name": "English"
+    }
+  ],
+  "status": "Ended",
+  "tagline": "A new sleuth for the 21st century.",
+  "type": "Scripted",
+  "vote_average": 8.506,
+  "vote_count": 6725,
+  "season/0": {
+    "_id": "52585c8d760ee346611169a6",
+    "air_date": "2010-08-30",
+    "episodes": [
+      {
+        "air_date": "2010-08-30",
+        "episode_number": 1,
+        "episode_type": "standard",
+        "id": 578713,
+        "name": "Unaired Pilot",
+        "overview": "Sherlock was announced as a single 60-minute drama production at the Edinburgh International Television Festival in August 2008, to be broadcast in Autumn 2009, with the intention of producing a full series should the pilot be successful. The BBC decided not to transmit the pilot, as is common industry practice, but commissioned three 90-minute episodes.  This is the 60 minute pilot.",
+        "production_code": "",
+        "runtime": 56,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/d0seGU0EGpawgmXZQCWXTAOOahZ.jpg",
+        "vote_average": 8.067,
+        "vote_count": 75
+      },
+      {
+        "air_date": "2010-08-30",
+        "episode_number": 2,
+        "episode_type": "standard",
+        "id": 578712,
+        "name": "Unlocking Sherlock",
+        "overview": "A 32-minute documentary about the production of the series.",
+        "production_code": "",
+        "runtime": 32,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/evg55R78fJVRoDw7IKjVoP7jFfY.jpg",
+        "vote_average": 0.0,
+        "vote_count": 0
+      },
+      {
+        "air_date": "2012-02-07",
+        "episode_number": 3,
+        "episode_type": "standard",
+        "id": 578714,
+        "name": "Sherlock Uncovered",
+        "overview": "The stars of Sherlock, Benedict Cumberbatch and Martin Freeman, talk in depth about the success of the first season and look ahead to season 2. This bonus feature also includes the show's creators, Steven Moffat and Mark Gatiss, discussing the dilemmas and pitfalls they faced when bringing these classic Holmes stories into the 21st century.",
+        "production_code": "",
+        "runtime": 20,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/n35gmu63Uk5MGcbHexIiqlrTbm8.jpg",
+        "vote_average": 0.0,
+        "vote_count": 0
+      },
+      {
+        "air_date": "2013-12-24",
+        "episode_number": 4,
+        "episode_type": "standard",
+        "id": 970351,
+        "name": "Many Happy Returns",
+        "overview": "Anderson believes that Sherlock is still alive after the Reichenbach fall. He confides in Lestrade and tells him his theory for his existence. Anderson believes a string of events ranging from Tibet to India to Germany involve Sherlock's assistance, and this is due to Sherlock not being able to stop investigating. Lestrade tells him Sherlock is definitely dead and goes to visit John, who has moved out of Baker Street following his death. He gives him some of Sherlock's old items, including a video message from John's birthday. In the message Sherlock states that he will see John very soon and tells him to have a good birthday without him as he is 'busy'.",
+        "production_code": "",
+        "runtime": 8,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/bKx0cwQ6dKzApy8LqBCyVzBKI1K.jpg",
+        "vote_average": 7.654,
+        "vote_count": 104
+      },
+      {
+        "air_date": "2013-12-25",
+        "episode_number": 5,
+        "episode_type": "standard",
+        "id": 1132241,
+        "name": "Unlocking Sherlock",
+        "overview": "Find out how writers Steven Moffat and Mark Gatiss created the television hit Sherlock, taking Sir Arthur Conan Doyle's original adventures of the Victorian super sleuth and transforming them into a worldwide sensation. And we go behind the scenes on set with the stars of Sherlock. Featuring interviews with lead actors Benedict Cumberbatch and Martin Freeman, and Sir Arthur Conan Doyle.",
+        "production_code": "",
+        "runtime": 56,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/celN3yKuKPBRzAu5Bzwti90Bg07.jpg",
+        "vote_average": 0.0,
+        "vote_count": 0
+      },
+      {
+        "air_date": "2014-01-19",
+        "episode_number": 6,
+        "episode_type": "standard",
+        "id": 1132242,
+        "name": "Sherlock Uncovered: The Return",
+        "overview": "Sherlock's back! The world's greatest detective comes back from the dead. But how did he do it? We go behind-the-scenes of the first episode cast read-through, with Benedict Cumberbatch and Martin Freeman where the answer to television's greatest mystery was first revealed. And we uncover the unlikely friendship between Sherlock Holmes and Dr John Watson.",
+        "production_code": "",
+        "runtime": 26,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/50Oph34D3kKtvVJEOzXNWOWHejN.jpg",
+        "vote_average": 0.0,
+        "vote_count": 0
+      },
+      {
+        "air_date": "2014-01-26",
+        "episode_number": 7,
+        "episode_type": "standard",
+        "id": 1132243,
+        "name": "Sherlock Uncovered: The Women",
+        "overview": "The stars of Sherlock talk about the women in the life of TV's greatest detective. Sherlock Holmes may be great at solving mysteries, but he's clueless about women. We launch an investigation into the women in Sherlock's life. Mary Morstan is marrying his best friend. Irene Adler stole his heart. He doesn't know Molly exists. And Mrs Hudson's always there to pick up the pieces.",
+        "production_code": "",
+        "runtime": 26,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/kNmgNdpgmrUsIhEhLluad54JlMT.jpg",
+        "vote_average": 0.0,
+        "vote_count": 0
+      },
+      {
+        "air_date": "2014-02-02",
+        "episode_number": 8,
+        "episode_type": "standard",
+        "id": 1132244,
+        "name": "Sherlock Uncovered: The Villains",
+        "overview": "We meet the great villains who've battled with TV's greatest detective. There's Jim Moriarty, his nemesis. There's Charles Augustus Magnussen, the only man Sherlock Holmes truly hates. And then there's Mycroft Holmes - Sherlock's brother and the last word in sibling rivalry. All of them have had influence over those closest to Sherlock. And all of them cause him grief.",
+        "production_code": "",
+        "runtime": 23,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/g83xHeom8UEzqliV7jnQ8Ae90TU.jpg",
+        "vote_average": 7.0,
+        "vote_count": 1
+      },
+      {
+        "air_date": "2016-01-01",
+        "episode_number": 9,
+        "episode_type": "standard",
+        "id": 1132245,
+        "name": "The Abominable Bride",
+        "overview": "Sherlock Holmes and Doctor Watson investigate a mysterious ghostly bride who appears to have committed murder from beyond the grave.",
+        "production_code": "",
+        "runtime": 90,
+        "season_number": 0,
+        "show_id": 19885,
+        "still_path": "/3NWqcbH9W0jSBzBOpxYsK4DrJKi.jpg",
+        "vote_average": 7.681,
+        "vote_count": 36
+      }
+    ],
+    "name": "Specials",
+    "networks": [
+      {
+        "id": 4,
+        "logo_path": "/uJjcCg3O4DMEjM0xtno9OWFciRP.png",
+        "name": "BBC One",
+        "origin_country": "GB"
+      }
+    ],
+    "overview": "",
+    "poster_path": "/zTlz1py47FtTrlaaV82cq5WQhXT.jpg",
+    "season_number": 0,
+    "vote_average": 0.0
+  },
+  "season/1": {
+    "_id": "52585c8d760ee346611169ba",
+    "air_date": "2010-07-25",
+    "episodes": [
+      {
+        "air_date": "2010-07-25",
+        "episode_number": 1,
+        "episode_type": "standard",
+        "id": 578715,
+        "name": "A Study in Pink",
+        "overview": "A war hero, invalided home from Afghanistan, meets a strange but charismatic genius who is looking for a flatmate; it is London, 2010, and Dr Watson and Sherlock Holmes are meeting for the first time. A string of impossible suicides has Scotland Yard baffled - and only one man can help.",
+        "production_code": "101",
+        "runtime": 88,
+        "season_number": 1,
+        "show_id": 19885,
+        "still_path": "/u8xvgVzTQjAeRu68sI9JJHeQSuA.jpg",
+        "vote_average": 8.234,
+        "vote_count": 295
+      },
+      {
+        "air_date": "2010-08-01",
+        "episode_number": 2,
+        "episode_type": "standard",
+        "id": 578717,
+        "name": "The Blind Banker",
+        "overview": "A mysterious cipher is being scrawled on the walls around London. The first person to see the cipher is dead within hours of reading it. Sherlock plunges into a world of codes and symbols, consulting with London's best graffiti artists. He soon learns that the city is in the grip a gang of international smugglers, a secret society called the Black Lotus.",
+        "production_code": "102",
+        "runtime": 89,
+        "season_number": 1,
+        "show_id": 19885,
+        "still_path": "/cp1mf1pwb8F7NcuCJkzcfxIkZw2.jpg",
+        "vote_average": 7.424,
+        "vote_count": 257
+      },
+      {
+        "air_date": "2010-08-08",
+        "episode_number": 3,
+        "episode_type": "finale",
+        "id": 578716,
+        "name": "The Great Game",
+        "overview": "A strange clue in an empty room, a blood-soaked car, a priceless Old Master, a deranged bomber. With the clock ticking, the curtain rises on a battle of wits between Sherlock, John and the shadowy stranger who seems to know all the answers...",
+        "production_code": "103",
+        "runtime": 90,
+        "season_number": 1,
+        "show_id": 19885,
+        "still_path": "/inRnf07LWmlT5Z3KkS4iWlBX48x.jpg",
+        "vote_average": 8.275,
+        "vote_count": 251
+      }
+    ],
+    "name": "Series 1",
+    "networks": [
+      {
+        "id": 4,
+        "logo_path": "/uJjcCg3O4DMEjM0xtno9OWFciRP.png",
+        "name": "BBC One",
+        "origin_country": "GB"
+      }
+    ],
+    "overview": "When a chance encounter brings soldier John Watson into Sherlock's life, it's apparent the two men couldn't be more different, but Sherlock's intellect coupled with John's pragmatism soon forges an unbreakable alliance as they investigate a series of baffling cases together.",
+    "poster_path": "/wQczbo7IKtHjmO49pVWTc2u5pSt.jpg",
+    "season_number": 1,
+    "vote_average": 8.0
+  },
+  "season/2": {
+    "_id": "52585c8d760ee346611169d7",
+    "air_date": "2012-01-01",
+    "episodes": [
+      {
+        "air_date": "2012-01-01",
+        "episode_number": 1,
+        "episode_type": "standard",
+        "id": 578720,
+        "name": "A Scandal in Belgravia",
+        "overview": "Blackmail threatens the monarchy and Sherlock is about to meet the woman who beats him.",
+        "production_code": "201",
+        "runtime": 90,
+        "season_number": 2,
+        "show_id": 19885,
+        "still_path": "/9fmNcR20uEnMeAKmUucJnCPeUJg.jpg",
+        "vote_average": 8.451,
+        "vote_count": 274
+      },
+      {
+        "air_date": "2012-01-08",
+        "episode_number": 2,
+        "episode_type": "standard",
+        "id": 578719,
+        "name": "The Hounds of Baskerville",
+        "overview": "A hound from hell. Sherlock's most famous case. But is a monster really stalking Dartmoor?",
+        "production_code": "202",
+        "runtime": 89,
+        "season_number": 2,
+        "show_id": 19885,
+        "still_path": "/vjUsJUsF5RcTRKn2prGHCW9Nxro.jpg",
+        "vote_average": 7.8,
+        "vote_count": 236
+      },
+      {
+        "air_date": "2012-01-15",
+        "episode_number": 3,
+        "episode_type": "finale",
+        "id": 578718,
+        "name": "The Reichenbach Fall",
+        "overview": "The return of Moriarty. The crime of the century. Can Sherlock possibly survive?",
+        "production_code": "203",
+        "runtime": 89,
+        "season_number": 2,
+        "show_id": 19885,
+        "still_path": "/PVxRD2JqT2QM4t1Cih0v2AoRSR.jpg",
+        "vote_average": 8.664,
+        "vote_count": 247
+      }
+    ],
+    "name": "Series 2",
+    "networks": [
+      {
+        "id": 4,
+        "logo_path": "/uJjcCg3O4DMEjM0xtno9OWFciRP.png",
+        "name": "BBC One",
+        "origin_country": "GB"
+      }
+    ],
+    "overview": "A Royal scandal, a dazzling game of cat and mouse. The seductive Irene Adler is cold, calculating, brilliant. Has Sherlock finally met his match?",
+    "poster_path": "/hSf2frcLiEWAPUZ6wbOMTTNZ7b0.jpg",
+    "season_number": 2,
+    "vote_average": 8.3
+  },
+  "season/3": {
+    "_id": "52585c8d760ee346611169f1",
+    "air_date": "2014-01-01",
+    "episodes": [
+      {
+        "air_date": "2014-01-01",
+        "episode_number": 1,
+        "episode_type": "standard",
+        "id": 578721,
+        "name": "The Empty Hearse",
+        "overview": "Two years on from reports of his Reichenbach Fall demise, Sherlock resurfaces as London comes under threat of a huge terrorist attack. John, though, has mixed feelings about his friend's shocking return.",
+        "production_code": "301",
+        "runtime": 87,
+        "season_number": 3,
+        "show_id": 19885,
+        "still_path": "/zXsOogQ8BVyvWUR2zgs6NBxkReX.jpg",
+        "vote_average": 7.759,
+        "vote_count": 232
+      },
+      {
+        "air_date": "2014-01-05",
+        "episode_number": 2,
+        "episode_type": "standard",
+        "id": 578722,
+        "name": "The Sign of Three",
+        "overview": "Sherlock faces his biggest challenge of all – delivering a Best Man’s speech on John’s wedding day! But all isn’t quite as it seems. Mortal danger stalks the reception – and someone might not make it to the happy couple’s first dance. Sherlock must thank the bridesmaids, solve the case and stop a killer. ",
+        "production_code": "",
+        "runtime": 87,
+        "season_number": 3,
+        "show_id": 19885,
+        "still_path": "/ca3ayuzXGpxpALFlcsVsXTQau9G.jpg",
+        "vote_average": 7.996,
+        "vote_count": 233
+      },
+      {
+        "air_date": "2014-01-12",
+        "episode_number": 3,
+        "episode_type": "finale",
+        "id": 578723,
+        "name": "His Last Vow",
+        "overview": "A case of stolen letters leads Sherlock Holmes into a long conflict with Charles Augustus Magnussen, the Napoleon of blackmail, and the one man he truly hates. But how do you tackle a foe who knows the personal weakness of every person of importance in the Western world?",
+        "production_code": "303",
+        "runtime": 90,
+        "season_number": 3,
+        "show_id": 19885,
+        "still_path": "/5phdYWQXMwn9cBUPzUt1Z3oie4K.jpg",
+        "vote_average": 8.222,
+        "vote_count": 216
+      }
+    ],
+    "name": "Series 3",
+    "networks": [
+      {
+        "id": 4,
+        "logo_path": "/uJjcCg3O4DMEjM0xtno9OWFciRP.png",
+        "name": "BBC One",
+        "origin_country": "GB"
+      }
+    ],
+    "overview": "Sherlock is back, but will things ever be the same again?",
+    "poster_path": "/z9ljxwZUQA2349ZBZAssBXpd0i6.jpg",
+    "season_number": 3,
+    "vote_average": 8.0
+  },
+  "season/4": {
+    "_id": "53e4246dc3a368484d002b26",
+    "air_date": "2017-01-01",
+    "episodes": [
+      {
+        "air_date": "2017-01-01",
+        "episode_number": 1,
+        "episode_type": "standard",
+        "id": 1234465,
+        "name": "The Six Thatchers",
+        "overview": "Why is someone destroying images of Margaret Thatcher? Is there a madman on the loose? Or is there a much darker purpose at work?",
+        "production_code": "401",
+        "runtime": 89,
+        "season_number": 4,
+        "show_id": 19885,
+        "still_path": "/pGRnT0D3Ni2QJzmcRyX3HZVcWrE.jpg",
+        "vote_average": 7.005,
+        "vote_count": 211
+      },
+      {
+        "air_date": "2017-01-08",
+        "episode_number": 2,
+        "episode_type": "standard",
+        "id": 1234466,
+        "name": "The Lying Detective",
+        "overview": "Sherlock faces perhaps the most chilling enemy of his long career: the powerful and seemingly unassailable Culverton Smith – a man with a very dark secret indeed.",
+        "production_code": "402",
+        "runtime": 89,
+        "season_number": 4,
+        "show_id": 19885,
+        "still_path": "/krz3V8MLoVKjMwCuAG2xxnx49TO.jpg",
+        "vote_average": 8.352,
+        "vote_count": 192
+      },
+      {
+        "air_date": "2017-01-15",
+        "episode_number": 3,
+        "episode_type": "finale",
+        "id": 1251091,
+        "name": "The Final Problem",
+        "overview": "Holmes and Watson travel to Europe to escape Moriarty's vengeance.",
+        "production_code": "403",
+        "runtime": 89,
+        "season_number": 4,
+        "show_id": 19885,
+        "still_path": "/mZHXncZhEd6X7U7n24KLOdfN6Z2.jpg",
+        "vote_average": 7.506,
+        "vote_count": 158
+      }
+    ],
+    "name": "Series 4",
+    "networks": [
+      {
+        "id": 4,
+        "logo_path": "/uJjcCg3O4DMEjM0xtno9OWFciRP.png",
+        "name": "BBC One",
+        "origin_country": "GB"
+      }
+    ],
+    "overview": "The fourth series begins with the nation’s favourite detective, the mercurial Sherlock Holmes, back once more on British soil, as Doctor Watson and his wife, Mary, prepare for their biggest ever challenge - becoming parents for the first time.",
+    "id": 62206,
+    "poster_path": "/yVaWUlLmln0xqUDxVFc8JBuzHzK.jpg",
+    "season_number": 4,
+    "vote_average": 7.6
+  }
+}
