@@ -2,6 +2,7 @@
 
 mod catalog;
 mod error;
+mod files;
 mod library;
 mod listing;
 pub mod ports;
@@ -9,6 +10,7 @@ mod schedule;
 mod sync;
 
 pub use error::LibraryError;
+pub use files::FileTracker;
 pub use library::Library;
 pub use listing::{ItemId, LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
 pub use schedule::{

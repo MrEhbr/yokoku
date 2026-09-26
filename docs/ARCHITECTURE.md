@@ -153,7 +153,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
 - **Later:** iCal feed (served by `web`).
 - **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates, events in the same transaction), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
 - **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
-- **Subscribes to:** `FilesImported`, `FileDeleted`, `FileRenamed` (updates the file-status projection).
+- **Subscribes to:** `FilesFound`, `FilesImported`, `FileDeleted` (`FileTracker` updates the file projection), later `FileRenamed`.
 
 ### 5.2 `downloads`
 
