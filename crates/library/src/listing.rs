@@ -71,7 +71,7 @@ impl LibraryEntry {
 }
 
 impl LibraryFilter {
-    pub(crate) fn matches(&self, entry: &LibraryEntry) -> bool {
+    pub(crate) fn matches(self, entry: &LibraryEntry) -> bool {
         self.kind.is_none_or(|kind| kind == entry.id.kind()) && self.status.is_none_or(|status| status == entry.status)
     }
 }

@@ -139,7 +139,7 @@ impl Schedule {
                 })
             })
             .collect();
-        series.sort_by_key(|series| series.title.to_lowercase());
+        series.sort_by_cached_key(|series| series.title.to_lowercase());
 
         let mut movies: Vec<_> = catalog
             .movies
@@ -152,7 +152,7 @@ impl Schedule {
                 year: movie.year,
             })
             .collect();
-        movies.sort_by_key(|movie| movie.title.to_lowercase());
+        movies.sort_by_cached_key(|movie| movie.title.to_lowercase());
 
         Ok(Missing { series, movies })
     }
