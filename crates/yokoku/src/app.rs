@@ -1,4 +1,4 @@
-use std::{fmt, path::PathBuf, sync::Arc};
+use std::{fmt, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use jiff::tz::TimeZone;
@@ -160,8 +160,7 @@ impl App {
     pub async fn deliver_events(&self) -> Result<()> {
         for subscriber in &self.subscribers {
             let log = Arc::new(self.db.event_log());
-            let delivery =
-                Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), DeliveryConfig::default());
+            let delivery = Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), quick_delivery());
             delivery.catch_up().await.context("Failed to deliver events")?;
         }
         Ok(())
@@ -183,5 +182,15 @@ impl App {
     /// Use cases that need the metadata source.
     pub fn sync(&self) -> Result<&MetadataSync> {
         self.sync.as_ref().context("No TMDB token configured; set APP__METADATA__TMDB_TOKEN")
+    }
+}
+
+/// Gives up after three quick attempts; the event is tried again on the next catch-up or by `serve`.
+fn quick_delivery() -> DeliveryConfig {
+    DeliveryConfig {
+        max_attempts: 3,
+        initial_backoff: Duration::from_millis(100),
+        max_backoff: Duration::from_secs(1),
+        ..DeliveryConfig::default()
     }
 }

@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use tokio::time::sleep;
+use tokio::time::{Instant, sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
@@ -13,6 +13,8 @@ pub struct DeliveryConfig {
     pub max_attempts: u32,
     pub initial_backoff: Duration,
     pub max_backoff: Duration,
+    /// How often the delivery loop tries again the events it gave up on.
+    pub retry_interval: Duration,
 }
 
 impl Default for DeliveryConfig {
@@ -23,6 +25,7 @@ impl Default for DeliveryConfig {
             max_attempts: 5,
             initial_backoff: Duration::from_secs(1),
             max_backoff: Duration::from_secs(60),
+            retry_interval: Duration::from_secs(600),
         }
     }
 }
@@ -61,19 +64,29 @@ impl Delivery {
         info!(subscriber, "event delivery stopped");
     }
 
-    /// Delivers every event already in the log and returns how many there were.
+    /// Tries again the events given up on earlier, then delivers every event already in the log;
+    /// returns how many new events there were.
     pub async fn catch_up(&self) -> Result<usize, EventLogError> {
+        self.retry_failed().await?;
         let mut delivered = 0;
         loop {
             match self.deliver_batch().await? {
-                0 => return Ok(delivered),
+                0 => break,
                 count => delivered += count,
             }
         }
+        Ok(delivered)
     }
 
     async fn deliver_forever(mut self) {
+        let mut last_retry = Instant::now();
         loop {
+            if last_retry.elapsed() >= self.config.retry_interval {
+                if let Err(error) = self.retry_failed().await {
+                    warn!(subscriber = self.subscriber.name(), %error, "event log unavailable");
+                }
+                last_retry = Instant::now();
+            }
             self.listener.mark_seen();
             match self.deliver_batch().await {
                 Ok(0) => self.wait_for_events().await,
@@ -84,6 +97,27 @@ impl Delivery {
                 },
             }
         }
+    }
+
+    /// Tries each event given up on once more; returns how many succeeded. They arrive after newer
+    /// events, which idempotent handlers accept.
+    pub async fn retry_failed(&self) -> Result<usize, EventLogError> {
+        let subscriber = self.subscriber.name();
+        let mut resolved = 0;
+        for (recorded, failure) in self.log.failed(subscriber).await? {
+            match self.subscriber.handle(&recorded).await {
+                Ok(()) => {
+                    info!(subscriber, event_id = %recorded.id, "event handled on retry");
+                    self.log.resolve(subscriber, recorded.id).await?;
+                    resolved += 1;
+                },
+                Err(error) => {
+                    let failure = Failure { error: error.to_string(), attempts: failure.attempts + 1, ..failure };
+                    self.log.record_failure(subscriber, &failure).await?;
+                },
+            }
+        }
+        Ok(resolved)
     }
 
     async fn deliver_batch(&self) -> Result<usize, EventLogError> {

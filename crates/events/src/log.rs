@@ -40,6 +40,15 @@ pub trait EventLog: Send + Sync {
 
     /// Records the failure and moves the subscriber past the event, atomically.
     async fn give_up(&self, subscriber: &str, failure: &Failure) -> Result<(), EventLogError>;
+
+    /// Events the subscriber gave up on, with their failures, oldest first.
+    async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, Failure)>, EventLogError>;
+
+    /// Updates a failure after another attempt; the position stays where it is.
+    async fn record_failure(&self, subscriber: &str, failure: &Failure) -> Result<(), EventLogError>;
+
+    /// Forgets a failure once the event was handled.
+    async fn resolve(&self, subscriber: &str, event: EventId) -> Result<(), EventLogError>;
 }
 
 #[derive(Debug, thiserror::Error)]

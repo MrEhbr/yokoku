@@ -19,6 +19,7 @@ use yokoku_events::{Delivery, DeliveryConfig, Event, EventId, EventLog, Failure,
 const SUBSCRIBER: &str = "recorder";
 const WAIT: Duration = Duration::from_secs(5);
 const NO_POLLING: Duration = Duration::from_secs(3600);
+const RETRY_INTERVAL: Duration = Duration::from_millis(200);
 
 struct Recorder {
     failures_left: Mutex<HashMap<EventId, u32>>,
@@ -74,6 +75,7 @@ impl Harness {
             max_attempts: 3,
             initial_backoff: Duration::from_millis(10),
             max_backoff: Duration::from_millis(100),
+            retry_interval: RETRY_INTERVAL,
         };
         let recorder = Arc::new(self.recorder.take().expect("started once"));
         let log = Arc::new(self.db.event_log());
@@ -212,4 +214,57 @@ async fn catching_up_delivers_what_is_logged_and_returns(#[future(awt)] mut harn
         assert_eq!(harness.next_handled().await, EventId(expected));
     }
     harness.position_reaches(3).await;
+}
+
+#[rstest]
+#[tokio::test]
+async fn catching_up_retries_events_given_up_on_earlier(#[future(awt)] harness: Harness) {
+    let mut harness = harness.failing(1, 3);
+    append(&harness.db, 2).await;
+    let delivery = harness.delivery(NO_POLLING);
+    delivery.catch_up().await.unwrap();
+    assert_eq!(harness.next_handled().await, EventId(2));
+    assert_eq!(harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap().len(), 1);
+
+    delivery.catch_up().await.unwrap();
+
+    assert_eq!(harness.next_handled().await, EventId(1));
+    assert!(harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap().is_empty());
+    assert_eq!(harness.db.event_log().last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_retry_that_fails_again_counts_the_attempt_and_keeps_the_position(#[future(awt)] harness: Harness) {
+    let mut harness = harness.failing(1, u32::MAX);
+    append(&harness.db, 2).await;
+    let delivery = harness.delivery(NO_POLLING);
+    delivery.catch_up().await.unwrap();
+
+    assert_eq!(delivery.retry_failed().await.unwrap(), 0);
+
+    let log = harness.db.event_log();
+    assert_eq!(
+        log.failed_deliveries(SUBSCRIBER).await.unwrap(),
+        [Failure { event: EventId(1), error: "handler failed".into(), attempts: 4 }]
+    );
+    assert_eq!(log.last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
+}
+
+#[rstest]
+#[tokio::test]
+async fn the_delivery_loop_retries_failed_events_on_its_interval(#[future(awt)] harness: Harness) {
+    let mut harness = harness.failing(1, 3);
+    append(&harness.db, 1).await;
+
+    harness.start(Duration::from_millis(50));
+
+    assert_eq!(harness.next_handled().await, EventId(1));
+    timeout(WAIT, async {
+        while !harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap().is_empty() {
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the failure is resolved in time");
 }

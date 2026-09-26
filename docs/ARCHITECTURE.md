@@ -263,7 +263,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 - **Ordered delivery.** Each subscriber runs as one task that reads events after its saved position, in id order, and advances its position after each success.
 - **Order is safe.** SQLite allows one writer at a time, so ids are always committed in id order. A reader can never skip an event whose transaction commits late.
 - **At-least-once.** Handlers are idempotent.
-- **Failures.** Retried with exponential backoff. After N attempts the failure is recorded in `failed_deliveries` and the subscriber moves on.
+- **Failures.** Retried with exponential backoff. After N attempts the failure is recorded in `failed_deliveries` and the subscriber moves on. Recorded failures are tried again later: every `retry_interval` (10 min) in `serve`, and at the start of every CLI catch-up; each further attempt updates the record, success removes it, and the position never moves back. Handlers are idempotent, so an event retried after newer ones is safe. The CLI gives up after 3 quick attempts, since the retry comes later anyway.
 - **Wake-up.** `Database::commit` signals a `tokio::sync::watch` channel after each commit that wrote events. A signal sent while a subscriber is busy is not lost. A slow periodic poll is the fallback, and it also picks up events written by CLI commands running in another process.
 - **Shutdown.** Delivery stops at the next await point. An event interrupted mid-handler is delivered again on the next run.
 - **Rebuild.** A projection is rebuilt by deleting its row in `subscriber_positions`.

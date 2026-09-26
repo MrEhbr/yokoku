@@ -85,6 +85,55 @@ impl EventLog for SqliteEventLog {
         Ok(())
     }
 
+    async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, Failure)>, EventLogError> {
+        let rows: Vec<(i64, String, String, String, u32)> = sqlx::query_as(
+            "SELECT events.id, events.payload, events.occurred_at, failed_deliveries.error, failed_deliveries.attempts
+             FROM failed_deliveries JOIN events ON events.id = failed_deliveries.event_id
+             WHERE failed_deliveries.subscriber = ? ORDER BY events.id",
+        )
+        .bind(subscriber)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(EventLogError::new)?;
+
+        rows.into_iter()
+            .map(|(id, payload, occurred_at, error, attempts)| {
+                let recorded = Recorded {
+                    id: EventId(id),
+                    occurred_at: occurred_at.parse().map_err(EventLogError::new)?,
+                    event: serde_json::from_str(&payload).map_err(EventLogError::new)?,
+                };
+                Ok((recorded, Failure { event: EventId(id), error, attempts }))
+            })
+            .collect()
+    }
+
+    async fn record_failure(&self, subscriber: &str, failure: &Failure) -> Result<(), EventLogError> {
+        sqlx::query(
+            "UPDATE failed_deliveries
+             SET error = ?, attempts = ?, failed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE subscriber = ? AND event_id = ?",
+        )
+        .bind(&failure.error)
+        .bind(failure.attempts)
+        .bind(subscriber)
+        .bind(failure.event.0)
+        .execute(&self.pool)
+        .await
+        .map_err(EventLogError::new)?;
+        Ok(())
+    }
+
+    async fn resolve(&self, subscriber: &str, event: EventId) -> Result<(), EventLogError> {
+        sqlx::query("DELETE FROM failed_deliveries WHERE subscriber = ? AND event_id = ?")
+            .bind(subscriber)
+            .bind(event.0)
+            .execute(&self.pool)
+            .await
+            .map_err(EventLogError::new)?;
+        Ok(())
+    }
+
     async fn give_up(&self, subscriber: &str, failure: &Failure) -> Result<(), EventLogError> {
         let mut tx = self.pool.begin().await.map_err(EventLogError::new)?;
 

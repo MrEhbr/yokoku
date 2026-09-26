@@ -113,3 +113,25 @@ async fn events_and_positions_survive_reopening() {
     assert_eq!(ids(&log.read_after(None, 10).await.unwrap()), [1]);
     assert_eq!(log.last_delivered("a").await.unwrap(), Some(EventId(1)));
 }
+
+#[rstest]
+#[tokio::test]
+async fn failed_events_are_listed_updated_and_resolved_without_moving_the_position(#[future(awt)] db: Database) {
+    commit(&db, &[series_added(1), series_added(2)]).await;
+    let log = db.event_log();
+    log.give_up("files", &Failure { event: EventId(1), error: "disk full".into(), attempts: 3 }).await.unwrap();
+    log.mark_delivered("files", EventId(2)).await.unwrap();
+
+    log.record_failure("files", &Failure { event: EventId(1), error: "still full".into(), attempts: 4 }).await.unwrap();
+    let failed = log.failed("files").await.unwrap();
+
+    assert_eq!(failed.len(), 1);
+    assert_eq!((failed[0].0.id, &failed[0].1.error, failed[0].1.attempts), (EventId(1), &"still full".to_owned(), 4));
+    assert!(log.failed("other").await.unwrap().is_empty());
+    assert_eq!(log.last_delivered("files").await.unwrap(), Some(EventId(2)));
+
+    log.resolve("files", EventId(1)).await.unwrap();
+
+    assert!(log.failed("files").await.unwrap().is_empty());
+    assert_eq!(log.last_delivered("files").await.unwrap(), Some(EventId(2)));
+}
