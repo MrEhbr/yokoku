@@ -4087,11 +4087,16 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "jiff",
+ "reqwest",
+ "serde",
+ "serde_json",
  "tempfile",
  "tokio",
  "tracing",
+ "wiremock",
  "yokoku-detect",
  "yokoku-domain",
+ "yokoku-integrations",
  "yokoku-media",
 ]
 

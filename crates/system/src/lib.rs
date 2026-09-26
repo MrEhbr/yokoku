@@ -2,6 +2,8 @@
 
 mod clock;
 mod fs;
+mod jellyfin;
 
 pub use clock::SystemClock;
 pub use fs::LocalFileSystem;
+pub use jellyfin::JellyfinClient;
