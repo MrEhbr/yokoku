@@ -87,36 +87,38 @@ impl MediaProbe for FfProbe {
             return Err(failed(reason.trim().to_owned()));
         }
         let report: Report = serde_json::from_slice(&output.stdout).map_err(|error| failed(error.to_string()))?;
-        Ok(media_info(report))
+        Ok(report.into())
     }
 }
 
-fn media_info(report: Report) -> MediaInfo {
-    let mut info = MediaInfo {
-        duration: report
-            .format
-            .and_then(|format| format.duration?.parse::<f64>().ok())
-            .filter(|seconds| seconds.is_finite() && *seconds >= 0.0)
-            .map(Duration::from_secs_f64),
-        ..MediaInfo::default()
-    };
-    for stream in report.streams {
-        let codec = stream.codec_name.unwrap_or_default();
-        let language = stream.tags.language.filter(|language| language != "und");
-        match stream.codec_type.as_deref() {
-            Some("video") if stream.disposition.attached_pic == 0 && info.video.is_none() => {
-                if let (Some(width), Some(height)) = (stream.width, stream.height) {
-                    info.video = Some(VideoStream { codec, width, height });
-                }
-            },
-            Some("audio") => {
-                info.audio.push(AudioStream { codec, language, channels: stream.channels.unwrap_or_default() })
-            },
-            Some("subtitle") => {
-                info.subtitles.push(SubtitleStream { codec, language, forced: stream.disposition.forced != 0 })
-            },
-            _ => {},
+impl From<Report> for MediaInfo {
+    fn from(report: Report) -> Self {
+        let mut info = MediaInfo {
+            duration: report
+                .format
+                .and_then(|format| format.duration?.parse::<f64>().ok())
+                .filter(|seconds| seconds.is_finite() && *seconds >= 0.0)
+                .map(Duration::from_secs_f64),
+            ..MediaInfo::default()
+        };
+        for stream in report.streams {
+            let codec = stream.codec_name.unwrap_or_default();
+            let language = stream.tags.language.filter(|language| language != "und");
+            match stream.codec_type.as_deref() {
+                Some("video") if stream.disposition.attached_pic == 0 && info.video.is_none() => {
+                    if let (Some(width), Some(height)) = (stream.width, stream.height) {
+                        info.video = Some(VideoStream { codec, width, height });
+                    }
+                },
+                Some("audio") => {
+                    info.audio.push(AudioStream { codec, language, channels: stream.channels.unwrap_or_default() });
+                },
+                Some("subtitle") => {
+                    info.subtitles.push(SubtitleStream { codec, language, forced: stream.disposition.forced != 0 });
+                },
+                _ => {},
+            }
         }
+        info
     }
-    info
 }
