@@ -13,7 +13,6 @@ yokoku-domain.workspace = true
 
 async-trait.workspace = true
 jiff.workspace = true
-serde.workspace = true
 tokio = { workspace = true, features = ["sync", "time", "macros"] }
 tokio-util.workspace = true
 tracing.workspace = true
@@ -23,7 +22,5 @@ yokoku-db.workspace = true
 
 proptest.workspace = true
 rstest.workspace = true
-serde_json.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
-uuid.workspace = true

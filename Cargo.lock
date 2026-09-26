@@ -4028,13 +4028,10 @@ dependencies = [
  "jiff",
  "proptest",
  "rstest",
- "serde",
- "serde_json",
  "tempfile",
  "tokio",
  "tokio-util",
  "tracing",
- "uuid",
  "yokoku-db",
  "yokoku-domain",
 ]

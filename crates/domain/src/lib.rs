@@ -1,7 +1,8 @@
-//! Shared value types and domain rules.
+//! Shared value types, domain rules and the event contract.
 
 mod clock;
 mod confidence;
+pub mod events;
 mod external;
 mod file_status;
 mod file_target;

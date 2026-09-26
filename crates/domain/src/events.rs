@@ -1,7 +1,8 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
-use yokoku_domain::{DownloadId, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId};
+
+use crate::{DownloadId, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId};
 
 macro_rules! events {
     ($($name:ident),* $(,)?) => {
@@ -205,9 +206,9 @@ mod tests {
     use rstest::rstest;
     use serde_json::json;
     use uuid::Uuid;
-    use yokoku_domain::EpisodeSpan;
 
     use super::*;
+    use crate::EpisodeSpan;
 
     #[rstest]
     #[case::series_added(

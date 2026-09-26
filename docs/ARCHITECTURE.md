@@ -8,7 +8,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 
 1. **MVP limits features, not architecture.** Boundaries are right from the first commit.
 2. **The core knows nothing about infrastructure.** Business logic never imports sqlx, reqwest, apalis or the web framework. It talks to the outside world through ports (traits) it owns.
-3. **Modules are independent.** Feature modules never depend on each other. They share only value types (`domain`) and the event contract (`events`). The compiler enforces this through crate boundaries.
+3. **Modules are independent.** Feature modules never depend on each other. They share only value types and the event contract (`domain`) and event delivery (`events`). The compiler enforces this through crate boundaries.
 4. **Consistency where it matters, decoupling everywhere else.** A command inside a module is synchronous and transactional. Reactions across modules happen through a durable event log.
 5. **Pure logic is isolated.** Filename detection and naming are pure functions with no IO and no async, tested with plain input/output tables.
 6. **No speculative generality.** Every abstraction sits on a real boundary: IO, time, or a third-party library.
@@ -47,8 +47,8 @@ Versions are pinned in `[workspace.dependencies]` when the workspace is set up.
 
 ```
 crates/
-  domain/         yokoku-domain        Shared value types and rules
-  events/         yokoku-events        Event contract, Subscriber trait, delivery loop
+  domain/         yokoku-domain        Shared value types and rules, event contract
+  events/         yokoku-events        Subscriber trait, delivery loop; re-exports the event contract
   detect/         yokoku-detect        Pure: downloaded files → ImportPlan
   naming/         yokoku-naming        Pure: NamingTemplate parse/render, sanitising
 
@@ -278,7 +278,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 
 ### 7.2 Contract
 
-`events` defines one `Event` enum, serialised with an explicit `type` tag. A stored event never changes meaning. A breaking change adds a new variant.
+`domain::events` defines one struct per event and an `Event` enum wrapping them, serialised with an explicit `type` tag; `events` re-exports them. Events are built with `into()` and read with `Event::get::<E>()`. A stored event never changes meaning. A breaking change adds a new variant.
 
 ### 7.3 Catalog
 

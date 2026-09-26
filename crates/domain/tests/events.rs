@@ -1,9 +1,11 @@
 use rstest::rstest;
 use uuid::Uuid;
-use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId};
-use yokoku_events::{
-    DeleteReason, Event, FileDeleted, FileRenamed, FilesFound, ImportNeedsReview, LinkedFile, MovieRemoved,
-    SeriesAdded, TorrentAdded, TorrentRemoved,
+use yokoku_domain::{
+    EpisodeSpan, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId,
+    events::{
+        DeleteReason, Event, FileDeleted, FileRenamed, FilesFound, ImportNeedsReview, LinkedFile, MovieRemoved,
+        SeriesAdded, TorrentAdded, TorrentRemoved,
+    },
 };
 
 fn series() -> SeriesId {
