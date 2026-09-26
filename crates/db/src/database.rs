@@ -38,6 +38,10 @@ impl Database {
         Ok(Self { pool, new_events: NewEvents::new() })
     }
 
+    pub(crate) fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+
     pub fn new_events(&self) -> &NewEvents {
         &self.new_events
     }

@@ -1,8 +1,11 @@
 //! SQLite persistence: migrations, repositories and the event store.
 
+mod codec;
 mod database;
 mod error;
 mod event_log;
+mod movie_repo;
+mod series_repo;
 
 pub use database::Database;
 pub use error::DbError;

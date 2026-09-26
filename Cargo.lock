@@ -3026,14 +3026,17 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "jiff",
+ "proptest",
  "rstest",
  "serde_json",
  "sqlx",
  "tempfile",
  "thiserror",
  "tokio",
+ "uuid",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-library",
 ]
 
 [[package]]
@@ -3086,6 +3089,12 @@ version = "0.0.1"
 [[package]]
 name = "yokoku-library"
 version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "thiserror",
+ "yokoku-domain",
+ "yokoku-events",
+]
 
 [[package]]
 name = "yokoku-media"

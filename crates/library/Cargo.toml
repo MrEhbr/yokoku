@@ -7,3 +7,10 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+yokoku-domain.workspace = true
+yokoku-events.workspace = true
+
+async-trait.workspace = true
+thiserror.workspace = true

@@ -12,6 +12,7 @@ license = "MIT"
 yokoku-db = { path = "crates/db" }
 yokoku-domain = { path = "crates/domain" }
 yokoku-events = { path = "crates/events" }
+yokoku-library = { path = "crates/library" }
 
 anyhow = "1.0"
 async-trait = "0.1"

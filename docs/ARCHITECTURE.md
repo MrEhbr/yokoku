@@ -145,7 +145,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of wh
 
 - **Use cases:** search metadata, add (applying a monitor preset), remove, set monitoring, set numbering, refresh one item or all.
 - **Queries:** library list with filter and sort; series and movie details; next and last episode; missing; upcoming; calendar; iCal feed.
-- **Ports:** `LibraryRepo`, `LibraryQueries`, `MetadataProvider`, `Clock`.
+- **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates, events in the same transaction), `LibraryQueries`, `MetadataProvider`, `Clock`.
 - **Emits:** `SeriesAdded`, `MovieAdded`, `ItemRemoved`.
 - **Subscribes to:** `FilesImported`, `FileDeleted`, `FileRenamed` (updates the file-status projection).
 
@@ -299,6 +299,14 @@ Job handlers are thin. They decode the job and call one use case. Modules enqueu
 One binary.
 - `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM.
 - Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `detect --dry-run`, `import`, `scan`) call the same use cases against the same database. They let every feature be used and tested before the UI exists.
+
+### Storage
+
+- `yokoku_db::Database` implements every repository port, so wiring passes one `Arc<Database>` for each.
+- SQL strings are literals with bind parameters; sqlx 0.9 rejects dynamically built SQL.
+- Queries are checked by tests against real SQLite, not by `query!` macros, so no `DATABASE_URL` or `.sqlx` data is needed to build.
+- Ids are stored as UUID text, timestamps as RFC 3339 text, dates as ISO 8601 text, enums as lowercase text.
+- Saving an aggregate upserts its rows and deletes rows no longer present, so child ids (episodes) stay stable.
 
 ### Errors
 
