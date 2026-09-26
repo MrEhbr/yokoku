@@ -40,6 +40,11 @@ pub enum Event {
         target: FileTarget,
         reason: DeleteReason,
     },
+    FileRenamed {
+        file: MediaFileId,
+        from: PathBuf,
+        to: PathBuf,
+    },
     ImportNeedsReview {
         import: ImportId,
         source: PathBuf,
@@ -128,6 +133,15 @@ mod tests {
             "reason": "External",
         }),
     )]
+    #[case::file_renamed(
+        Event::FileRenamed { file: MediaFileId(Uuid::from_u128(5)), from: "/tv/a.mkv".into(), to: "/tv/A (2023)/a.mkv".into() },
+        json!({
+            "type": "FileRenamed",
+            "file": "00000000-0000-0000-0000-000000000005",
+            "from": "/tv/a.mkv",
+            "to": "/tv/A (2023)/a.mkv",
+        }),
+    )]
     #[case::import_needs_review(
         Event::ImportNeedsReview { import: ImportId(Uuid::from_u128(9)), source: "/tv/Unknown".into() },
         json!({ "type": "ImportNeedsReview", "import": "00000000-0000-0000-0000-000000000009", "source": "/tv/Unknown" }),
@@ -179,6 +193,11 @@ mod tests {
                 path: linked.path,
                 target: linked.target,
                 reason: DeleteReason::External,
+            }),
+            (any_id(), any::<String>(), any::<String>()).prop_map(|(file, from, to)| Event::FileRenamed {
+                file: MediaFileId(file),
+                from: from.into(),
+                to: to.into(),
             }),
             (any_id(), any::<String>()).prop_map(|(import, source)| Event::ImportNeedsReview {
                 import: ImportId(import),

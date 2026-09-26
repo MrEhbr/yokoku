@@ -282,7 +282,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 | `FilesFound { files }` | media (scan) | library, integrations |
 | `FilesImported { import, files }` | media | library, downloads, integrations |
 | `ImportFailed { import, reason }` | media | — (history) |
-| `FileRenamed { file, from, to }` | media | library, integrations |
+| `FileRenamed { file, from, to }` | media | integrations |
 | `FileDeleted { file, path, target, reason }` | media | library, integrations |
 
 Events carry the titles and paths that history needs to display, so history still reads correctly after the item is removed. File events list each file as `LinkedFile { file, path, target }`, where `target` is a `FileTarget`.
