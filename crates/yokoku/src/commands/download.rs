@@ -151,15 +151,15 @@ fn state_label(download: &Download) -> &'static str {
 
 /// Rate and time left while downloading; the error otherwise, if any.
 fn progress_label(download: &Download) -> String {
-    if let Some(error) = &download.status.error {
-        return error.clone();
-    }
-    if download.status.state != DownloadState::Downloading {
-        return String::new();
-    }
-    let rate = format!("{:.1} MB/s", download.status.download_rate as f64 / 1_000_000.0);
-    match download.status.eta {
-        Some(seconds) => format!("{rate}, {}h {:02}m left", seconds / 3600, seconds % 3600 / 60),
-        None => rate,
+    match (&download.status.error, download.status.state) {
+        (Some(error), _) => error.clone(),
+        (None, DownloadState::Downloading) => {
+            let rate = format!("{:.1} MB/s", download.status.download_rate as f64 / 1_000_000.0);
+            match download.status.eta {
+                Some(seconds) => format!("{rate}, {}h {:02}m left", seconds / 3600, seconds % 3600 / 60),
+                None => rate,
+            }
+        },
+        (None, _) => String::new(),
     }
 }

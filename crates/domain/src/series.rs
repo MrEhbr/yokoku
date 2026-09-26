@@ -456,12 +456,10 @@ impl Episode {
 
     /// An episode counts as aired from the day after its air date.
     pub fn file_status(&self, today: Date) -> FileStatus {
-        if self.file.is_some() {
-            FileStatus::Downloaded
-        } else if has_aired(self.air_date, today) {
-            FileStatus::Missing
-        } else {
-            FileStatus::Upcoming
+        match self.file {
+            Some(_) => FileStatus::Downloaded,
+            None if has_aired(self.air_date, today) => FileStatus::Missing,
+            None => FileStatus::Upcoming,
         }
     }
 }

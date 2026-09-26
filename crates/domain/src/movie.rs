@@ -114,12 +114,10 @@ impl Movie {
 
     /// Missing only once a digital or physical release is out.
     pub fn file_status(&self, today: Date) -> FileStatus {
-        if self.file.is_some() {
-            FileStatus::Downloaded
-        } else if self.status(today) == MovieStatus::Released {
-            FileStatus::Missing
-        } else {
-            FileStatus::Upcoming
+        match self.file {
+            Some(_) => FileStatus::Downloaded,
+            None if self.status(today) == MovieStatus::Released => FileStatus::Missing,
+            None => FileStatus::Upcoming,
         }
     }
 }
