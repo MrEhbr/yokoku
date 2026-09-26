@@ -73,6 +73,22 @@ fn aired(year: i16, month: i8, day: i8) -> Numbers {
 #[case("Ведьмак.Сезон.1.Серия.3.mkv", Some("Ведьмак"), None, episodes(1, &[3]))]
 #[case("Сериал/2 сезон/01.mkv", Some("Сериал"), None, seasonless(&[1], Some(2)))]
 #[case("Сериал/Сезон 2/Сериал - 04.mkv", Some("Сериал"), None, seasonless(&[4], Some(2)))]
+// jellyfin naming, as written by yokoku
+#[case(
+    "Frieren - Beyond Journey's End (2023)/Season 01/Frieren - Beyond Journey's End (2023) - S01E01 - Episode 1.mkv",
+    Some("Frieren - Beyond Journey's End"),
+    Some(2023),
+    episodes(1, &[1])
+)]
+#[case(
+    "Frieren - Beyond Journey's End (2023)/Season 01/Frieren - Beyond Journey's End (2023) - S01E01-E02.mkv",
+    Some("Frieren - Beyond Journey's End"),
+    Some(2023),
+    episodes(1, &[1, 2])
+)]
+#[case("Frieren - Beyond Journey's End (2023)/Season 01/03.mkv", Some("Frieren - Beyond Journey's End"), None, seasonless(&[3], Some(1)))]
+#[case("Dune - Part Two (2024)/Dune - Part Two (2024).mkv", Some("Dune - Part Two"), Some(2024), Numbers::None)]
+#[case("300 (2006)/300 (2006).mkv", Some("300"), Some(2006), Numbers::None)]
 // movies
 #[case("The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv", Some("The Matrix"), Some(1999), Numbers::None)]
 #[case("2001.A.Space.Odyssey.1968.1080p.BluRay.mkv", Some("2001 A Space Odyssey"), Some(1968), Numbers::None)]
@@ -105,6 +121,7 @@ fn movie_years_are_reliable_when_titles_are_not(#[case] path: &str, #[case] year
 #[case("Breaking Bad/Season 2/03 - Grilled.mkv", Some("Grilled"))]
 #[case("Breaking Bad/Season 2/03.Grilled.mkv", Some("Grilled"))]
 #[case("Breaking Bad/Season 2/03.mkv", None)]
+#[case("Frieren (2023)/Season 01/Frieren (2023) - S01E01 - The Journey's End.mkv", Some("The Journey's End"))]
 fn keeps_episode_titles(#[case] path: &str, #[case] episode_title: Option<&str>) {
     assert_eq!(parse(Path::new(path)).episode_title.as_deref(), episode_title);
 }

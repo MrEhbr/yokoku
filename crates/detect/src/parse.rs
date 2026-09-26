@@ -62,9 +62,14 @@ static SEASON_ONLY_FOLDER: LazyLock<Regex> = LazyLock::new(|| {
     .expect("valid regex")
 });
 
+/// Jellyfin naming: `Title (Year)`, optionally followed by ` - ` and the rest of the name.
+static TITLE_WITH_YEAR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(?P<title>.+?) \((?P<year>[0-9]{4})\)(?: - (?P<rest>.+))?$").expect("valid regex"));
+
 /// Parses a file path relative to its download or root folder.
 pub fn parse(path: &Path) -> ParsedName {
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+    let extension = path.extension().map(|extension| extension.to_string_lossy());
     let folders: Vec<String> = path
         .parent()
         .into_iter()
@@ -74,16 +79,35 @@ pub fn parse(path: &Path) -> ParsedName {
         .collect();
     let folder_season = folders.iter().find_map(|folder| folder_season(folder));
     let folder_title = || {
-        folders
-            .iter()
-            .filter(|folder| !SEASON_ONLY_FOLDER.is_match(folder.trim()))
-            .find_map(|folder| hunch(folder).title().map(str::to_owned))
+        folders.iter().filter(|folder| !SEASON_ONLY_FOLDER.is_match(folder.trim())).find_map(|folder| {
+            match TITLE_WITH_YEAR.captures(folder) {
+                Some(named) if named.name("rest").is_none() => Some(named["title"].to_owned()),
+                _ => hunch(folder).title().map(str::to_owned),
+            }
+        })
     };
 
-    if let Some(parsed) = russian(&stem) {
+    if let Some(named) = TITLE_WITH_YEAR.captures(&stem) {
+        let parsed = match named.name("rest") {
+            Some(rest) => parse_name(rest.as_str(), extension.as_deref(), folder_season, || None),
+            None => ParsedName { title: None, year: None, numbers: Numbers::None, episode_title: None },
+        };
+        return ParsedName { title: Some(named["title"].to_owned()), year: named["year"].parse().ok(), ..parsed };
+    }
+    parse_name(&stem, extension.as_deref(), folder_season, folder_title)
+}
+
+/// Parses a file stem; `folder_title` supplies the title when the stem has none.
+fn parse_name(
+    stem: &str,
+    extension: Option<&str>,
+    folder_season: Option<u16>,
+    folder_title: impl Fn() -> Option<String>,
+) -> ParsedName {
+    if let Some(parsed) = russian(stem) {
         return ParsedName { title: parsed.title.or_else(folder_title), ..parsed };
     }
-    if let Some(captures) = BARE_NUMBER.captures(&stem)
+    if let Some(captures) = BARE_NUMBER.captures(stem)
         && let Ok(episode) = captures["episode"].parse()
     {
         return ParsedName {
@@ -94,7 +118,10 @@ pub fn parse(path: &Path) -> ParsedName {
         };
     }
 
-    let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+    let file_name = match extension {
+        Some(extension) => format!("{stem}.{extension}"),
+        None => stem.to_owned(),
+    };
     let result = hunch(&file_name);
     let date = result.date().and_then(|date| date.parse::<Date>().ok());
     let numbers = match date {
