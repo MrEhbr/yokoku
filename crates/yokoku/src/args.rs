@@ -55,6 +55,8 @@ pub enum Command {
     Rename(commands::rename::Args),
     /// Add torrents to Transmission and follow their progress
     Download(commands::download::Args),
+    /// Deliver events and run scheduled jobs until stopped
+    Serve(commands::serve::Args),
 }
 
 impl Args {
@@ -95,5 +97,6 @@ pub async fn route(args: Args) -> Result<()> {
         Review(cmd_args) => commands::review::run(&config, cmd_args).await,
         Rename(cmd_args) => commands::rename::run(&config, cmd_args).await,
         Download(cmd_args) => commands::download::run(&config, cmd_args).await,
+        Serve(cmd_args) => commands::serve::run(&config, cmd_args).await,
     }
 }

@@ -3,6 +3,8 @@ use std::{fmt, path::PathBuf, sync::Arc};
 use anyhow::{Context, Result};
 use jiff::tz::TimeZone;
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinHandle;
+use tokio_util::sync::CancellationToken;
 use yokoku_db::Database;
 use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig};
@@ -105,7 +107,7 @@ pub struct App {
     pub scanner: Scanner,
     pub review: Review,
     pub renamer: Renamer,
-    pub downloads: Downloads,
+    pub downloads: Arc<Downloads>,
     sync: Option<MetadataSync>,
     db: Arc<Database>,
 }
@@ -135,7 +137,7 @@ impl App {
             roots: RootFolders::new(db.clone(), fs.clone()),
             scanner: Scanner::new(db.clone(), db.clone(), fs.clone(), clock.clone()),
             review: Review::new(db.clone(), db.clone(), clock.clone()),
-            downloads: Downloads::new(db.clone(), Arc::new(client), clock),
+            downloads: Arc::new(Downloads::new(db.clone(), Arc::new(client), clock)),
             renamer: Renamer::new(db.clone(), db.clone(), fs, Naming::default()),
             sync,
             db,
@@ -150,6 +152,18 @@ impl App {
             delivery.catch_up().await.context("Failed to deliver events")?;
         }
         Ok(())
+    }
+
+    /// Starts one delivery loop per subscriber; each stops when `shutdown` is cancelled.
+    pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
+        subscriptions::subscribers(&self.db)
+            .into_iter()
+            .map(|subscriber| {
+                let log = Arc::new(self.db.event_log());
+                let delivery = Delivery::new(log, subscriber, self.db.new_events().listen(), DeliveryConfig::default());
+                tokio::spawn(delivery.run(shutdown.clone()))
+            })
+            .collect()
     }
 
     /// Use cases that need the metadata source.

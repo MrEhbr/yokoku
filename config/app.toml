@@ -27,6 +27,10 @@ sort = "title"
 [upcoming]
 days = 14
 
+# Cron schedules with seconds.
+[serve]
+sync_downloads = "*/30 * * * * *"
+
 [greet]
 greeting = "Hello"
 count = 1

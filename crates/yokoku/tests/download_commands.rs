@@ -161,3 +161,41 @@ fn torrent_files_that_cannot_be_read_are_reported() {
         .failure()
         .stderr(predicate::str::contains("Failed to read missing.torrent"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn serve_syncs_downloads_on_schedule_and_stops_on_sigterm() {
+    let setup = Setup::new().await;
+    setup.torrent_at(1_000_000_000).await;
+    setup.stdout(&["download", "add", &format!("magnet:?xt=urn:btih:{HASH}")]);
+    setup.torrent_at(0).await;
+
+    let mut serve = setup
+        .command()
+        .arg("serve")
+        .env("APP__SERVE__SYNC_DOWNLOADS", "* * * * * *")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let db = Database::open(&setup.database).await.unwrap();
+    let log = db.event_log();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    let delivered = loop {
+        let events = log.read_after(None, 100).await.unwrap();
+        let last = events.last().unwrap();
+        let delivered = log.last_delivered("library.files").await.unwrap();
+        if matches!(last.event, Event::DownloadCompleted { .. }) && delivered == Some(last.id) {
+            break true;
+        }
+        if std::time::Instant::now() > deadline {
+            break false;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    };
+    let killed = Command::new("kill").args(["-TERM", &serve.id().to_string()]).status().unwrap();
+    let status = serve.wait().unwrap();
+
+    assert!(delivered, "the download was not synced and delivered in time");
+    assert!(killed.success());
+    assert!(status.success(), "{status}");
+}

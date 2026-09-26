@@ -304,7 +304,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 
 | Job | Trigger | Calls |
 |---|---|---|
-| `SyncDownloads` | cron, every 30 s | `downloads::sync` |
+| `SyncDownloads` | cron, every 30 s | `downloads::sync` | (built)
 | `RefreshMetadata` | cron, every 6 h | enqueues `RefreshItem` for each item |
 | `RefreshItem { item }` | queue | `library::refresh` |
 | `ExecuteImport { import }` | queue, concurrency 1 | `media::execute_import` |
@@ -312,7 +312,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | `CleanupRecycle` | cron, daily | `media::cleanup_recycle` |
 | `RescanMediaServer` | queue, debounced | `integrations::rescan` |
 
-Job handlers are thin. They decode the job and call one use case. Modules enqueue work through their own ports (for example `media::ports::ImportQueue`), which `jobs` implements.
+Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and `serve` runs them with `Monitor::run_with_signal`. Modules enqueue work through their own ports (for example `media::ports::ImportQueue`), which `jobs` implements.
 
 ---
 
@@ -321,7 +321,7 @@ Job handlers are thin. They decode the job and call one use case. Modules enqueu
 ### Runtime
 
 One binary.
-- `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM.
+- `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM. Each subscriber gets its own `Delivery` loop; on a signal the monitor stops first, then the deliveries are cancelled and awaited.
 - Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `detect --dry-run`, `import`, `scan`, `rename`, `download`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
 
 ### Storage

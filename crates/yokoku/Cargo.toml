@@ -21,6 +21,7 @@ yokoku-detect.workspace = true
 yokoku-domain.workspace = true
 yokoku-downloads.workspace = true
 yokoku-events.workspace = true
+yokoku-jobs.workspace = true
 yokoku-library.workspace = true
 yokoku-media.workspace = true
 yokoku-metadata.workspace = true
@@ -34,8 +35,10 @@ clap-verbosity-flag.workspace = true
 config.workspace = true
 console-subscriber = { workspace = true, optional = true }
 jiff.workspace = true
+jiff-cron.workspace = true
 serde.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tokio-util.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true

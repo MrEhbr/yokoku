@@ -13,6 +13,7 @@ pub mod review;
 pub mod root;
 pub mod scan;
 pub mod search;
+pub mod serve;
 pub mod show;
 pub mod upcoming;
 
