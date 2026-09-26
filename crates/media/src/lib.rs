@@ -7,6 +7,7 @@ mod importer;
 mod model;
 mod planner;
 pub mod ports;
+mod prober;
 mod rename;
 mod review;
 mod roots;
@@ -20,6 +21,7 @@ pub use model::{
     VideoStream,
 };
 pub use planner::ImportPlanner;
+pub use prober::{FileDetails, ProbeReport, Prober};
 pub use rename::{Move, Rename, RenameFailure, RenamePlan, RenameReport, RenameScope, Renamer, SkipReason, Skipped};
 pub use review::{Approval, ImportReview, Review, ReviewRow};
 pub use roots::RootFolders;

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use yokoku_domain::{EpisodeSpan, ImportId, MovieId, SeriesId};
 
-use crate::ports::{FsError, StorageError};
+use crate::ports::{FsError, ProbeError, StorageError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum MediaError {
@@ -40,6 +40,8 @@ pub enum MediaError {
     FileSystem(#[from] FsError),
     #[error(transparent)]
     Storage(#[from] StorageError),
+    #[error(transparent)]
+    Probe(#[from] ProbeError),
 }
 
 fn numbers(rows: &[usize]) -> String {
