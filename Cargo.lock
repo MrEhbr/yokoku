@@ -3784,6 +3784,7 @@ dependencies = [
  "strsim",
  "unicode-normalization",
  "yokoku-domain",
+ "yokoku-naming",
 ]
 
 [[package]]

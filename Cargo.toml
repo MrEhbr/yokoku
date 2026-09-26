@@ -16,6 +16,7 @@ yokoku-events = { path = "crates/events" }
 yokoku-library = { path = "crates/library" }
 yokoku-media = { path = "crates/media" }
 yokoku-metadata = { path = "crates/metadata" }
+yokoku-naming = { path = "crates/naming" }
 yokoku-system = { path = "crates/system" }
 
 anyhow = "1.0"

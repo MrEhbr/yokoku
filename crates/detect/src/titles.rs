@@ -28,7 +28,7 @@ pub(crate) fn best_match<'a>(parsed: &str, titles: impl IntoIterator<Item = &'a 
 fn compare(parsed: &str, title: &str) -> Option<TitleMatch> {
     if title.is_empty() {
         None
-    } else if parsed == title {
+    } else if parsed.replace(' ', "") == title.replace(' ', "") {
         Some(TitleMatch::Exact)
     } else if parsed.starts_with(&format!("{title} "))
         || title.starts_with(&format!("{parsed} "))
