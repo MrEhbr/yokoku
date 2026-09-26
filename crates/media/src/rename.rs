@@ -11,7 +11,7 @@ use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
     MediaError, MediaFile, RootFolder, files,
-    ports::{Catalog, Changes, FileSystem, MediaRepo},
+    ports::{Catalog, Changes, FileSystem, LibraryLock, MediaRepo},
 };
 
 /// Moves library files to the paths naming gives them (FR-5.7).
@@ -19,6 +19,7 @@ pub struct Renamer {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,
     fs: Arc<dyn FileSystem>,
+    lock: Arc<dyn LibraryLock>,
     naming: Naming,
 }
 
@@ -82,8 +83,14 @@ pub struct RenameFailure {
 }
 
 impl Renamer {
-    pub fn new(repo: Arc<dyn MediaRepo>, catalog: Arc<dyn Catalog>, fs: Arc<dyn FileSystem>, naming: Naming) -> Self {
-        Self { repo, catalog, fs, naming }
+    pub fn new(
+        repo: Arc<dyn MediaRepo>,
+        catalog: Arc<dyn Catalog>,
+        fs: Arc<dyn FileSystem>,
+        lock: Arc<dyn LibraryLock>,
+        naming: Naming,
+    ) -> Self {
+        Self { repo, catalog, fs, lock, naming }
     }
 
     /// The moves `apply` would make; nothing on disk changes.
@@ -126,6 +133,7 @@ impl Renamer {
 
     /// Carries out the plan file by file; a file that cannot be moved is reported and left alone.
     pub async fn apply(&self, scope: RenameScope) -> Result<RenameReport, MediaError> {
+        let _lock = self.lock.acquire().await?;
         let plan = self.preview(scope).await?;
         let mut report = RenameReport { skipped: plan.skipped, ..RenameReport::default() };
 

@@ -10,7 +10,7 @@ use yokoku_events::{DeleteReason, Event, HandlerError, Recorded, Subscriber};
 
 use crate::{
     MediaError, MediaFile, files,
-    ports::{Changes, FileSystem, MediaRepo},
+    ports::{Changes, FileSystem, LibraryLock, MediaRepo},
 };
 
 /// Where deleted files go instead of being removed, and for how many days (FR-8.5).
@@ -24,6 +24,7 @@ pub struct Recycle {
 pub struct Deleter {
     repo: Arc<dyn MediaRepo>,
     fs: Arc<dyn FileSystem>,
+    lock: Arc<dyn LibraryLock>,
     clock: Arc<dyn Clock>,
     recycle: Option<Recycle>,
 }
@@ -32,14 +33,16 @@ impl Deleter {
     pub fn new(
         repo: Arc<dyn MediaRepo>,
         fs: Arc<dyn FileSystem>,
+        lock: Arc<dyn LibraryLock>,
         clock: Arc<dyn Clock>,
         recycle: Option<Recycle>,
     ) -> Self {
-        Self { repo, fs, clock, recycle }
+        Self { repo, fs, lock, clock, recycle }
     }
 
     /// Removes the library files holding any of `target`, with their subtitles.
     pub async fn delete(&self, target: FileTarget) -> Result<Vec<MediaFile>, MediaError> {
+        let _lock = self.lock.acquire().await?;
         let files: Vec<MediaFile> =
             self.repo.files().await?.into_iter().filter(|file| file.target.overlaps(&target)).collect();
         if files.is_empty() {
@@ -121,6 +124,7 @@ impl Deleter {
     }
 
     async fn remove_item(&self, item: ItemId) -> Result<(), MediaError> {
+        let _lock = self.lock.acquire().await?;
         let files: Vec<MediaFile> =
             self.repo.files().await?.into_iter().filter(|file| file.target.item() == item).collect();
         if !files.is_empty() {

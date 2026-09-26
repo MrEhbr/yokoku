@@ -21,9 +21,12 @@ use yokoku_events::{Event, EventLog};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{ImportPlanner, Renamer, Review, RootFolders, RootKind, Scanner};
 use yokoku_naming::Naming;
-use yokoku_system::LocalFileSystem;
+use yokoku_system::{LocalFileSystem, LockFile};
 
 pub const TODAY: Date = date(2026, 9, 26);
+
+/// The library lock file, in the test folder.
+pub const LOCK: &str = "library.lock";
 
 pub struct FixedClock;
 
@@ -62,9 +65,10 @@ impl App {
         let fs = Arc::new(LocalFileSystem);
         let clock = Arc::new(FixedClock);
         let roots = RootFolders::new(repo.clone(), fs.clone());
-        let scanner = Scanner::new(repo.clone(), repo.clone(), fs, clock.clone());
+        let lock = Arc::new(LockFile::new(dir.path().join(LOCK)));
+        let scanner = Scanner::new(repo.clone(), repo.clone(), fs, lock.clone(), clock.clone());
         let review = Review::new(repo.clone(), repo.clone(), clock);
-        let renamer = Renamer::new(repo.clone(), repo.clone(), Arc::new(LocalFileSystem), Naming::default());
+        let renamer = Renamer::new(repo.clone(), repo.clone(), Arc::new(LocalFileSystem), lock, Naming::default());
         let planner = ImportPlanner::new(repo.clone(), repo, Arc::new(LocalFileSystem), Arc::new(FixedClock));
 
         let mut frieren = Series::add(frieren_metadata(), MonitorPreset::All, TODAY, now());
@@ -159,6 +163,7 @@ impl App {
             repo.clone(),
             repo,
             Arc::new(LocalFileSystem),
+            self.lock(),
             Arc::new(FixedClock),
             Naming::default(),
             mode,
@@ -168,7 +173,17 @@ impl App {
 
 impl App {
     pub fn deleter(&self, recycle: Option<yokoku_media::Recycle>) -> yokoku_media::Deleter {
-        yokoku_media::Deleter::new(Arc::new(self.db.clone()), Arc::new(LocalFileSystem), Arc::new(FixedClock), recycle)
+        yokoku_media::Deleter::new(
+            Arc::new(self.db.clone()),
+            Arc::new(LocalFileSystem),
+            self.lock(),
+            Arc::new(FixedClock),
+            recycle,
+        )
+    }
+
+    pub fn lock(&self) -> Arc<LockFile> {
+        Arc::new(LockFile::new(self.path(LOCK)))
     }
 
     pub fn recycle(&self, keep_days: u32) -> Option<yokoku_media::Recycle> {

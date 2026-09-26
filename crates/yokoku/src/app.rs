@@ -12,10 +12,13 @@ use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
 use yokoku_integrations::Rescans;
 use yokoku_library::{Library, MetadataSync, Schedule};
-use yokoku_media::{Deleter, Importer, Renamer, Review, RootFolders, Scanner, ports::FileSystem};
+use yokoku_media::{
+    Deleter, Importer, Renamer, Review, RootFolders, Scanner,
+    ports::{FileSystem, LibraryLock},
+};
 use yokoku_metadata::TmdbClient;
 use yokoku_naming::Naming;
-use yokoku_system::{JellyfinClient, LocalFileSystem, SystemClock};
+use yokoku_system::{JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
 use crate::{config::Config, subscriptions};
@@ -134,7 +137,9 @@ impl App {
         });
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
-        let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), clock.clone(), config.recycle.recycle()));
+        let lock: Arc<dyn LibraryLock> = Arc::new(LockFile::new(path.with_extension("lock")));
+        let deleter =
+            Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone(), clock.clone(), config.recycle.recycle()));
         let jellyfin = &config.jellyfin;
         let rescans = jellyfin.url.as_ref().map(|url| {
             let server = JellyfinClient::new(url, jellyfin.api_key.clone().unwrap_or_default());
@@ -150,14 +155,15 @@ impl App {
             library: Library::new(db.clone(), db.clone(), clock.clone()),
             schedule: Schedule::new(db.clone(), db.clone(), clock.clone()),
             roots: RootFolders::new(db.clone(), fs.clone()),
-            scanner: Scanner::new(db.clone(), db.clone(), fs.clone(), clock.clone()),
+            scanner: Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone()),
             review: Review::new(db.clone(), db.clone(), clock.clone()),
             downloads: Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone())),
-            renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), Naming::default()),
+            renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), Naming::default()),
             importer: Arc::new(Importer::new(
                 db.clone(),
                 db.clone(),
                 fs.clone(),
+                lock,
                 clock.clone(),
                 Naming::default(),
                 config.import.mode.into(),

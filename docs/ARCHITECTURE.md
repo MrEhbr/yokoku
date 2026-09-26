@@ -187,7 +187,8 @@ Owns library files, root folders, naming settings, imports and the recycle folde
   - Rename with preview (FR-5.7): `Renamer::preview(scope)` lists the moves naming asks for, for the whole library, a series or a movie; `apply` makes them file by file. Subtitles beside a video (named after it) move with it and get normalised language tags. Files outside every root, whose item is gone, or that would share a path are skipped; a file already at the new path is never replaced, and that move is reported as failed. Folders left empty are removed up to the root.
   - Delete or recycle files (FR-8.4, 8.5): `Deleter::delete(target)` removes the files holding an episode span or movie, with their subtitles and folders left empty, committing each file with `FileDeleted { reason: User }`. With `[recycle] folder` set they move to `<recycle>/<day>/<root folder name>/<path>` (`recycled: true`; under the file id when that path is taken that day), and `clean_recycle` removes day folders older than `keep_days` (daily `CleanupRecycle` job); the folder name is the only record needed. Removing a series or movie with `delete_files` does the same for all its files (`ItemRemoved`).
   - Retry a failed import.
-- **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `Clock`; later `MediaProbe`, `ImportQueue`.
+- **Library lock:** scan, import, rename and delete change files on disk before they commit, so each holds the `LibraryLock` from its first read of library files until its last commit; a scan never sees a file that is placed but not yet stored. `LockFile` in `system` takes an exclusive `flock` on `<database>.lock`, so the CLI and `serve` wait for each other as well. An import holds it per import, from its claim to its commit.
+- **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `LibraryLock`, `Clock`; later `MediaProbe`, `ImportQueue`.
 - **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`, `FileRenamed`; later `ImportFailed`.
 - **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesRemoved`, `MovieRemoved` (delete or recycle files when asked).
 
@@ -373,6 +374,7 @@ Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modu
 | Import state machine in our tables | `apalis-workflow` | Review can pause for days, and the UI must query import state. |
 | Approved imports in our table are the job queue, claimed atomically | apalis storage-backed `ExecuteImport` queue | Import state lives in one place, and the claim lets the CLI and `serve` run imports side by side. |
 | No actor framework | kameo, ractor | Mailboxes are in memory (not durable), and it would be a third messaging model next to events and jobs. The one real race (concurrent imports) is solved by concurrency 1. |
+| One lock file around library file changes | In-process mutex; locking rows in SQLite | A mutex does not reach the CLI in another process; a write transaction held while a file copies would block every other writer. |
 | Own TMDB client | `tmdb-api` crate | Few endpoints needed; low adoption. |
 | `Arc<dyn Port>` + `async-trait` | Generic `App<I: Infra>` | Generics would spread through every signature. |
 | SQLite | PostgreSQL | Single user, self-hosted, one file to back up. |

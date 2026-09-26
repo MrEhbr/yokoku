@@ -11,13 +11,14 @@ use yokoku_events::{DeleteReason, Event, LinkedFile};
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError, MediaFile, RootKind,
-    ports::{Catalog, Changes, FileSystem, MediaRepo},
+    ports::{Catalog, Changes, FileSystem, LibraryLock, MediaRepo},
 };
 
 pub struct Scanner {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,
     fs: Arc<dyn FileSystem>,
+    lock: Arc<dyn LibraryLock>,
     clock: Arc<dyn Clock>,
 }
 
@@ -36,15 +37,17 @@ impl Scanner {
         repo: Arc<dyn MediaRepo>,
         catalog: Arc<dyn Catalog>,
         fs: Arc<dyn FileSystem>,
+        lock: Arc<dyn LibraryLock>,
         clock: Arc<dyn Clock>,
     ) -> Self {
-        Self { repo, catalog, fs, clock }
+        Self { repo, catalog, fs, lock, clock }
     }
 
     /// Links new files in every root folder, sends the rest to review and forgets linked files
     /// that are gone (FR-8.2, FR-8.3, FR-8.7). Each root folder is committed on its own; one
     /// that cannot be read stops the scan before anything in it changes.
     pub async fn scan(&self) -> Result<ScanReport, MediaError> {
+        let _lock = self.lock.acquire().await?;
         let series = self.catalog.all_series().await?;
         let movies = self.catalog.all_movies().await?;
         let claimed = self.claimed_paths().await?;

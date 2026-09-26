@@ -13,7 +13,7 @@ use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
     Import, ImportStatus, MediaError, MediaFile, RootFolder, RootKind, files,
-    ports::{Catalog, Changes, FileSystem, FsError, MediaRepo},
+    ports::{Catalog, Changes, FileSystem, FsError, LibraryLock, MediaRepo},
 };
 
 /// How files reach the library (FR-3.6).
@@ -31,6 +31,7 @@ pub struct Importer {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,
     fs: Arc<dyn FileSystem>,
+    lock: Arc<dyn LibraryLock>,
     clock: Arc<dyn Clock>,
     naming: Naming,
     mode: ImportMode,
@@ -48,11 +49,12 @@ impl Importer {
         repo: Arc<dyn MediaRepo>,
         catalog: Arc<dyn Catalog>,
         fs: Arc<dyn FileSystem>,
+        lock: Arc<dyn LibraryLock>,
         clock: Arc<dyn Clock>,
         naming: Naming,
         mode: ImportMode,
     ) -> Self {
-        Self { repo, catalog, fs, clock, naming, mode }
+        Self { repo, catalog, fs, lock, clock, naming, mode }
     }
 
     /// Imports that are approved, running or failed, oldest first.
@@ -69,7 +71,9 @@ impl Importer {
     /// concurrent runners never share one. Returns each import with the status it ended in.
     pub async fn run_pending(&self) -> Result<Vec<Import>, MediaError> {
         let mut finished = Vec::new();
-        while let Some(import) = self.repo.claim_next_approved().await? {
+        loop {
+            let _lock = self.lock.acquire().await?;
+            let Some(import) = self.repo.claim_next_approved().await? else { break };
             finished.push(self.execute(import).await?);
         }
         Ok(finished)
