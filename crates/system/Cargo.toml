@@ -9,6 +9,15 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+yokoku-detect.workspace = true
 yokoku-domain.workspace = true
+yokoku-media.workspace = true
 
+async-trait.workspace = true
 jiff.workspace = true
+tokio = { workspace = true, features = ["fs", "rt"] }
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }

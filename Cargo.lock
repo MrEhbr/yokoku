@@ -3767,6 +3767,7 @@ dependencies = [
  "yokoku-domain",
  "yokoku-events",
  "yokoku-library",
+ "yokoku-media",
 ]
 
 [[package]]
@@ -3845,6 +3846,20 @@ dependencies = [
 [[package]]
 name = "yokoku-media"
 version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "jiff",
+ "rstest",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "yokoku-db",
+ "yokoku-detect",
+ "yokoku-domain",
+ "yokoku-events",
+ "yokoku-library",
+ "yokoku-system",
+]
 
 [[package]]
 name = "yokoku-metadata"
@@ -3877,8 +3892,14 @@ dependencies = [
 name = "yokoku-system"
 version = "0.0.1"
 dependencies = [
+ "async-trait",
  "jiff",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "yokoku-detect",
  "yokoku-domain",
+ "yokoku-media",
 ]
 
 [[package]]

@@ -7,3 +7,21 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+yokoku-detect.workspace = true
+yokoku-domain.workspace = true
+yokoku-events.workspace = true
+
+async-trait.workspace = true
+jiff.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+yokoku-db.workspace = true
+yokoku-library.workspace = true
+yokoku-system.workspace = true
+
+rstest.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }

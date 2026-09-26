@@ -177,14 +177,15 @@ Owns library files, root folders, naming settings, imports and the recycle folde
 
 - **Use cases:**
   - Plan an import from a download or from files found by a scan.
-  - Review: correct rows, resolve conflicts.
+  - Review: match a row to episodes or a movie in the library, or skip it; approve once every other row has a conflict-free match. Skipped files are not offered again by later scans.
   - Run an approved import.
-  - Scan root folders.
+  - Root folders: add (absolute, existing, not overlapping another root), list, remove.
+  - Scan root folders (FR-8.2, 8.3, 8.7): each entry of a root is detected on its own against series (series root) or movies (movie root). New files that are `Certain`, conflict-free and hold nothing already linked are linked in place; the rest of the entry becomes one import in review. Linked files missing from disk are forgotten with `FileDeleted { reason: External }`. A root that cannot be read fails the scan, so an unmounted disk never looks empty.
   - Rename with preview.
   - Delete or recycle files; clean up the recycle folder.
   - Retry a failed import.
-- **Ports:** `ImportRepo`, `MediaFileRepo`, `Catalog` (read-only view of `library` data), `FileSystem`, `MediaProbe`, `ImportQueue`, `Clock`.
-- **Emits:** `ImportNeedsReview`, `FilesImported`, `ImportFailed`, `FileRenamed`, `FileDeleted`.
+- **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `Clock`; later `MediaProbe`, `ImportQueue`.
+- **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`; later `ImportFailed`, `FileRenamed`.
 - **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesRemoved`, `MovieRemoved` (delete or recycle files when asked).
 
 ### 5.4 `integrations`
@@ -325,7 +326,7 @@ One binary.
 - `yokoku_db::Database` implements every repository port, so wiring passes one `Arc<Database>` for each.
 - SQL strings are literals with bind parameters; sqlx 0.9 rejects dynamically built SQL.
 - Queries are checked by tests against real SQLite, not by `query!` macros, so no `DATABASE_URL` or `.sqlx` data is needed to build.
-- Ids are stored as UUID text, timestamps as RFC 3339 text, dates as ISO 8601 text, enums as lowercase text.
+- Ids are stored as UUID text, timestamps as RFC 3339 text, dates as ISO 8601 text, enums as lowercase text. Paths are UTF-8 text; the filesystem adapter skips names that are not UTF-8.
 - Saving an aggregate upserts its rows and deletes rows no longer present, so child ids (episodes) stay stable.
 
 ### Errors

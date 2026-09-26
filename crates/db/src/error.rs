@@ -1,4 +1,5 @@
 use yokoku_library::ports::StorageError;
+use yokoku_media::ports::StorageError as MediaStorageError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
@@ -13,6 +14,12 @@ pub enum DbError {
 }
 
 impl From<DbError> for StorageError {
+    fn from(error: DbError) -> Self {
+        Self::new(error)
+    }
+}
+
+impl From<DbError> for MediaStorageError {
     fn from(error: DbError) -> Self {
         Self::new(error)
     }

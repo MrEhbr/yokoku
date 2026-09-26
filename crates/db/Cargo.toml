@@ -12,6 +12,7 @@ workspace = true
 yokoku-domain.workspace = true
 yokoku-events.workspace = true
 yokoku-library.workspace = true
+yokoku-media.workspace = true
 
 async-trait.workspace = true
 jiff.workspace = true
