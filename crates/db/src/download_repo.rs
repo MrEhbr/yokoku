@@ -125,7 +125,11 @@ impl Database {
         .bind(download.completed_at.map(|at| at.to_string()))
         .bind(download.imported_at.map(|at| at.to_string()))
         .execute(&mut *tx)
-        .await?;
+        .await
+        .map_err(|error| match error.as_database_error() {
+            Some(database) if database.is_unique_violation() => DbError::Conflict,
+            _ => DbError::from(error),
+        })?;
         self.commit(tx, events).await?;
         download.revision += 1;
         Ok(())

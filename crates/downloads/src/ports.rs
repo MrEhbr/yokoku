@@ -60,7 +60,8 @@ pub enum ClientError {
 
 /// Writes store the download and `events` in one transaction. A save inserts a download at
 /// revision 0 and otherwise updates it only when the stored revision matches, then bumps
-/// `revision`; a save made from an older revision fails with `StorageError::Conflict`.
+/// `revision`; a save made from an older revision, or a new download whose hash is already stored,
+/// fails with `StorageError::Conflict`.
 #[async_trait]
 pub trait DownloadRepo: Send + Sync {
     async fn get(&self, id: DownloadId) -> Result<Option<Download>, StorageError>;
