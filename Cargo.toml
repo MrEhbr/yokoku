@@ -65,6 +65,13 @@ unsafe_code = "forbid"
 [workspace.metadata.bin]
 cargo-llvm-cov = "0.6"
 
+[profile.dev]
+# macOS defaults this to "unpacked", which leaves one `.rcgu.o` per codegen unit
+# beside the binaries and never removes it. A test binary's own directory is
+# read whole by `CFBundleGetMainBundle`, which `SCDynamicStore` reaches through
+# on every process start, so the litter is paid per test.
+split-debuginfo = "packed"
+
 [profile.release]
 strip = true
 lto = true
