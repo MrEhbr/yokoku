@@ -18,6 +18,15 @@ pub trait FileSystem: Send + Sync {
     /// Regular files under `dir` at any depth, ordered by path. Hidden entries, symlinked
     /// folders and names that are not UTF-8 are skipped.
     async fn files(&self, dir: &Path) -> Result<Vec<DownloadFile>, FsError>;
+
+    /// Files directly in `dir`, with the same rules as `files`.
+    async fn files_in(&self, dir: &Path) -> Result<Vec<DownloadFile>, FsError>;
+
+    /// Moves a file, creating missing folders. Fails when `to` is another existing file.
+    async fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError>;
+
+    /// Removes `dir` and then each parent while they are empty, stopping before `stop`.
+    async fn remove_empty_folders(&self, dir: &Path, stop: &Path) -> Result<(), FsError>;
 }
 
 #[derive(Debug, thiserror::Error)]

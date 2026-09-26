@@ -101,3 +101,80 @@ async fn skips_names_that_are_not_utf8() {
 
     assert_eq!(relative(dir.path(), &files), [("Dune.mkv".into(), 1)]);
 }
+
+#[tokio::test]
+async fn lists_only_the_files_directly_in_a_folder() {
+    let dir = TempDir::new().unwrap();
+    write(dir.path(), "Season 01/S01E01.mkv", 1);
+    write(dir.path(), "Season 01/S01E01.en.srt", 2);
+    write(dir.path(), "Season 01/Subs/S01E01.ru.srt", 3);
+
+    let files = LocalFileSystem.files_in(&dir.path().join("Season 01")).await.unwrap();
+
+    assert_eq!(
+        relative(dir.path(), &files),
+        [("Season 01/S01E01.en.srt".into(), 2), ("Season 01/S01E01.mkv".into(), 1)]
+    );
+}
+
+#[tokio::test]
+async fn renames_into_new_folders() {
+    let dir = TempDir::new().unwrap();
+    let from = write(dir.path(), "a.mkv", 3);
+    let to = dir.path().join("Frieren (2023)/Season 01/b.mkv");
+
+    LocalFileSystem.rename(&from, &to).await.unwrap();
+
+    assert!(!from.exists());
+    assert_eq!(fs::read(&to).unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn never_renames_over_another_file() {
+    let dir = TempDir::new().unwrap();
+    let from = write(dir.path(), "a.mkv", 3);
+    let to = write(dir.path(), "b.mkv", 5);
+
+    let error = LocalFileSystem.rename(&from, &to).await.unwrap_err();
+
+    assert_eq!(error.source.kind(), std::io::ErrorKind::AlreadyExists);
+    assert_eq!(fs::read(&to).unwrap().len(), 5);
+    assert!(from.exists());
+}
+
+#[tokio::test]
+async fn renaming_a_missing_file_fails() {
+    let dir = TempDir::new().unwrap();
+
+    let error = LocalFileSystem.rename(&dir.path().join("a.mkv"), &dir.path().join("b.mkv")).await.unwrap_err();
+
+    assert_eq!(error.path, dir.path().join("a.mkv"));
+}
+
+#[tokio::test]
+async fn removes_empty_folders_up_to_the_stop() {
+    let dir = TempDir::new().unwrap();
+    write(dir.path(), "tv/Kept/S01E01.mkv", 1);
+    fs::create_dir_all(dir.path().join("tv/Kept/Old/Season 01")).unwrap();
+    fs::create_dir_all(dir.path().join("tv/Gone/Season 01")).unwrap();
+    let tv = dir.path().join("tv");
+
+    LocalFileSystem.remove_empty_folders(&tv.join("Gone/Season 01"), &tv).await.unwrap();
+    LocalFileSystem.remove_empty_folders(&tv.join("Kept/Old/Season 01"), &tv).await.unwrap();
+
+    assert!(!tv.join("Gone").exists());
+    assert!(!tv.join("Kept/Old").exists());
+    assert!(tv.join("Kept/S01E01.mkv").exists());
+    assert!(tv.exists());
+}
+
+#[tokio::test]
+async fn changes_only_the_letter_case() {
+    let dir = TempDir::new().unwrap();
+    let from = write(dir.path(), "frieren.mkv", 3);
+
+    LocalFileSystem.rename(&from, &dir.path().join("Frieren.mkv")).await.unwrap();
+
+    let names: Vec<_> = fs::read_dir(dir.path()).unwrap().map(|entry| entry.unwrap().file_name()).collect();
+    assert_eq!(names, ["Frieren.mkv"]);
+}
