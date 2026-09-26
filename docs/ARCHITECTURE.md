@@ -193,8 +193,8 @@ Owns library files, root folders, naming settings, imports and the recycle folde
 
 ### 5.4 `integrations`
 
-- Rescans Jellyfin after `FilesImported`, `FileRenamed` and `FileDeleted`. A burst of events is debounced into one rescan.
-- **Ports:** `MediaServer`.
+- Rescans Jellyfin after `FilesImported`, `FileRenamed` and `FileDeleted` (FR-10.4). The `Rescans` subscriber only records that a rescan is due (the latest request time, one row); `run_due(quiet)` rescans once no request arrived for the quiet period and clears the request only if it was not renewed meanwhile, so a burst leads to one rescan, a request made during a rescan is kept, and a failed rescan stays pending. `serve` checks every 10 s with a 30 s quiet period; the CLI rescans right after delivering events and only warns when Jellyfin cannot be reached. Off unless `[jellyfin] url` is set; the API key comes from `APP__JELLYFIN__API_KEY`.
+- **Ports:** `MediaServer` (`JellyfinClient` in `system`: `POST /Library/Refresh`, `GET /System/Info`, `Authorization: MediaBrowser Token`), `RescanStore`.
 - Future notifications (REQUIREMENTS §6) go here.
 
 ### 5.5 Settings
@@ -312,7 +312,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | `ExecuteImports` | cron, every 5 s, one tick at a time | `Importer::run_pending` |
 | `ScanLibrary` | cron, daily; on demand | `media::scan` |
 | `CleanupRecycle` | cron, daily at 04:00 | `Deleter::clean_recycle` |
-| `RescanMediaServer` | queue, debounced | `integrations::rescan` |
+| `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
 
 Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and `serve` runs them with `Monitor::run_with_signal`. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
 
@@ -324,7 +324,7 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 
 One binary.
 - `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM. Each subscriber gets its own `Delivery` loop; on a signal the monitor stops first, then the deliveries are cancelled and awaited.
-- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
+- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `recycle`, `jellyfin`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
 
 ### Storage
 

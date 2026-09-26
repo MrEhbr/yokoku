@@ -19,6 +19,8 @@ pub struct ServeConfig {
     pub execute_imports: String,
     /// Cron schedule with seconds for removing old recycled files.
     pub cleanup_recycle: String,
+    /// Cron schedule with seconds for checking whether Jellyfin should rescan.
+    pub rescan_media_server: String,
 }
 
 impl Default for ServeConfig {
@@ -27,6 +29,7 @@ impl Default for ServeConfig {
             sync_downloads: "*/30 * * * * *".into(),
             execute_imports: "*/5 * * * * *".into(),
             cleanup_recycle: "0 0 4 * * *".into(),
+            rescan_media_server: "*/10 * * * * *".into(),
         }
     }
 }
@@ -40,6 +43,7 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
         sync_downloads: schedule(&config.serve.sync_downloads)?,
         execute_imports: schedule(&config.serve.execute_imports)?,
         cleanup_recycle: schedule(&config.serve.cleanup_recycle)?,
+        rescan_media_server: schedule(&config.serve.rescan_media_server)?,
     };
     let app = App::open(config).await?;
     let recovered = app.importer.recover().await?;
@@ -50,7 +54,12 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);
     let monitor = yokoku_jobs::monitor(
-        Jobs { downloads: app.downloads.clone(), importer: app.importer.clone(), deleter: app.deleter.clone() },
+        Jobs {
+            downloads: app.downloads.clone(),
+            importer: app.importer.clone(),
+            deleter: app.deleter.clone(),
+            rescans: app.rescans.clone(),
+        },
         schedules,
     );
     info!("serving");

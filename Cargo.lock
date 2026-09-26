@@ -3902,6 +3902,7 @@ dependencies = [
  "yokoku-domain",
  "yokoku-downloads",
  "yokoku-events",
+ "yokoku-integrations",
  "yokoku-jobs",
  "yokoku-library",
  "yokoku-media",
@@ -4002,7 +4003,6 @@ dependencies = [
  "jiff",
  "thiserror",
  "tokio",
- "tracing",
  "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
@@ -4014,9 +4014,11 @@ version = "0.0.1"
 dependencies = [
  "apalis",
  "apalis-cron",
+ "jiff",
  "jiff-cron",
  "tracing",
  "yokoku-downloads",
+ "yokoku-integrations",
  "yokoku-media",
 ]
 

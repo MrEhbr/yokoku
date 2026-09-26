@@ -211,3 +211,54 @@ async fn removing_a_series_with_its_files_deletes_them() {
     let history = setup.stdout(&["history", "-n", "2"]);
     assert!(history.contains("Deleted ") && history.contains("(its item was removed)"), "{history}");
 }
+
+#[tokio::test]
+async fn changing_library_files_asks_jellyfin_to_rescan() {
+    let setup = Setup::new().await;
+    let jellyfin = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/Library/Refresh"))
+        .and(wiremock::matchers::header("Authorization", "MediaBrowser Token=\"key\""))
+        .respond_with(wiremock::ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&jellyfin)
+        .await;
+    wiremock::Mock::given(wiremock::matchers::path("/System/Info"))
+        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({ "Version": "10.10.7" })))
+        .mount(&jellyfin)
+        .await;
+    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
+    setup.stdout(&["scan"]);
+    let with_jellyfin = |args: &[&str]| {
+        let output = setup
+            .command()
+            .args(args)
+            .env("APP__JELLYFIN__URL", jellyfin.uri())
+            .env("APP__JELLYFIN__API_KEY", "key")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        String::from_utf8(output.stdout).unwrap()
+    };
+
+    let tested = with_jellyfin(&["jellyfin", "test"]);
+    with_jellyfin(&["delete", "series", "tmdb:1", "S01E01"]);
+    with_jellyfin(&["list"]);
+
+    assert_eq!(tested, "Connected to Jellyfin 10.10.7\n");
+}
+
+#[tokio::test]
+async fn an_unreachable_jellyfin_does_not_fail_the_change() {
+    let setup = Setup::new().await;
+    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
+    setup.stdout(&["scan"]);
+
+    setup
+        .command()
+        .args(["delete", "series", "tmdb:1", "S01E01"])
+        .env("APP__JELLYFIN__URL", "http://127.0.0.1:9")
+        .assert()
+        .success()
+        .stdout(predicate::str::starts_with("Deleted "));
+}

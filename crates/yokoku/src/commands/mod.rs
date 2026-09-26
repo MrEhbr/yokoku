@@ -5,6 +5,7 @@ pub mod download;
 pub mod greet;
 pub mod history;
 pub mod import;
+pub mod jellyfin;
 pub mod list;
 pub mod missing;
 pub mod monitor;

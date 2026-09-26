@@ -1,19 +1,21 @@
 use std::{fmt, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
-use jiff::tz::TimeZone;
+use jiff::{SignedDuration, tz::TimeZone};
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use tracing::warn;
 use yokoku_db::Database;
 use yokoku_domain::Clock;
 use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
+use yokoku_integrations::Rescans;
 use yokoku_library::{Library, MetadataSync, Schedule};
 use yokoku_media::{Deleter, Importer, Renamer, Review, RootFolders, Scanner, ports::FileSystem};
 use yokoku_metadata::TmdbClient;
 use yokoku_naming::Naming;
-use yokoku_system::{LocalFileSystem, SystemClock};
+use yokoku_system::{JellyfinClient, LocalFileSystem, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
 use crate::{config::Config, subscriptions};
@@ -112,6 +114,8 @@ pub struct App {
     pub importer: Arc<Importer>,
     pub history: History,
     pub deleter: Arc<Deleter>,
+    /// `None` while no Jellyfin is configured.
+    pub rescans: Option<Arc<Rescans>>,
     sync: Option<MetadataSync>,
     db: Arc<Database>,
     subscribers: Vec<Arc<dyn Subscriber>>,
@@ -131,6 +135,11 @@ impl App {
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
         let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), clock.clone(), config.recycle.recycle()));
+        let jellyfin = &config.jellyfin;
+        let rescans = jellyfin.url.as_ref().map(|url| {
+            let server = JellyfinClient::new(url, jellyfin.api_key.clone().unwrap_or_default());
+            Arc::new(Rescans::new(db.clone(), Arc::new(server), clock.clone()))
+        });
         let transmission = &config.transmission;
         let mut client = TransmissionClient::new(&transmission.url);
         if let Some(username) = &transmission.username {
@@ -154,19 +163,26 @@ impl App {
                 config.import.mode.into(),
             )),
             history: History::new(Arc::new(db.event_log())),
-            subscribers: subscriptions::subscribers(&db, &fs, &clock, &deleter),
+            subscribers: subscriptions::subscribers(&db, &fs, &clock, &deleter, rescans.as_ref()),
             deleter,
+            rescans,
             sync,
             db,
         })
     }
 
-    /// Delivers pending events to every subscriber.
+    /// Delivers pending events to every subscriber, then asks Jellyfin to rescan if they changed
+    /// library files; a Jellyfin that cannot be reached is only reported.
     pub async fn deliver_events(&self) -> Result<()> {
         for subscriber in &self.subscribers {
             let log = Arc::new(self.db.event_log());
             let delivery = Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), quick_delivery());
             delivery.catch_up().await.context("Failed to deliver events")?;
+        }
+        if let Some(rescans) = &self.rescans
+            && let Err(error) = rescans.run_due(SignedDuration::ZERO).await
+        {
+            warn!(%error, "Jellyfin rescan failed; it will be tried again");
         }
         Ok(())
     }

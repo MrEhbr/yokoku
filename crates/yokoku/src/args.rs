@@ -63,6 +63,8 @@ pub enum Command {
     Delete(commands::delete::Args),
     /// Manage the recycle folder
     Recycle(commands::recycle::Args),
+    /// Test the Jellyfin connection or ask it to rescan
+    Jellyfin(commands::jellyfin::Args),
     /// Deliver events and run scheduled jobs until stopped
     Serve(commands::serve::Args),
 }
@@ -109,6 +111,7 @@ pub async fn route(args: Args) -> Result<()> {
         History(cmd_args) => commands::history::run(&config, cmd_args).await,
         Delete(cmd_args) => commands::delete::run(&config, cmd_args).await,
         Recycle(cmd_args) => commands::recycle::run(&config, cmd_args).await,
+        Jellyfin(cmd_args) => commands::jellyfin::run(&config, cmd_args).await,
         Serve(cmd_args) => commands::serve::run(&config, cmd_args).await,
     }
 }
