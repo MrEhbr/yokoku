@@ -57,6 +57,17 @@ async fn skips_hidden_entries_linked_folders_and_broken_links() {
 }
 
 #[tokio::test]
+async fn lists_a_hidden_folder_itself() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path().join(".downloads");
+    write(&root, "Dune.mkv", 1);
+
+    let files = LocalFileSystem.files(&root).await.unwrap();
+
+    assert_eq!(relative(&root, &files), [("Dune.mkv".into(), 1)]);
+}
+
+#[tokio::test]
 async fn a_missing_folder_is_an_error_not_an_empty_list() {
     let dir = TempDir::new().unwrap();
 

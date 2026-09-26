@@ -50,6 +50,7 @@ tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 unicode-normalization = "0.1"
 uuid = { version = "1.26", features = ["v7", "serde"] }
+walkdir = "2.5"
 
 assert_cmd = "2.1"
 criterion = "0.8"

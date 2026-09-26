@@ -7,6 +7,7 @@ use std::{
 use async_trait::async_trait;
 use tokio::task;
 use tracing::warn;
+use walkdir::{DirEntry, WalkDir};
 use yokoku_detect::DownloadFile;
 use yokoku_media::ports::{FileStat, FileSystem, FsError};
 
@@ -87,39 +88,42 @@ pub(crate) fn at(path: &Path) -> impl FnOnce(io::Error) -> FsError + '_ {
 
 /// Any unreadable folder fails the whole walk, so a missing folder never looks empty.
 fn walk(root: &Path, recursive: bool) -> Result<Vec<DownloadFile>, FsError> {
+    let entries = WalkDir::new(root)
+        .min_depth(1)
+        .max_depth(if recursive { usize::MAX } else { 1 })
+        .into_iter()
+        .filter_entry(|entry| entry.depth() == 0 || is_visible(entry));
     let mut files = Vec::new();
-    let mut folders = vec![root.to_owned()];
 
-    while let Some(folder) = folders.pop() {
-        for entry in fs::read_dir(&folder).map_err(at(&folder))? {
-            let entry = entry.map_err(at(&folder))?;
-            let path = entry.path();
-            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
-                warn!(path = %path.display(), "skipping a name that is not UTF-8");
-                continue;
-            };
-            if name.starts_with('.') {
-                continue;
-            }
-            if entry.file_type().map_err(at(&path))?.is_dir() {
-                if recursive {
-                    folders.push(path);
-                }
-                continue;
-            }
-            match fs::metadata(&path) {
-                Ok(metadata) if metadata.is_file() => files.push(DownloadFile { path, size: metadata.len() }),
-                Ok(_) => {},
-                Err(source) if source.kind() == io::ErrorKind::NotFound => {
-                    warn!(path = %path.display(), "skipping a broken link");
-                },
-                Err(source) => return Err(FsError { path, source }),
-            }
+    for entry in entries {
+        let entry =
+            entry.map_err(|error| FsError { path: error.path().unwrap_or(root).to_owned(), source: error.into() })?;
+        if entry.file_type().is_dir() {
+            continue;
+        }
+        let path = entry.into_path();
+        match fs::metadata(&path) {
+            Ok(metadata) if metadata.is_file() => files.push(DownloadFile { path, size: metadata.len() }),
+            Ok(_) => {},
+            Err(source) if source.kind() == io::ErrorKind::NotFound => {
+                warn!(path = %path.display(), "skipping a broken link");
+            },
+            Err(source) => return Err(FsError { path, source }),
         }
     }
 
     files.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(files)
+}
+
+fn is_visible(entry: &DirEntry) -> bool {
+    match entry.file_name().to_str() {
+        Some(name) => !name.starts_with('.'),
+        None => {
+            warn!(path = %entry.path().display(), "skipping a name that is not UTF-8");
+            false
+        },
+    }
 }
 
 /// Creates missing folders; never replaces another file. A change of letter case alone is allowed
