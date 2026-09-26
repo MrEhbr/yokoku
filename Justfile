@@ -27,7 +27,7 @@ build *opts="":
 # Install application into ~/.cargo/bin
 install *opts="":
     @echo "Installing {{APP}}"
-    @cargo install --path . {{opts}}
+    @cargo install --path crates/yokoku {{opts}}
 
 # Run tests
 test *opts="--workspace":

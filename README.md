@@ -53,19 +53,24 @@ direnv allow # Auto-load with direnv
 ## Project Structure
 
 ```
-src/
-  args.rs           # CLI root, global flags, command dispatch
-  config.rs         # Config type and layered loading
-  logging.rs        # tracing setup
-  commands/         # One module per subcommand
-benches/            # Criterion benchmarks
-config/             # Configuration files
-tests/              # Integration tests
+crates/
+  yokoku/             # Binary: composition root and CLI
+    src/
+      args.rs         # CLI root, global flags, command dispatch
+      config.rs       # Config type and layered loading
+      logging.rs      # tracing setup
+      commands/       # One module per subcommand
+    benches/          # Criterion benchmarks
+    tests/            # Integration tests
+  <name>/             # Library crates, see docs/ARCHITECTURE.md §3
+config/               # Configuration files
+docs/                 # Requirements and architecture
 ```
 
 ## Adding a Command
 
-`src/commands/greet.rs` is a worked example. To add your own:
+`crates/yokoku/src/commands/greet.rs` is a worked example. Paths below are
+relative to `crates/yokoku/`. To add your own:
 
 1. Copy it to `src/commands/<name>.rs` and adjust its `Args` and `run`.
 2. Register the module in `src/commands/mod.rs`.
