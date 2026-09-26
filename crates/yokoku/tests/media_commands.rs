@@ -137,3 +137,23 @@ async fn a_series_match_needs_episodes() {
         .failure()
         .stderr(predicate::str::contains("A series match needs episodes"));
 }
+
+#[tokio::test]
+async fn rename_previews_then_applies() {
+    let setup = Setup::new().await;
+    setup.write("tv/frieren/Frieren (2023) - S01E01.mkv");
+    setup.stdout(&["scan"]);
+
+    let preview = setup.stdout(&["rename"]);
+    let applied = setup.stdout(&["rename", "series", "tmdb:1", "--apply"]);
+
+    assert_eq!(
+        preview,
+        "frieren/Frieren (2023) - S01E01.mkv\n  -> Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv\n\
+         Run with --apply to rename 1 files.\n"
+    );
+    assert_eq!(applied, "Renamed 1 files\n");
+    assert!(setup.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv").exists());
+    assert_eq!(setup.stdout(&["rename"]), "Nothing to rename.\n");
+    assert!(setup.episode_line("S01E01").contains("downloaded"));
+}

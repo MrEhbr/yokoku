@@ -51,6 +51,8 @@ pub enum Command {
     Scan(commands::scan::Args),
     /// Match files the scan was unsure about
     Review(commands::review::Args),
+    /// Move library files to the names and folders naming gives them
+    Rename(commands::rename::Args),
 }
 
 impl Args {
@@ -89,5 +91,6 @@ pub async fn route(args: Args) -> Result<()> {
         Root(cmd_args) => commands::root::run(&config, cmd_args).await,
         Scan(cmd_args) => commands::scan::run(&config, cmd_args).await,
         Review(cmd_args) => commands::review::run(&config, cmd_args).await,
+        Rename(cmd_args) => commands::rename::run(&config, cmd_args).await,
     }
 }

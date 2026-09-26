@@ -6,8 +6,9 @@ use serde::{Deserialize, Serialize};
 use yokoku_db::Database;
 use yokoku_events::{Delivery, DeliveryConfig};
 use yokoku_library::{Library, MetadataSync, Schedule};
-use yokoku_media::{Review, RootFolders, Scanner};
+use yokoku_media::{Renamer, Review, RootFolders, Scanner};
 use yokoku_metadata::TmdbClient;
+use yokoku_naming::Naming;
 use yokoku_system::{LocalFileSystem, SystemClock};
 
 use crate::{config::Config, subscriptions};
@@ -77,6 +78,7 @@ pub struct App {
     pub roots: RootFolders,
     pub scanner: Scanner,
     pub review: Review,
+    pub renamer: Renamer,
     sync: Option<MetadataSync>,
     db: Arc<Database>,
 }
@@ -99,8 +101,9 @@ impl App {
             library: Library::new(db.clone(), db.clone(), clock.clone()),
             schedule: Schedule::new(db.clone(), db.clone(), clock.clone()),
             roots: RootFolders::new(db.clone(), fs.clone()),
-            scanner: Scanner::new(db.clone(), db.clone(), fs, clock.clone()),
+            scanner: Scanner::new(db.clone(), db.clone(), fs.clone(), clock.clone()),
             review: Review::new(db.clone(), db.clone(), clock),
+            renamer: Renamer::new(db.clone(), db.clone(), fs, Naming::default()),
             sync,
             db,
         })

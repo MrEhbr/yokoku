@@ -3749,6 +3749,7 @@ dependencies = [
  "yokoku-library",
  "yokoku-media",
  "yokoku-metadata",
+ "yokoku-naming",
  "yokoku-system",
 ]
 

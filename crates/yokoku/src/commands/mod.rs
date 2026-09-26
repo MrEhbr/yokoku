@@ -7,6 +7,7 @@ pub mod monitor;
 pub mod numbering;
 pub mod refresh;
 pub mod remove;
+pub mod rename;
 pub mod review;
 pub mod root;
 pub mod scan;
