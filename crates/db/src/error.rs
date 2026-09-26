@@ -12,11 +12,16 @@ pub enum DbError {
     EventEncoding(#[from] serde_json::Error),
     #[error("invalid stored value: {0}")]
     InvalidValue(String),
+    #[error("the row was changed or removed at the same time")]
+    Conflict,
 }
 
 impl From<DbError> for StorageError {
     fn from(error: DbError) -> Self {
-        Self::new(error)
+        match error {
+            DbError::Conflict => Self::Conflict,
+            error => Self::new(error),
+        }
     }
 }
 
@@ -28,6 +33,9 @@ impl From<DbError> for MediaStorageError {
 
 impl From<DbError> for DownloadStorageError {
     fn from(error: DbError) -> Self {
-        Self::new(error)
+        match error {
+            DbError::Conflict => Self::Conflict,
+            error => Self::new(error),
+        }
     }
 }

@@ -37,7 +37,7 @@ impl Setup {
             poster_path: None,
             releases: Releases::default(),
         };
-        MovieRepo::save(&db, &Movie::add(dune, true, Timestamp::now()), &[]).await.unwrap();
+        MovieRepo::save(&db, &mut Movie::add(dune, true, Timestamp::now()), &[]).await.unwrap();
 
         let transmission = MockServer::start().await;
         Mock::given(method("POST"))

@@ -21,6 +21,7 @@ struct MovieRow {
     file_id: Option<String>,
     added_at: String,
     refreshed_at: String,
+    revision: i64,
 }
 
 #[async_trait]
@@ -48,7 +49,7 @@ impl MovieRepo for Database {
         Ok(self.movie_ids().await?)
     }
 
-    async fn save(&self, movie: &Movie, events: &[Event]) -> Result<(), StorageError> {
+    async fn save(&self, movie: &mut Movie, events: &[Event]) -> Result<(), StorageError> {
         Ok(self.save_movie(movie, events).await?)
     }
 
@@ -64,10 +65,20 @@ impl MovieRepo for Database {
 }
 
 impl Database {
-    async fn save_movie(&self, movie: &Movie, events: &[Event]) -> Result<(), DbError> {
+    async fn save_movie(&self, movie: &mut Movie, events: &[Event]) -> Result<(), DbError> {
         let (source_kind, source_id) = codec::source_columns(movie.source)?;
         let date = |date: Option<jiff::civil::Date>| date.map(|date| date.to_string());
         let mut tx = self.begin().await?;
+        if movie.revision > 0 {
+            let claimed = sqlx::query("UPDATE movies SET revision = revision + 1 WHERE id = ? AND revision = ?")
+                .bind(movie.id.to_string())
+                .bind(codec::revision_to_i64(movie.revision)?)
+                .execute(&mut *tx)
+                .await?;
+            if claimed.rows_affected() == 0 {
+                return Err(DbError::Conflict);
+            }
+        }
 
         sqlx::query(
             "INSERT INTO movies (id, source_kind, source_id, title, original_title, year, poster_path, cinema_date,
@@ -97,13 +108,15 @@ impl Database {
         .execute(&mut *tx)
         .await?;
 
-        self.commit(tx, events).await
+        self.commit(tx, events).await?;
+        movie.revision += 1;
+        Ok(())
     }
 
     pub(crate) async fn load_movie(&self, id: MovieId) -> Result<Option<Movie>, DbError> {
         let row: Option<MovieRow> = sqlx::query_as(
             "SELECT id, source_kind, source_id, title, original_title, year, poster_path, cinema_date, digital_date,
-                    physical_date, monitored, file_id, added_at, refreshed_at
+                    physical_date, monitored, file_id, added_at, refreshed_at, revision
              FROM movies WHERE id = ?",
         )
         .bind(id.to_string())
@@ -136,5 +149,6 @@ fn movie(row: MovieRow) -> Result<Movie, DbError> {
         file: codec::file_id(row.file_id.as_deref())?,
         added_at: codec::timestamp(&row.added_at)?,
         refreshed_at: codec::timestamp(&row.refreshed_at)?,
+        revision: codec::revision(row.revision)?,
     })
 }

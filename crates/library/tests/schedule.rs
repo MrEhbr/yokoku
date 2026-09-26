@@ -38,7 +38,7 @@ async fn populated() -> App {
     app.library.set_season_monitored(pluto.id, 1, false).await.unwrap();
     let mut frieren = app.library.series(frieren.id).await.unwrap();
     frieren.episode_mut(EpisodeRef { season: 1, episode: 1 }).unwrap().file = Some(MediaFileId::generate());
-    SeriesRepo::save(&app.db, &frieren, &[]).await.unwrap();
+    SeriesRepo::save(&app.db, &mut frieren, &[]).await.unwrap();
     app
 }
 

@@ -65,10 +65,10 @@ impl App {
         let review = Review::new(repo.clone(), repo.clone(), clock);
         let renamer = Renamer::new(repo.clone(), repo, Arc::new(LocalFileSystem), Naming::default());
 
-        let frieren = Series::add(frieren_metadata(), MonitorPreset::All, TODAY, now());
-        let dune = Movie::add(dune_metadata(), true, now());
-        SeriesRepo::save(&db, &frieren, &[]).await.unwrap();
-        MovieRepo::save(&db, &dune, &[]).await.unwrap();
+        let mut frieren = Series::add(frieren_metadata(), MonitorPreset::All, TODAY, now());
+        let mut dune = Movie::add(dune_metadata(), true, now());
+        SeriesRepo::save(&db, &mut frieren, &[]).await.unwrap();
+        MovieRepo::save(&db, &mut dune, &[]).await.unwrap();
 
         let app = Self { dir, db, roots, scanner, review, renamer, frieren, dune };
         app.roots.add(RootKind::Series, &app.path("tv")).await.unwrap();

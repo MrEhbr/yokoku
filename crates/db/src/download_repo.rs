@@ -26,6 +26,7 @@ struct DownloadRow {
     error: Option<String>,
     added_at: String,
     completed_at: Option<String>,
+    revision: i64,
 }
 
 #[async_trait]
@@ -33,7 +34,7 @@ impl DownloadRepo for Database {
     async fn get(&self, id: DownloadId) -> Result<Option<Download>, StorageError> {
         let row: Option<DownloadRow> = sqlx::query_as(
             "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
-                    added_at, completed_at
+                    added_at, completed_at, revision
              FROM downloads WHERE id = ?",
         )
         .bind(id.to_string())
@@ -46,7 +47,7 @@ impl DownloadRepo for Database {
     async fn find_by_hash(&self, hash: &str) -> Result<Option<Download>, StorageError> {
         let row: Option<DownloadRow> = sqlx::query_as(
             "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
-                    added_at, completed_at
+                    added_at, completed_at, revision
              FROM downloads WHERE hash = ?",
         )
         .bind(hash)
@@ -59,7 +60,7 @@ impl DownloadRepo for Database {
     async fn list(&self) -> Result<Vec<Download>, StorageError> {
         let rows: Vec<DownloadRow> = sqlx::query_as(
             "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
-                    added_at, completed_at
+                    added_at, completed_at, revision
              FROM downloads ORDER BY added_at DESC, id DESC",
         )
         .fetch_all(self.pool())
@@ -68,13 +69,13 @@ impl DownloadRepo for Database {
         Ok(rows.into_iter().map(download).collect::<Result<_, _>>()?)
     }
 
-    async fn save(&self, download: &Download, events: &[Event]) -> Result<(), StorageError> {
+    async fn save(&self, download: &mut Download, events: &[Event]) -> Result<(), StorageError> {
         Ok(self.save_download(download, events).await?)
     }
 }
 
 impl Database {
-    async fn save_download(&self, download: &Download, events: &[Event]) -> Result<(), DbError> {
+    async fn save_download(&self, download: &mut Download, events: &[Event]) -> Result<(), DbError> {
         let status = &download.status;
         let (series_id, movie_id) = match download.item {
             Some(ItemId::Series(id)) => (Some(id.to_string()), None),
@@ -87,6 +88,16 @@ impl Database {
             .ok_or_else(|| DbError::InvalidValue(format!("path {} is not UTF-8", status.download_dir.display())))?;
 
         let mut tx = self.begin().await?;
+        if download.revision > 0 {
+            let claimed = sqlx::query("UPDATE downloads SET revision = revision + 1 WHERE id = ? AND revision = ?")
+                .bind(download.id.to_string())
+                .bind(codec::revision_to_i64(download.revision)?)
+                .execute(&mut *tx)
+                .await?;
+            if claimed.rows_affected() == 0 {
+                return Err(DbError::Conflict);
+            }
+        }
         sqlx::query(
             "INSERT INTO downloads (id, hash, name, series_id, movie_id, state, size, done, download_rate, eta,
                                     download_dir, error, added_at, completed_at)
@@ -113,7 +124,9 @@ impl Database {
         .bind(download.completed_at.map(|at| at.to_string()))
         .execute(&mut *tx)
         .await?;
-        self.commit(tx, events).await
+        self.commit(tx, events).await?;
+        download.revision += 1;
+        Ok(())
     }
 }
 
@@ -140,6 +153,7 @@ fn download(row: DownloadRow) -> Result<Download, DbError> {
         },
         added_at: codec::timestamp(&row.added_at)?,
         completed_at: row.completed_at.as_deref().map(codec::timestamp).transpose()?,
+        revision: codec::revision(row.revision)?,
     })
 }
 

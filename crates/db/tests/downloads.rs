@@ -53,6 +53,7 @@ fn any_download() -> impl Strategy<Value = Download> {
                 status,
                 added_at,
                 completed_at: completed.then_some(added_at),
+                revision: 0,
             }
         },
     )
@@ -66,10 +67,10 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(64))]
 
     #[test]
-    fn stored_downloads_read_back_unchanged(download in any_download()) {
+    fn stored_downloads_read_back_unchanged(mut download in any_download()) {
         let (by_id, by_hash, listed) = block_on(async {
             let db = Database::open_in_memory().await.unwrap();
-            db.save(&download, &[]).await.unwrap();
+            db.save(&mut download, &[]).await.unwrap();
             (db.get(download.id).await.unwrap(), db.find_by_hash(&download.hash).await.unwrap(), db.list().await.unwrap())
         });
 
@@ -90,11 +91,12 @@ async fn downloads_are_listed_newest_first() {
         status: DownloadStatus::unknown(),
         added_at: added_at.parse().unwrap(),
         completed_at: None,
+        revision: 0,
     };
-    let older = download("a", "2026-09-25T12:00:00Z");
-    let newer = download("b", "2026-09-26T12:00:00Z");
-    db.save(&older, &[]).await.unwrap();
-    db.save(&newer, &[]).await.unwrap();
+    let mut older = download("a", "2026-09-25T12:00:00Z");
+    let mut newer = download("b", "2026-09-26T12:00:00Z");
+    db.save(&mut older, &[]).await.unwrap();
+    db.save(&mut newer, &[]).await.unwrap();
 
     assert_eq!(db.list().await.unwrap(), [newer, older]);
 }

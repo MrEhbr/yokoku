@@ -78,8 +78,8 @@ async fn seeded_library() -> Library {
         releases: Releases { digital: Some(today() - 30.days()), ..Releases::default() },
     };
 
-    SeriesRepo::save(&db, &Series::add(frieren, MonitorPreset::All, today(), Timestamp::now()), &[]).await.unwrap();
-    MovieRepo::save(&db, &Movie::add(dune, true, Timestamp::now()), &[]).await.unwrap();
+    SeriesRepo::save(&db, &mut Series::add(frieren, MonitorPreset::All, today(), Timestamp::now()), &[]).await.unwrap();
+    MovieRepo::save(&db, &mut Movie::add(dune, true, Timestamp::now()), &[]).await.unwrap();
     library
 }
 

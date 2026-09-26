@@ -8,6 +8,7 @@ use crate::{
     LibraryEntry, LibraryError, LibraryFilter, LibrarySort,
     catalog::Catalog,
     ports::{MovieRepo, SeriesRepo},
+    retry,
 };
 
 /// Queries and changes that need no metadata source.
@@ -92,9 +93,12 @@ impl Library {
     }
 
     pub async fn set_movie_monitored(&self, id: MovieId, monitored: bool) -> Result<(), LibraryError> {
-        let mut movie = self.movie(id).await?;
-        movie.monitored = monitored;
-        Ok(self.movies.save(&movie, &[]).await?)
+        retry::on_conflict(|| async move {
+            let mut movie = self.movie(id).await?;
+            movie.monitored = monitored;
+            Ok(self.movies.save(&mut movie, &[]).await?)
+        })
+        .await
     }
 
     pub async fn remove_series(&self, id: SeriesId, delete_files: bool) -> Result<(), LibraryError> {
@@ -112,10 +116,14 @@ impl Library {
     async fn update_series(
         &self,
         id: SeriesId,
-        change: impl FnOnce(&mut Series) -> Result<(), LibraryError>,
+        change: impl Fn(&mut Series) -> Result<(), LibraryError>,
     ) -> Result<(), LibraryError> {
-        let mut series = self.series(id).await?;
-        change(&mut series)?;
-        Ok(self.series.save(&series, &[]).await?)
+        let change = &change;
+        retry::on_conflict(|| async move {
+            let mut series = self.series(id).await?;
+            change(&mut series)?;
+            Ok(self.series.save(&mut series, &[]).await?)
+        })
+        .await
     }
 }

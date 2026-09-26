@@ -84,3 +84,11 @@ pub(crate) fn date(value: Option<&str>) -> Result<Option<Date>, DbError> {
 pub(crate) fn file_id(value: Option<&str>) -> Result<Option<MediaFileId>, DbError> {
     value.map(|value| uuid(value).map(MediaFileId)).transpose()
 }
+
+pub(crate) fn revision(value: i64) -> Result<u64, DbError> {
+    u64::try_from(value).map_err(|_| DbError::InvalidValue(format!("revision {value}")))
+}
+
+pub(crate) fn revision_to_i64(revision: u64) -> Result<i64, DbError> {
+    i64::try_from(revision).map_err(|_| DbError::InvalidValue(format!("revision {revision}")))
+}

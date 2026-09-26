@@ -331,6 +331,7 @@ One binary.
 - Queries are checked by tests against real SQLite, not by `query!` macros, so no `DATABASE_URL` or `.sqlx` data is needed to build.
 - Ids are stored as UUID text, timestamps as RFC 3339 text, dates as ISO 8601 text, enums as lowercase text. Paths are UTF-8 text; the filesystem adapter skips names that are not UTF-8.
 - Saving an aggregate upserts its rows and deletes rows no longer present, so child ids (episodes) stay stable.
+- Series, movies and downloads carry a `revision` (optimistic concurrency). A save claims the next revision with `UPDATE … SET revision = revision + 1 WHERE id = ? AND revision = ?` in the same transaction; no match, because another save came first or the row was removed, fails with `StorageError::Conflict` and changes nothing. Library use cases reload and reapply their change on a conflict (up to five attempts); a download sync leaves a download another sync just saved to that sync, so `DownloadCompleted` stays exactly once.
 
 ### Errors
 

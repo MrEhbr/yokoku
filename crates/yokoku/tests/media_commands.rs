@@ -35,7 +35,9 @@ impl Setup {
             status: SourceStatus::Returning,
             seasons: vec![SeasonMetadata { number: 1, episodes: vec![episode(1), episode(2)] }],
         };
-        SeriesRepo::save(&db, &Series::add(frieren, MonitorPreset::All, today(), Timestamp::now()), &[]).await.unwrap();
+        SeriesRepo::save(&db, &mut Series::add(frieren, MonitorPreset::All, today(), Timestamp::now()), &[])
+            .await
+            .unwrap();
 
         let setup = Self { dir, database };
         fs::create_dir(setup.path("tv")).unwrap();

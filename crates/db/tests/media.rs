@@ -186,7 +186,7 @@ proptest! {
 #[tokio::test]
 async fn the_catalog_reads_the_library(#[future] db: Database) {
     let db = db.await;
-    let series = Series::add(
+    let mut series = Series::add(
         SeriesMetadata {
             source: ExternalId::Tmdb(1),
             title: "Frieren".into(),
@@ -200,7 +200,7 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
         now().to_zoned(TimeZone::UTC).date(),
         now(),
     );
-    let movie = Movie::add(
+    let mut movie = Movie::add(
         MovieMetadata {
             source: ExternalId::Tmdb(2),
             title: "Dune".into(),
@@ -212,8 +212,8 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
         true,
         now(),
     );
-    SeriesRepo::save(&db, &series, &[]).await.unwrap();
-    MovieRepo::save(&db, &movie, &[]).await.unwrap();
+    SeriesRepo::save(&db, &mut series, &[]).await.unwrap();
+    MovieRepo::save(&db, &mut movie, &[]).await.unwrap();
 
     assert_eq!(db.all_series().await.unwrap(), std::slice::from_ref(&series));
     assert_eq!(db.all_movies().await.unwrap(), std::slice::from_ref(&movie));

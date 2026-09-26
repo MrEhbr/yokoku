@@ -51,7 +51,7 @@ async fn populated() -> App {
 
     let mut frieren = app.library.series(frieren.id).await.unwrap();
     frieren.seasons[0].episodes[0].file = Some(MediaFileId::generate());
-    yokoku_library::ports::SeriesRepo::save(&app.db, &frieren, &[]).await.unwrap();
+    yokoku_library::ports::SeriesRepo::save(&app.db, &mut frieren, &[]).await.unwrap();
     app
 }
 

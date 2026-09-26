@@ -110,3 +110,23 @@ async fn files_of_removed_items_and_missing_episodes_are_skipped() {
 
     assert_eq!(episode_files(&setup).await, [None, None, Some(file)]);
 }
+
+#[tokio::test]
+async fn file_links_survive_concurrent_refreshes() {
+    let setup = setup().await;
+    let files: Vec<MediaFileId> = (0..3).map(|_| MediaFileId::generate()).collect();
+
+    let link = async {
+        for (number, file) in (1..).zip(&files) {
+            setup.tracker.handle(&recorded(found(*file, episodes(setup.series.id, number, number)))).await.unwrap();
+        }
+    };
+    let refresh = async {
+        for _ in 0..20 {
+            setup.app.sync.refresh_series(setup.series.id).await.unwrap();
+        }
+    };
+    tokio::join!(link, refresh);
+
+    assert_eq!(episode_files(&setup).await, files.into_iter().map(Some).collect::<Vec<_>>());
+}

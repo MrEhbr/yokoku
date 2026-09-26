@@ -5,7 +5,7 @@ use yokoku_events::Event;
 
 use crate::{
     Download, DownloadError, DownloadState, DownloadStatus,
-    ports::{DownloadClient, DownloadRepo, Torrent, TorrentSource},
+    ports::{DownloadClient, DownloadRepo, StorageError, Torrent, TorrentSource},
 };
 
 /// Torrents added through Yokoku and their state in the download client (FR-3).
@@ -54,16 +54,18 @@ impl Downloads {
             status: DownloadStatus::unknown(),
             added_at: self.clock.now().timestamp(),
             completed_at: None,
+            revision: 0,
         };
         let torrent = self.client.torrents(std::slice::from_ref(&download.hash)).await?.pop();
         let mut events = vec![Event::TorrentAdded { download: download.id, name: download.name.clone(), item }];
         events.extend(self.apply(&mut download, torrent));
-        self.repo.save(&download, &events).await?;
+        self.repo.save(&mut download, &events).await?;
         Ok(download)
     }
 
     /// Records each download's progress and state; a download that finished emits
-    /// `DownloadCompleted` once, however often this runs.
+    /// `DownloadCompleted` once, however often and however many syncs run. A download another
+    /// sync saved in the meantime is left to that sync.
     pub async fn sync(&self) -> Result<SyncReport, DownloadError> {
         let active: Vec<Download> = self
             .repo
@@ -79,15 +81,17 @@ impl Downloads {
         let mut report = SyncReport::default();
         for mut download in active {
             let torrent = torrents.remove(&download.hash);
-            if torrent.is_none() {
-                report.removed += 1;
-            }
+            let removed = torrent.is_none();
             let completed = self.apply(&mut download, torrent);
+            match self.repo.save(&mut download, completed.as_slice()).await {
+                Err(StorageError::Conflict) => continue,
+                result => result?,
+            }
+            report.synced += 1;
+            report.removed += usize::from(removed);
             if completed.is_some() {
                 report.completed.push(download.id);
             }
-            self.repo.save(&download, completed.as_slice()).await?;
-            report.synced += 1;
         }
         Ok(report)
     }

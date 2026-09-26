@@ -21,6 +21,7 @@ struct SeriesRow {
     monitored: bool,
     added_at: String,
     refreshed_at: String,
+    revision: i64,
 }
 
 #[derive(sqlx::FromRow)]
@@ -66,7 +67,7 @@ impl SeriesRepo for Database {
         Ok(self.series_ids().await?)
     }
 
-    async fn save(&self, series: &Series, events: &[Event]) -> Result<(), StorageError> {
+    async fn save(&self, series: &mut Series, events: &[Event]) -> Result<(), StorageError> {
         Ok(self.save_series(series, events).await?)
     }
 
@@ -91,7 +92,7 @@ impl Database {
         let id = id.to_string();
         let Some(row) = sqlx::query_as::<_, SeriesRow>(
             "SELECT id, source_kind, source_id, title, original_title, year, poster_path, source_status, numbering,
-                    monitored, added_at, refreshed_at
+                    monitored, added_at, refreshed_at, revision
              FROM series WHERE id = ?",
         )
         .bind(&id)
@@ -117,10 +118,20 @@ impl Database {
         Ok(Some(assemble(row, seasons, episodes)?))
     }
 
-    async fn save_series(&self, series: &Series, events: &[Event]) -> Result<(), DbError> {
+    async fn save_series(&self, series: &mut Series, events: &[Event]) -> Result<(), DbError> {
         let id = series.id.to_string();
         let (source_kind, source_id) = codec::source_columns(series.source)?;
         let mut tx = self.begin().await?;
+        if series.revision > 0 {
+            let claimed = sqlx::query("UPDATE series SET revision = revision + 1 WHERE id = ? AND revision = ?")
+                .bind(&id)
+                .bind(codec::revision_to_i64(series.revision)?)
+                .execute(&mut *tx)
+                .await?;
+            if claimed.rows_affected() == 0 {
+                return Err(DbError::Conflict);
+            }
+        }
 
         sqlx::query(
             "INSERT INTO series (id, source_kind, source_id, title, original_title, year, poster_path, source_status,
@@ -196,7 +207,9 @@ impl Database {
             .execute(&mut *tx)
             .await?;
 
-        self.commit(tx, events).await
+        self.commit(tx, events).await?;
+        series.revision += 1;
+        Ok(())
     }
 }
 
@@ -236,5 +249,6 @@ fn assemble(row: SeriesRow, seasons: Vec<SeasonRow>, episodes: Vec<EpisodeRow>) 
         seasons,
         added_at: codec::timestamp(&row.added_at)?,
         refreshed_at: codec::timestamp(&row.refreshed_at)?,
+        revision: codec::revision(row.revision)?,
     })
 }

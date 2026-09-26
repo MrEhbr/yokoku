@@ -49,22 +49,28 @@ pub enum ClientError {
     Refused(String),
 }
 
-/// Writes store the download and `events` in one transaction.
+/// Writes store the download and `events` in one transaction. A save inserts a download at
+/// revision 0 and otherwise updates it only when the stored revision matches, then bumps
+/// `revision`; a save made from an older revision fails with `StorageError::Conflict`.
 #[async_trait]
 pub trait DownloadRepo: Send + Sync {
     async fn get(&self, id: DownloadId) -> Result<Option<Download>, StorageError>;
     async fn find_by_hash(&self, hash: &str) -> Result<Option<Download>, StorageError>;
     /// Newest first.
     async fn list(&self) -> Result<Vec<Download>, StorageError>;
-    async fn save(&self, download: &Download, events: &[Event]) -> Result<(), StorageError>;
+    async fn save(&self, download: &mut Download, events: &[Event]) -> Result<(), StorageError>;
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error(transparent)]
-pub struct StorageError(Box<dyn Error + Send + Sync>);
+pub enum StorageError {
+    #[error("the item was changed or removed at the same time")]
+    Conflict,
+    #[error(transparent)]
+    Other(Box<dyn Error + Send + Sync>),
+}
 
 impl StorageError {
     pub fn new(source: impl Into<Box<dyn Error + Send + Sync>>) -> Self {
-        Self(source.into())
+        Self::Other(source.into())
     }
 }

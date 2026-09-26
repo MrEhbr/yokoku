@@ -14,6 +14,8 @@ pub struct Download {
     pub status: DownloadStatus,
     pub added_at: Timestamp,
     pub completed_at: Option<Timestamp>,
+    /// Saves so far; storage refuses a save made from an older revision.
+    pub revision: u64,
 }
 
 /// The client's view of a torrent at the last sync.

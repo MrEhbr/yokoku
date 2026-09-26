@@ -6,6 +6,7 @@ use yokoku_events::Event;
 use crate::{
     LibraryError,
     ports::{MetadataProvider, MovieRepo, SearchResult, SeriesRepo},
+    retry,
 };
 
 /// Use cases that read from the metadata source.
@@ -63,9 +64,9 @@ impl MetadataSync {
         let metadata = self.metadata.series(source).await?;
         let now = self.clock.now();
 
-        let series = Series::add(metadata, preset, now.date(), now.timestamp());
+        let mut series = Series::add(metadata, preset, now.date(), now.timestamp());
         let added = Event::SeriesAdded { series: series.id, title: series.title.clone() };
-        self.series.save(&series, &[added]).await?;
+        self.series.save(&mut series, &[added]).await?;
         Ok(series)
     }
 
@@ -75,28 +76,38 @@ impl MetadataSync {
         }
         let metadata = self.metadata.movie(source).await?;
 
-        let movie = Movie::add(metadata, monitored, self.clock.now().timestamp());
+        let mut movie = Movie::add(metadata, monitored, self.clock.now().timestamp());
         let added = Event::MovieAdded { movie: movie.id, title: movie.title.clone() };
-        self.movies.save(&movie, &[added]).await?;
+        self.movies.save(&mut movie, &[added]).await?;
         Ok(movie)
     }
 
     pub async fn refresh_series(&self, id: SeriesId) -> Result<Series, LibraryError> {
-        let mut series = self.series.get(id).await?.ok_or(LibraryError::SeriesNotFound(id))?;
-        let metadata = self.metadata.series(series.source).await?;
+        let source = self.series.get(id).await?.ok_or(LibraryError::SeriesNotFound(id))?.source;
+        let metadata = self.metadata.series(source).await?;
 
-        series.refresh(metadata, self.clock.now().timestamp());
-        self.series.save(&series, &[]).await?;
-        Ok(series)
+        let metadata = &metadata;
+        retry::on_conflict(|| async move {
+            let mut series = self.series.get(id).await?.ok_or(LibraryError::SeriesNotFound(id))?;
+            series.refresh(metadata.clone(), self.clock.now().timestamp());
+            self.series.save(&mut series, &[]).await?;
+            Ok(series)
+        })
+        .await
     }
 
     pub async fn refresh_movie(&self, id: MovieId) -> Result<Movie, LibraryError> {
-        let mut movie = self.movies.get(id).await?.ok_or(LibraryError::MovieNotFound(id))?;
-        let metadata = self.metadata.movie(movie.source).await?;
+        let source = self.movies.get(id).await?.ok_or(LibraryError::MovieNotFound(id))?.source;
+        let metadata = self.metadata.movie(source).await?;
 
-        movie.refresh(metadata, self.clock.now().timestamp());
-        self.movies.save(&movie, &[]).await?;
-        Ok(movie)
+        let metadata = &metadata;
+        retry::on_conflict(|| async move {
+            let mut movie = self.movies.get(id).await?.ok_or(LibraryError::MovieNotFound(id))?;
+            movie.refresh(metadata.clone(), self.clock.now().timestamp());
+            self.movies.save(&mut movie, &[]).await?;
+            Ok(movie)
+        })
+        .await
     }
 
     /// Refreshes every item; one item's failure does not stop the others.

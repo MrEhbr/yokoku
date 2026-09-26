@@ -179,6 +179,8 @@ pub struct Series {
     pub seasons: Vec<Season>,
     pub added_at: Timestamp,
     pub refreshed_at: Timestamp,
+    /// Saves so far; storage refuses a save made from an older revision.
+    pub revision: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -239,6 +241,7 @@ impl Series {
             seasons,
             added_at: now,
             refreshed_at: now,
+            revision: 0,
         };
         series.sort();
         series

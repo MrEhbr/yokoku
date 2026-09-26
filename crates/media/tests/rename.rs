@@ -124,12 +124,13 @@ async fn an_unlinked_file_at_the_new_path_is_never_replaced() {
 #[tokio::test]
 async fn files_that_would_share_a_path_are_skipped() {
     let app = App::new().await;
-    let remake = yokoku_domain::Movie {
+    let mut remake = yokoku_domain::Movie {
         id: yokoku_domain::MovieId::generate(),
         source: yokoku_domain::ExternalId::Tmdb(1),
+        revision: 0,
         ..app.dune.clone()
     };
-    MovieRepo::save(&app.db, &remake, &[]).await.unwrap();
+    MovieRepo::save(&app.db, &mut remake, &[]).await.unwrap();
     app.write("movies/unsorted/a.mkv", 10);
     app.write("movies/unsorted/b.mkv", 10);
     let import = app.scanner.scan().await.unwrap().needs_review[0];

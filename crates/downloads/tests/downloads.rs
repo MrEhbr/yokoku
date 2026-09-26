@@ -220,3 +220,18 @@ async fn an_unreachable_client_changes_nothing() {
     assert!(matches!(test, DownloadError::Client(_)), "{test}");
     assert_eq!(setup.only_download().await, added);
 }
+
+#[tokio::test]
+async fn concurrent_syncs_complete_a_download_once() {
+    let setup = setup().await;
+    setup.client.set(500, 1000);
+    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.client.set(1000, 1000);
+
+    let (first, second) = tokio::join!(setup.downloads.sync(), setup.downloads.sync());
+
+    let completed = [first.unwrap().completed, second.unwrap().completed].concat();
+    assert_eq!(completed, [added.id]);
+    let events = setup.events().await;
+    assert_eq!(events.iter().filter(|event| matches!(event, Event::DownloadCompleted { .. })).count(), 1);
+}

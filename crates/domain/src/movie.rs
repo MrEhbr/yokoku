@@ -60,6 +60,8 @@ pub struct Movie {
     pub file: Option<MediaFileId>,
     pub added_at: Timestamp,
     pub refreshed_at: Timestamp,
+    /// Saves so far; storage refuses a save made from an older revision.
+    pub revision: u64,
 }
 
 impl Movie {
@@ -76,6 +78,7 @@ impl Movie {
             file: None,
             added_at: now,
             refreshed_at: now,
+            revision: 0,
         }
     }
 

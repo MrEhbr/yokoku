@@ -7,6 +7,7 @@ use yokoku_events::{Event, HandlerError, LinkedFile, Recorded, Subscriber};
 use crate::{
     LibraryError,
     ports::{MovieRepo, SeriesRepo},
+    retry,
 };
 
 /// Keeps the file id of each episode and movie in step with media's file events.
@@ -38,23 +39,27 @@ impl FileTracker {
 
     /// Items and episodes no longer in the library are skipped.
     async fn update(&self, target: FileTarget, change: impl Fn(&mut Option<MediaFileId>)) -> Result<(), LibraryError> {
-        match target {
-            FileTarget::Episodes { series, span } => {
-                let Some(mut series) = self.series.get(series).await? else { return Ok(()) };
-                for reference in span.refs() {
-                    if let Some(episode) = series.episode_mut(reference) {
-                        change(&mut episode.file);
+        let change = &change;
+        retry::on_conflict(|| async move {
+            match target {
+                FileTarget::Episodes { series, span } => {
+                    let Some(mut series) = self.series.get(series).await? else { return Ok(()) };
+                    for reference in span.refs() {
+                        if let Some(episode) = series.episode_mut(reference) {
+                            change(&mut episode.file);
+                        }
                     }
-                }
-                self.series.save(&series, &[]).await?;
-            },
-            FileTarget::Movie(movie) => {
-                let Some(mut movie) = self.movies.get(movie).await? else { return Ok(()) };
-                change(&mut movie.file);
-                self.movies.save(&movie, &[]).await?;
-            },
-        }
-        Ok(())
+                    self.series.save(&mut series, &[]).await?;
+                },
+                FileTarget::Movie(movie) => {
+                    let Some(mut movie) = self.movies.get(movie).await? else { return Ok(()) };
+                    change(&mut movie.file);
+                    self.movies.save(&mut movie, &[]).await?;
+                },
+            }
+            Ok(())
+        })
+        .await
     }
 }
 

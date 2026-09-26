@@ -6,6 +6,7 @@ mod files;
 mod library;
 mod listing;
 pub mod ports;
+mod retry;
 mod schedule;
 mod sync;
 
