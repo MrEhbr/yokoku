@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use yokoku_domain::{Confidence, Episode, EpisodeRef, EpisodeSpan, Movie, MovieId, Numbering, Series, SeriesId};
+use yokoku_domain::{Confidence, Episode, EpisodeRef, EpisodeSpan, FileTarget, Movie, Numbering, Series};
 
 use crate::{
     DownloadFile, Numbers, ParsedName, Video, classify, parse,
@@ -30,15 +30,9 @@ pub struct ImportPlan {
 pub struct PlanRow {
     pub video: Video,
     pub parsed: ParsedName,
-    pub target: Option<MatchTarget>,
+    pub target: Option<FileTarget>,
     pub confidence: Confidence,
     pub conflicts: Vec<Conflict>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MatchTarget {
-    Episodes { series: SeriesId, span: EpisodeSpan },
-    Movie(MovieId),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,7 +94,7 @@ fn series_row<'a>(video: Video, choose_series: impl Fn(&ParsedName) -> Option<(&
     PlanRow {
         video,
         parsed,
-        target: Some(MatchTarget::Episodes { series: series.id, span }),
+        target: Some(FileTarget::Episodes { series: series.id, span }),
         confidence: if certain { Confidence::Certain } else { Confidence::Guess },
         conflicts: has_file.then_some(Conflict::AlreadyHasFile).into_iter().collect(),
     }
@@ -131,7 +125,7 @@ fn movie_rows<'a>(
         Some((movie, certain)) => PlanRow {
             video,
             parsed,
-            target: Some(MatchTarget::Movie(movie.id)),
+            target: Some(FileTarget::Movie(movie.id)),
             confidence: if certain { Confidence::Certain } else { Confidence::Guess },
             conflicts: movie.has_file.then_some(Conflict::AlreadyHasFile).into_iter().collect(),
         },
@@ -280,13 +274,13 @@ fn mark_shared_targets(rows: &mut [PlanRow]) {
     }
 }
 
-fn overlaps(a: Option<MatchTarget>, b: Option<MatchTarget>) -> bool {
+fn overlaps(a: Option<FileTarget>, b: Option<FileTarget>) -> bool {
     match (a, b) {
         (
-            Some(MatchTarget::Episodes { series: a_series, span: a_span }),
-            Some(MatchTarget::Episodes { series: b_series, span: b_span }),
+            Some(FileTarget::Episodes { series: a_series, span: a_span }),
+            Some(FileTarget::Episodes { series: b_series, span: b_span }),
         ) => a_series == b_series && a_span.refs().any(|reference| b_span.refs().any(|other| other == reference)),
-        (Some(MatchTarget::Movie(a)), Some(MatchTarget::Movie(b))) => a == b,
+        (Some(FileTarget::Movie(a)), Some(FileTarget::Movie(b))) => a == b,
         _ => false,
     }
 }

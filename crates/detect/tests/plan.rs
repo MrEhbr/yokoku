@@ -5,10 +5,10 @@ use jiff::{
     civil::{Date, date},
 };
 use rstest::rstest;
-use yokoku_detect::{Conflict, DownloadFile, ImportPlan, MatchTarget, Target, plan};
+use yokoku_detect::{Conflict, DownloadFile, ImportPlan, Target, plan};
 use yokoku_domain::{
-    Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, MonitorPreset, Movie, MovieMetadata, Numbering, Releases,
-    SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, MonitorPreset, Movie, MovieMetadata, Numbering,
+    Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -156,11 +156,11 @@ fn files(paths: &[&str]) -> Vec<DownloadFile> {
     paths.iter().map(|path| DownloadFile { path: PathBuf::from(path), size: 1_000 }).collect()
 }
 
-fn episodes(series: &Series, season: u16, first: u16, last: u16) -> Option<MatchTarget> {
-    Some(MatchTarget::Episodes { series: series.id, span: EpisodeSpan::new(season, first, last).unwrap() })
+fn episodes(series: &Series, season: u16, first: u16, last: u16) -> Option<FileTarget> {
+    Some(FileTarget::Episodes { series: series.id, span: EpisodeSpan::new(season, first, last).unwrap() })
 }
 
-fn outcome(plan: &ImportPlan) -> Vec<(Option<MatchTarget>, Confidence)> {
+fn outcome(plan: &ImportPlan) -> Vec<(Option<FileTarget>, Confidence)> {
     plan.rows.iter().map(|row| (row.target, row.confidence)).collect()
 }
 
@@ -321,7 +321,7 @@ fn unlinked_movies_match_by_title_and_year(#[case] name: &str, #[case] source: u
 
     let plan = plan(&files(&[name]), library.unlinked());
 
-    assert_eq!(outcome(&plan), [(Some(MatchTarget::Movie(library.movie(source).id)), confidence)]);
+    assert_eq!(outcome(&plan), [(Some(FileTarget::Movie(library.movie(source).id)), confidence)]);
 }
 
 #[test]
@@ -337,7 +337,7 @@ fn movies_keep_the_largest_video_and_ignore_the_rest() {
 
     let plan = plan(&files, Target::Movie(dune));
 
-    assert_eq!(outcome(&plan), [(Some(MatchTarget::Movie(dune.id)), Confidence::Certain)]);
+    assert_eq!(outcome(&plan), [(Some(FileTarget::Movie(dune.id)), Confidence::Certain)]);
     assert_eq!(plan.rows[0].video.subtitles.len(), 1);
     let mut ignored: Vec<_> = plan.ignored.iter().map(|path| path.to_str().unwrap()).collect();
     ignored.sort_unstable();

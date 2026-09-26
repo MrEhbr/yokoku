@@ -103,6 +103,7 @@ Value types and rules shared by all modules. Examples:
 - `Series` → `Season` → `Episode` and `Movie`: aggregates with public fields. Seasons and episodes are kept ordered by number.
 - `SeriesMetadata`, `MovieMetadata`: an item as its source describes it. `library::MetadataProvider` returns these.
 - `EpisodeRef { season, episode }` (`S01E02`) and `EpisodeSpan`, consecutive episodes of one season for multi-episode files (`S01E01-E03`).
+- `FileTarget { Episodes { series, span }, Movie(movie) }`: what a video file holds. `detect` produces it; `media` stores it.
 - `Numbering { Standard, Absolute }` (FR-1.8).
 - Air dates are dates only (`jiff::civil::Date`). TMDB provides no time; a nullable time column is added when a source provides one.
 - `MonitorPreset { All, Future, LatestSeason, None }` (FR-2.2).
