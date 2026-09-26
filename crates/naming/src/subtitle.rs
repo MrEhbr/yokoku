@@ -1,14 +1,6 @@
 use std::path::{Path, PathBuf};
 
-/// Jellyfin subtitle flags, e.g. from `Movie.en.sdh.forced.srt`.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct SubtitleTags {
-    /// Language code such as `en` or `pt-br`.
-    pub language: Option<String>,
-    /// Subtitles for the deaf and hard of hearing.
-    pub sdh: bool,
-    pub forced: bool,
-}
+use yokoku_domain::SubtitleTags;
 
 /// `<video stem>[.<language>][.sdh][.forced].<extension>`, next to the video.
 pub fn subtitle_path(video: &Path, tags: &SubtitleTags, extension: &str) -> PathBuf {

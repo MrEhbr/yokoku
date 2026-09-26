@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use rstest::rstest;
-use yokoku_naming::{SubtitleTags, subtitle_path};
+use yokoku_domain::SubtitleTags;
+use yokoku_naming::subtitle_path;
 
 fn tags(language: Option<&str>, sdh: bool, forced: bool) -> SubtitleTags {
     SubtitleTags { language: language.map(Into::into), sdh, forced }

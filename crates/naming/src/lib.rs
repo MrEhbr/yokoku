@@ -7,4 +7,4 @@ mod template;
 
 pub use naming::{Naming, NamingError, NamingTemplates, PatternKind, TemplateError};
 pub use sanitize::sanitize;
-pub use subtitle::{SubtitleTags, subtitle_path};
+pub use subtitle::subtitle_path;

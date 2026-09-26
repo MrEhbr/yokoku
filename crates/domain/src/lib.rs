@@ -5,6 +5,7 @@ mod file_status;
 mod id;
 mod movie;
 mod series;
+mod subtitle;
 
 pub use external::{ExternalId, ParseExternalIdError};
 pub use file_status::FileStatus;
@@ -14,3 +15,4 @@ pub use series::{
     Episode, EpisodeMetadata, EpisodeRef, EpisodeSpan, MonitorPreset, Numbering, Season, SeasonMetadata, Series,
     SeriesMetadata, SeriesStatus, SourceStatus,
 };
+pub use subtitle::SubtitleTags;
