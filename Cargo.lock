@@ -3091,7 +3091,11 @@ name = "yokoku-library"
 version = "0.0.1"
 dependencies = [
  "async-trait",
+ "jiff",
+ "rstest",
  "thiserror",
+ "tokio",
+ "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
 ]

@@ -13,4 +13,11 @@ yokoku-domain.workspace = true
 yokoku-events.workspace = true
 
 async-trait.workspace = true
+jiff.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+yokoku-db.workspace = true
+
+rstest.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }

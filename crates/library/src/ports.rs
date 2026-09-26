@@ -1,8 +1,45 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use yokoku_domain::{ExternalId, Movie, MovieId, Series, SeriesId};
+use jiff::Zoned;
+use yokoku_domain::{ExternalId, Movie, MovieId, MovieMetadata, Series, SeriesId, SeriesMetadata};
 use yokoku_events::Event;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaKind {
+    Series,
+    Movie,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SearchResult {
+    pub kind: MediaKind,
+    pub source: ExternalId,
+    pub title: String,
+    pub original_title: String,
+    pub year: Option<i16>,
+    pub poster_path: Option<String>,
+}
+
+#[async_trait]
+pub trait MetadataProvider: Send + Sync {
+    async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError>;
+    async fn series(&self, source: ExternalId) -> Result<SeriesMetadata, MetadataError>;
+    async fn movie(&self, source: ExternalId) -> Result<MovieMetadata, MetadataError>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum MetadataError {
+    #[error("{0} was not found at the metadata source")]
+    NotFound(ExternalId),
+    #[error("metadata source unavailable")]
+    Unavailable(#[source] Box<dyn Error + Send + Sync>),
+}
+
+pub trait Clock: Send + Sync {
+    /// The current time in the user's time zone.
+    fn now(&self) -> Zoned;
+}
 
 /// Writes store the aggregate and `events` in one transaction.
 #[async_trait]

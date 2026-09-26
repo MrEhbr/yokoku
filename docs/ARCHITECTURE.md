@@ -143,10 +143,12 @@ src/
 
 Owns movies, series, seasons, episodes, monitoring flags, and a projection of which episodes have files.
 
-- **Use cases:** search metadata, add (applying a monitor preset), remove, set monitoring, set numbering, refresh one item or all.
-- **Queries:** library list with filter and sort; series and movie details; next and last episode; missing; upcoming; calendar; iCal feed.
-- **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates, events in the same transaction), `LibraryQueries`, `MetadataProvider`, `Clock`.
-- **Emits:** `SeriesAdded`, `MovieAdded`, `ItemRemoved`.
+- **Use cases**, split by what they depend on:
+  - `Library` (repositories + clock): list with filter and sort, series and movie details, set monitoring, set numbering, remove.
+  - `MetadataSync` (+ metadata source): search, add (applying a monitor preset), refresh one item or all.
+- **Later queries:** next and last episode, missing, upcoming, calendar, iCal feed.
+- **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates, events in the same transaction), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
+- **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
 - **Subscribes to:** `FilesImported`, `FileDeleted`, `FileRenamed` (updates the file-status projection).
 
 ### 5.2 `downloads`
@@ -178,7 +180,7 @@ Owns library files, root folders, naming settings, imports and the recycle folde
   - Retry a failed import.
 - **Ports:** `ImportRepo`, `MediaFileRepo`, `Catalog` (read-only view of `library` data), `FileSystem`, `MediaProbe`, `ImportQueue`, `Clock`.
 - **Emits:** `ImportNeedsReview`, `FilesImported`, `ImportFailed`, `FileRenamed`, `FileDeleted`.
-- **Subscribes to:** `DownloadCompleted` (plans an import), `ItemRemoved` (deletes or recycles files when asked).
+- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesRemoved`, `MovieRemoved` (delete or recycle files when asked).
 
 ### 5.4 `integrations`
 
@@ -255,7 +257,8 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 |---|---|---|
 | `SeriesAdded { series, title }` | library | — (history) |
 | `MovieAdded { movie, title }` | library | — (history) |
-| `ItemRemoved { item, delete_files }` | library | media |
+| `SeriesRemoved { series, title, delete_files }` | library | media |
+| `MovieRemoved { movie, title, delete_files }` | library | media |
 | `TorrentAdded { download, linked_item }` | downloads | — (history) |
 | `DownloadCompleted { download, content_path, linked_item }` | downloads | media |
 | `ImportNeedsReview { import }` | media | — (history) |
