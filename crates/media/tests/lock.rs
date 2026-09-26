@@ -22,11 +22,11 @@ async fn run(app: &App, change: Change) {
         Change::Scan => drop(app.scanner.scan().await),
         Change::Import => drop(app.importer(ImportMode::HardLink).run_pending().await),
         Change::Rename => drop(app.renamer.apply(RenameScope::All).await),
-        Change::Delete => drop(app.deleter(None).delete(app.movie()).await),
+        Change::Delete => drop(app.deleter().delete(app.movie()).await),
         Change::RemoveSeries => {
             let event = Event::SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files: true };
             let recorded = Recorded { id: EventId(1), occurred_at: now(), event };
-            drop(app.deleter(None).handle(&recorded).await);
+            drop(app.deleter().handle(&recorded).await);
         },
     }
 }

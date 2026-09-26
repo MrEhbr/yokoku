@@ -234,19 +234,3 @@ async fn removing_a_missing_file_is_fine() {
 
     assert!(!file.exists());
 }
-
-#[tokio::test]
-async fn lists_and_removes_folders() {
-    let dir = TempDir::new().unwrap();
-    write(dir.path(), "2026-09-20/tv/a.mkv", 1);
-    write(dir.path(), "2026-09-26/b.mkv", 1);
-    write(dir.path(), ".cache/c", 1);
-    write(dir.path(), "notes.txt", 1);
-
-    let folders = LocalFileSystem.folders_in(dir.path()).await.unwrap();
-    LocalFileSystem.remove_folder(&folders[0]).await.unwrap();
-    LocalFileSystem.remove_folder(&folders[0]).await.unwrap();
-
-    assert_eq!(folders, [dir.path().join("2026-09-20"), dir.path().join("2026-09-26")]);
-    assert_eq!(LocalFileSystem.folders_in(dir.path()).await.unwrap(), [dir.path().join("2026-09-26")]);
-}

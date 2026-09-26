@@ -30,10 +30,9 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
 
     let deleted = app.deleter.delete(target).await?;
     app.deliver_events().await?;
-    let verb = if config.recycle.folder.is_some() { "Recycled" } else { "Deleted" };
     let mut out = io::stdout();
     for file in deleted {
-        writeln!(out, "{verb} {}", file.path.display())?;
+        writeln!(out, "Deleted {}", file.path.display())?;
     }
     Ok(())
 }

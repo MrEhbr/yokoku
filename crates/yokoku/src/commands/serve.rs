@@ -17,8 +17,6 @@ pub struct ServeConfig {
     pub sync_downloads: String,
     /// Cron schedule with seconds for carrying out approved imports.
     pub execute_imports: String,
-    /// Cron schedule with seconds for removing old recycled files.
-    pub cleanup_recycle: String,
     /// Cron schedule with seconds for checking whether Jellyfin should rescan.
     pub rescan_media_server: String,
     /// Cron schedule with seconds for refreshing every item from TMDB.
@@ -32,7 +30,6 @@ impl Default for ServeConfig {
         Self {
             sync_downloads: "*/30 * * * * *".into(),
             execute_imports: "*/5 * * * * *".into(),
-            cleanup_recycle: "0 0 4 * * *".into(),
             rescan_media_server: "*/10 * * * * *".into(),
             refresh_metadata: "0 0 */6 * * *".into(),
             scan_library: "0 0 5 * * *".into(),
@@ -45,7 +42,6 @@ impl ServeConfig {
         Ok(Schedules {
             sync_downloads: schedule(&self.sync_downloads)?,
             execute_imports: schedule(&self.execute_imports)?,
-            cleanup_recycle: schedule(&self.cleanup_recycle)?,
             rescan_media_server: schedule(&self.rescan_media_server)?,
             refresh_metadata: schedule(&self.refresh_metadata)?,
             scan_library: schedule(&self.scan_library)?,
@@ -71,7 +67,6 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
         Jobs {
             downloads: app.downloads.clone(),
             importer: app.importer.clone(),
-            deleter: app.deleter.clone(),
             scanner: app.scanner.clone(),
             metadata: app.metadata(),
             rescans: app.rescans.clone(),

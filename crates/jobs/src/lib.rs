@@ -10,7 +10,7 @@ use tracing::{info, warn};
 use yokoku_downloads::Downloads;
 use yokoku_integrations::Rescans;
 use yokoku_library::MetadataSync;
-use yokoku_media::{Deleter, Importer, Scanner};
+use yokoku_media::{Importer, Scanner};
 
 /// Changes must stop arriving for this long before the media server rescans.
 const RESCAN_QUIET: SignedDuration = SignedDuration::from_secs(30);
@@ -20,7 +20,6 @@ const RESCAN_QUIET: SignedDuration = SignedDuration::from_secs(30);
 pub struct Jobs {
     pub downloads: Arc<Downloads>,
     pub importer: Arc<Importer>,
-    pub deleter: Arc<Deleter>,
     pub scanner: Arc<Scanner>,
     /// `None` while no metadata source is configured.
     pub metadata: Option<Arc<MetadataSync>>,
@@ -33,7 +32,6 @@ pub struct Jobs {
 pub struct Schedules {
     pub sync_downloads: Schedule,
     pub execute_imports: Schedule,
-    pub cleanup_recycle: Schedule,
     pub rescan_media_server: Schedule,
     pub refresh_metadata: Schedule,
     pub scan_library: Schedule,
@@ -44,7 +42,6 @@ pub fn monitor(jobs: Jobs, schedules: Schedules) -> Monitor {
     let mut monitor = Monitor::new();
     monitor = register(monitor, "sync-downloads", schedules.sync_downloads, jobs.downloads, sync_downloads);
     monitor = register(monitor, "execute-imports", schedules.execute_imports, jobs.importer, execute_imports);
-    monitor = register(monitor, "cleanup-recycle", schedules.cleanup_recycle, jobs.deleter, cleanup_recycle);
     monitor = register(monitor, "scan-library", schedules.scan_library, jobs.scanner, scan_library);
     if let Some(metadata) = jobs.metadata {
         monitor = register(monitor, "refresh-metadata", schedules.refresh_metadata, metadata, refresh_metadata);
@@ -81,14 +78,6 @@ async fn sync_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) 
 async fn execute_imports(_tick: Tick<TimeZone>, importer: Data<Arc<Importer>>) -> Result<(), BoxDynError> {
     for import in importer.run_pending().await? {
         info!(import = %import.id, status = ?import.status, "import finished");
-    }
-    Ok(())
-}
-
-async fn cleanup_recycle(_tick: Tick<TimeZone>, deleter: Data<Arc<Deleter>>) -> Result<(), BoxDynError> {
-    let removed = deleter.clean_recycle().await?;
-    if removed > 0 {
-        info!(removed, "removed old recycled files");
     }
     Ok(())
 }

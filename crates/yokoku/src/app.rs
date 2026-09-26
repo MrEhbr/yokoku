@@ -198,8 +198,7 @@ impl App {
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
         let lock: Arc<dyn LibraryLock> = Arc::new(LockFile::new(path.with_extension("lock")));
         let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(FfProbe::new(&config.files.ffprobe))));
-        let deleter =
-            Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone(), clock.clone(), config.recycle.recycle()));
+        let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone()));
         let jellyfin = &config.jellyfin;
         let rescans = jellyfin.url.as_ref().map(|url| {
             let server = JellyfinClient::new(url, jellyfin.api_key.clone().unwrap_or_default());

@@ -9,7 +9,7 @@ use crate::{
     app::{ClockConfig, DatabaseConfig, MetadataConfig, NamingConfig, TransmissionConfig},
     commands::{
         add::AddConfig, files::FilesConfig, greet::GreetConfig, import::ImportConfig, jellyfin::JellyfinConfig,
-        list::ListConfig, recycle::RecycleConfig, serve::ServeConfig, upcoming::UpcomingConfig,
+        list::ListConfig, serve::ServeConfig, upcoming::UpcomingConfig,
     },
     logging::LogConfig,
 };
@@ -40,8 +40,6 @@ pub struct Config {
     pub serve: ServeConfig,
     #[serde(default)]
     pub import: ImportConfig,
-    #[serde(default)]
-    pub recycle: RecycleConfig,
     #[serde(default)]
     pub jellyfin: JellyfinConfig,
     #[serde(default)]

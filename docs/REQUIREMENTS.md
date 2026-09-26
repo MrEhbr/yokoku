@@ -17,7 +17,7 @@ This document describes **what** the app must do, not how it is built.
 - Watching Transmission and importing finished downloads
 - Automatic detection of which episode(s) a downloaded file is
 - Renaming and folder layout compatible with Jellyfin
-- File management: scan, match, delete, recycle folder
+- File management: scan, match, delete
 - History of what happened
 
 ### Out of scope
@@ -143,7 +143,7 @@ This document describes **what** the app must do, not how it is built.
   - Folders that belong to no library item are ignored.
 - **8.3** Files in an item's folder that it can't recognise are listed for manual matching, using the same review screen as FR-4.11.
 - **8.4** The user can delete a movie or episode file from the app.
-- **8.5** Deleted files optionally go to a recycle folder, which is cleaned up automatically after N days.
+- **8.5** Deleted files are removed for good; there is no recycle folder.
 - **8.6** File details are shown: path, size, resolution, and audio/subtitle languages where detectable.
 - **8.7** Files removed or changed outside the app are detected on the next scan.
 - **8.8** Adding an item scans its folder right away (FR-8.2).
@@ -181,7 +181,7 @@ This document describes **what** the app must do, not how it is built.
 4. **Renaming engine + preview** (FR-5)
 5. **Transmission: add torrent, watch downloads** (FR-3)
 6. **Episode detection + review screen + auto import** (FR-4)
-7. **History, recycle folder, Jellyfin rescan** (FR-9, FR-8.5, FR-10.4)
+7. **History, Jellyfin rescan** (FR-9, FR-10.4)
 
 ---
 

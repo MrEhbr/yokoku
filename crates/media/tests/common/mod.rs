@@ -126,22 +126,12 @@ impl App {
         )
     }
 
-    pub fn deleter(&self, recycle: Option<yokoku_media::Recycle>) -> yokoku_media::Deleter {
-        yokoku_media::Deleter::new(
-            Arc::new(self.db.clone()),
-            Arc::new(LocalFileSystem),
-            self.lock(),
-            Arc::new(FixedClock),
-            recycle,
-        )
+    pub fn deleter(&self) -> yokoku_media::Deleter {
+        yokoku_media::Deleter::new(Arc::new(self.db.clone()), Arc::new(LocalFileSystem), self.lock())
     }
 
     pub fn lock(&self) -> Arc<LockFile> {
         Arc::new(LockFile::new(self.path(LOCK)))
-    }
-
-    pub fn recycle(&self, keep_days: u32) -> yokoku_media::Recycle {
-        yokoku_media::Recycle { folder: self.path("recycle"), keep_days }
     }
 }
 

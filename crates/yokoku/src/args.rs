@@ -59,12 +59,10 @@ pub enum Command {
     Import(commands::import::Args),
     /// Show what happened, newest first
     History(commands::history::Args),
-    /// Delete the file of an episode or movie, or move it to the recycle folder
+    /// Delete the file of an episode or movie
     Delete(commands::delete::Args),
     /// Show the details of library files, or read them with ffprobe
     Files(commands::files::Args),
-    /// Manage the recycle folder
-    Recycle(commands::recycle::Args),
     /// Test the Jellyfin connection or ask it to rescan
     Jellyfin(commands::jellyfin::Args),
     /// Store settings in the database, over the config file
@@ -123,7 +121,6 @@ pub async fn route(args: Args) -> Result<()> {
         History(cmd_args) => commands::history::run(&config, cmd_args).await,
         Delete(cmd_args) => commands::delete::run(&config, cmd_args).await,
         Files(cmd_args) => commands::files::run(&config, cmd_args).await,
-        Recycle(cmd_args) => commands::recycle::run(&config, cmd_args).await,
         Jellyfin(cmd_args) => commands::jellyfin::run(&config, cmd_args).await,
         Settings(cmd_args) => commands::settings::run(&config, args.config.as_deref(), cmd_args).await,
         Serve(cmd_args) => commands::serve::run(&config, cmd_args).await,

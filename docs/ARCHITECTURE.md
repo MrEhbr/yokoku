@@ -54,7 +54,7 @@ crates/
 
   library/        yokoku-library       Catalog, monitoring, metadata refresh, schedule queries
   downloads/      yokoku-downloads     Torrents, Transmission sync, seeding cleanup
-  media/          yokoku-media         Import pipeline, review, scan, rename, delete, recycle
+  media/          yokoku-media         Import pipeline, review, scan, rename, delete
   integrations/   yokoku-integrations  Jellyfin rescan
 
   db/             yokoku-db            sqlx: migrations, all repository impls, event store
@@ -178,7 +178,7 @@ Transmission runs on the same host as Yokoku. The paths it reports are used as-i
 
 ### 5.3 `media`
 
-Owns library files, root folders, naming settings, imports and the recycle folder.
+Owns library files, root folders, naming settings and imports.
 
 - **Use cases:**
   - Plan an import from a download or from files found by a scan.
@@ -187,14 +187,14 @@ Owns library files, root folders, naming settings, imports and the recycle folde
   - Root folders: add (absolute, existing, not overlapping another root), list, remove (refused while items belong to it).
   - Scan item folders (FR-8.2, 8.3, 8.7): the files under each item's `root/folder` are detected against that item alone (`Target::Series` / `Target::Movie`); nothing else in a root is read. New files that are `Certain`, conflict-free and hold nothing already linked are linked in place; the rest of the folder becomes one import in review. Linked files missing from disk are forgotten with `FileDeleted { reason: External }`. A root that cannot be read fails the scan, so an unmounted disk never looks empty.
   - Rename with preview (FR-5.7): `Renamer::preview(scope)` lists the moves naming asks for, for the whole library, a series or a movie; `apply` makes them file by file, inside the item's `root/folder`. Subtitles beside a video (named after it) move with it and get normalised language tags. Files outside every root, whose item is gone, or that would share a path are skipped; a file already at the new path is never replaced, and that move is reported as failed. Folders left empty are removed up to the root.
-  - Delete or recycle files (FR-8.4, 8.5): `Deleter::delete(target)` removes the files holding an episode span or movie, with their subtitles and folders left empty, committing each file with `FileDeleted { reason: User }`. With `[recycle] folder` set they move to `<recycle>/<day>/<root folder name>/<path>` (`recycled: true`; under the file id when that path is taken that day), and `clean_recycle` removes day folders older than `keep_days` (daily `CleanupRecycle` job); the folder name is the only record needed. Removing a series or movie with `delete_files` does the same for all its files (`ItemRemoved`).
+  - Delete files (FR-8.4, 8.5): `Deleter::delete(target)` removes the files holding an episode span or movie, with their subtitles and folders left empty, committing each file with `FileDeleted { reason: User }`. Removing a series or movie with `delete_files` does the same for all its files (`ItemRemoved`).
   - Scan an added item (FR-8.8): the `media.scan_added` subscriber scans the new item's folder as above.
   - Retry a failed import.
   - File details (FR-8.6): the `media.probe` subscriber probes the files of `FilesFound` and `FilesImported` with `ffprobe` (`[files] ffprobe`) and stores duration, the video stream (codec, size; cover art is skipped) and each audio (language, codec, channels) and subtitle stream (language, forced) per file; details go with the file when it is removed and stay through renames. A file that cannot be probed, or a missing `ffprobe`, is only logged; `Prober::probe_missing` (`yokoku files probe`) reads every file never probed. `Prober::details(item)` adds the subtitle files beside each video.
 - **Library lock:** scan, import, rename and delete change files on disk before they commit, so each holds the `LibraryLock` from its first read of library files until its last commit; a scan never sees a file that is placed but not yet stored. `LockFile` in `system` takes an exclusive `flock` on `<database>.lock`, so the CLI and `serve` wait for each other as well. An import holds it per import, from its claim to its commit.
 - **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `LibraryLock`, `MediaProbe` (`FfProbe` in `system`), `Clock`; later `ImportQueue`.
 - **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`, `FileRenamed`; later `ImportFailed`.
-- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesAdded`, `MovieAdded` (scan the item's folder), `SeriesRemoved`, `MovieRemoved` (delete or recycle files when asked).
+- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesAdded`, `MovieAdded` (scan the item's folder), `SeriesRemoved`, `MovieRemoved` (delete files when asked).
 
 ### 5.4 `integrations`
 
@@ -204,7 +204,7 @@ Owns library files, root folders, naming settings, imports and the recycle folde
 
 ### 5.5 Settings
 
-Each module owns its settings section: metadata provider in `library`, Transmission in `downloads`, root folders, naming, import mode and recycle in `media`, Jellyfin in `integrations`. The binary maps each section to its module's types.
+Each module owns its settings section: metadata provider in `library`, Transmission in `downloads`, root folders, naming and import mode in `media`, Jellyfin in `integrations`. The binary maps each section to its module's types.
 
 Settings are layered, later over earlier: defaults, the TOML file, values stored in the database (FR-10.3), then `APP__*` environment variables. Stored values live in `settings (key, value)` by dotted key (`import.mode`) as JSON; `yokoku settings set|unset|list|get` edits them, and the settings screen will too. `set` loads the whole configuration with the new value and validates it (types, naming patterns, schedules, time zone) before storing, so a stored value cannot stop the app. Stored values are read once at start, so `serve` picks up a change when restarted; a stored value that no longer loads fails every command except `settings`, which can unset it.
 
@@ -318,7 +318,6 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | `RefreshMetadata` | cron, every 6 h; only with a TMDB token | `MetadataSync::refresh_all` (one item's failure is logged and the rest continue) |
 | `ExecuteImports` | cron, every 5 s, one tick at a time | `Importer::run_pending` |
 | `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` | `Scanner::scan` (FR-8.7) |
-| `CleanupRecycle` | cron, daily at 04:00 | `Deleter::clean_recycle` |
 | `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
 
 Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and `serve` runs them with `Monitor::run_with_signal`. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
@@ -331,7 +330,7 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 
 One binary.
 - `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM. Each subscriber gets its own `Delivery` loop; on a signal the monitor stops first, then the deliveries are cancelled and awaited.
-- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `files`, `recycle`, `jellyfin`, `settings`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
+- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `files`, `jellyfin`, `settings`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
 
 ### Storage
 
@@ -416,5 +415,5 @@ Follows REQUIREMENTS §5, with the foundation first.
 4. **Renaming:** `naming`, rename preview.
 5. **Transmission:** `downloads`, `transmission`, `jobs` (`SyncDownloads`).
 6. **Detection + review + auto import:** full `detect` corpus, the import pipeline.
-7. **History, recycle folder, Jellyfin:** history query, `CleanupRecycle`, `integrations`.
+7. **History, Jellyfin:** history query, `integrations`.
 8. **Web UI:** `web` on Topcoat.

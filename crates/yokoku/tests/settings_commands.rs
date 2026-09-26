@@ -35,14 +35,14 @@ fn settings_are_stored_listed_read_and_unset() {
     let setup = setup();
 
     let set_mode = setup.stdout(&["settings", "set", "import.mode", "copy"]);
-    let set_days = setup.stdout(&["settings", "set", "recycle.keep_days", "14"]);
+    let set_days = setup.stdout(&["settings", "set", "upcoming.days", "14"]);
     let listed = setup.stdout(&["settings", "list"]);
     let mode = setup.stdout(&["settings", "get", "import.mode"]);
     let unset = setup.stdout(&["settings", "unset", "import.mode"]);
 
     assert_eq!(set_mode, "Set import.mode = \"copy\"\n");
-    assert_eq!(set_days, "Set recycle.keep_days = 14\n");
-    assert_eq!(listed, "import.mode = \"copy\"\nrecycle.keep_days = 14\n");
+    assert_eq!(set_days, "Set upcoming.days = 14\n");
+    assert_eq!(listed, "import.mode = \"copy\"\nupcoming.days = 14\n");
     assert_eq!(mode, "\"copy\"\n");
     assert_eq!(unset, "Unset import.mode\n");
     assert_eq!(setup.stdout(&["settings", "get", "import.mode"]), "\"hardlink\"\n");

@@ -194,24 +194,17 @@ async fn history_lists_what_happened_newest_first() {
 }
 
 #[tokio::test]
-async fn deleting_an_episode_recycles_its_file_and_marks_it_missing() {
+async fn deleting_an_episode_deletes_its_file_and_marks_it_missing() {
     let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
+    let file = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
+    setup.write(file);
     setup.stdout(&["scan"]);
-    let recycle = setup.path("recycle");
 
-    let output = setup
-        .command()
-        .args(["delete", "series", "tmdb:1", "S01E01"])
-        .env("APP__RECYCLE__FOLDER", &recycle)
-        .output()
-        .unwrap();
+    let deleted = setup.stdout(&["delete", "series", "tmdb:1", "S01E01"]);
 
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
-    assert!(String::from_utf8(output.stdout).unwrap().starts_with("Recycled "));
+    assert!(deleted.starts_with("Deleted "), "{deleted}");
     assert!(setup.episode_line("S01E01").contains("missing"));
-    let day = std::fs::read_dir(&recycle).unwrap().next().unwrap().unwrap().path();
-    assert!(day.join("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv").exists());
+    assert!(!setup.path(file).exists());
 }
 
 #[tokio::test]

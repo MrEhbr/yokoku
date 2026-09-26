@@ -36,7 +36,6 @@ days = 14
 [serve]
 sync_downloads = "*/30 * * * * *"
 execute_imports = "*/5 * * * * *"
-cleanup_recycle = "0 0 4 * * *"
 rescan_media_server = "*/10 * * * * *"
 refresh_metadata = "0 0 */6 * * *"
 scan_library = "0 0 5 * * *"
@@ -44,11 +43,6 @@ scan_library = "0 0 5 * * *"
 # How finished downloads reach the library: hardlink, copy or move.
 [import]
 mode = "hardlink"
-
-# Deleted files move here and are kept for keep_days; without a folder they are deleted.
-[recycle]
-# folder = "/media/recycle"
-keep_days = 30
 
 # Rescans after library changes; the API key is read from APP__JELLYFIN__API_KEY.
 [jellyfin]

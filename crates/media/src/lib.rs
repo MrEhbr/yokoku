@@ -1,4 +1,4 @@
-//! Import pipeline, review, scan, rename, delete and recycle.
+//! Import pipeline, review, scan, rename, and delete.
 
 mod deleter;
 mod error;
@@ -13,7 +13,7 @@ mod review;
 mod roots;
 mod scan;
 
-pub use deleter::{Deleter, Recycle};
+pub use deleter::Deleter;
 pub use error::MediaError;
 pub use importer::{ImportMode, Importer};
 pub use model::{
