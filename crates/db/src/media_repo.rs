@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use jiff::Timestamp;
-use sqlx::{Sqlite, Transaction};
+use sqlx::{Sqlite, query::Query, sqlite::SqliteArguments};
 use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId,
     StorageError,
@@ -196,29 +196,7 @@ impl MediaRepo for Database {
     }
 
     async fn save(&self, changes: &Changes, events: &[Event]) -> Result<(), StorageError> {
-        let mut tx = self.begin().await?;
-        for id in &changes.removed_files {
-            sqlx::query("DELETE FROM media_files WHERE id = ?")
-                .bind(id.to_string())
-                .execute(&mut *tx)
-                .await
-                .map_err(DbError::from)?;
-        }
-        for file in &changes.added_files {
-            insert_file(&mut tx, file).await?;
-        }
-        for (id, path) in &changes.renamed_files {
-            sqlx::query("UPDATE media_files SET path = ? WHERE id = ?")
-                .bind(PathText(path))
-                .bind(id.to_string())
-                .execute(&mut *tx)
-                .await
-                .map_err(DbError::from)?;
-        }
-        for import in &changes.imports {
-            save_import(&mut tx, import).await?;
-        }
-        Ok(self.commit(tx, events).await?)
+        Ok(self.save_changes(changes, events).await?)
     }
 }
 
@@ -270,68 +248,75 @@ impl Database {
             created_at: record.created_at.0,
         })
     }
+
+    async fn save_changes(&self, changes: &Changes, events: &[Event]) -> Result<(), DbError> {
+        let mut tx = self.begin().await?;
+        for id in &changes.removed_files {
+            sqlx::query("DELETE FROM media_files WHERE id = ?").bind(id.to_string()).execute(&mut *tx).await?;
+        }
+        for file in &changes.added_files {
+            let query = sqlx::query(
+                "INSERT INTO media_files (id, path, size, added_at, series_id, season, first_episode, last_episode,
+                                          movie_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(file.id.to_string())
+            .bind(PathText(&file.path))
+            .bind(Int(file.size))
+            .bind(file.added_at.to_string());
+            bind_target(query, Some(file.target).into()).execute(&mut *tx).await?;
+        }
+        for (id, path) in &changes.renamed_files {
+            sqlx::query("UPDATE media_files SET path = ? WHERE id = ?")
+                .bind(PathText(path))
+                .bind(id.to_string())
+                .execute(&mut *tx)
+                .await?;
+        }
+        for import in &changes.imports {
+            let id = import.id.to_string();
+            sqlx::query(
+                "INSERT INTO imports (id, source, download_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?)
+                 ON CONFLICT (id) DO UPDATE SET
+                     source = excluded.source, status = excluded.status, error = excluded.error",
+            )
+            .bind(&id)
+            .bind(PathText(&import.source))
+            .bind(import.download.map(|download| download.to_string()))
+            .bind(import.status.as_str())
+            .bind(&import.error)
+            .bind(import.created_at.to_string())
+            .execute(&mut *tx)
+            .await?;
+
+            sqlx::query("DELETE FROM import_rows WHERE import_id = ?").bind(&id).execute(&mut *tx).await?;
+            for (position, row) in (0_i64..).zip(&import.rows) {
+                let query = sqlx::query(
+                    "INSERT INTO import_rows (import_id, position, path, size, confidence, skipped, replace_file,
+                                              series_id, season, first_episode, last_episode, movie_id)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                )
+                .bind(&id)
+                .bind(position)
+                .bind(PathText(&row.path))
+                .bind(Int(row.size))
+                .bind(row.confidence.as_str())
+                .bind(row.skipped)
+                .bind(row.replace);
+                bind_target(query, row.target.into()).execute(&mut *tx).await?;
+            }
+        }
+        self.commit(tx, events).await
+    }
 }
 
-async fn insert_file(tx: &mut Transaction<'static, Sqlite>, file: &MediaFile) -> Result<(), DbError> {
-    let target = TargetColumns::from(Some(file.target));
-    sqlx::query(
-        "INSERT INTO media_files (id, path, size, series_id, season, first_episode, last_episode, movie_id, added_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(file.id.to_string())
-    .bind(PathText(&file.path))
-    .bind(Int(file.size))
-    .bind(target.series_id)
-    .bind(target.season)
-    .bind(target.first_episode)
-    .bind(target.last_episode)
-    .bind(target.movie_id)
-    .bind(file.added_at.to_string())
-    .execute(&mut **tx)
-    .await?;
-    Ok(())
-}
-
-/// Replaces the import and all its rows.
-async fn save_import(tx: &mut Transaction<'static, Sqlite>, import: &Import) -> Result<(), DbError> {
-    let id = import.id.to_string();
-    sqlx::query(
-        "INSERT INTO imports (id, source, download_id, status, error, created_at) VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT (id) DO UPDATE SET source = excluded.source, status = excluded.status, error = excluded.error",
-    )
-    .bind(&id)
-    .bind(PathText(&import.source))
-    .bind(import.download.map(|download| download.to_string()))
-    .bind(import.status.as_str())
-    .bind(&import.error)
-    .bind(import.created_at.to_string())
-    .execute(&mut **tx)
-    .await?;
-
-    sqlx::query("DELETE FROM import_rows WHERE import_id = ?").bind(&id).execute(&mut **tx).await?;
-    for (position, row) in (0_i64..).zip(&import.rows) {
-        let target = TargetColumns::from(row.target);
-        sqlx::query(
-            "INSERT INTO import_rows (import_id, position, path, size, series_id, season, first_episode,
-                                      last_episode, movie_id, confidence, skipped, replace_file)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind(&id)
-        .bind(position)
-        .bind(PathText(&row.path))
-        .bind(Int(row.size))
+fn bind_target(query: Query<'_, Sqlite, SqliteArguments>, target: TargetColumns) -> Query<'_, Sqlite, SqliteArguments> {
+    query
         .bind(target.series_id)
         .bind(target.season)
         .bind(target.first_episode)
         .bind(target.last_episode)
         .bind(target.movie_id)
-        .bind(row.confidence.as_str())
-        .bind(row.skipped)
-        .bind(row.replace)
-        .execute(&mut **tx)
-        .await?;
-    }
-    Ok(())
 }
 
 impl From<RootFolderRow> for RootFolder {
