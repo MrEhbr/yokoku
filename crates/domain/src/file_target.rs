@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{EpisodeSpan, MovieId, SeriesId};
+use crate::{EpisodeSpan, ItemId, MovieId, SeriesId};
 
 /// What a video file holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +21,16 @@ impl FileTarget {
             },
             (Self::Movie(movie), Self::Movie(other_movie)) => movie == other_movie,
             _ => false,
+        }
+    }
+}
+
+impl FileTarget {
+    /// The series or movie the file belongs to.
+    pub fn item(&self) -> ItemId {
+        match self {
+            Self::Episodes { series, .. } => ItemId::Series(*series),
+            Self::Movie(movie) => ItemId::Movie(*movie),
         }
     }
 }

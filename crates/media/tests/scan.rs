@@ -126,6 +126,7 @@ async fn files_gone_from_disk_are_forgotten() {
             path: gone,
             target: app.episodes(1, 1, 1),
             reason: DeleteReason::External,
+            recycled: false,
         })
     );
 }

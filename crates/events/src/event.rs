@@ -39,11 +39,17 @@ pub enum Event {
         path: PathBuf,
         target: FileTarget,
         reason: DeleteReason,
+        /// Moved to the recycle folder rather than deleted.
+        #[serde(default)]
+        recycled: bool,
     },
     FileRenamed {
         file: MediaFileId,
         from: PathBuf,
         to: PathBuf,
+        /// `None` in events stored before renames carried it.
+        #[serde(default)]
+        target: Option<FileTarget>,
     },
     ImportNeedsReview {
         import: ImportId,
@@ -68,6 +74,30 @@ pub enum Event {
     },
 }
 
+impl Event {
+    /// The series and movies the event concerns, each once.
+    pub fn items(&self) -> Vec<ItemId> {
+        let mut items: Vec<ItemId> = match self {
+            Self::SeriesAdded { series, .. } | Self::SeriesRemoved { series, .. } => vec![ItemId::Series(*series)],
+            Self::MovieAdded { movie, .. } | Self::MovieRemoved { movie, .. } => vec![ItemId::Movie(*movie)],
+            Self::FilesFound { files } | Self::FilesImported { files, .. } => {
+                files.iter().map(|file| file.target.item()).collect()
+            },
+            Self::FileDeleted { target, .. } => vec![target.item()],
+            Self::FileRenamed { target, .. } => target.iter().map(FileTarget::item).collect(),
+            Self::TorrentAdded { item, .. } | Self::DownloadCompleted { item, .. } => item.iter().copied().collect(),
+            Self::ImportNeedsReview { .. } | Self::ImportFailed { .. } => Vec::new(),
+        };
+        let mut seen = Vec::with_capacity(items.len());
+        items.retain(|item| {
+            let first = !seen.contains(item);
+            seen.push(*item);
+            first
+        });
+        items
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinkedFile {
     pub file: MediaFileId,
@@ -81,6 +111,10 @@ pub enum DeleteReason {
     External,
     /// An imported file took its place.
     Replaced,
+    /// The user deleted it.
+    User,
+    /// Its series or movie was removed with its files.
+    ItemRemoved,
 }
 
 #[cfg(test)]
@@ -142,23 +176,31 @@ mod tests {
             file: MediaFileId(Uuid::from_u128(5)),
             path: "/movies/Dune.mkv".into(),
             target: FileTarget::Movie(MovieId(Uuid::from_u128(3))),
-            reason: DeleteReason::External,
+            reason: DeleteReason::User,
+            recycled: true,
         },
         json!({
             "type": "FileDeleted",
             "file": "00000000-0000-0000-0000-000000000005",
             "path": "/movies/Dune.mkv",
             "target": { "Movie": "00000000-0000-0000-0000-000000000003" },
-            "reason": "External",
+            "reason": "User",
+            "recycled": true,
         }),
     )]
     #[case::file_renamed(
-        Event::FileRenamed { file: MediaFileId(Uuid::from_u128(5)), from: "/tv/a.mkv".into(), to: "/tv/A (2023)/a.mkv".into() },
+        Event::FileRenamed {
+            file: MediaFileId(Uuid::from_u128(5)),
+            from: "/tv/a.mkv".into(),
+            to: "/tv/A (2023)/a.mkv".into(),
+            target: Some(FileTarget::Movie(MovieId(Uuid::from_u128(3)))),
+        },
         json!({
             "type": "FileRenamed",
             "file": "00000000-0000-0000-0000-000000000005",
             "from": "/tv/a.mkv",
             "to": "/tv/A (2023)/a.mkv",
+            "target": { "Movie": "00000000-0000-0000-0000-000000000003" },
         }),
     )]
     #[case::import_needs_review(
@@ -202,6 +244,22 @@ mod tests {
         assert_eq!(serde_json::from_value::<Event>(stored).unwrap(), event);
     }
 
+    #[test]
+    fn events_stored_before_new_fields_read_with_defaults() {
+        let deleted = json!({
+            "type": "FileDeleted",
+            "file": "00000000-0000-0000-0000-000000000005",
+            "path": "/movies/Dune.mkv",
+            "target": { "Movie": "00000000-0000-0000-0000-000000000003" },
+            "reason": "External",
+        });
+        let renamed =
+            json!({ "type": "FileRenamed", "file": "00000000-0000-0000-0000-000000000005", "from": "/a", "to": "/b" });
+
+        assert!(matches!(serde_json::from_value(deleted).unwrap(), Event::FileDeleted { recycled: false, .. }));
+        assert!(matches!(serde_json::from_value(renamed).unwrap(), Event::FileRenamed { target: None, .. }));
+    }
+
     fn any_id() -> impl Strategy<Value = Uuid> {
         any::<u128>().prop_map(Uuid::from_u128)
     }
@@ -213,6 +271,15 @@ mod tests {
                 FileTarget::Episodes { series: SeriesId(series), span }
             }),
             any_id().prop_map(|movie| FileTarget::Movie(MovieId(movie))),
+        ]
+    }
+
+    fn any_reason() -> impl Strategy<Value = DeleteReason> {
+        prop_oneof![
+            Just(DeleteReason::External),
+            Just(DeleteReason::Replaced),
+            Just(DeleteReason::User),
+            Just(DeleteReason::ItemRemoved),
         ]
     }
 
@@ -246,22 +313,22 @@ mod tests {
             prop::collection::vec(any_linked_file(), 0..3).prop_map(|files| Event::FilesFound { files }),
             (any_id(), prop::collection::vec(any_linked_file(), 0..3))
                 .prop_map(|(import, files)| Event::FilesImported { import: ImportId(import), files }),
-            (any_linked_file()).prop_map(|linked| Event::FileDeleted {
-                file: linked.file,
-                path: linked.path,
-                target: linked.target,
-                reason: DeleteReason::External,
+            (any_linked_file(), any_reason(), any::<bool>()).prop_map(|(linked, reason, recycled)| {
+                Event::FileDeleted { file: linked.file, path: linked.path, target: linked.target, reason, recycled }
             }),
             (any_id(), any::<String>(), any::<String>()).prop_map(|(import, source, reason)| Event::ImportFailed {
                 import: ImportId(import),
                 source: source.into(),
                 reason,
             }),
-            (any_id(), any::<String>(), any::<String>()).prop_map(|(file, from, to)| Event::FileRenamed {
-                file: MediaFileId(file),
-                from: from.into(),
-                to: to.into(),
-            }),
+            (any_id(), any::<String>(), any::<String>(), proptest::option::of(any_target())).prop_map(
+                |(file, from, to, target)| Event::FileRenamed {
+                    file: MediaFileId(file),
+                    from: from.into(),
+                    to: to.into(),
+                    target
+                }
+            ),
             (any_id(), any::<String>()).prop_map(|(import, source)| Event::ImportNeedsReview {
                 import: ImportId(import),
                 source: source.into()

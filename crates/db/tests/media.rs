@@ -79,6 +79,7 @@ async fn commit_adds_and_removes_files_with_their_events(#[future] db: Database)
         path: gone.path.clone(),
         target: gone.target,
         reason: DeleteReason::External,
+        recycled: false,
     };
 
     MediaRepo::save(&db, &Changes { removed_files: vec![gone.id], ..Changes::default() }, std::slice::from_ref(&event))

@@ -124,8 +124,13 @@ async fn replacing_removes_the_old_library_file() {
     let files = app.db_files().await;
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01]);
     let events = app.events().await;
-    let deleted =
-        Event::FileDeleted { file: old_file.id, path: old, target: old_file.target, reason: DeleteReason::Replaced };
+    let deleted = Event::FileDeleted {
+        file: old_file.id,
+        path: old,
+        target: old_file.target,
+        reason: DeleteReason::Replaced,
+        recycled: false,
+    };
     assert_eq!(events[events.len() - 2..].first(), Some(&deleted));
 }
 

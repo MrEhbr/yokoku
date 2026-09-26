@@ -41,7 +41,7 @@ fn found(file: MediaFileId, target: FileTarget) -> Event {
 }
 
 fn deleted(file: MediaFileId, target: FileTarget) -> Event {
-    Event::FileDeleted { file, path: "/media/file.mkv".into(), target, reason: DeleteReason::External }
+    Event::FileDeleted { file, path: "/media/file.mkv".into(), target, reason: DeleteReason::External, recycled: false }
 }
 
 async fn episode_files(setup: &Setup) -> Vec<Option<MediaFileId>> {

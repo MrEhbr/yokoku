@@ -40,6 +40,7 @@ pub struct RenamePlan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rename {
     pub file: MediaFileId,
+    pub target: FileTarget,
     pub root: PathBuf,
     pub video: Move,
     /// Subtitles next to the video, named after it.
@@ -104,6 +105,7 @@ impl Renamer {
             };
             let rename = Rename {
                 file: file.id,
+                target: file.target,
                 root: root.path.clone(),
                 subtitles: self.subtitle_moves(&file.path, &to).await?,
                 video: Move { from: file.path, to },
@@ -136,7 +138,12 @@ impl Renamer {
                     continue;
                 }
                 let changes = Changes { renamed_files: vec![(rename.file, video.to.clone())], ..Changes::default() };
-                let event = Event::FileRenamed { file: rename.file, from: video.from.clone(), to: video.to.clone() };
+                let event = Event::FileRenamed {
+                    file: rename.file,
+                    from: video.from.clone(),
+                    to: video.to.clone(),
+                    target: Some(rename.target),
+                };
                 if let Err(error) = self.repo.save(&changes, &[event]).await {
                     if let Err(undo) = self.fs.rename(&video.to, &video.from).await {
                         warn!(path = %video.to.display(), %undo, "could not move a file back after a failed save");
