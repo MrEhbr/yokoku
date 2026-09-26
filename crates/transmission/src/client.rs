@@ -96,6 +96,16 @@ impl DownloadClient for TransmissionClient {
             self.call("torrent-get", json!({ "fields": wire::TORRENT_FIELDS, "ids": hashes })).await?;
         Ok(torrents.torrents.into_iter().map(torrent).collect())
     }
+
+    async fn all_torrents(&self) -> Result<Vec<Torrent>, ClientError> {
+        let torrents: wire::Torrents = self.call("torrent-get", json!({ "fields": wire::TORRENT_FIELDS })).await?;
+        Ok(torrents.torrents.into_iter().map(torrent).collect())
+    }
+
+    async fn remove(&self, hash: &str, delete_data: bool) -> Result<(), ClientError> {
+        let arguments = json!({ "ids": [hash], "delete-local-data": delete_data });
+        self.call::<Value>("torrent-remove", arguments).await.map(drop)
+    }
 }
 
 fn torrent(torrent: wire::Torrent) -> Torrent {
@@ -122,6 +132,8 @@ fn torrent(torrent: wire::Torrent) -> Torrent {
             error: (torrent.error != 0).then_some(torrent.error_string),
         },
         complete,
+        seeding_done: torrent.is_finished,
+        labels: torrent.labels,
     }
 }
 

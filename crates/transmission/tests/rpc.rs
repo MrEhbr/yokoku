@@ -51,6 +51,8 @@ fn torrent(fields: Value) -> Value {
         "errorString": "",
         "eta": -1,
         "hashString": HASH,
+        "isFinished": false,
+        "labels": ["yokoku"],
         "leftUntilDone": 0,
         "metadataPercentComplete": 1.0,
         "name": "Dune.2021.1080p.mkv",
@@ -195,4 +197,57 @@ async fn an_unreachable_client_is_unavailable() {
     let error = TransmissionClient::new("http://127.0.0.1:9/transmission/rpc").version().await.unwrap_err();
 
     assert!(matches!(error, ClientError::Unavailable(_)), "{error}");
+}
+
+#[tokio::test]
+async fn lists_every_torrent_with_labels_and_finished_seeding() {
+    let server = server().await;
+    Mock::given(body_partial_json(json!({ "method": "torrent-get" })))
+        .and(header("X-Transmission-Session-Id", SESSION))
+        .and(|request: &Request| {
+            let body: Value = serde_json::from_slice(&request.body).unwrap();
+            body["arguments"].get("ids").is_none()
+        })
+        .respond_with(success(
+            json!({ "torrents": [torrent(json!({ "status": 0, "isFinished": true, "labels": ["tv", "anime"] }))] }),
+        ))
+        .mount(&server)
+        .await;
+
+    let torrents = client(&server).all_torrents().await.unwrap();
+
+    assert_eq!(torrents.len(), 1);
+    assert!(torrents[0].seeding_done);
+    assert_eq!(torrents[0].labels, ["tv", "anime"]);
+}
+
+#[tokio::test]
+async fn labels_are_empty_before_transmission_3() {
+    let server = server().await;
+    let mut old = torrent(json!({}));
+    old.as_object_mut().unwrap().remove("labels");
+    answer(&server, "torrent-get", success(json!({ "torrents": [old] }))).await;
+
+    let torrents = client(&server).torrents(&[HASH.into()]).await.unwrap();
+
+    assert!(torrents[0].labels.is_empty());
+}
+
+#[rstest]
+#[case::with_data(true)]
+#[case::without_data(false)]
+#[tokio::test]
+async fn removes_a_torrent_by_hash(#[case] delete_data: bool) {
+    let server = server().await;
+    Mock::given(body_partial_json(json!({
+        "method": "torrent-remove",
+        "arguments": { "ids": [HASH], "delete-local-data": delete_data }
+    })))
+    .and(header("X-Transmission-Session-Id", SESSION))
+    .respond_with(success(json!({})))
+    .expect(1)
+    .mount(&server)
+    .await;
+
+    client(&server).remove(HASH, delete_data).await.unwrap();
 }

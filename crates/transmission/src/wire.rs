@@ -50,9 +50,13 @@ pub(crate) struct Torrent {
     pub error: i64,
     pub error_string: String,
     pub metadata_percent_complete: f64,
+    pub is_finished: bool,
+    /// Missing before Transmission 3.
+    #[serde(default)]
+    pub labels: Vec<String>,
 }
 
-pub(crate) const TORRENT_FIELDS: [&str; 11] = [
+pub(crate) const TORRENT_FIELDS: [&str; 13] = [
     "hashString",
     "name",
     "status",
@@ -64,4 +68,6 @@ pub(crate) const TORRENT_FIELDS: [&str; 11] = [
     "error",
     "errorString",
     "metadataPercentComplete",
+    "isFinished",
+    "labels",
 ];

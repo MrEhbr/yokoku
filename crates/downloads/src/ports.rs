@@ -15,6 +15,12 @@ pub trait DownloadClient: Send + Sync {
 
     /// The torrents with these info hashes; ones the client no longer has are left out.
     async fn torrents(&self, hashes: &[String]) -> Result<Vec<Torrent>, ClientError>;
+
+    /// Every torrent the client has.
+    async fn all_torrents(&self) -> Result<Vec<Torrent>, ClientError>;
+
+    /// Removes a torrent, and its downloaded files with `delete_data`; an unknown hash is no error.
+    async fn remove(&self, hash: &str, delete_data: bool) -> Result<(), ClientError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +45,9 @@ pub struct Torrent {
     pub status: DownloadStatus,
     /// Every selected byte is downloaded and verified.
     pub complete: bool,
+    /// Seeding reached the client's ratio or idle limit.
+    pub seeding_done: bool,
+    pub labels: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]

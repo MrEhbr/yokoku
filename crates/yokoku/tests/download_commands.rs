@@ -83,6 +83,7 @@ impl Setup {
             "hashString": HASH, "name": "Dune.2021.1080p", "status": if left == 0 { 6 } else { 4 },
             "sizeWhenDone": 4_000_000_000u64, "leftUntilDone": left, "rateDownload": 5_000_000, "eta": 600,
             "downloadDir": self.dir.path().join("downloads"), "error": 0, "errorString": "", "metadataPercentComplete": 1.0,
+            "isFinished": false, "labels": ["yokoku"],
         });
         self.answer("torrent-get", json!({ "torrents": [torrent] })).await;
     }

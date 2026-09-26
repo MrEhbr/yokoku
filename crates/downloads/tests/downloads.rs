@@ -33,6 +33,8 @@ impl Clock for FixedClock {
 struct ScriptedClient {
     torrents: Mutex<HashMap<String, Torrent>>,
     unavailable: Mutex<bool>,
+    /// `(hash, delete_data)` of each removal.
+    removed: Mutex<Vec<(String, bool)>>,
 }
 
 impl ScriptedClient {
@@ -72,6 +74,18 @@ impl DownloadClient for ScriptedClient {
         let torrents = self.torrents.lock().unwrap();
         Ok(hashes.iter().filter_map(|hash| torrents.get(hash).cloned()).collect())
     }
+
+    async fn all_torrents(&self) -> Result<Vec<Torrent>, ClientError> {
+        self.check()?;
+        Ok(self.torrents.lock().unwrap().values().cloned().collect())
+    }
+
+    async fn remove(&self, hash: &str, delete_data: bool) -> Result<(), ClientError> {
+        self.check()?;
+        self.torrents.lock().unwrap().remove(hash);
+        self.removed.lock().unwrap().push((hash.to_owned(), delete_data));
+        Ok(())
+    }
 }
 
 fn torrent(done: u64, size: u64) -> Torrent {
@@ -89,6 +103,8 @@ fn torrent(done: u64, size: u64) -> Torrent {
             error: None,
         },
         complete,
+        seeding_done: false,
+        labels: Vec::new(),
     }
 }
 

@@ -49,7 +49,7 @@ async fn wait_for<T>(mut attempt: impl AsyncFnMut() -> Option<T>) -> T {
 }
 
 #[tokio::test]
-#[ignore = "needs transmission-daemon and transmission-create on PATH"]
+#[ignore = "needs transmission-daemon, transmission-create and transmission-remote on PATH"]
 async fn a_torrent_of_local_data_is_added_and_completes() {
     let dir = tempfile::tempdir().unwrap();
     let downloads = dir.path().join("downloads");
@@ -92,8 +92,24 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         db.event_log().read_after(None, 10).await.unwrap().into_iter().map(|recorded| recorded.event).collect();
     assert_eq!(
         events.last(),
-        Some(&Event::DownloadCompleted { download: added.id, name: added.name, content_path: video, item: None })
+        Some(&Event::DownloadCompleted {
+            download: added.id,
+            name: added.name,
+            content_path: video.clone(),
+            item: None
+        })
     );
+
+    let all = client.all_torrents().await.unwrap();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].labels, ["yokoku"]);
+    assert!(!all[0].seeding_done);
+
+    run("transmission-remote", &[&format!("127.0.0.1:{port}"), "-t", "all", "-sr", "0"]).await;
+    wait_for(async || client.all_torrents().await.unwrap()[0].seeding_done.then_some(())).await;
+
+    client.remove(&completed.hash, true).await.unwrap();
+    wait_for(async || (client.all_torrents().await.unwrap().is_empty() && !video.exists()).then_some(())).await;
 }
 
 fn path(path: &Path) -> &str {
