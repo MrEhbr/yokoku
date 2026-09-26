@@ -29,6 +29,7 @@ tokio-util = "0.7"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+uuid = { version = "1.26", features = ["v7", "serde"] }
 
 assert_cmd = "2.1"
 criterion = "0.8"

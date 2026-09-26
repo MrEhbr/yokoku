@@ -5,7 +5,7 @@ use yokoku_domain::{MovieId, SeriesId};
 use yokoku_events::{Event, EventId, EventLog, Failure, Recorded};
 
 fn series_added(id: i64) -> Event {
-    Event::SeriesAdded { series: SeriesId(id), title: format!("Series {id}") }
+    Event::SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }
 }
 
 fn ids(recorded: &[Recorded]) -> Vec<i64> {
@@ -25,7 +25,7 @@ async fn commit(db: &Database, events: &[Event]) {
 #[rstest]
 #[tokio::test]
 async fn commit_appends_events_in_order(#[future(awt)] db: Database) {
-    let events = [series_added(1), Event::MovieAdded { movie: MovieId(2), title: "Dune".into() }];
+    let events = [series_added(1), Event::MovieAdded { movie: MovieId::generate(), title: "Dune".into() }];
 
     commit(&db, &events).await;
 

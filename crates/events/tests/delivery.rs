@@ -98,8 +98,9 @@ impl Harness {
 }
 
 async fn append(db: &Database, count: i64) {
-    let events: Vec<_> =
-        (1..=count).map(|id| Event::SeriesAdded { series: SeriesId(id), title: format!("Series {id}") }).collect();
+    let events: Vec<_> = (1..=count)
+        .map(|id| Event::SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") })
+        .collect();
     let tx = db.begin().await.unwrap();
     db.commit(tx, &events).await.unwrap();
 }
