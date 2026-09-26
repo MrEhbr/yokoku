@@ -110,7 +110,7 @@ pub struct App {
     pub library: Library,
     pub schedule: Schedule,
     pub roots: RootFolders,
-    pub scanner: Scanner,
+    pub scanner: Arc<Scanner>,
     pub review: Review,
     pub renamer: Renamer,
     pub downloads: Arc<Downloads>,
@@ -119,7 +119,7 @@ pub struct App {
     pub deleter: Arc<Deleter>,
     /// `None` while no Jellyfin is configured.
     pub rescans: Option<Arc<Rescans>>,
-    sync: Option<MetadataSync>,
+    sync: Option<Arc<MetadataSync>>,
     db: Arc<Database>,
     subscribers: Vec<Arc<dyn Subscriber>>,
 }
@@ -133,7 +133,7 @@ impl App {
         let metadata = &config.metadata;
         let sync = metadata.tmdb_token.as_ref().map(|token| {
             let tmdb = TmdbClient::new(token, &metadata.language, &metadata.region).with_base_url(&metadata.tmdb_url);
-            MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), clock.clone())
+            Arc::new(MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), clock.clone()))
         });
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
@@ -155,7 +155,7 @@ impl App {
             library: Library::new(db.clone(), db.clone(), clock.clone()),
             schedule: Schedule::new(db.clone(), db.clone(), clock.clone()),
             roots: RootFolders::new(db.clone(), fs.clone()),
-            scanner: Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone()),
+            scanner: Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone())),
             review: Review::new(db.clone(), db.clone(), clock.clone()),
             downloads: Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone())),
             renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), Naming::default()),
@@ -208,7 +208,7 @@ impl App {
 
     /// Use cases that need the metadata source.
     pub fn sync(&self) -> Result<&MetadataSync> {
-        self.sync.as_ref().context("No TMDB token configured; set APP__METADATA__TMDB_TOKEN")
+        self.sync.as_deref().context("No TMDB token configured; set APP__METADATA__TMDB_TOKEN")
     }
 }
 
