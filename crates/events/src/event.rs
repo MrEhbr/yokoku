@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 use yokoku_domain::{DownloadId, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId};
@@ -99,12 +99,8 @@ impl Event {
             | Self::TorrentRemoved { item, .. } => item.iter().copied().collect(),
             Self::ImportNeedsReview { .. } | Self::ImportFailed { .. } => Vec::new(),
         };
-        let mut seen = Vec::with_capacity(items.len());
-        items.retain(|item| {
-            let first = !seen.contains(item);
-            seen.push(*item);
-            first
-        });
+        let mut seen = HashSet::new();
+        items.retain(|item| seen.insert(*item));
         items
     }
 }
