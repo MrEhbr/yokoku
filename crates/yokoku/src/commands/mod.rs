@@ -1,5 +1,6 @@
 pub mod add;
 pub mod calendar;
+pub mod download;
 pub mod greet;
 pub mod list;
 pub mod missing;

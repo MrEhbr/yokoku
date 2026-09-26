@@ -3756,12 +3756,14 @@ dependencies = [
  "yokoku-db",
  "yokoku-detect",
  "yokoku-domain",
+ "yokoku-downloads",
  "yokoku-events",
  "yokoku-library",
  "yokoku-media",
  "yokoku-metadata",
  "yokoku-naming",
  "yokoku-system",
+ "yokoku-transmission",
 ]
 
 [[package]]

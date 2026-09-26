@@ -13,6 +13,11 @@ path = "yokoku.db"
 language = "en-US"
 region = "US"
 
+# The password is read from APP__TRANSMISSION__PASSWORD; keep it out of this file.
+[transmission]
+url = "http://localhost:9091/transmission/rpc"
+# username = "yokoku"
+
 [add]
 monitor = "all"
 

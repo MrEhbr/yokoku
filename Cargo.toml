@@ -19,6 +19,7 @@ yokoku-media = { path = "crates/media" }
 yokoku-metadata = { path = "crates/metadata" }
 yokoku-naming = { path = "crates/naming" }
 yokoku-system = { path = "crates/system" }
+yokoku-transmission = { path = "crates/transmission" }
 
 anyhow = "1.0"
 async-trait = "0.1"

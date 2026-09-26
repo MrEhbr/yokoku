@@ -19,12 +19,14 @@ tokio-console = ["dep:console-subscriber"]
 yokoku-db.workspace = true
 yokoku-detect.workspace = true
 yokoku-domain.workspace = true
+yokoku-downloads.workspace = true
 yokoku-events.workspace = true
 yokoku-library.workspace = true
 yokoku-media.workspace = true
 yokoku-metadata.workspace = true
 yokoku-naming.workspace = true
 yokoku-system.workspace = true
+yokoku-transmission.workspace = true
 
 anyhow.workspace = true
 clap.workspace = true

@@ -5,7 +5,7 @@ use config::{Environment, File, FileFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    app::{ClockConfig, DatabaseConfig, MetadataConfig},
+    app::{ClockConfig, DatabaseConfig, MetadataConfig, TransmissionConfig},
     commands::{add::AddConfig, greet::GreetConfig, list::ListConfig, upcoming::UpcomingConfig},
     logging::LogConfig,
 };
@@ -22,6 +22,8 @@ pub struct Config {
     pub clock: ClockConfig,
     #[serde(default)]
     pub metadata: MetadataConfig,
+    #[serde(default)]
+    pub transmission: TransmissionConfig,
     #[serde(default)]
     pub greet: GreetConfig,
     #[serde(default)]
