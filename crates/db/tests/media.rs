@@ -9,7 +9,7 @@ use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MediaFileId, MonitorPreset,
     Movie, MovieId, MovieMetadata, Releases, Series, SeriesId, SeriesMetadata, SourceStatus,
 };
-use yokoku_events::{DeleteReason, Event, EventLog};
+use yokoku_events::{DeleteReason, EventLog, FileDeleted, ImportNeedsReview};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind,
@@ -74,12 +74,9 @@ async fn commit_adds_and_removes_files_with_their_events(#[future] db: Database)
     MediaRepo::save(&db, &Changes { added_files: vec![kept.clone(), gone.clone()], ..Changes::default() }, &[])
         .await
         .unwrap();
-    let event = Event::FileDeleted {
-        file: gone.id,
-        path: gone.path.clone(),
-        target: gone.target,
-        reason: DeleteReason::External,
-    };
+    let event =
+        FileDeleted { file: gone.id, path: gone.path.clone(), target: gone.target, reason: DeleteReason::External }
+            .into();
 
     MediaRepo::save(&db, &Changes { removed_files: vec![gone.id], ..Changes::default() }, std::slice::from_ref(&event))
         .await
@@ -100,7 +97,7 @@ async fn a_failed_commit_changes_nothing(#[future] db: Database) {
     let duplicate = file("/tv/a.mkv", episodes(2, 2));
 
     let changes = Changes { added_files: vec![duplicate], imports: vec![pending.clone()], ..Changes::default() };
-    let event = Event::ImportNeedsReview { import: pending.id, source: pending.source.clone() };
+    let event = ImportNeedsReview { import: pending.id, source: pending.source.clone() }.into();
     assert!(MediaRepo::save(&db, &changes, &[event]).await.is_err());
 
     assert_eq!(db.files().await.unwrap(), [existing]);

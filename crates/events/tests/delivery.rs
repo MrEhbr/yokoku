@@ -14,7 +14,9 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use yokoku_db::Database;
 use yokoku_domain::SeriesId;
-use yokoku_events::{Delivery, DeliveryConfig, Event, EventId, EventLog, Failure, HandlerError, Recorded, Subscriber};
+use yokoku_events::{
+    Delivery, DeliveryConfig, EventId, EventLog, Failure, HandlerError, Recorded, SeriesAdded, Subscriber,
+};
 
 const SUBSCRIBER: &str = "recorder";
 const WAIT: Duration = Duration::from_secs(5);
@@ -105,7 +107,7 @@ impl Harness {
 
 async fn append(db: &Database, count: i64) {
     let events: Vec<_> = (1..=count)
-        .map(|id| Event::SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") })
+        .map(|id| SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }.into())
         .collect();
     let tx = db.begin().await.unwrap();
     db.commit(tx, &events).await.unwrap();

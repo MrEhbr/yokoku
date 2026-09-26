@@ -8,7 +8,7 @@ use std::{
 use tracing::{info, warn};
 use yokoku_detect::{Classified, DownloadFile};
 use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
-use yokoku_events::{DeleteReason, Event};
+use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed};
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
@@ -105,19 +105,25 @@ impl Importer {
         let mut events: Vec<Event> = placed
             .replaced
             .iter()
-            .map(|file| Event::FileDeleted {
-                file: file.id,
-                path: file.path.clone(),
-                target: file.target,
-                reason: DeleteReason::Replaced,
+            .map(|file| {
+                FileDeleted {
+                    file: file.id,
+                    path: file.path.clone(),
+                    target: file.target,
+                    reason: DeleteReason::Replaced,
+                }
+                .into()
             })
             .collect();
         if outcome.is_ok() || !placed.added.is_empty() {
-            events.push(Event::FilesImported {
-                import: import.id,
-                download: import.download,
-                files: placed.added.iter().map(MediaFile::linked).collect(),
-            });
+            events.push(
+                FilesImported {
+                    import: import.id,
+                    download: import.download,
+                    files: placed.added.iter().map(MediaFile::linked).collect(),
+                }
+                .into(),
+            );
         }
         match outcome {
             Ok(()) => import.status = ImportStatus::Done,
@@ -126,7 +132,7 @@ impl Importer {
                 let reason = error.to_string();
                 import.status = ImportStatus::Failed;
                 import.error = Some(reason.clone());
-                events.push(Event::ImportFailed { import: import.id, source: import.source.clone(), reason });
+                events.push(ImportFailed { import: import.id, source: import.source.clone(), reason }.into());
             },
         }
         let changes = Changes {

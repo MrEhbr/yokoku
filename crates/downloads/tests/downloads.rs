@@ -16,7 +16,9 @@ use yokoku_downloads::{
     Download, DownloadError, DownloadOptions, DownloadState, DownloadStatus, Downloads, PickUp,
     ports::{AddedTorrent, ClientError, DownloadClient, Torrent, TorrentSource},
 };
-use yokoku_events::{Event, EventId, EventLog, Recorded, Subscriber};
+use yokoku_events::{
+    DownloadCompleted, Event, EventId, EventLog, FilesImported, Recorded, Subscriber, TorrentAdded, TorrentRemoved,
+};
 
 const TODAY: Date = date(2026, 9, 26);
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
@@ -153,12 +155,13 @@ fn magnet() -> TorrentSource {
 }
 
 fn completed(download: &Download) -> Event {
-    Event::DownloadCompleted {
+    DownloadCompleted {
         download: download.id,
         name: "Dune.2021.1080p".into(),
         content_path: "/downloads/Dune.2021.1080p".into(),
         item: download.item,
     }
+    .into()
 }
 
 #[tokio::test]
@@ -172,7 +175,7 @@ async fn adding_records_the_torrent_with_its_item_and_status() {
     assert_eq!(setup.only_download().await, added);
     assert_eq!((added.hash.as_str(), added.item, added.percent_done()), (HASH, item, 25));
     assert_eq!(added.status.state, DownloadState::Downloading);
-    assert_eq!(setup.events().await, [Event::TorrentAdded { download: added.id, name: added.name.clone(), item }]);
+    assert_eq!(setup.events().await, [TorrentAdded { download: added.id, name: added.name.clone(), item }.into()]);
 }
 
 #[tokio::test]
@@ -204,7 +207,7 @@ async fn a_download_completes_once_however_often_it_syncs() {
     assert_eq!(download.status.state, DownloadState::Seeding);
     assert_eq!(download.completed_at, Some(FixedClock.now().timestamp()));
     let events = setup.events().await;
-    assert_eq!(events.iter().filter(|event| matches!(event, Event::DownloadCompleted { .. })).count(), 1);
+    assert_eq!(events.iter().filter_map(Event::get::<DownloadCompleted>).count(), 1);
     assert_eq!(events.last(), Some(&completed(&download)));
 }
 
@@ -263,11 +266,11 @@ async fn concurrent_syncs_complete_a_download_once() {
     let completed = [first.unwrap().completed, second.unwrap().completed].concat();
     assert_eq!(completed, [added.id]);
     let events = setup.events().await;
-    assert_eq!(events.iter().filter(|event| matches!(event, Event::DownloadCompleted { .. })).count(), 1);
+    assert_eq!(events.iter().filter_map(Event::get::<DownloadCompleted>).count(), 1);
 }
 
 fn imported(download: Option<DownloadId>) -> Recorded {
-    let event = Event::FilesImported { import: ImportId::generate(), download, files: Vec::new() };
+    let event = FilesImported { import: ImportId::generate(), download, files: Vec::new() }.into();
     Recorded { id: EventId(1), occurred_at: FixedClock.now().timestamp(), event }
 }
 
@@ -314,7 +317,7 @@ async fn an_imported_download_is_removed_with_its_data_once_seeded() {
     assert_eq!(setup.only_download().await.status.state, DownloadState::Removed);
     assert_eq!(
         setup.events().await.last(),
-        Some(&Event::TorrentRemoved { download: added.id, name: added.name, item: None })
+        Some(&TorrentRemoved { download: added.id, name: added.name, item: None }.into())
     );
 }
 
@@ -379,13 +382,14 @@ async fn qualifying_torrents_from_outside_are_taken_on_once(#[case] options: Dow
     assert_eq!(
         setup.events().await,
         [
-            Event::TorrentAdded { download: download.id, name: "Show aa".into(), item: None },
-            Event::DownloadCompleted {
+            TorrentAdded { download: download.id, name: "Show aa".into(), item: None }.into(),
+            DownloadCompleted {
                 download: download.id,
                 name: "Show aa".into(),
                 content_path: "/downloads/tv/shows/Show aa".into(),
                 item: None,
-            },
+            }
+            .into(),
         ]
     );
 }

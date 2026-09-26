@@ -2,10 +2,10 @@ use jiff::{SignedDuration, Timestamp};
 use rstest::{fixture, rstest};
 use yokoku_db::Database;
 use yokoku_domain::{MovieId, SeriesId};
-use yokoku_events::{Event, EventId, EventLog, Failure, Recorded};
+use yokoku_events::{Event, EventId, EventLog, Failure, MovieAdded, Recorded, SeriesAdded};
 
 fn series_added(id: i64) -> Event {
-    Event::SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }
+    SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }.into()
 }
 
 fn ids(recorded: &[Recorded]) -> Vec<i64> {
@@ -25,7 +25,7 @@ async fn commit(db: &Database, events: &[Event]) {
 #[rstest]
 #[tokio::test]
 async fn commit_appends_events_in_order(#[future(awt)] db: Database) {
-    let events = [series_added(1), Event::MovieAdded { movie: MovieId::generate(), title: "Dune".into() }];
+    let events = [series_added(1), MovieAdded { movie: MovieId::generate(), title: "Dune".into() }.into()];
 
     commit(&db, &events).await;
 

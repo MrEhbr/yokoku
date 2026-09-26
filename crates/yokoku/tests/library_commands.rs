@@ -9,7 +9,7 @@ use yokoku_domain::{
     EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series,
     SeriesMetadata, SourceStatus,
 };
-use yokoku_events::{Event, EventLog};
+use yokoku_events::{Event, EventLog, SeriesRemoved};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 
 struct Library {
@@ -205,7 +205,7 @@ async fn remove_deletes_the_item_and_records_it() {
     let events = library.events().await;
     assert!(matches!(
         events.as_slice(),
-        [Event::SeriesRemoved { title, delete_files: true, .. }] if title == "Frieren"
+        [event] if event.get::<SeriesRemoved>().is_some_and(|removed| removed.title == "Frieren" && removed.delete_files)
     ));
 }
 

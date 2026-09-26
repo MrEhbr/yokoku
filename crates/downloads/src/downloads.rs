@@ -6,7 +6,9 @@ use std::{
 
 use async_trait::async_trait;
 use yokoku_domain::{Clock, DownloadId, ItemId, StorageError};
-use yokoku_events::{Event, HandlerError, Recorded, Subscriber};
+use yokoku_events::{
+    DownloadCompleted, Event, FilesImported, HandlerError, Recorded, Subscriber, TorrentAdded, TorrentRemoved,
+};
 
 use crate::{
     Download, DownloadError, DownloadState, DownloadStatus,
@@ -119,11 +121,9 @@ impl Downloads {
             if clean_up {
                 self.client.remove(&download.hash, true).await?;
                 download.mark_removed();
-                events.push(Event::TorrentRemoved {
-                    download: download.id,
-                    name: download.name.clone(),
-                    item: download.item,
-                });
+                events.push(
+                    TorrentRemoved { download: download.id, name: download.name.clone(), item: download.item }.into(),
+                );
             }
             match self.repo.save(&mut download, &events).await {
                 Err(StorageError::Conflict) => continue,
@@ -179,7 +179,7 @@ impl Downloads {
             imported_at: None,
             revision: 0,
         };
-        let mut events = vec![Event::TorrentAdded { download: download.id, name: download.name.clone(), item }];
+        let mut events = vec![TorrentAdded { download: download.id, name: download.name.clone(), item }.into()];
         events.extend(self.apply(&mut download, torrent));
         (download, events)
     }
@@ -206,12 +206,15 @@ impl Downloads {
             return None;
         }
         download.completed_at = Some(self.clock.now().timestamp());
-        Some(Event::DownloadCompleted {
-            download: download.id,
-            name: download.name.clone(),
-            content_path: download.content_path(),
-            item: download.item,
-        })
+        Some(
+            DownloadCompleted {
+                download: download.id,
+                name: download.name.clone(),
+                content_path: download.content_path(),
+                item: download.item,
+            }
+            .into(),
+        )
     }
 }
 
@@ -222,7 +225,7 @@ impl Subscriber for Downloads {
     }
 
     async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        if let Event::FilesImported { download: Some(download), .. } = &recorded.event {
+        if let Some(FilesImported { download: Some(download), .. }) = recorded.event.get() {
             self.mark_imported(*download).await?;
         }
         Ok(())

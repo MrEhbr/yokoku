@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use jiff::SignedDuration;
 use yokoku_domain::{Clock, StorageError};
-use yokoku_events::{Event, HandlerError, Recorded, Subscriber};
+use yokoku_events::{FileDeleted, FileRenamed, FilesImported, HandlerError, Recorded, Subscriber};
 
 use crate::ports::{MediaServer, MediaServerError, RescanStore};
 
@@ -62,7 +62,10 @@ impl Subscriber for Rescans {
     }
 
     async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        if matches!(recorded.event, Event::FilesImported { .. } | Event::FileRenamed { .. } | Event::FileDeleted { .. })
+        let event = &recorded.event;
+        if event.get::<FilesImported>().is_some()
+            || event.get::<FileRenamed>().is_some()
+            || event.get::<FileDeleted>().is_some()
         {
             self.store.request(self.clock.now().timestamp()).await?;
         }

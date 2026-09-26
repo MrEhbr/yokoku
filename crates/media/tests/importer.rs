@@ -4,7 +4,7 @@ use std::{fs, os::unix::fs::MetadataExt, path::Path};
 
 use common::{App, relative};
 use yokoku_domain::{DownloadId, ImportId, ItemId};
-use yokoku_events::{DeleteReason, Event, LinkedFile};
+use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, LinkedFile};
 use yokoku_library::ports::SeriesRepo;
 use yokoku_media::{Approval, ImportMode, ImportStatus, MediaError, ports::MediaRepo};
 
@@ -46,7 +46,7 @@ async fn hard_links_the_video_and_its_subtitles_into_the_library() {
     let linked = vec![LinkedFile { file: files[0].id, path: files[0].path.clone(), target: files[0].target }];
     let download = MediaRepo::import(&app.db, id).await.unwrap().unwrap().download;
     assert!(download.is_some());
-    assert_eq!(app.events().await.last(), Some(&Event::FilesImported { import: id, download, files: linked }));
+    assert_eq!(app.events().await.last(), Some(&FilesImported { import: id, download, files: linked }.into()));
 }
 
 #[tokio::test]
@@ -99,7 +99,7 @@ async fn a_blocked_destination_fails_the_import_until_retried() {
     assert_eq!(failed[0].status, ImportStatus::Failed);
     let reason = failed[0].error.clone().unwrap();
     assert!(reason.ends_with("already exists"), "{reason}");
-    assert!(app.events().await.contains(&Event::ImportFailed { import: id, source: failed[0].source.clone(), reason }));
+    assert!(app.events().await.contains(&ImportFailed { import: id, source: failed[0].source.clone(), reason }.into()));
     assert_eq!(retried[0].status, ImportStatus::Done);
     assert!(matches!(importer.retry(id).await.unwrap_err(), MediaError::NotFailed(_)));
 }
@@ -128,7 +128,7 @@ async fn replacing_removes_the_old_library_file() {
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01]);
     let events = app.events().await;
     let deleted =
-        Event::FileDeleted { file: old_file.id, path: old, target: old_file.target, reason: DeleteReason::Replaced };
+        FileDeleted { file: old_file.id, path: old, target: old_file.target, reason: DeleteReason::Replaced }.into();
     assert_eq!(events[events.len() - 2..].first(), Some(&deleted));
 }
 
@@ -154,7 +154,7 @@ async fn concurrent_runners_import_each_import_once() {
     let (a, b) = tokio::join!(first.run_pending(), second.run_pending());
 
     assert_eq!(a.unwrap().len() + b.unwrap().len(), 1);
-    let imported = app.events().await.into_iter().filter(|event| matches!(event, Event::FilesImported { .. })).count();
+    let imported = app.events().await.iter().filter_map(Event::get::<FilesImported>).count();
     assert_eq!(imported, 1);
 }
 
@@ -207,10 +207,9 @@ async fn a_failed_import_keeps_the_files_it_placed_and_completes_on_retry() {
         .events()
         .await
         .iter()
-        .filter_map(|event| match event {
-            Event::FilesImported { import, files, .. } if *import == id => Some(files.len()),
-            _ => None,
-        })
+        .filter_map(Event::get::<FilesImported>)
+        .filter(|imported| imported.import == id)
+        .map(|imported| imported.files.len())
         .collect();
     assert_eq!(imported, [1, 1]);
     assert_eq!(retried[0].status, ImportStatus::Done);
@@ -242,6 +241,6 @@ async fn a_failed_replacement_records_the_file_it_removed() {
     assert!(!old.exists());
     assert!(app.db_files().await.is_empty());
     let deleted =
-        Event::FileDeleted { file: old_file.id, path: old, target: old_file.target, reason: DeleteReason::Replaced };
+        FileDeleted { file: old_file.id, path: old, target: old_file.target, reason: DeleteReason::Replaced }.into();
     assert!(app.events().await.contains(&deleted));
 }

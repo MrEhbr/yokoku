@@ -9,7 +9,7 @@ use std::{
 use async_trait::async_trait;
 use common::{App, now};
 use yokoku_domain::{ItemId, SubtitleTags};
-use yokoku_events::{EventId, EventLog, Recorded, Subscriber};
+use yokoku_events::{EventId, EventLog, MovieAdded, Recorded, Subscriber};
 use yokoku_media::{
     MediaError, MediaInfo, Prober, VideoStream,
     ports::{MediaProbe, ProbeError},
@@ -125,7 +125,7 @@ async fn other_events_are_ignored() {
     let recorded = Recorded {
         id: EventId(1),
         occurred_at: now(),
-        event: yokoku_events::Event::MovieAdded { movie: setup.app.dune.id, title: "Dune".into() },
+        event: MovieAdded { movie: setup.app.dune.id, title: "Dune".into() }.into(),
     };
 
     setup.prober.handle(&recorded).await.unwrap();

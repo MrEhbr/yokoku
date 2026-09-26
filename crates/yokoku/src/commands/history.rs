@@ -3,7 +3,10 @@ use std::io::{self, Write};
 use anyhow::Result;
 use clap::Parser;
 use yokoku_domain::ExternalId;
-use yokoku_events::{DeleteReason, Event};
+use yokoku_events::{
+    DeleteReason, DownloadCompleted, Event, FileDeleted, FileRenamed, FilesFound, FilesImported, ImportFailed,
+    ImportNeedsReview, MovieAdded, MovieRemoved, SeriesAdded, SeriesRemoved, TorrentAdded, TorrentRemoved,
+};
 
 use crate::{
     app::App,
@@ -59,13 +62,15 @@ fn describe(event: &Event) -> Vec<String> {
             .collect(),
     };
     match event {
-        Event::SeriesAdded { title, .. } => vec![format!("Added series {title}")],
-        Event::MovieAdded { title, .. } => vec![format!("Added movie {title}")],
-        Event::SeriesRemoved { title, delete_files, .. } => vec![removed("series", title, *delete_files)],
-        Event::MovieRemoved { title, delete_files, .. } => vec![removed("movie", title, *delete_files)],
-        Event::FilesFound { files: found } => files("Found", found),
-        Event::FilesImported { files: imported, .. } => files("Imported", imported),
-        Event::FileDeleted { path, reason, .. } => {
+        Event::SeriesAdded(SeriesAdded { title, .. }) => vec![format!("Added series {title}")],
+        Event::MovieAdded(MovieAdded { title, .. }) => vec![format!("Added movie {title}")],
+        Event::SeriesRemoved(SeriesRemoved { title, delete_files, .. }) => {
+            vec![removed("series", title, *delete_files)]
+        },
+        Event::MovieRemoved(MovieRemoved { title, delete_files, .. }) => vec![removed("movie", title, *delete_files)],
+        Event::FilesFound(FilesFound { files: found }) => files("Found", found),
+        Event::FilesImported(FilesImported { files: imported, .. }) => files("Imported", imported),
+        Event::FileDeleted(FileDeleted { path, reason, .. }) => {
             let reason = match reason {
                 DeleteReason::External => "gone from disk",
                 DeleteReason::Replaced => "replaced by an import",
@@ -74,14 +79,18 @@ fn describe(event: &Event) -> Vec<String> {
             };
             vec![format!("Deleted {} ({reason})", path.display())]
         },
-        Event::FileRenamed { from, to, .. } => {
+        Event::FileRenamed(FileRenamed { from, to, .. }) => {
             vec![format!("Renamed {}", from.display()), format!("-> {}", to.display())]
         },
-        Event::ImportNeedsReview { source, .. } => vec![format!("Import of {} needs review", source.display())],
-        Event::ImportFailed { source, reason, .. } => vec![format!("Import of {} failed: {reason}", source.display())],
-        Event::TorrentAdded { name, .. } => vec![format!("Added torrent {name}")],
-        Event::DownloadCompleted { name, .. } => vec![format!("Finished downloading {name}")],
-        Event::TorrentRemoved { name, .. } => vec![format!("Removed torrent {name} after seeding")],
+        Event::ImportNeedsReview(ImportNeedsReview { source, .. }) => {
+            vec![format!("Import of {} needs review", source.display())]
+        },
+        Event::ImportFailed(ImportFailed { source, reason, .. }) => {
+            vec![format!("Import of {} failed: {reason}", source.display())]
+        },
+        Event::TorrentAdded(TorrentAdded { name, .. }) => vec![format!("Added torrent {name}")],
+        Event::DownloadCompleted(DownloadCompleted { name, .. }) => vec![format!("Finished downloading {name}")],
+        Event::TorrentRemoved(TorrentRemoved { name, .. }) => vec![format!("Removed torrent {name} after seeding")],
     }
 }
 

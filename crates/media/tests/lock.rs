@@ -5,7 +5,7 @@ use std::time::Duration;
 use common::{App, now};
 use rstest::rstest;
 use tokio::time::timeout;
-use yokoku_events::{Event, EventId, Recorded, Subscriber};
+use yokoku_events::{EventId, Recorded, SeriesRemoved, Subscriber};
 use yokoku_media::{ImportMode, RenameScope, ports::LibraryLock};
 
 #[derive(Debug, Clone, Copy)]
@@ -24,7 +24,7 @@ async fn run(app: &App, change: Change) {
         Change::Rename => drop(app.renamer.apply(RenameScope::All).await),
         Change::Delete => drop(app.deleter().delete(app.movie()).await),
         Change::RemoveSeries => {
-            let event = Event::SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files: true };
+            let event = SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files: true }.into();
             let recorded = Recorded { id: EventId(1), occurred_at: now(), event };
             drop(app.deleter().handle(&recorded).await);
         },

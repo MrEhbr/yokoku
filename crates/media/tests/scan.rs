@@ -4,7 +4,7 @@ use std::fs;
 
 use common::{App, relative};
 use yokoku_domain::{Confidence, ItemId};
-use yokoku_events::{DeleteReason, Event, LinkedFile};
+use yokoku_events::{DeleteReason, FileDeleted, FilesFound, ImportNeedsReview, LinkedFile};
 use yokoku_media::{ImportRow, ImportStatus, MediaFile, ScanReport};
 
 const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv";
@@ -33,7 +33,7 @@ async fn certain_matches_are_linked_where_they_are() {
     );
     assert_eq!(
         app.events().await,
-        [Event::FilesFound { files: linked(&files[1..]) }, Event::FilesFound { files: linked(&files[..1]) }]
+        [FilesFound { files: linked(&files[1..]) }.into(), FilesFound { files: linked(&files[..1]) }.into()]
     );
 }
 
@@ -56,7 +56,7 @@ async fn unsure_matches_go_to_review_per_item_folder() {
     assert_eq!(rows(0), [(Some(app.episodes(1, 2, 2)), Confidence::Guess), (None, Confidence::Unknown)]);
     assert!(pending.iter().all(|import| import.status == ImportStatus::NeedsReview));
     let events = app.events().await;
-    assert!(events.contains(&Event::ImportNeedsReview { import: pending[0].id, source: pending[0].source.clone() }));
+    assert!(events.contains(&ImportNeedsReview { import: pending[0].id, source: pending[0].source.clone() }.into()));
 }
 
 #[tokio::test]
@@ -139,12 +139,15 @@ async fn files_gone_from_disk_are_forgotten() {
     assert_eq!(app.db_files().await, before[1..]);
     assert_eq!(
         app.events().await.last(),
-        Some(&Event::FileDeleted {
-            file: before[0].id,
-            path: gone,
-            target: app.episodes(1, 1, 1),
-            reason: DeleteReason::External,
-        })
+        Some(
+            &FileDeleted {
+                file: before[0].id,
+                path: gone,
+                target: app.episodes(1, 1, 1),
+                reason: DeleteReason::External,
+            }
+            .into()
+        )
     );
 }
 

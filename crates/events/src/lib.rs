@@ -8,7 +8,11 @@ mod signal;
 mod subscriber;
 
 pub use delivery::{Delivery, DeliveryConfig};
-pub use event::{DeleteReason, Event, LinkedFile};
+pub use event::{
+    DeleteReason, DownloadCompleted, Event, EventKind, FileDeleted, FileRenamed, FilesFound, FilesImported,
+    ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, SeriesAdded, SeriesRemoved, TorrentAdded,
+    TorrentRemoved,
+};
 pub use history::History;
 pub use log::{EventId, EventLog, Failure, Recorded};
 pub use signal::{Listener, NewEvents};

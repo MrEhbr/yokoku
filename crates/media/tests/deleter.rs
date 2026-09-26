@@ -4,7 +4,7 @@ use std::{fs, os::unix::fs::PermissionsExt};
 
 use common::App;
 use jiff::Timestamp;
-use yokoku_events::{DeleteReason, Event, EventId, Recorded, Subscriber};
+use yokoku_events::{DeleteReason, Event, EventId, FileDeleted, Recorded, SeriesRemoved, Subscriber};
 use yokoku_media::MediaError;
 
 const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
@@ -19,13 +19,7 @@ async fn linked(app: &App, paths: &[&str]) {
 }
 
 fn deleted_events(events: &[Event]) -> Vec<DeleteReason> {
-    events
-        .iter()
-        .filter_map(|event| match event {
-            Event::FileDeleted { reason, .. } => Some(*reason),
-            _ => None,
-        })
-        .collect()
+    events.iter().filter_map(Event::get::<FileDeleted>).map(|deleted| deleted.reason).collect()
 }
 
 #[tokio::test]
@@ -70,7 +64,7 @@ async fn removing_a_series_with_its_files_deletes_them_all() {
     let removed = |delete_files| Recorded {
         id: EventId(1),
         occurred_at: Timestamp::UNIX_EPOCH,
-        event: Event::SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files },
+        event: SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files }.into(),
     };
     let deleter = app.deleter();
 

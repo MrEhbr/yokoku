@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use async_trait::async_trait;
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series};
-use yokoku_events::{Event, HandlerError, Recorded, Subscriber};
+use yokoku_events::{DownloadCompleted, HandlerError, ImportFailed, ImportNeedsReview, Recorded, Subscriber};
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError,
@@ -88,13 +88,16 @@ impl ImportPlanner {
 
         let event = match status {
             ImportStatus::NeedsReview => {
-                Some(Event::ImportNeedsReview { import: import.id, source: import.source.clone() })
+                Some(ImportNeedsReview { import: import.id, source: import.source.clone() }.into())
             },
-            ImportStatus::Failed => Some(Event::ImportFailed {
-                import: import.id,
-                source: import.source.clone(),
-                reason: import.error.clone().unwrap_or_default(),
-            }),
+            ImportStatus::Failed => Some(
+                ImportFailed {
+                    import: import.id,
+                    source: import.source.clone(),
+                    reason: import.error.clone().unwrap_or_default(),
+                }
+                .into(),
+            ),
             _ => None,
         };
         self.repo.save(&Changes { imports: vec![import.clone()], ..Changes::default() }, event.as_slice()).await?;
@@ -147,7 +150,7 @@ impl Subscriber for ImportPlanner {
     }
 
     async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        if let Event::DownloadCompleted { download, content_path, item, .. } = &recorded.event {
+        if let Some(DownloadCompleted { download, content_path, item, .. }) = recorded.event.get() {
             self.plan(*download, content_path, *item).await?;
         }
         Ok(())

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use yokoku_domain::{FileTarget, MediaFileId};
-use yokoku_events::{Event, HandlerError, LinkedFile, Recorded, Subscriber};
+use yokoku_events::{FileDeleted, FilesFound, FilesImported, HandlerError, LinkedFile, Recorded, Subscriber};
 
 use crate::{
     LibraryError,
@@ -70,10 +70,13 @@ impl Subscriber for FileTracker {
     }
 
     async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        match &recorded.event {
-            Event::FilesFound { files } | Event::FilesImported { files, .. } => self.link(files).await?,
-            Event::FileDeleted { file, target, .. } => self.unlink(*file, *target).await?,
-            _ => {},
+        let event = &recorded.event;
+        if let Some(FilesFound { files }) = event.get() {
+            self.link(files).await?;
+        } else if let Some(FilesImported { files, .. }) = event.get() {
+            self.link(files).await?;
+        } else if let Some(FileDeleted { file, target, .. }) = event.get() {
+            self.unlink(*file, *target).await?;
         }
         Ok(())
     }

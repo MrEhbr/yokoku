@@ -8,7 +8,10 @@ use async_trait::async_trait;
 use jiff::Timestamp;
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId};
-use yokoku_events::{DeleteReason, Event, HandlerError, Recorded, Subscriber};
+use yokoku_events::{
+    DeleteReason, Event, FileDeleted, FilesFound, HandlerError, ImportNeedsReview, MovieAdded, Recorded, SeriesAdded,
+    Subscriber,
+};
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError, MediaFile,
@@ -140,10 +143,13 @@ impl Subscriber for Scanner {
     }
 
     async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        let item = match &recorded.event {
-            Event::SeriesAdded { series, .. } => ItemId::Series(*series),
-            Event::MovieAdded { movie, .. } => ItemId::Movie(*movie),
-            _ => return Ok(()),
+        let event = &recorded.event;
+        let item = if let Some(SeriesAdded { series, .. }) = event.get() {
+            ItemId::Series(*series)
+        } else if let Some(MovieAdded { movie, .. }) = event.get() {
+            ItemId::Movie(*movie)
+        } else {
+            return Ok(());
         };
         self.scan_item(item).await?;
         Ok(())
@@ -203,21 +209,19 @@ fn scan_folder(
 
     let mut events: Vec<Event> = vanished
         .iter()
-        .map(|file| Event::FileDeleted {
-            file: file.id,
-            path: file.path.clone(),
-            target: file.target,
-            reason: DeleteReason::External,
+        .map(|file| {
+            FileDeleted { file: file.id, path: file.path.clone(), target: file.target, reason: DeleteReason::External }
+                .into()
         })
         .collect();
     if !changes.added_files.is_empty() {
-        events.push(Event::FilesFound { files: changes.added_files.iter().map(MediaFile::linked).collect() });
+        events.push(FilesFound { files: changes.added_files.iter().map(MediaFile::linked).collect() }.into());
     }
     events.extend(
         changes
             .imports
             .iter()
-            .map(|import| Event::ImportNeedsReview { import: import.id, source: import.source.clone() }),
+            .map(|import| ImportNeedsReview { import: import.id, source: import.source.clone() }.into()),
     );
     changes.removed_files = vanished.iter().map(|file| file.id).collect();
     (changes, events)

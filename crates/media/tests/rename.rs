@@ -4,7 +4,7 @@ use std::fs;
 
 use common::{App, now, relative};
 use yokoku_domain::MediaFileId;
-use yokoku_events::Event;
+use yokoku_events::FileRenamed;
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{
     MediaFile, RenameScope, SkipReason, Skipped,
@@ -56,12 +56,10 @@ async fn applying_moves_videos_and_subtitles_and_tidies_old_folders() {
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01]);
     assert_eq!(
         app.events().await.last(),
-        Some(&Event::FileRenamed {
-            file: files[0].id,
-            from: app.path(MESSY),
-            to: app.path(E01),
-            target: Some(files[0].target),
-        })
+        Some(
+            &FileRenamed { file: files[0].id, from: app.path(MESSY), to: app.path(E01), target: Some(files[0].target) }
+                .into()
+        )
     );
     assert_eq!(app.renamer.preview(RenameScope::All).await.unwrap().renames, []);
 }

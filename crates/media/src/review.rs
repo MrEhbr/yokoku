@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use jiff::Timestamp;
 use yokoku_detect::Conflict;
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, MediaFileId};
-use yokoku_events::Event;
+use yokoku_events::FilesImported;
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError, MediaFile,
@@ -132,11 +132,12 @@ impl Review {
             })
             .collect();
         import.status = ImportStatus::Done;
-        let event = Event::FilesImported {
+        let event = FilesImported {
             import: id,
             download: import.download,
             files: files.iter().map(MediaFile::linked).collect(),
-        };
+        }
+        .into();
         let changes = Changes { added_files: files.clone(), imports: vec![import], ..Changes::default() };
         self.repo.save(&changes, &[event]).await?;
         Ok(Approval::Linked(files))

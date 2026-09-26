@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::warn;
 use yokoku_domain::{FileTarget, ItemId};
-use yokoku_events::{DeleteReason, Event, HandlerError, Recorded, Subscriber};
+use yokoku_events::{DeleteReason, FileDeleted, HandlerError, MovieRemoved, Recorded, SeriesRemoved, Subscriber};
 
 use crate::{
     MediaError, MediaFile, files,
@@ -49,7 +49,7 @@ impl Deleter {
         for file in &files {
             let subtitles = files::sidecar_subtitles(self.fs.as_ref(), &file.path).await?;
             self.fs.remove_file(&file.path).await?;
-            let event = Event::FileDeleted { file: file.id, path: file.path.clone(), target: file.target, reason };
+            let event = FileDeleted { file: file.id, path: file.path.clone(), target: file.target, reason }.into();
             self.repo.save(&Changes { removed_files: vec![file.id], ..Changes::default() }, &[event]).await?;
 
             for subtitle in subtitles {
@@ -84,12 +84,11 @@ impl Subscriber for Deleter {
     }
 
     async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
-        match &recorded.event {
-            Event::SeriesRemoved { series, delete_files: true, .. } => {
-                self.remove_item(ItemId::Series(*series)).await?
-            },
-            Event::MovieRemoved { movie, delete_files: true, .. } => self.remove_item(ItemId::Movie(*movie)).await?,
-            _ => {},
+        let event = &recorded.event;
+        if let Some(SeriesRemoved { series, delete_files: true, .. }) = event.get() {
+            self.remove_item(ItemId::Series(*series)).await?;
+        } else if let Some(MovieRemoved { movie, delete_files: true, .. }) = event.get() {
+            self.remove_item(ItemId::Movie(*movie)).await?;
         }
         Ok(())
     }

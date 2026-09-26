@@ -7,7 +7,7 @@ use yokoku_domain::{
     EpisodeRef, ExternalId, MediaFileId, MediaKind, MonitorPreset, MovieStatus, Numbering, Releases, SeriesId,
     SeriesStatus, SourceStatus,
 };
-use yokoku_events::Event;
+use yokoku_events::{MovieRemoved, SeriesRemoved};
 use yokoku_library::{LibraryError, LibraryFilter, LibrarySort, LibraryStatus};
 
 #[fixture]
@@ -162,8 +162,8 @@ async fn removing_items_records_whether_files_go_too(#[future(awt)] app: App) {
     assert_eq!(
         app.events().await[2..],
         [
-            Event::SeriesRemoved { series: series.id, title: "Frieren".into(), delete_files: true },
-            Event::MovieRemoved { movie: movie.id, title: "Dune".into(), delete_files: false },
+            SeriesRemoved { series: series.id, title: "Frieren".into(), delete_files: true }.into(),
+            MovieRemoved { movie: movie.id, title: "Dune".into(), delete_files: false }.into(),
         ]
     );
 }

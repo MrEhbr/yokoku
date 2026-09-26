@@ -15,7 +15,7 @@ use yokoku_downloads::{
     DownloadOptions, DownloadState, Downloads,
     ports::{DownloadClient, TorrentSource},
 };
-use yokoku_events::{Event, EventLog};
+use yokoku_events::{DownloadCompleted, Event, EventLog};
 use yokoku_transmission::TransmissionClient;
 
 const WAIT: Duration = Duration::from_secs(20);
@@ -93,12 +93,9 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         db.event_log().read_after(None, 10).await.unwrap().into_iter().map(|recorded| recorded.event).collect();
     assert_eq!(
         events.last(),
-        Some(&Event::DownloadCompleted {
-            download: added.id,
-            name: added.name,
-            content_path: video.clone(),
-            item: None
-        })
+        Some(
+            &DownloadCompleted { download: added.id, name: added.name, content_path: video.clone(), item: None }.into()
+        )
     );
 
     let all = client.all_torrents().await.unwrap();

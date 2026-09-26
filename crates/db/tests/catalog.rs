@@ -11,7 +11,7 @@ use yokoku_domain::{
     EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieMetadata, Numbering, Releases,
     SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
 };
-use yokoku_events::{Event, EventLog};
+use yokoku_events::{EventLog, SeriesAdded};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 
 const TODAY: Date = date(2026, 9, 26);
@@ -118,7 +118,7 @@ async fn saving_a_refreshed_series_replaces_its_seasons_and_episodes(#[future(aw
 async fn save_and_remove_append_their_events(#[future(awt)] db: Database) {
     let mut series =
         Series::add(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
-    let added = Event::SeriesAdded { series: series.id, title: series.title.clone() };
+    let added = SeriesAdded { series: series.id, title: series.title.clone() }.into();
 
     SeriesRepo::save(&db, &mut series, std::slice::from_ref(&added)).await.unwrap();
     SeriesRepo::remove(&db, series.id, std::slice::from_ref(&added)).await.unwrap();
@@ -161,7 +161,7 @@ async fn failed_save_writes_no_events(#[future(awt)] db: Database) {
     let mut duplicate = Series::add(series_metadata(1, &[]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
     SeriesRepo::save(&db, &mut first, &[]).await.unwrap();
 
-    let event = Event::SeriesAdded { series: duplicate.id, title: duplicate.title.clone() };
+    let event = SeriesAdded { series: duplicate.id, title: duplicate.title.clone() }.into();
     let _ = SeriesRepo::save(&db, &mut duplicate, &[event]).await;
 
     assert!(db.event_log().read_after(None, 10).await.unwrap().is_empty());
@@ -252,7 +252,7 @@ async fn a_save_from_an_older_revision_changes_nothing(#[future] db: Database) {
     SeriesRepo::save(&db, &mut series, &[]).await.unwrap();
 
     stale.title = "Stale".into();
-    let event = Event::SeriesAdded { series: series.id, title: "Stale".into() };
+    let event = SeriesAdded { series: series.id, title: "Stale".into() }.into();
     let error = SeriesRepo::save(&db, &mut stale, &[event]).await.unwrap_err();
 
     assert!(matches!(error, StorageError::Conflict), "{error}");

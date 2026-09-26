@@ -4,7 +4,7 @@ use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use jiff::ToSpan;
 use rstest::{fixture, rstest};
 use yokoku_domain::{EpisodeRef, ExternalId, ItemFolder, ItemId, MonitorPreset, Releases, SourceStatus};
-use yokoku_events::Event;
+use yokoku_events::{MovieAdded, SeriesAdded};
 use yokoku_library::{LibraryError, ports::MetadataError};
 
 #[fixture]
@@ -27,7 +27,7 @@ async fn add_series_applies_the_preset_and_records_the_addition(#[future(awt)] a
     let monitored: Vec<_> = series.monitored_episodes().map(|(reference, _)| reference).collect();
     assert_eq!(monitored, [EpisodeRef { season: 1, episode: 2 }]);
     assert_eq!(app.library.series(series.id).await.unwrap(), series);
-    assert_eq!(app.events().await, [Event::SeriesAdded { series: series.id, title: "Frieren".into() }]);
+    assert_eq!(app.events().await, [SeriesAdded { series: series.id, title: "Frieren".into() }.into()]);
 }
 
 #[rstest]
@@ -61,7 +61,7 @@ async fn add_movie_stores_it_and_records_the_addition(#[future(awt)] app: App) {
 
     assert!(!movie.monitored);
     assert_eq!(app.library.movie(movie.id).await.unwrap(), movie);
-    assert_eq!(app.events().await, [Event::MovieAdded { movie: movie.id, title: "Dune".into() }]);
+    assert_eq!(app.events().await, [MovieAdded { movie: movie.id, title: "Dune".into() }.into()]);
 }
 
 #[rstest]

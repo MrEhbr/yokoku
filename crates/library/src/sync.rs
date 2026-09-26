@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use yokoku_domain::{
     Clock, ExternalId, ItemFolder, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
 };
-use yokoku_events::Event;
+use yokoku_events::{MovieAdded, SeriesAdded};
 
 use crate::{
     LibraryError,
@@ -81,7 +81,7 @@ impl MetadataSync {
         let now = self.clock.now();
 
         let mut series = Series::add(metadata, folder, preset, now.date(), now.timestamp());
-        let added = Event::SeriesAdded { series: series.id, title: series.title.clone() };
+        let added = SeriesAdded { series: series.id, title: series.title.clone() }.into();
         self.series.save(&mut series, &[added]).await?;
         Ok(series)
     }
@@ -105,7 +105,7 @@ impl MetadataSync {
         }
 
         let mut movie = Movie::add(metadata, folder, monitored, self.clock.now().timestamp());
-        let added = Event::MovieAdded { movie: movie.id, title: movie.title.clone() };
+        let added = MovieAdded { movie: movie.id, title: movie.title.clone() }.into();
         self.movies.save(&mut movie, &[added]).await?;
         Ok(movie)
     }

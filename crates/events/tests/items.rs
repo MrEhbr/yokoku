@@ -1,7 +1,10 @@
 use rstest::rstest;
 use uuid::Uuid;
 use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId};
-use yokoku_events::{DeleteReason, Event, LinkedFile};
+use yokoku_events::{
+    DeleteReason, Event, FileDeleted, FileRenamed, FilesFound, ImportNeedsReview, LinkedFile, MovieRemoved,
+    SeriesAdded, TorrentAdded, TorrentRemoved,
+};
 
 fn series() -> SeriesId {
     SeriesId(Uuid::from_u128(1))
@@ -20,20 +23,20 @@ fn linked(target: FileTarget) -> LinkedFile {
 }
 
 #[rstest]
-#[case::added(Event::SeriesAdded { series: series(), title: "Frieren".into() }, vec![ItemId::Series(series())])]
-#[case::removed(Event::MovieRemoved { movie: movie(), title: "Dune".into(), delete_files: true }, vec![ItemId::Movie(movie())])]
+#[case::added(SeriesAdded { series: series(), title: "Frieren".into() }.into(), vec![ItemId::Series(series())])]
+#[case::removed(MovieRemoved { movie: movie(), title: "Dune".into(), delete_files: true }.into(), vec![ItemId::Movie(movie())])]
 #[case::files_of_one_series_once(
-    Event::FilesFound { files: vec![linked(episodes(1)), linked(episodes(2)), linked(FileTarget::Movie(movie()))] },
+    FilesFound { files: vec![linked(episodes(1)), linked(episodes(2)), linked(FileTarget::Movie(movie()))] }.into(),
     vec![ItemId::Series(series()), ItemId::Movie(movie())],
 )]
 #[case::deleted(
-    Event::FileDeleted { file: MediaFileId::generate(), path: "/a".into(), target: episodes(1), reason: DeleteReason::User },
+    FileDeleted { file: MediaFileId::generate(), path: "/a".into(), target: episodes(1), reason: DeleteReason::User }.into(),
     vec![ItemId::Series(series())],
 )]
-#[case::renamed_before_targets(Event::FileRenamed { file: MediaFileId::generate(), from: "/a".into(), to: "/b".into(), target: None }, vec![])]
-#[case::unlinked_torrent(Event::TorrentAdded { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: None }, vec![])]
-#[case::removed_torrent(Event::TorrentRemoved { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: Some(ItemId::Movie(movie())) }, vec![ItemId::Movie(movie())])]
-#[case::review(Event::ImportNeedsReview { import: ImportId::generate(), source: "/x".into() }, vec![])]
+#[case::renamed_before_targets(FileRenamed { file: MediaFileId::generate(), from: "/a".into(), to: "/b".into(), target: None }.into(), vec![])]
+#[case::unlinked_torrent(TorrentAdded { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: None }.into(), vec![])]
+#[case::removed_torrent(TorrentRemoved { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: Some(ItemId::Movie(movie())) }.into(), vec![ItemId::Movie(movie())])]
+#[case::review(ImportNeedsReview { import: ImportId::generate(), source: "/x".into() }.into(), vec![])]
 fn events_name_the_items_they_concern(#[case] event: Event, #[case] items: Vec<ItemId>) {
     assert_eq!(event.items(), items);
 }

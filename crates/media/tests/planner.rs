@@ -3,7 +3,7 @@ mod common;
 use common::{App, relative};
 use jiff::Timestamp;
 use yokoku_domain::{Confidence, DownloadId, ItemId};
-use yokoku_events::{Event, EventId, Recorded, Subscriber};
+use yokoku_events::{DownloadCompleted, EventId, ImportFailed, ImportNeedsReview, Recorded, Subscriber};
 use yokoku_media::{ImportStatus, ports::MediaRepo};
 
 #[tokio::test]
@@ -61,7 +61,7 @@ async fn unsure_downloads_go_to_review() {
 
     assert_eq!(import.status, ImportStatus::NeedsReview);
     assert_eq!((import.rows[0].target, import.rows[0].confidence), (Some(app.episodes(1, 2, 2)), Confidence::Guess));
-    assert_eq!(app.events().await, [Event::ImportNeedsReview { import: import.id, source: import.source }]);
+    assert_eq!(app.events().await, [ImportNeedsReview { import: import.id, source: import.source }.into()]);
 }
 
 #[tokio::test]
@@ -88,11 +88,8 @@ async fn a_download_without_videos_fails_visibly() {
     assert_eq!(import.status, ImportStatus::Failed);
     assert_eq!(
         app.events().await,
-        [Event::ImportFailed {
-            import: import.id,
-            source: import.source,
-            reason: "the download holds no video files".into(),
-        }]
+        [ImportFailed { import: import.id, source: import.source, reason: "the download holds no video files".into() }
+            .into()]
     );
 }
 
@@ -104,12 +101,8 @@ async fn a_redelivered_completion_plans_once() {
     let completed = Recorded {
         id: EventId(1),
         occurred_at: Timestamp::UNIX_EPOCH,
-        event: Event::DownloadCompleted {
-            download,
-            name: "Dune.2021.1080p.mkv".into(),
-            content_path: file,
-            item: None,
-        },
+        event: DownloadCompleted { download, name: "Dune.2021.1080p.mkv".into(), content_path: file, item: None }
+            .into(),
     };
 
     app.planner.handle(&completed).await.unwrap();

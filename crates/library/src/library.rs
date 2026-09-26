@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use jiff::civil::Date;
 use yokoku_domain::{Clock, EpisodeRef, ExternalId, Movie, MovieId, Numbering, Series, SeriesId};
-use yokoku_events::Event;
+use yokoku_events::{MovieRemoved, SeriesRemoved};
 
 use crate::{
     LibraryEntry, LibraryError, LibraryFilter, LibrarySort,
@@ -103,13 +103,13 @@ impl Library {
 
     pub async fn remove_series(&self, id: SeriesId, delete_files: bool) -> Result<(), LibraryError> {
         let series = self.series(id).await?;
-        let removed = Event::SeriesRemoved { series: id, title: series.title, delete_files };
+        let removed = SeriesRemoved { series: id, title: series.title, delete_files }.into();
         Ok(self.series.remove(id, &[removed]).await?)
     }
 
     pub async fn remove_movie(&self, id: MovieId, delete_files: bool) -> Result<(), LibraryError> {
         let movie = self.movie(id).await?;
-        let removed = Event::MovieRemoved { movie: id, title: movie.title, delete_files };
+        let removed = MovieRemoved { movie: id, title: movie.title, delete_files }.into();
         Ok(self.movies.remove(id, &[removed]).await?)
     }
 

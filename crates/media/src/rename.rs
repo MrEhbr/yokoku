@@ -6,7 +6,7 @@ use std::{
 
 use tracing::warn;
 use yokoku_domain::{FileTarget, MediaFileId, MovieId, Series, SeriesId};
-use yokoku_events::Event;
+use yokoku_events::FileRenamed;
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
@@ -145,12 +145,13 @@ impl Renamer {
                     continue;
                 }
                 let changes = Changes { renamed_files: vec![(rename.file, video.to.clone())], ..Changes::default() };
-                let event = Event::FileRenamed {
+                let event = FileRenamed {
                     file: rename.file,
                     from: video.from.clone(),
                     to: video.to.clone(),
                     target: Some(rename.target),
-                };
+                }
+                .into();
                 if let Err(error) = self.repo.save(&changes, &[event]).await {
                     if let Err(undo) = self.fs.rename(&video.to, &video.from).await {
                         warn!(path = %video.to.display(), %undo, "could not move a file back after a failed save");

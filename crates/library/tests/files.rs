@@ -7,7 +7,9 @@ use jiff::Timestamp;
 use yokoku_domain::{
     EpisodeSpan, ExternalId, FileTarget, MediaFileId, MonitorPreset, Movie, Releases, Series, SeriesId, SourceStatus,
 };
-use yokoku_events::{DeleteReason, Event, EventId, LinkedFile, Recorded, Subscriber};
+use yokoku_events::{
+    DeleteReason, Event, EventId, FileDeleted, FilesFound, FilesImported, LinkedFile, Recorded, Subscriber,
+};
 use yokoku_library::FileTracker;
 
 struct Setup {
@@ -37,11 +39,11 @@ fn episodes(series: SeriesId, first: u16, last: u16) -> FileTarget {
 }
 
 fn found(file: MediaFileId, target: FileTarget) -> Event {
-    Event::FilesFound { files: vec![LinkedFile { file, path: "/media/file.mkv".into(), target }] }
+    FilesFound { files: vec![LinkedFile { file, path: "/media/file.mkv".into(), target }] }.into()
 }
 
 fn deleted(file: MediaFileId, target: FileTarget) -> Event {
-    Event::FileDeleted { file, path: "/media/file.mkv".into(), target, reason: DeleteReason::External }
+    FileDeleted { file, path: "/media/file.mkv".into(), target, reason: DeleteReason::External }.into()
 }
 
 async fn episode_files(setup: &Setup) -> Vec<Option<MediaFileId>> {
@@ -65,11 +67,12 @@ async fn found_files_link_every_episode_they_hold_and_movies() {
 async fn imported_files_are_linked_like_found_ones() {
     let setup = setup().await;
     let file = MediaFileId::generate();
-    let event = Event::FilesImported {
+    let event = FilesImported {
         import: yokoku_domain::ImportId::generate(),
         download: None,
         files: vec![LinkedFile { file, path: "/media/file.mkv".into(), target: episodes(setup.series.id, 3, 3) }],
-    };
+    }
+    .into();
 
     setup.tracker.handle(&recorded(event)).await.unwrap();
 

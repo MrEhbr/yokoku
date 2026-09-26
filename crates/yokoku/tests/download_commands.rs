@@ -11,7 +11,7 @@ use wiremock::{
 };
 use yokoku_db::Database;
 use yokoku_domain::{ExternalId, ItemFolder, Movie, MovieMetadata, Releases};
-use yokoku_events::{Event, EventLog};
+use yokoku_events::{DownloadCompleted, Event, EventLog, FilesImported, TorrentRemoved};
 use yokoku_library::ports::MovieRepo;
 
 const HASH: &str = "0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6";
@@ -159,11 +159,9 @@ async fn added_downloads_are_listed_and_finish_on_sync() {
     assert!(setup.stdout(&["show", "movie", "tmdb:10"]).contains("File      downloaded"));
     let events = setup.events().await;
     assert!(
-        events
-            .iter()
-            .any(|event| matches!(event, Event::DownloadCompleted { content_path, .. } if content_path == &content))
+        events.iter().filter_map(Event::get::<DownloadCompleted>).any(|completed| completed.content_path == content)
     );
-    assert!(matches!(events.last(), Some(Event::FilesImported { .. })));
+    assert!(events.last().and_then(Event::get::<FilesImported>).is_some());
 }
 
 fn inode(path: &std::path::Path) -> u64 {
@@ -211,7 +209,7 @@ async fn serve_syncs_and_imports_downloads_on_schedule_and_stops_on_sigterm() {
         let events = log.read_after(None, 100).await.unwrap();
         let last = events.last().unwrap();
         let delivered = log.last_delivered("library.files").await.unwrap();
-        if matches!(last.event, Event::FilesImported { .. }) && delivered == Some(last.id) {
+        if last.event.get::<FilesImported>().is_some() && delivered == Some(last.id) {
             break true;
         }
         if std::time::Instant::now() > deadline {
@@ -275,7 +273,7 @@ async fn imported_downloads_leave_transmission_with_their_data_once_seeded() {
         .collect();
     assert_eq!(removals.len(), 1);
     assert_eq!(removals[0]["arguments"], json!({ "ids": [HASH], "delete-local-data": true }));
-    assert!(setup.events().await.iter().any(|event| matches!(event, Event::TorrentRemoved { .. })));
+    assert!(setup.events().await.iter().any(|event| event.get::<TorrentRemoved>().is_some()));
     assert!(setup.stdout(&["download", "list"]).contains("removed"));
 }
 

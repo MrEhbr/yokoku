@@ -4,7 +4,7 @@ use common::App;
 use rstest::rstest;
 use yokoku_detect::Conflict;
 use yokoku_domain::{Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MovieId, SeriesId};
-use yokoku_events::{Event, LinkedFile};
+use yokoku_events::{FilesImported, LinkedFile};
 use yokoku_media::{
     Approval, Import, ImportRow, ImportStatus, MediaError,
     ports::{Changes, MediaRepo},
@@ -40,7 +40,7 @@ async fn approving_links_matched_rows_and_leaves_skipped_ones() {
     let linked = files.iter().map(|file| LinkedFile { file: file.id, path: file.path.clone(), target: file.target });
     assert_eq!(
         app.events().await.last(),
-        Some(&Event::FilesImported { import: id, download: None, files: linked.collect() })
+        Some(&FilesImported { import: id, download: None, files: linked.collect() }.into())
     );
     assert!(app.review.pending().await.unwrap().is_empty());
 }
