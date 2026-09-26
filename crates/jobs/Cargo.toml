@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 yokoku-downloads.workspace = true
+yokoku-media.workspace = true
 
 apalis.workspace = true
 apalis-cron.workspace = true

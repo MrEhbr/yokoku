@@ -4006,6 +4006,7 @@ dependencies = [
  "jiff-cron",
  "tracing",
  "yokoku-downloads",
+ "yokoku-media",
 ]
 
 [[package]]

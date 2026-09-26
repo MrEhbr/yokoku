@@ -12,7 +12,7 @@ use yokoku_library::Library;
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, title_with_year},
+    commands::{ItemArgs, Kind, import::run_imports, title_with_year},
     config::Config,
 };
 
@@ -68,6 +68,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 Some(_) => writeln!(out, "Added {}; it is already complete", download.name)?,
                 None => writeln!(out, "Added {}", download.name)?,
             }
+            run_imports(&app, &mut out).await?;
         },
         Command::List => {
             let downloads = app.downloads.list().await?;
@@ -92,6 +93,11 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             writeln!(out, "Synced {} downloads; {} finished", report.synced, report.completed.len())?;
             if report.removed > 0 {
                 writeln!(out, "{} are no longer in Transmission", report.removed)?;
+            }
+            run_imports(&app, &mut out).await?;
+            let waiting = app.review.pending().await?.len();
+            if waiting > 0 {
+                writeln!(out, "{waiting} imports wait for review; see `yokoku review list`")?;
             }
         },
     }

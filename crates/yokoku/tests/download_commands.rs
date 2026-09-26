@@ -18,13 +18,14 @@ const HASH: &str = "0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6";
 const SESSION: &str = "session-1";
 
 struct Setup {
-    _dir: TempDir,
+    dir: TempDir,
     database: PathBuf,
     transmission: MockServer,
 }
 
 impl Setup {
-    /// A library with "Dune" (tmdb:10) and a Transmission that knows the session handshake.
+    /// A library with "Dune" (tmdb:10) and a movie root, a finished download of it on disk, and a
+    /// Transmission that knows the session handshake.
     async fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let database = dir.path().join("yokoku.db");
@@ -45,7 +46,14 @@ impl Setup {
             .respond_with(ResponseTemplate::new(409).insert_header("X-Transmission-Session-Id", SESSION))
             .mount(&transmission)
             .await;
-        Self { _dir: dir, database, transmission }
+        let video = dir.path().join("downloads/Dune.2021.1080p/Dune.2021.1080p.mkv");
+        std::fs::create_dir_all(video.parent().unwrap()).unwrap();
+        std::fs::write(&video, b"video").unwrap();
+        std::fs::create_dir(dir.path().join("movies")).unwrap();
+        let setup = Self { dir, database, transmission };
+        let movies = setup.dir.path().join("movies");
+        setup.stdout(&["root", "add", "movies", movies.to_str().unwrap()]);
+        setup
     }
 
     async fn answer(&self, rpc_method: &str, arguments: Value) {
@@ -73,7 +81,7 @@ impl Setup {
         let torrent = json!({
             "hashString": HASH, "name": "Dune.2021.1080p", "status": if left == 0 { 6 } else { 4 },
             "sizeWhenDone": 4_000_000_000u64, "leftUntilDone": left, "rateDownload": 5_000_000, "eta": 600,
-            "downloadDir": "/downloads", "error": 0, "errorString": "", "metadataPercentComplete": 1.0,
+            "downloadDir": self.dir.path().join("downloads"), "error": 0, "errorString": "", "metadataPercentComplete": 1.0,
         });
         self.answer("torrent-get", json!({ "torrents": [torrent] })).await;
     }
@@ -136,12 +144,23 @@ async fn added_downloads_are_listed_and_finish_on_sync() {
         listed.contains(" 75%  downloading  5.0 MB/s, 0h 10m left") && listed.ends_with("Dune (2021)\n"),
         "{listed}"
     );
-    assert_eq!(synced, "Synced 1 downloads; 1 finished\n");
+    let content = setup.dir.path().join("downloads/Dune.2021.1080p");
+    assert_eq!(synced, format!("Synced 1 downloads; 1 finished\nImported {}\n", content.display()));
     assert!(setup.stdout(&["download", "list"]).contains("100%  seeding"));
+    let placed = setup.dir.path().join("movies/Dune (2021)/Dune (2021).mkv");
+    assert_eq!(inode(&placed), inode(&content.join("Dune.2021.1080p.mkv")));
+    assert!(setup.stdout(&["show", "movie", "tmdb:10"]).contains("File      downloaded"));
     let events = setup.events().await;
     assert!(
-        matches!(events.last(), Some(Event::DownloadCompleted { content_path, .. }) if content_path == &PathBuf::from("/downloads/Dune.2021.1080p"))
+        events
+            .iter()
+            .any(|event| matches!(event, Event::DownloadCompleted { content_path, .. } if content_path == &content))
     );
+    assert!(matches!(events.last(), Some(Event::FilesImported { .. })));
+}
+
+fn inode(path: &std::path::Path) -> u64 {
+    std::os::unix::fs::MetadataExt::ino(&std::fs::metadata(path).unwrap())
 }
 
 #[tokio::test]
@@ -163,7 +182,7 @@ fn torrent_files_that_cannot_be_read_are_reported() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn serve_syncs_downloads_on_schedule_and_stops_on_sigterm() {
+async fn serve_syncs_and_imports_downloads_on_schedule_and_stops_on_sigterm() {
     let setup = Setup::new().await;
     setup.torrent_at(1_000_000_000).await;
     setup.stdout(&["download", "add", &format!("magnet:?xt=urn:btih:{HASH}")]);
@@ -173,6 +192,7 @@ async fn serve_syncs_downloads_on_schedule_and_stops_on_sigterm() {
         .command()
         .arg("serve")
         .env("APP__SERVE__SYNC_DOWNLOADS", "* * * * * *")
+        .env("APP__SERVE__EXECUTE_IMPORTS", "* * * * * *")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
@@ -184,7 +204,7 @@ async fn serve_syncs_downloads_on_schedule_and_stops_on_sigterm() {
         let events = log.read_after(None, 100).await.unwrap();
         let last = events.last().unwrap();
         let delivered = log.last_delivered("library.files").await.unwrap();
-        if matches!(last.event, Event::DownloadCompleted { .. }) && delivered == Some(last.id) {
+        if matches!(last.event, Event::FilesImported { .. }) && delivered == Some(last.id) {
             break true;
         }
         if std::time::Instant::now() > deadline {
@@ -195,7 +215,30 @@ async fn serve_syncs_downloads_on_schedule_and_stops_on_sigterm() {
     let killed = Command::new("kill").args(["-TERM", &serve.id().to_string()]).status().unwrap();
     let status = serve.wait().unwrap();
 
-    assert!(delivered, "the download was not synced and delivered in time");
+    assert!(delivered, "the download was not synced, imported and delivered in time");
     assert!(killed.success());
     assert!(status.success(), "{status}");
+}
+
+#[tokio::test]
+async fn a_failed_import_is_listed_and_retried() {
+    let setup = Setup::new().await;
+    let blocker = setup.dir.path().join("movies/Dune (2021)/Dune (2021).mkv");
+    std::fs::create_dir_all(blocker.parent().unwrap()).unwrap();
+    std::fs::write(&blocker, b"another film").unwrap();
+    setup.torrent_at(0).await;
+
+    let added = setup.stdout(&["download", "add", &format!("magnet:?xt=urn:btih:{HASH}"), "movie", "tmdb:10"]);
+    let failed = setup.stdout(&["import", "run"]);
+    let listed = setup.stdout(&["import", "list"]);
+    std::fs::remove_file(&blocker).unwrap();
+    let import = listed.split_whitespace().next().unwrap();
+    let retried = setup.stdout(&["import", "retry", import]);
+
+    assert!(added.starts_with("Added Dune.2021.1080p; it is already complete\nImport of "), "{added}");
+    assert!(added.trim_end().ends_with("already exists"), "{added}");
+    assert_eq!(failed, "");
+    assert!(listed.contains("failed") && listed.contains("already exists"), "{listed}");
+    assert!(retried.starts_with("Imported "), "{retried}");
+    assert_eq!(setup.stdout(&["import", "list"]), "No imports waiting.\n");
 }

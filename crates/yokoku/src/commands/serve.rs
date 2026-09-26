@@ -15,11 +15,13 @@ use crate::{app::App, config::Config};
 pub struct ServeConfig {
     /// Cron schedule with seconds for syncing downloads.
     pub sync_downloads: String,
+    /// Cron schedule with seconds for carrying out approved imports.
+    pub execute_imports: String,
 }
 
 impl Default for ServeConfig {
     fn default() -> Self {
-        Self { sync_downloads: "*/30 * * * * *".into() }
+        Self { sync_downloads: "*/30 * * * * *".into(), execute_imports: "*/5 * * * * *".into() }
     }
 }
 
@@ -28,15 +30,20 @@ pub struct Args {}
 
 /// Delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(config: &Config, _args: Args) -> Result<()> {
-    let schedule = &config.serve.sync_downloads;
     let schedules = Schedules {
-        sync_downloads: Schedule::from_str(schedule).with_context(|| format!("Invalid schedule: {schedule}"))?,
+        sync_downloads: schedule(&config.serve.sync_downloads)?,
+        execute_imports: schedule(&config.serve.execute_imports)?,
     };
     let app = App::open(config).await?;
+    let recovered = app.importer.recover().await?;
+    if recovered > 0 {
+        info!(recovered, "queued interrupted imports again");
+    }
 
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);
-    let monitor = yokoku_jobs::monitor(Jobs { downloads: app.downloads.clone() }, schedules);
+    let monitor =
+        yokoku_jobs::monitor(Jobs { downloads: app.downloads.clone(), importer: app.importer.clone() }, schedules);
     info!("serving");
     let result = monitor.run_with_signal(stop_signal()).await;
 
@@ -46,6 +53,10 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
     }
     info!("stopped");
     result.context("Jobs failed")
+}
+
+fn schedule(expression: &str) -> Result<Schedule> {
+    Schedule::from_str(expression).with_context(|| format!("Invalid schedule: {expression}"))
 }
 
 async fn stop_signal() -> io::Result<()> {

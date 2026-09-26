@@ -218,7 +218,7 @@ scan: unknown file ┘                                                  │
                          ▼                                            ▼
                       Approved ◀──────── user edits rows ──────── NeedsReview
                          │
-                         ▼ ExecuteImport job (apalis, concurrency 1)
+                         ▼ ExecuteImports job claims one approved import at a time
                      Importing ──▶ Done    (FilesImported)
                          └──────▶ Failed   (ImportFailed) ── retry ──▶ Approved
 ```
@@ -236,9 +236,11 @@ scan: unknown file ┘                                                  │
   - Defaults follow Jellyfin: `Title (Year)/Season 01/Title (Year) - S01E01 - Episode Title.ext` and `Title (Year)/Title (Year).ext`.
   - Every component is sanitised for Linux, macOS, Windows and SMB. File stems are capped at 200 bytes so subtitle suffixes always fit; folders at 255.
   - Subtitles take the video stem plus `.language[.sdh][.forced].ext`.
-- **Execution** is idempotent per file. A row whose target already exists with the expected size, and whose source is gone (move mode), counts as done. Re-running after a crash is safe.
-- **Concurrency 1** for `ExecuteImport` means two imports can never race on the same episode.
-- **Hard links** that fail across filesystems fall back to copy, with a warning.
+- **Planning** (`ImportPlanner`, on `DownloadCompleted`): the download's files are read relative to the download's parent folder, so the torrent's folder name counts as a title, and matched against the linked item, or the whole library when there is none or it was removed. One import per download (a unique index); a redelivered event changes nothing. The import is `Approved` when every row is `Certain`, conflict-free and takes no episode or movie that already has a file, `NeedsReview` otherwise, and `Failed` (with `ImportFailed`) when the download holds no video.
+- **Execution** (`Importer`) places each row that is not skipped, with its subtitles, at the naming path in the item's root folder: the root holding the series' other files, else the first root of that kind. `[import] mode` is `hardlink` (default; keeps seeding), `copy` or `move`. It is idempotent per file: a destination holding the same data or the same size, or the moved file itself, counts as placed, so re-running after a crash is safe. Success commits the new files, `Done`, `FileDeleted { reason: Replaced }` for replaced files and `FilesImported` in one transaction; any failure stores the reason as `Failed` and emits `ImportFailed`; `retry` queues it again.
+- **Replace** (FR-4.12): a review row of a download can replace the library file holding its target; the old file is deleted before the new one is placed. Keeping both is not offered, since an episode holds one file.
+- **One at a time:** `claim_next_approved` moves the oldest `Approved` import to `Importing` in one statement, so the CLI and `serve` never run the same import, and the job runs one tick at a time. `serve` moves imports left `Importing` by a stopped process back to `Approved` when it starts.
+- **Hard links** that fail across filesystems fall back to copy, with a warning; moves across filesystems copy and then delete.
 - **Unlinked torrents** are matched only against items already in the library. Anything unmatched goes to review.
 
 ---
@@ -280,7 +282,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 | `SeriesRemoved { series, title, delete_files }` | library | media |
 | `MovieRemoved { movie, title, delete_files }` | library | media |
 | `TorrentAdded { download, name, item }` | downloads | — (history) |
-| `DownloadCompleted { download, name, content_path, item }` | downloads | media (step 6) |
+| `DownloadCompleted { download, name, content_path, item }` | downloads | media |
 | `ImportNeedsReview { import, source }` | media | — (history) |
 | `FilesFound { files }` | media (scan) | library, integrations |
 | `FilesImported { import, files }` | media | library, downloads, integrations |
@@ -304,15 +306,15 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 
 | Job | Trigger | Calls |
 |---|---|---|
-| `SyncDownloads` | cron, every 30 s | `downloads::sync` | (built)
+| `SyncDownloads` | cron, every 30 s, one tick at a time | `Downloads::sync` |
 | `RefreshMetadata` | cron, every 6 h | enqueues `RefreshItem` for each item |
 | `RefreshItem { item }` | queue | `library::refresh` |
-| `ExecuteImport { import }` | queue, concurrency 1 | `media::execute_import` |
+| `ExecuteImports` | cron, every 5 s, one tick at a time | `Importer::run_pending` |
 | `ScanLibrary` | cron, daily; on demand | `media::scan` |
 | `CleanupRecycle` | cron, daily | `media::cleanup_recycle` |
 | `RescanMediaServer` | queue, debounced | `integrations::rescan` |
 
-Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and `serve` runs them with `Monitor::run_with_signal`. Modules enqueue work through their own ports (for example `media::ports::ImportQueue`), which `jobs` implements.
+Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and `serve` runs them with `Monitor::run_with_signal`. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
 
 ---
 
@@ -322,7 +324,7 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 
 One binary.
 - `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM. Each subscriber gets its own `Delivery` loop; on a signal the monitor stops first, then the deliveries are cancelled and awaited.
-- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `detect --dry-run`, `import`, `scan`, `rename`, `download`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
+- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
 
 ### Storage
 
@@ -369,6 +371,7 @@ Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modu
 | State tables are the source of truth | Event sourcing | TMDB is the real source of metadata. Rebuilding from events adds no value, and stored event schemas are costly to migrate. |
 | In-process delivery | External broker (NATS, Redis, Kafka) | Adds deployment weight for a single-user, self-hosted app. |
 | Import state machine in our tables | `apalis-workflow` | Review can pause for days, and the UI must query import state. |
+| Approved imports in our table are the job queue, claimed atomically | apalis storage-backed `ExecuteImport` queue | Import state lives in one place, and the claim lets the CLI and `serve` run imports side by side. |
 | No actor framework | kameo, ractor | Mailboxes are in memory (not durable), and it would be a third messaging model next to events and jobs. The one real race (concurrent imports) is solved by concurrency 1. |
 | Own TMDB client | `tmdb-api` crate | Few endpoints needed; low adoption. |
 | `Arc<dyn Port>` + `async-trait` | Generic `App<I: Infra>` | Generics would spread through every signature. |

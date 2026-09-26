@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use yokoku_db::Database;
+use yokoku_domain::Clock;
 use yokoku_downloads::Downloads;
-use yokoku_events::{Delivery, DeliveryConfig};
+use yokoku_events::{Delivery, DeliveryConfig, Subscriber};
 use yokoku_library::{Library, MetadataSync, Schedule};
-use yokoku_media::{Renamer, Review, RootFolders, Scanner};
+use yokoku_media::{Importer, Renamer, Review, RootFolders, Scanner, ports::FileSystem};
 use yokoku_metadata::TmdbClient;
 use yokoku_naming::Naming;
 use yokoku_system::{LocalFileSystem, SystemClock};
@@ -108,8 +109,10 @@ pub struct App {
     pub review: Review,
     pub renamer: Renamer,
     pub downloads: Arc<Downloads>,
+    pub importer: Arc<Importer>,
     sync: Option<MetadataSync>,
     db: Arc<Database>,
+    subscribers: Vec<Arc<dyn Subscriber>>,
 }
 
 impl App {
@@ -117,14 +120,14 @@ impl App {
         let path = &config.database.path;
         let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
         let db = Arc::new(db);
-        let clock = Arc::new(SystemClock::new(config.clock.time_zone()?));
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()?));
         let metadata = &config.metadata;
         let sync = metadata.tmdb_token.as_ref().map(|token| {
             let tmdb = TmdbClient::new(token, &metadata.language, &metadata.region).with_base_url(&metadata.tmdb_url);
             MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), clock.clone())
         });
 
-        let fs = Arc::new(LocalFileSystem);
+        let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
         let transmission = &config.transmission;
         let mut client = TransmissionClient::new(&transmission.url);
         if let Some(username) = &transmission.username {
@@ -137,8 +140,17 @@ impl App {
             roots: RootFolders::new(db.clone(), fs.clone()),
             scanner: Scanner::new(db.clone(), db.clone(), fs.clone(), clock.clone()),
             review: Review::new(db.clone(), db.clone(), clock.clone()),
-            downloads: Arc::new(Downloads::new(db.clone(), Arc::new(client), clock)),
-            renamer: Renamer::new(db.clone(), db.clone(), fs, Naming::default()),
+            downloads: Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone())),
+            renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), Naming::default()),
+            importer: Arc::new(Importer::new(
+                db.clone(),
+                db.clone(),
+                fs.clone(),
+                clock.clone(),
+                Naming::default(),
+                config.import.mode.into(),
+            )),
+            subscribers: subscriptions::subscribers(&db, &fs, &clock),
             sync,
             db,
         })
@@ -146,9 +158,10 @@ impl App {
 
     /// Delivers pending events to every subscriber.
     pub async fn deliver_events(&self) -> Result<()> {
-        for subscriber in subscriptions::subscribers(&self.db) {
+        for subscriber in &self.subscribers {
             let log = Arc::new(self.db.event_log());
-            let delivery = Delivery::new(log, subscriber, self.db.new_events().listen(), DeliveryConfig::default());
+            let delivery =
+                Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), DeliveryConfig::default());
             delivery.catch_up().await.context("Failed to deliver events")?;
         }
         Ok(())
@@ -156,11 +169,12 @@ impl App {
 
     /// Starts one delivery loop per subscriber; each stops when `shutdown` is cancelled.
     pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
-        subscriptions::subscribers(&self.db)
-            .into_iter()
+        self.subscribers
+            .iter()
             .map(|subscriber| {
                 let log = Arc::new(self.db.event_log());
-                let delivery = Delivery::new(log, subscriber, self.db.new_events().listen(), DeliveryConfig::default());
+                let delivery =
+                    Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), DeliveryConfig::default());
                 tokio::spawn(delivery.run(shutdown.clone()))
             })
             .collect()

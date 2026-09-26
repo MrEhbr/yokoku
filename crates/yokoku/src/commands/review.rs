@@ -9,7 +9,7 @@ use yokoku_media::{Approval, ReviewRow};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, title_with_year},
+    commands::{ItemArgs, Kind, import::run_imports, title_with_year},
     config::Config,
 };
 
@@ -29,6 +29,8 @@ pub enum Command {
     Match(MatchArgs),
     /// Skip a file; it is left where it is and not offered again
     Skip { import: ImportId, row: usize },
+    /// Let a downloaded file replace the library file of its episode or movie
+    Replace { import: ImportId, row: usize },
     /// Link every matched file and finish the import
     Approve { import: ImportId },
 }
@@ -77,12 +79,16 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             app.review.skip_row(import, row).await?;
             writeln!(out, "Skipped row {row}")?;
         },
+        Command::Replace { import, row } => {
+            app.review.replace_row(import, row).await?;
+            writeln!(out, "Row {row} replaces the library file")?;
+        },
         Command::Approve { import } => match app.review.approve(import).await? {
             Approval::Linked(files) => {
                 app.deliver_events().await?;
                 writeln!(out, "Linked {} files", files.len())?;
             },
-            Approval::Queued => writeln!(out, "Queued for import")?,
+            Approval::Queued => run_imports(&app, &mut out).await?,
         },
     }
 
@@ -129,5 +135,6 @@ fn details(row: &ReviewRow) -> String {
         Conflict::SharedTarget => "same as another row",
         Conflict::AlreadyHasFile => "already has a file",
     });
-    [confidence].into_iter().chain(conflicts).collect::<Vec<_>>().join(", ")
+    let replaces = row.row.replace.then_some("replaces the library file");
+    [confidence].into_iter().chain(replaces).chain(conflicts).collect::<Vec<_>>().join(", ")
 }

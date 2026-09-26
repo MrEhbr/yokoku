@@ -30,6 +30,11 @@ days = 14
 # Cron schedules with seconds.
 [serve]
 sync_downloads = "*/30 * * * * *"
+execute_imports = "*/5 * * * * *"
+
+# How finished downloads reach the library: hardlink, copy or move.
+[import]
+mode = "hardlink"
 
 [greet]
 greeting = "Hello"
