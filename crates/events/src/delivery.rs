@@ -61,6 +61,17 @@ impl Delivery {
         info!(subscriber, "event delivery stopped");
     }
 
+    /// Delivers every event already in the log and returns how many there were.
+    pub async fn catch_up(&self) -> Result<usize, EventLogError> {
+        let mut delivered = 0;
+        loop {
+            match self.deliver_batch().await? {
+                0 => return Ok(delivered),
+                count => delivered += count,
+            }
+        }
+    }
+
     async fn deliver_forever(mut self) {
         loop {
             self.listener.mark_seen();

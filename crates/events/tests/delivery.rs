@@ -67,17 +67,21 @@ impl Harness {
         self
     }
 
-    fn start(&mut self, poll_interval: Duration) {
+    fn delivery(&mut self, poll_interval: Duration) -> Delivery {
         let config = DeliveryConfig {
+            batch_size: 2,
             poll_interval,
             max_attempts: 3,
             initial_backoff: Duration::from_millis(10),
             max_backoff: Duration::from_millis(100),
-            ..DeliveryConfig::default()
         };
         let recorder = Arc::new(self.recorder.take().expect("started once"));
         let log = Arc::new(self.db.event_log());
-        let delivery = Delivery::new(log, recorder, self.db.new_events().listen(), config);
+        Delivery::new(log, recorder, self.db.new_events().listen(), config)
+    }
+
+    fn start(&mut self, poll_interval: Duration) {
+        let delivery = self.delivery(poll_interval);
         self.task = Some(tokio::spawn(delivery.run(self.shutdown.clone())));
     }
 
@@ -193,4 +197,19 @@ async fn stops_on_shutdown(#[future(awt)] mut harness: Harness) {
 
     let task = harness.task.take().unwrap();
     timeout(WAIT, task).await.expect("delivery stops in time").unwrap();
+}
+
+#[rstest]
+#[tokio::test]
+async fn catching_up_delivers_what_is_logged_and_returns(#[future(awt)] mut harness: Harness) {
+    append(&harness.db, 3).await;
+    let delivery = harness.delivery(NO_POLLING);
+
+    assert_eq!(delivery.catch_up().await.unwrap(), 3);
+    assert_eq!(delivery.catch_up().await.unwrap(), 0);
+
+    for expected in 1..=3 {
+        assert_eq!(harness.next_handled().await, EventId(expected));
+    }
+    harness.position_reaches(3).await;
 }
