@@ -12,8 +12,7 @@ const UPSERT_POSITION: &str = "
 
 pub(crate) async fn append(conn: &mut SqliteConnection, events: &[Event]) -> Result<(), DbError> {
     for event in events {
-        let payload = serde_json::to_string(event)?;
-        sqlx::query("INSERT INTO events (payload) VALUES (?)").bind(payload).execute(&mut *conn).await?;
+        sqlx::query("INSERT INTO events (payload) VALUES (?)").bind(Json(event)).execute(&mut *conn).await?;
     }
     Ok(())
 }

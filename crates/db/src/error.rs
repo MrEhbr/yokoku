@@ -6,8 +6,6 @@ pub enum DbError {
     Query(#[from] sqlx::Error),
     #[error("database migration failed")]
     Migration(#[from] sqlx::migrate::MigrateError),
-    #[error("event encoding failed")]
-    EventEncoding(#[from] serde_json::Error),
     #[error("invalid stored value: {0}")]
     InvalidValue(String),
     #[error("the row was changed or removed at the same time")]
