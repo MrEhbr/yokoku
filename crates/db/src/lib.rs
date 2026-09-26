@@ -5,6 +5,7 @@ mod database;
 mod download_repo;
 mod error;
 mod event_log;
+mod media_info;
 mod media_repo;
 mod movie_repo;
 mod rescan_store;

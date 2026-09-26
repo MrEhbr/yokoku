@@ -15,7 +15,10 @@ mod scan;
 pub use deleter::{Deleter, Recycle};
 pub use error::MediaError;
 pub use importer::{ImportMode, Importer};
-pub use model::{Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind};
+pub use model::{
+    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind, SubtitleStream,
+    VideoStream,
+};
 pub use planner::ImportPlanner;
 pub use rename::{Move, Rename, RenameFailure, RenamePlan, RenameReport, RenameScope, Renamer, SkipReason, Skipped};
 pub use review::{Approval, ImportReview, Review, ReviewRow};

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use jiff::Timestamp;
 use yokoku_domain::{Confidence, DownloadId, FileTarget, ImportId, MediaFileId};
@@ -61,4 +61,38 @@ pub struct ImportRow {
     pub skipped: bool,
     /// Replaces the library file that already holds the target.
     pub replace: bool,
+}
+
+/// Streams a probe read from a video file (FR-8.6).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MediaInfo {
+    pub duration: Option<Duration>,
+    pub video: Option<VideoStream>,
+    /// In file order.
+    pub audio: Vec<AudioStream>,
+    /// Subtitles inside the file, in file order.
+    pub subtitles: Vec<SubtitleStream>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VideoStream {
+    pub codec: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AudioStream {
+    pub codec: String,
+    /// ISO 639-2, like `eng`.
+    pub language: Option<String>,
+    pub channels: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubtitleStream {
+    pub codec: String,
+    /// ISO 639-2, like `eng`.
+    pub language: Option<String>,
+    pub forced: bool,
 }

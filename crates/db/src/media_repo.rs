@@ -7,7 +7,7 @@ use yokoku_domain::{
 };
 use yokoku_events::Event;
 use yokoku_media::{
-    Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind,
+    Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind,
     ports::{Catalog, Changes, MediaRepo, StorageError},
 };
 
@@ -169,6 +169,25 @@ impl MediaRepo for Database {
             .await
             .map_err(DbError::from)?;
         Ok(result.rows_affected())
+    }
+
+    async fn media_info(&self, file: MediaFileId) -> Result<Option<MediaInfo>, StorageError> {
+        Ok(self.load_media_info(file).await?)
+    }
+
+    async fn save_media_info(&self, file: MediaFileId, info: &MediaInfo) -> Result<(), StorageError> {
+        Ok(self.store_media_info(file, info).await?)
+    }
+
+    async fn files_without_media_info(&self) -> Result<Vec<MediaFile>, StorageError> {
+        let rows: Vec<MediaFileRow> = sqlx::query_as(
+            "SELECT id, path, size, series_id, season, first_episode, last_episode, movie_id, added_at
+             FROM media_files WHERE id NOT IN (SELECT file_id FROM media_info) ORDER BY path",
+        )
+        .fetch_all(self.pool())
+        .await
+        .map_err(DbError::from)?;
+        Ok(rows.into_iter().map(media_file).collect::<Result<_, _>>()?)
     }
 
     async fn save(&self, changes: &Changes, events: &[Event]) -> Result<(), StorageError> {

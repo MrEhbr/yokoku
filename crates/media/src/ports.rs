@@ -9,7 +9,7 @@ use yokoku_detect::DownloadFile;
 use yokoku_domain::{DownloadId, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId};
 use yokoku_events::Event;
 
-use crate::{Import, ImportStatus, MediaFile, RootFolder};
+use crate::{Import, ImportStatus, MediaFile, MediaInfo, RootFolder};
 
 #[async_trait]
 pub trait FileSystem: Send + Sync {
@@ -47,6 +47,20 @@ pub trait FileSystem: Send + Sync {
 
     /// Removes `dir` with everything in it; a folder that is already gone counts as removed.
     async fn remove_folder(&self, dir: &Path) -> Result<(), FsError>;
+}
+
+/// Reads the streams of video files.
+#[async_trait]
+pub trait MediaProbe: Send + Sync {
+    async fn probe(&self, path: &Path) -> Result<MediaInfo, ProbeError>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ProbeError {
+    #[error("the media probe is not installed")]
+    Missing,
+    #[error("cannot probe {}: {reason}", path.display())]
+    Failed { path: PathBuf, reason: String },
 }
 
 /// Exclusive right to change library files, shared by every process using the library.
@@ -113,6 +127,12 @@ pub trait MediaRepo: Send + Sync {
     async fn claim_next_approved(&self) -> Result<Option<Import>, StorageError>;
     /// Moves every `Importing` import back to `Approved`; returns how many.
     async fn reset_importing(&self) -> Result<u64, StorageError>;
+
+    async fn media_info(&self, file: MediaFileId) -> Result<Option<MediaInfo>, StorageError>;
+    /// Replaces the file's details; a file no longer stored is left out.
+    async fn save_media_info(&self, file: MediaFileId, info: &MediaInfo) -> Result<(), StorageError>;
+    /// Files never probed, ordered by path.
+    async fn files_without_media_info(&self) -> Result<Vec<MediaFile>, StorageError>;
 
     /// Stores `changes` and appends `events` in one transaction.
     async fn save(&self, changes: &Changes, events: &[Event]) -> Result<(), StorageError>;
