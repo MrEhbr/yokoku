@@ -5,7 +5,7 @@ use config::{Environment, File, FileFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
-    app::{ClockConfig, DatabaseConfig, MetadataConfig, TransmissionConfig},
+    app::{ClockConfig, DatabaseConfig, MetadataConfig, NamingConfig, TransmissionConfig},
     commands::{
         add::AddConfig, files::FilesConfig, greet::GreetConfig, import::ImportConfig, jellyfin::JellyfinConfig,
         list::ListConfig, recycle::RecycleConfig, serve::ServeConfig, upcoming::UpcomingConfig,
@@ -45,6 +45,8 @@ pub struct Config {
     pub jellyfin: JellyfinConfig,
     #[serde(default)]
     pub files: FilesConfig,
+    #[serde(default)]
+    pub naming: NamingConfig,
 }
 
 /// Load configuration with precedence: env vars (APP__*) > config file > defaults.

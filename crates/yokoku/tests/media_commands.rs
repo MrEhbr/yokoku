@@ -311,3 +311,32 @@ async fn files_are_probed_on_request_once_ffprobe_is_there() {
     assert!(String::from_utf8(failure.stderr).unwrap().contains("/nonexistent/ffprobe is not installed"));
     assert_eq!(String::from_utf8(probed.stdout).unwrap(), "Probed 1 files\n");
 }
+
+#[tokio::test]
+async fn renames_follow_the_configured_patterns() {
+    let setup = Setup::new().await;
+    setup.write("tv/frieren/Frieren (2023) - S01E01.mkv");
+    setup.stdout(&["scan"]);
+
+    let preview = setup
+        .command()
+        .arg("rename")
+        .env("APP__NAMING__SEASON_FOLDER", "S{season}")
+        .env("APP__NAMING__EPISODE_FILE", "{episodes} {episode_title}")
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        String::from_utf8(preview.stdout).unwrap(),
+        "frieren/Frieren (2023) - S01E01.mkv\n  -> Frieren (2023)/S01/S01E01 Episode 1.mkv\nRun with --apply to rename 1 files.\n"
+    );
+}
+
+#[tokio::test]
+async fn an_invalid_pattern_is_refused_with_its_reason() {
+    let setup = Setup::new().await;
+
+    setup.command().arg("rename").env("APP__NAMING__EPISODE_FILE", "{title}").assert().failure().stderr(
+        predicate::str::contains("Invalid [naming] setting").and(predicate::str::contains("episode file pattern")),
+    );
+}

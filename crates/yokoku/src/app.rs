@@ -17,7 +17,7 @@ use yokoku_media::{
     ports::{FileSystem, LibraryLock},
 };
 use yokoku_metadata::TmdbClient;
-use yokoku_naming::Naming;
+use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_system::{FfProbe, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
@@ -57,6 +57,37 @@ pub struct MetadataConfig {
     pub language: String,
     /// Country whose movie release dates are used.
     pub region: String,
+}
+
+/// Path patterns for library files, one per path component; see `NamingTemplates` for the tokens.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct NamingConfig {
+    pub movie_folder: String,
+    pub movie_file: String,
+    pub series_folder: String,
+    pub season_folder: String,
+    pub episode_file: String,
+}
+
+impl Default for NamingConfig {
+    fn default() -> Self {
+        let NamingTemplates { movie_folder, movie_file, series_folder, season_folder, episode_file } =
+            NamingTemplates::default();
+        Self { movie_folder, movie_file, series_folder, season_folder, episode_file }
+    }
+}
+
+impl NamingConfig {
+    pub fn naming(&self) -> Result<Naming> {
+        let templates = NamingTemplates {
+            movie_folder: self.movie_folder.clone(),
+            movie_file: self.movie_file.clone(),
+            series_folder: self.series_folder.clone(),
+            season_folder: self.season_folder.clone(),
+            episode_file: self.episode_file.clone(),
+        };
+        Naming::new(&templates).context("Invalid [naming] setting")
+    }
 }
 
 impl Default for MetadataConfig {
@@ -162,6 +193,7 @@ impl App {
             Arc::new(MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), clock.clone()))
         });
 
+        let naming = config.naming.naming()?;
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
         let lock: Arc<dyn LibraryLock> = Arc::new(LockFile::new(path.with_extension("lock")));
         let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(FfProbe::new(&config.files.ffprobe))));
@@ -186,14 +218,14 @@ impl App {
             scanner: Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone())),
             review: Review::new(db.clone(), db.clone(), clock.clone()),
             downloads: downloads.clone(),
-            renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), Naming::default()),
+            renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), naming.clone()),
             importer: Arc::new(Importer::new(
                 db.clone(),
                 db.clone(),
                 fs.clone(),
                 lock,
                 clock.clone(),
-                Naming::default(),
+                naming,
                 config.import.mode.into(),
             )),
             history: History::new(Arc::new(db.event_log())),

@@ -234,7 +234,7 @@ scan: unknown file ┘                                                  │
   - **Confidence:** `Certain` only when both the item and the episode were determined firmly; otherwise `Guess`; nothing found is `Unknown`.
   - **Conflicts:** two rows for the same episode or movie, or a target that already has a file.
   - **Movies:** the largest video is the movie; other videos are ignored as extras. An unlinked download is tried as a series first, then as a movie.
-- **`naming`** renders the target path, relative to the root folder, from patterns validated when settings are saved (FR-5):
+- **`naming`** renders the target path, relative to the root folder, from the `[naming]` patterns (FR-5.6); an invalid pattern stops the app from starting and names the pattern:
   - One pattern per path component with tokens `{title}`, `{year}`, `{season}`, `{episodes}`, `{episode_title}`. A `[...]` group is dropped when a token inside has no value.
   - Defaults follow Jellyfin: `Title (Year)/Season 01/Title (Year) - S01E01 - Episode Title.ext` and `Title (Year)/Title (Year).ext`.
   - Every component is sanitised for Linux, macOS, Windows and SMB. File stems are capped at 200 bytes so subtitle suffixes always fit; folders at 255.

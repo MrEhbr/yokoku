@@ -54,6 +54,15 @@ keep_days = 30
 [jellyfin]
 # url = "http://localhost:8096"
 
+# Path patterns for library files. Tokens: {title}, {year}, {season} (two digits), {episodes}
+# (S01E01 or S01E01-E02), {episode_title}; a [...] group is dropped when a token in it has no value.
+[naming]
+movie_folder = "{title}[ ({year})]"
+movie_file = "{title}[ ({year})]"
+series_folder = "{title}[ ({year})]"
+season_folder = "Season {season}"
+episode_file = "{title}[ ({year})] - {episodes}[ - {episode_title}]"
+
 # File details are read with ffprobe: its name on the PATH, or a path to it.
 [files]
 ffprobe = "ffprobe"
