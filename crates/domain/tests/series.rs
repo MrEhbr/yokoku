@@ -6,6 +6,7 @@ use jiff::{
 };
 use proptest::prelude::*;
 use rstest::rstest;
+use serde_json::json;
 use yokoku_domain::{
     EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, MediaFileId, MonitorPreset, SeasonMetadata,
     Series, SeriesMetadata, SeriesStatus, SourceStatus,
@@ -410,4 +411,23 @@ fn episode_spans_display_and_list_their_episodes(
 #[test]
 fn episode_spans_reject_reversed_ranges() {
     assert_eq!(EpisodeSpan::new(1, 3, 2), None);
+}
+
+#[rstest]
+#[case::range(json!({ "season": 1, "first": 1, "last": 3 }), EpisodeSpan::new(1, 1, 3))]
+#[case::reversed(json!({ "season": 1, "first": 3, "last": 2 }), None)]
+fn episode_spans_are_checked_when_deserialized(
+    #[case] stored: serde_json::Value,
+    #[case] expected: Option<EpisodeSpan>,
+) {
+    assert_eq!(serde_json::from_value::<EpisodeSpan>(stored).ok(), expected);
+}
+
+proptest! {
+    #[test]
+    fn episode_spans_round_trip_through_json(season: u16, first: u16, length in 0..10u16) {
+        let span = EpisodeSpan::new(season, first, first.saturating_add(length)).unwrap();
+        let stored = serde_json::to_value(span).unwrap();
+        prop_assert_eq!(serde_json::from_value::<EpisodeSpan>(stored).unwrap(), span);
+    }
 }

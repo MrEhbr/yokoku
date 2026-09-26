@@ -28,3 +28,4 @@ id!(SeriesId);
 id!(MovieId);
 id!(EpisodeId);
 id!(MediaFileId);
+id!(ImportId);

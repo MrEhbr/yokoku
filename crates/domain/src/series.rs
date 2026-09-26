@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt};
 
 use jiff::{Timestamp, civil::Date};
+use serde::{Deserialize, Serialize};
 
 use crate::{EpisodeId, ExternalId, FileStatus, MediaFileId, SeriesId};
 
@@ -53,7 +54,8 @@ impl fmt::Display for EpisodeRef {
 }
 
 /// Consecutive episodes of one season, as held by a multi-episode file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "SpanFields")]
 pub struct EpisodeSpan {
     season: u16,
     first: u16,
@@ -74,9 +76,32 @@ impl EpisodeSpan {
         self.season
     }
 
+    pub fn first(&self) -> u16 {
+        self.first
+    }
+
+    pub fn last(&self) -> u16 {
+        self.last
+    }
+
     pub fn refs(&self) -> impl Iterator<Item = EpisodeRef> {
         let season = self.season;
         (self.first..=self.last).map(move |episode| EpisodeRef { season, episode })
+    }
+}
+
+#[derive(Deserialize)]
+struct SpanFields {
+    season: u16,
+    first: u16,
+    last: u16,
+}
+
+impl TryFrom<SpanFields> for EpisodeSpan {
+    type Error = &'static str;
+
+    fn try_from(fields: SpanFields) -> Result<Self, Self::Error> {
+        Self::new(fields.season, fields.first, fields.last).ok_or("the first episode comes after the last")
     }
 }
 
