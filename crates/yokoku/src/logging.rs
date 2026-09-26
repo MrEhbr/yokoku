@@ -6,8 +6,6 @@ use tracing::{Level, level_filters::LevelFilter};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
-const QUIET_TARGETS: [&str; 9] = ["hyper", "h2", "tower", "reqwest::connect", "ureq", "rustls", "want", "mio", "tokio"];
-
 fn serialize_level<S>(level: &Option<Level>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,

@@ -8,3 +8,4 @@ extend-exclude = ["**/tests/fixtures/**"]
 # Add project-specific words/abbreviations here
 # example = "example"
 fre = "fre"
+wel = "wel"
