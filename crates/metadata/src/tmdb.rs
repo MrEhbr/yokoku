@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 use serde::de::DeserializeOwned;
-use yokoku_domain::{EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata};
+use yokoku_domain::{EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
-use crate::wire::{self, AlternativeTitles, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails};
+use crate::wire::{self, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails};
 
 const BASE_URL: &str = "https://api.themoviedb.org/3";
 /// TMDB's limit on `append_to_response` entries per request.
@@ -32,6 +32,7 @@ impl TmdbClient {
         }
     }
 
+    #[must_use]
     pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
         self.base_url = base_url.into();
         self
@@ -124,7 +125,7 @@ impl MetadataProvider for TmdbClient {
 
         Ok(SeriesMetadata {
             source,
-            alternate_titles: alternate_titles(details.alternative_titles, &details.name, &details.original_name),
+            alternate_titles: details.alternative_titles.into_distinct(&details.name, &details.original_name),
             year: wire::year(details.first_air_date.as_deref()),
             status: wire::source_status(details.status.as_deref()),
             title: details.name,
@@ -142,43 +143,13 @@ impl MetadataProvider for TmdbClient {
         Ok(MovieMetadata {
             source,
             year: wire::year(details.release_date.as_deref()),
-            releases: releases(&details, &self.region),
-            alternate_titles: alternate_titles(details.alternative_titles, &details.title, &details.original_title),
+            releases: details.releases(&self.region),
+            alternate_titles: details.alternative_titles.into_distinct(&details.title, &details.original_title),
             title: details.title,
             original_title: details.original_title,
             poster_path: details.poster_path,
         })
     }
-}
-
-/// Earliest date per kind in `region`; the primary release date stands in for a missing cinema date.
-fn releases(details: &MovieDetails, region: &str) -> Releases {
-    let dates: Vec<_> = details
-        .release_dates
-        .iter()
-        .flat_map(|by_country| &by_country.results)
-        .filter(|country| country.iso_3166_1.eq_ignore_ascii_case(region))
-        .flat_map(|country| &country.release_dates)
-        .filter_map(|release| Some((release.kind, wire::date(Some(&release.release_date))?)))
-        .collect();
-    let earliest = |kinds: &[u8]| dates.iter().filter(|(kind, _)| kinds.contains(kind)).map(|&(_, date)| date).min();
-
-    Releases {
-        cinema: earliest(&[2, 3]).or_else(|| wire::date(details.release_date.as_deref())),
-        digital: earliest(&[4]),
-        physical: earliest(&[5]),
-    }
-}
-
-/// Distinct titles other than `title` and `original_title`, in TMDB's order.
-fn alternate_titles(alternatives: AlternativeTitles, title: &str, original_title: &str) -> Vec<String> {
-    let mut titles: Vec<String> = Vec::new();
-    for alternative in alternatives.results {
-        if alternative.title != title && alternative.title != original_title && !titles.contains(&alternative.title) {
-            titles.push(alternative.title);
-        }
-    }
-    titles
 }
 
 fn tmdb_id(source: ExternalId) -> Result<u64, MetadataError> {

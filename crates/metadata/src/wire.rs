@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use jiff::civil::Date;
 use serde::Deserialize;
-use yokoku_domain::SourceStatus;
+use yokoku_domain::{Releases, SourceStatus};
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct SearchPage {
@@ -83,11 +83,47 @@ pub(crate) struct MovieDetails {
     pub alternative_titles: AlternativeTitles,
 }
 
+impl MovieDetails {
+    /// Earliest date per kind in `region`; the primary release date stands in for a missing cinema date.
+    pub(crate) fn releases(&self, region: &str) -> Releases {
+        let dates: Vec<_> = self
+            .release_dates
+            .iter()
+            .flat_map(|by_country| &by_country.results)
+            .filter(|country| country.iso_3166_1.eq_ignore_ascii_case(region))
+            .flat_map(|country| &country.release_dates)
+            .filter_map(|release| Some((release.kind, date(Some(&release.release_date))?)))
+            .collect();
+        let earliest =
+            |kinds: &[u8]| dates.iter().filter(|(kind, _)| kinds.contains(kind)).map(|&(_, date)| date).min();
+
+        Releases {
+            cinema: earliest(&[2, 3]).or_else(|| date(self.release_date.as_deref())),
+            digital: earliest(&[4]),
+            physical: earliest(&[5]),
+        }
+    }
+}
+
 /// `results` for series, `titles` for movies.
 #[derive(Debug, Default, Deserialize)]
 pub(crate) struct AlternativeTitles {
     #[serde(alias = "titles")]
     pub results: Vec<AlternativeTitle>,
+}
+
+impl AlternativeTitles {
+    /// Distinct titles other than `title` and `original_title`, in TMDB's order.
+    pub(crate) fn into_distinct(self, title: &str, original_title: &str) -> Vec<String> {
+        let mut titles: Vec<String> = Vec::new();
+        for alternative in self.results {
+            if alternative.title != title && alternative.title != original_title && !titles.contains(&alternative.title)
+            {
+                titles.push(alternative.title);
+            }
+        }
+        titles
+    }
 }
 
 #[derive(Debug, Deserialize)]
