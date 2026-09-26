@@ -26,17 +26,7 @@ struct MovieRow {
 #[async_trait]
 impl MovieRepo for Database {
     async fn get(&self, id: MovieId) -> Result<Option<Movie>, StorageError> {
-        let row: Option<MovieRow> = sqlx::query_as(
-            "SELECT id, source_kind, source_id, title, original_title, year, poster_path, cinema_date, digital_date,
-                    physical_date, monitored, file_id, added_at, refreshed_at
-             FROM movies WHERE id = ?",
-        )
-        .bind(id.to_string())
-        .fetch_optional(self.pool())
-        .await
-        .map_err(DbError::from)?;
-
-        Ok(row.map(movie).transpose()?)
+        Ok(self.load_movie(id).await?)
     }
 
     async fn find_by_source(&self, source: ExternalId) -> Result<Option<Movie>, StorageError> {
@@ -49,18 +39,13 @@ impl MovieRepo for Database {
             .map_err(DbError::from)?;
 
         match id {
-            Some(id) => MovieRepo::get(self, MovieId(codec::uuid(&id)?)).await,
+            Some(id) => Ok(self.load_movie(MovieId(codec::uuid(&id)?)).await?),
             None => Ok(None),
         }
     }
 
     async fn ids(&self) -> Result<Vec<MovieId>, StorageError> {
-        let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM movies ORDER BY id")
-            .fetch_all(self.pool())
-            .await
-            .map_err(DbError::from)?;
-
-        Ok(ids.iter().map(|id| codec::uuid(id).map(MovieId)).collect::<Result<_, _>>()?)
+        Ok(self.movie_ids().await?)
     }
 
     async fn save(&self, movie: &Movie, events: &[Event]) -> Result<(), StorageError> {
@@ -113,6 +98,24 @@ impl Database {
         .await?;
 
         self.commit(tx, events).await
+    }
+
+    pub(crate) async fn load_movie(&self, id: MovieId) -> Result<Option<Movie>, DbError> {
+        let row: Option<MovieRow> = sqlx::query_as(
+            "SELECT id, source_kind, source_id, title, original_title, year, poster_path, cinema_date, digital_date,
+                    physical_date, monitored, file_id, added_at, refreshed_at
+             FROM movies WHERE id = ?",
+        )
+        .bind(id.to_string())
+        .fetch_optional(self.pool())
+        .await?;
+
+        row.map(movie).transpose()
+    }
+
+    pub(crate) async fn movie_ids(&self) -> Result<Vec<MovieId>, DbError> {
+        let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM movies ORDER BY id").fetch_all(self.pool()).await?;
+        ids.iter().map(|id| codec::uuid(id).map(MovieId)).collect()
     }
 }
 

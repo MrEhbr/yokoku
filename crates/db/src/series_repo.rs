@@ -63,12 +63,7 @@ impl SeriesRepo for Database {
     }
 
     async fn ids(&self) -> Result<Vec<SeriesId>, StorageError> {
-        let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM series ORDER BY id")
-            .fetch_all(self.pool())
-            .await
-            .map_err(DbError::from)?;
-
-        Ok(ids.iter().map(|id| codec::uuid(id).map(SeriesId)).collect::<Result<_, _>>()?)
+        Ok(self.series_ids().await?)
     }
 
     async fn save(&self, series: &Series, events: &[Event]) -> Result<(), StorageError> {
@@ -87,7 +82,12 @@ impl SeriesRepo for Database {
 }
 
 impl Database {
-    async fn load_series(&self, id: SeriesId) -> Result<Option<Series>, DbError> {
+    pub(crate) async fn series_ids(&self) -> Result<Vec<SeriesId>, DbError> {
+        let ids: Vec<String> = sqlx::query_scalar("SELECT id FROM series ORDER BY id").fetch_all(self.pool()).await?;
+        ids.iter().map(|id| codec::uuid(id).map(SeriesId)).collect()
+    }
+
+    pub(crate) async fn load_series(&self, id: SeriesId) -> Result<Option<Series>, DbError> {
         let id = id.to_string();
         let Some(row) = sqlx::query_as::<_, SeriesRow>(
             "SELECT id, source_kind, source_id, title, original_title, year, poster_path, source_status, numbering,
