@@ -12,12 +12,13 @@ use jiff::{
 };
 use yokoku_db::Database;
 use yokoku_domain::{
-    Clock, EpisodeMetadata, ExternalId, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata, SourceStatus,
+    Clock, EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata,
+    SourceStatus,
 };
 use yokoku_events::{Event, EventLog};
 use yokoku_library::{
     Library, MetadataSync, Schedule,
-    ports::{MediaKind, MetadataError, MetadataProvider, SearchResult},
+    ports::{MetadataError, MetadataProvider, SearchResult},
 };
 
 pub const TODAY: Date = date(2026, 9, 26);

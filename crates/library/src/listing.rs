@@ -1,15 +1,7 @@
 use std::cmp::Ordering;
 
 use jiff::{Timestamp, civil::Date};
-use yokoku_domain::{ExternalId, Movie, MovieId, MovieStatus, Series, SeriesId, SeriesStatus};
-
-use crate::ports::MediaKind;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ItemId {
-    Series(SeriesId),
-    Movie(MovieId),
-}
+use yokoku_domain::{ExternalId, ItemId, MediaKind, Movie, MovieStatus, Series, SeriesStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LibraryStatus {
@@ -45,15 +37,6 @@ pub enum LibrarySort {
     Added,
     /// Soonest first; items without an upcoming release last.
     NextRelease,
-}
-
-impl ItemId {
-    pub fn kind(self) -> MediaKind {
-        match self {
-            Self::Series(_) => MediaKind::Series,
-            Self::Movie(_) => MediaKind::Movie,
-        }
-    }
 }
 
 impl LibraryEntry {

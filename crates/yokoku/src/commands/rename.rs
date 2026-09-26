@@ -5,8 +5,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use clap::Parser;
-use yokoku_domain::ExternalId;
-use yokoku_library::ItemId;
+use yokoku_domain::{ExternalId, ItemId};
 use yokoku_media::{Rename, RenameScope, SkipReason, Skipped};
 
 use crate::{

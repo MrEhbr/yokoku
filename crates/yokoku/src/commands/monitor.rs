@@ -1,7 +1,6 @@
 use anyhow::{Result, bail};
 use clap::Parser;
-use yokoku_domain::EpisodeRef;
-use yokoku_library::ItemId;
+use yokoku_domain::{EpisodeRef, ItemId};
 
 use crate::{app::App, commands::ItemArgs, config::Config};
 

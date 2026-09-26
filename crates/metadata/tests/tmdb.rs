@@ -5,8 +5,8 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{header, method, path, query_param, query_param_is_missing},
 };
-use yokoku_domain::{ExternalId, SourceStatus};
-use yokoku_library::ports::{MediaKind, MetadataError, MetadataProvider};
+use yokoku_domain::{ExternalId, MediaKind, SourceStatus};
+use yokoku_library::ports::{MetadataError, MetadataProvider};
 use yokoku_metadata::TmdbClient;
 
 const TOKEN: &str = "test-token";

@@ -1,6 +1,6 @@
 use jiff::civil::date;
-use yokoku_domain::ExternalId;
-use yokoku_library::ports::{MediaKind, MetadataProvider};
+use yokoku_domain::{ExternalId, MediaKind};
+use yokoku_library::ports::MetadataProvider;
 use yokoku_metadata::TmdbClient;
 
 fn client() -> TmdbClient {

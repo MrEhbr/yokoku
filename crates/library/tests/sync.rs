@@ -3,9 +3,9 @@ mod common;
 use common::{App, TODAY, movie_metadata, series_metadata};
 use jiff::ToSpan;
 use rstest::{fixture, rstest};
-use yokoku_domain::{EpisodeRef, ExternalId, MonitorPreset, Releases, SourceStatus};
+use yokoku_domain::{EpisodeRef, ExternalId, ItemId, MonitorPreset, Releases, SourceStatus};
 use yokoku_events::Event;
-use yokoku_library::{ItemId, LibraryError, ports::MetadataError};
+use yokoku_library::{LibraryError, ports::MetadataError};
 
 #[fixture]
 async fn app() -> App {

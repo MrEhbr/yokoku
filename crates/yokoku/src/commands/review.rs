@@ -3,8 +3,8 @@ use std::io::{self, Write};
 use anyhow::{Result, bail};
 use clap::{Parser, Subcommand};
 use yokoku_detect::Conflict;
-use yokoku_domain::{Confidence, EpisodeSpan, ExternalId, FileTarget, ImportId};
-use yokoku_library::{ItemId, Library};
+use yokoku_domain::{Confidence, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemId};
+use yokoku_library::Library;
 use yokoku_media::ReviewRow;
 
 use crate::{

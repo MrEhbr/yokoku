@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use anyhow::Result;
 use clap::Parser;
-use yokoku_library::ItemId;
+use yokoku_domain::ItemId;
 
 use crate::{app::App, commands::ItemArgs, config::Config};
 

@@ -3,8 +3,8 @@ use std::io::{self, Write};
 use anyhow::Result;
 use clap::Parser;
 use jiff::civil::Date;
-use yokoku_domain::{Movie, Numbering, Series};
-use yokoku_library::{ItemId, LibraryStatus};
+use yokoku_domain::{ItemId, Movie, Numbering, Series};
+use yokoku_library::LibraryStatus;
 
 use crate::{
     app::App,

@@ -17,8 +17,8 @@ pub mod upcoming;
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;
-use yokoku_domain::{ExternalId, FileStatus, MovieStatus, ReleaseKind, SeriesStatus};
-use yokoku_library::{ItemId, Library, LibraryStatus, ports::MediaKind};
+use yokoku_domain::{ExternalId, FileStatus, ItemId, MediaKind, MovieStatus, ReleaseKind, SeriesStatus};
+use yokoku_library::{Library, LibraryStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Kind {

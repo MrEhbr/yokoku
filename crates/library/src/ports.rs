@@ -1,14 +1,8 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use yokoku_domain::{ExternalId, Movie, MovieId, MovieMetadata, Series, SeriesId, SeriesMetadata};
+use yokoku_domain::{ExternalId, MediaKind, Movie, MovieId, MovieMetadata, Series, SeriesId, SeriesMetadata};
 use yokoku_events::Event;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MediaKind {
-    Series,
-    Movie,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchResult {

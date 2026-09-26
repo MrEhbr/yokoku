@@ -4,11 +4,11 @@ use common::{App, TODAY, movie_metadata, series_metadata};
 use jiff::{SignedDuration, ToSpan};
 use rstest::{fixture, rstest};
 use yokoku_domain::{
-    EpisodeRef, ExternalId, MediaFileId, MonitorPreset, MovieStatus, Numbering, Releases, SeriesId, SeriesStatus,
-    SourceStatus,
+    EpisodeRef, ExternalId, MediaFileId, MediaKind, MonitorPreset, MovieStatus, Numbering, Releases, SeriesId,
+    SeriesStatus, SourceStatus,
 };
 use yokoku_events::Event;
-use yokoku_library::{LibraryError, LibraryFilter, LibrarySort, LibraryStatus, ports::MediaKind};
+use yokoku_library::{LibraryError, LibraryFilter, LibrarySort, LibraryStatus};
 
 #[fixture]
 async fn app() -> App {

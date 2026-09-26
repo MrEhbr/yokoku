@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use jiff::{ToSpan, civil::Date};
-use yokoku_domain::{Clock, EpisodeRef, ExternalId, FileStatus, MovieId, ReleaseKind, SeriesId};
+use yokoku_domain::{Clock, EpisodeRef, ExternalId, FileStatus, ItemId, MovieId, ReleaseKind, SeriesId};
 
 use crate::{
-    ItemId, LibraryError,
+    LibraryError,
     catalog::Catalog,
     ports::{MovieRepo, SeriesRepo},
 };

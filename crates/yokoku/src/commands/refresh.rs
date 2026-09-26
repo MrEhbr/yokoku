@@ -2,8 +2,7 @@ use std::io::{self, Write};
 
 use anyhow::{Result, bail};
 use clap::Parser;
-use yokoku_domain::ExternalId;
-use yokoku_library::ItemId;
+use yokoku_domain::{ExternalId, ItemId};
 
 use crate::{
     app::App,

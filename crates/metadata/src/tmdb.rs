@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 use serde::de::DeserializeOwned;
-use yokoku_domain::{EpisodeMetadata, ExternalId, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata};
-use yokoku_library::ports::{MediaKind, MetadataError, MetadataProvider, SearchResult};
+use yokoku_domain::{EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata};
+use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 use crate::wire::{self, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails};
 

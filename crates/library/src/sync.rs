@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use yokoku_domain::{Clock, ExternalId, MonitorPreset, Movie, MovieId, Series, SeriesId};
+use yokoku_domain::{Clock, ExternalId, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId};
 use yokoku_events::Event;
 
 use crate::{
-    ItemId, LibraryError,
-    ports::{MediaKind, MetadataProvider, MovieRepo, SearchResult, SeriesRepo},
+    LibraryError,
+    ports::{MetadataProvider, MovieRepo, SearchResult, SeriesRepo},
 };
 
 /// Use cases that read from the metadata source.
