@@ -36,6 +36,9 @@ pub trait EventLog: Send + Sync {
     /// Events with ids greater than `after`, in id order.
     async fn read_after(&self, after: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, EventLogError>;
 
+    /// Events with ids less than `before`, newest first; the newest events when `before` is `None`.
+    async fn read_before(&self, before: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, EventLogError>;
+
     async fn mark_delivered(&self, subscriber: &str, event: EventId) -> Result<(), EventLogError>;
 
     /// Records the failure and moves the subscriber past the event, atomically.

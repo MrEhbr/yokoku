@@ -63,15 +63,18 @@ impl EventLog for SqliteEventLog {
                 .await
                 .map_err(EventLogError::new)?;
 
-        rows.into_iter()
-            .map(|(id, payload, occurred_at)| {
-                Ok(Recorded {
-                    id: EventId(id),
-                    occurred_at: occurred_at.parse().map_err(EventLogError::new)?,
-                    event: serde_json::from_str(&payload).map_err(EventLogError::new)?,
-                })
-            })
-            .collect()
+        rows.into_iter().map(recorded).collect()
+    }
+
+    async fn read_before(&self, before: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, EventLogError> {
+        let rows: Vec<(i64, String, String)> =
+            sqlx::query_as("SELECT id, payload, occurred_at FROM events WHERE id < ? ORDER BY id DESC LIMIT ?")
+                .bind(before.map_or(i64::MAX, |id| id.0))
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(EventLogError::new)?;
+        rows.into_iter().map(recorded).collect()
     }
 
     async fn mark_delivered(&self, subscriber: &str, event: EventId) -> Result<(), EventLogError> {
@@ -159,4 +162,12 @@ impl EventLog for SqliteEventLog {
 
         tx.commit().await.map_err(EventLogError::new)
     }
+}
+
+fn recorded((id, payload, occurred_at): (i64, String, String)) -> Result<Recorded, EventLogError> {
+    Ok(Recorded {
+        id: EventId(id),
+        occurred_at: occurred_at.parse().map_err(EventLogError::new)?,
+        event: serde_json::from_str(&payload).map_err(EventLogError::new)?,
+    })
 }

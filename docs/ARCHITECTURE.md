@@ -267,7 +267,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 - **Wake-up.** `Database::commit` signals a `tokio::sync::watch` channel after each commit that wrote events. A signal sent while a subscriber is busy is not lost. A slow periodic poll is the fallback, and it also picks up events written by CLI commands running in another process.
 - **Shutdown.** Delivery stops at the next await point. An event interrupted mid-handler is delivered again on the next run.
 - **Rebuild.** A projection is rebuilt by deleting its row in `subscriber_positions`.
-- **History (FR-9.1)** is a query over the event log. There is no separate history table.
+- **History (FR-9.1)** is a query over the event log (`events::History`): newest first via `EventLog::read_before`, filtered by `Event::items()` when one series or movie is asked for. There is no separate history table. Failed imports show their reason and can be retried (FR-9.2, `import list` / `import retry`).
 
 ### 7.2 Contract
 

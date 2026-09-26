@@ -159,3 +159,21 @@ async fn rename_previews_then_applies() {
     assert_eq!(setup.stdout(&["rename"]), "Nothing to rename.\n");
     assert!(setup.episode_line("S01E01").contains("downloaded"));
 }
+
+#[tokio::test]
+async fn history_lists_what_happened_newest_first() {
+    let setup = Setup::new().await;
+    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
+    setup.stdout(&["scan"]);
+    setup.stdout(&["rename", "--apply"]);
+
+    let all = setup.stdout(&["history"]);
+    let frieren = setup.stdout(&["history", "series", "tmdb:1", "--limit", "1"]);
+
+    let lines: Vec<_> = all.lines().collect();
+    assert!(lines[0].contains("  Renamed "), "{all}");
+    assert!(lines[1].trim_start().starts_with("-> ") && lines[1].ends_with("S01E01 - Episode 1.mkv"), "{all}");
+    assert!(lines[2].contains("  Found ") && lines[2].ends_with("Frieren (2023) - S01E01.mkv"), "{all}");
+    assert_eq!(frieren.lines().count(), 2, "{frieren}");
+    assert!(frieren.contains("Renamed "), "{frieren}");
+}

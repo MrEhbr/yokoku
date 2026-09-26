@@ -57,6 +57,8 @@ pub enum Command {
     Download(commands::download::Args),
     /// Follow and retry imports of finished downloads
     Import(commands::import::Args),
+    /// Show what happened, newest first
+    History(commands::history::Args),
     /// Deliver events and run scheduled jobs until stopped
     Serve(commands::serve::Args),
 }
@@ -100,6 +102,7 @@ pub async fn route(args: Args) -> Result<()> {
         Rename(cmd_args) => commands::rename::run(&config, cmd_args).await,
         Download(cmd_args) => commands::download::run(&config, cmd_args).await,
         Import(cmd_args) => commands::import::run(&config, cmd_args).await,
+        History(cmd_args) => commands::history::run(&config, cmd_args).await,
         Serve(cmd_args) => commands::serve::run(&config, cmd_args).await,
     }
 }

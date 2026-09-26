@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 use yokoku_db::Database;
 use yokoku_domain::Clock;
 use yokoku_downloads::Downloads;
-use yokoku_events::{Delivery, DeliveryConfig, Subscriber};
+use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
 use yokoku_library::{Library, MetadataSync, Schedule};
 use yokoku_media::{Importer, Renamer, Review, RootFolders, Scanner, ports::FileSystem};
 use yokoku_metadata::TmdbClient;
@@ -36,7 +36,7 @@ pub struct ClockConfig {
 }
 
 impl ClockConfig {
-    fn time_zone(&self) -> Result<TimeZone> {
+    pub fn time_zone(&self) -> Result<TimeZone> {
         match &self.timezone {
             Some(name) => TimeZone::get(name).with_context(|| format!("Unknown time zone: {name}")),
             None => Ok(TimeZone::system()),
@@ -110,6 +110,7 @@ pub struct App {
     pub renamer: Renamer,
     pub downloads: Arc<Downloads>,
     pub importer: Arc<Importer>,
+    pub history: History,
     sync: Option<MetadataSync>,
     db: Arc<Database>,
     subscribers: Vec<Arc<dyn Subscriber>>,
@@ -150,6 +151,7 @@ impl App {
                 Naming::default(),
                 config.import.mode.into(),
             )),
+            history: History::new(Arc::new(db.event_log())),
             subscribers: subscriptions::subscribers(&db, &fs, &clock),
             sync,
             db,
