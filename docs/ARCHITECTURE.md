@@ -230,7 +230,7 @@ scan: unknown file ┘                                                  │
 
 - **`detect::plan`** is a pure function (FR-4.1 – 4.13):
   - **Classify:** videos; subtitles attached by name prefix, by a folder named after the video, or to the only video; samples, extras and other files ignored.
-  - **Parse:** `hunch` reads scene names; own rules add Russian `сезон`/`серия`, bare-number files, season from folders (`S02`, `Season 2`, `Specials`) and a date taking priority over years. A corpus of real-style names is the test table.
+  - **Parse:** `hunch` reads scene names; own rules add bare-number files, season from folders (`S02`, `Season 2`, `Specials`) and a date taking priority over years. A corpus of real-style names is the test table.
   - **Series:** a linked series is trusted. Otherwise titles are compared without accents or punctuation against the title, original title and alternate titles (TMDB `alternative_titles`, such as romanisations; refreshed with the metadata); a year more than one off rules an item out; a tie means no match.
   - **Episodes:** `S01E02` must exist in the series; seasonless numbers use absolute numbering or the folder season; a date matches the one episode airing that day; a name without numbers matches a unique episode title.
   - **Confidence:** `Certain` only when both the item and the episode were determined firmly; otherwise `Guess`; nothing found is `Unknown`.

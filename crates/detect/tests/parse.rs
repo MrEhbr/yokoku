@@ -69,10 +69,6 @@ fn aired(year: i16, month: i8, day: i8) -> Numbers {
 #[case("Метод.S02E03.WEB-DL.1080p.mkv", Some("Метод"), None, episodes(2, &[3]))]
 #[case("The.Witcher.S01E03.1080p.rus.LostFilm.TV.mkv", Some("The Witcher"), None, episodes(1, &[3]))]
 #[case("Ведьмак.S01E03.Предательская.луна.1080p.mkv", Some("Ведьмак"), None, episodes(1, &[3]))]
-#[case("Ведьмак - 1 сезон 3 серия.mkv", Some("Ведьмак"), None, episodes(1, &[3]))]
-#[case("Ведьмак.Сезон.1.Серия.3.mkv", Some("Ведьмак"), None, episodes(1, &[3]))]
-#[case("Сериал/2 сезон/01.mkv", Some("Сериал"), None, seasonless(&[1], Some(2)))]
-#[case("Сериал/Сезон 2/Сериал - 04.mkv", Some("Сериал"), None, seasonless(&[4], Some(2)))]
 // jellyfin naming, as written by yokoku
 #[case(
     "Frieren - Beyond Journey's End (2023)/Season 01/Frieren - Beyond Journey's End (2023) - S01E01 - Episode 1.mkv",

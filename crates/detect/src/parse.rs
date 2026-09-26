@@ -29,38 +29,20 @@ pub enum Numbers {
     Date(Date),
 }
 
-/// Russian `1 сезон 3 серия` or `Сезон 1 Серия 3`.
-static RUSSIAN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?i)^(?P<title>.*?)[\s._-]*(?:(?P<s1>[0-9]{1,3})[\s._-]*сезон|сезон[\s._-]*(?P<s2>[0-9]{1,3}))[\s.,_-]*(?:(?P<e1>[0-9]{1,4})[\s._-]*серия|серия[\s._-]*(?P<e2>[0-9]{1,4}))",
-    )
-    .expect("valid regex")
-});
-
 /// A stem that is only an episode number, optionally followed by a title: `05`, `03 - Pilot`.
 static BARE_NUMBER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(?P<episode>[0-9]{1,3})(?:[\s._-]+(?P<title>.+))?$").expect("valid regex"));
 
-static FOLDER_SEASON: LazyLock<[Regex; 4]> = LazyLock::new(|| {
-    [
-        r"(?i)(?:^|[^\p{L}\p{N}])s(?P<season>[0-9]{1,2})(?:[^\p{L}\p{N}]|$)",
-        r"(?i)season[\s._-]*(?P<season>[0-9]{1,3})",
-        r"(?i)сезон[\s._-]*(?P<season>[0-9]{1,3})",
-        r"(?i)(?P<season>[0-9]{1,3})[\s._-]*сезон",
-    ]
-    .map(|pattern| Regex::new(pattern).expect("valid regex"))
+static FOLDER_SEASON: LazyLock<[Regex; 2]> = LazyLock::new(|| {
+    [r"(?i)(?:^|[^\p{L}\p{N}])s(?P<season>[0-9]{1,2})(?:[^\p{L}\p{N}]|$)", r"(?i)season[\s._-]*(?P<season>[0-9]{1,3})"]
+        .map(|pattern| Regex::new(pattern).expect("valid regex"))
 });
 
-static SPECIALS_FOLDER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^(?:specials?|спецвыпуски)$").expect("valid regex"));
+static SPECIALS_FOLDER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^specials?$").expect("valid regex"));
 
-/// A folder named only by its season: `S02`, `Season 2`, `Сезон 2`, `2 сезон`, `Specials`.
-static SEASON_ONLY_FOLDER: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"(?i)^(?:s[0-9]{1,2}|(?:season|сезон)[\s._-]*[0-9]{1,3}|[0-9]{1,3}[\s._-]*сезон|specials?|спецвыпуски)$",
-    )
-    .expect("valid regex")
-});
+/// A folder named only by its season: `S02`, `Season 2`, `Specials`.
+static SEASON_ONLY_FOLDER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)^(?:s[0-9]{1,2}|season[\s._-]*[0-9]{1,3}|specials?)$").expect("valid regex"));
 
 /// Jellyfin naming: `Title (Year)`, optionally followed by ` - ` and the rest of the name.
 static TITLE_WITH_YEAR: LazyLock<Regex> =
@@ -104,9 +86,6 @@ fn parse_name(
     folder_season: Option<u16>,
     folder_title: impl Fn() -> Option<String>,
 ) -> ParsedName {
-    if let Some(parsed) = russian(stem) {
-        return ParsedName { title: parsed.title.or_else(folder_title), ..parsed };
-    }
     if let Some(captures) = BARE_NUMBER.captures(stem)
         && let Ok(episode) = captures["episode"].parse()
     {
@@ -153,19 +132,6 @@ fn numbers(result: &HunchResult, folder_season: Option<u16>) -> Numbers {
         Some(season) => Numbers::Episodes { season, episodes },
         None => Numbers::Seasonless { episodes, folder_season },
     }
-}
-
-fn russian(stem: &str) -> Option<ParsedName> {
-    let captures = RUSSIAN.captures(stem)?;
-    let season = captures.name("s1").or(captures.name("s2"))?.as_str().parse().ok()?;
-    let episode = captures.name("e1").or(captures.name("e2"))?.as_str().parse().ok()?;
-    let title = words(&captures["title"]);
-    Some(ParsedName {
-        title: (!title.is_empty()).then_some(title),
-        year: None,
-        numbers: Numbers::Episodes { season, episodes: vec![episode] },
-        episode_title: None,
-    })
 }
 
 fn folder_season(folder: &str) -> Option<u16> {
