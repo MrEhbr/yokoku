@@ -5,13 +5,12 @@ use std::{
 };
 
 use tracing::warn;
-use yokoku_detect::{DownloadFile, classify};
 use yokoku_domain::{FileTarget, MediaFileId, MovieId, Series, SeriesId};
 use yokoku_events::Event;
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
-    MediaError, MediaFile, RootFolder,
+    MediaError, MediaFile, RootFolder, files,
     ports::{Catalog, Changes, FileSystem, MediaRepo},
 };
 
@@ -189,23 +188,8 @@ impl Renamer {
 
     /// Subtitles beside `video` whose names start with the video's name.
     async fn subtitle_moves(&self, video: &Path, to: &Path) -> Result<Vec<Move>, MediaError> {
-        let (Some(folder), Some(stem)) = (video.parent(), video.file_stem()) else { return Ok(Vec::new()) };
-        let prefix = format!("{}.", stem.to_string_lossy());
-        let siblings = self.fs.files_in(folder).await?;
-        let candidates: Vec<DownloadFile> = siblings
-            .into_iter()
-            .filter(|file| {
-                file.path == video
-                    || file.path.file_name().is_some_and(|name| name.to_string_lossy().starts_with(&prefix))
-            })
-            .collect();
-
-        let classified = classify(&candidates);
-        let Some(owner) = classified.videos.into_iter().find(|candidate| candidate.path == video) else {
-            return Ok(Vec::new());
-        };
-        Ok(owner
-            .subtitles
+        let subtitles = files::sidecar_subtitles(self.fs.as_ref(), video).await?;
+        Ok(subtitles
             .into_iter()
             .map(|subtitle| {
                 let extension = subtitle.path.extension().unwrap_or_default().to_string_lossy().into_owned();

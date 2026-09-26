@@ -12,7 +12,7 @@ use yokoku_events::{DeleteReason, Event};
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
-    Import, ImportStatus, MediaError, MediaFile, RootFolder, RootKind,
+    Import, ImportStatus, MediaError, MediaFile, RootFolder, RootKind, files,
     ports::{Catalog, Changes, FileSystem, FsError, MediaRepo},
 };
 
@@ -239,15 +239,7 @@ impl Importer {
                 result => result,
             },
             ImportMode::Copy => self.fs.copy(source, destination).await,
-            ImportMode::Move => match self.fs.rename(source, destination).await {
-                Err(error) if error.source.kind() == io::ErrorKind::CrossesDevices => {
-                    match self.fs.copy(source, destination).await {
-                        Ok(()) => self.fs.remove_file(source).await,
-                        Err(error) => Err(error),
-                    }
-                },
-                result => result,
-            },
+            ImportMode::Move => files::move_file(self.fs.as_ref(), source, destination).await,
         };
         result.map_err(describe)
     }

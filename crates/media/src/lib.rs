@@ -1,6 +1,7 @@
 //! Import pipeline, review, scan, rename, delete and recycle.
 
 mod error;
+mod files;
 mod importer;
 mod model;
 mod planner;
