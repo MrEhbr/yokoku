@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use yokoku_domain::{FileTarget, ImportId, MediaFileId, MovieId, SeriesId};
+use yokoku_domain::{DownloadId, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId};
 
 /// Stored events never change meaning; a breaking change adds a new variant.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,6 +48,18 @@ pub enum Event {
     ImportNeedsReview {
         import: ImportId,
         source: PathBuf,
+    },
+    TorrentAdded {
+        download: DownloadId,
+        name: String,
+        item: Option<ItemId>,
+    },
+    /// Emitted once per download.
+    DownloadCompleted {
+        download: DownloadId,
+        name: String,
+        content_path: PathBuf,
+        item: Option<ItemId>,
     },
 }
 
@@ -146,6 +158,34 @@ mod tests {
         Event::ImportNeedsReview { import: ImportId(Uuid::from_u128(9)), source: "/tv/Unknown".into() },
         json!({ "type": "ImportNeedsReview", "import": "00000000-0000-0000-0000-000000000009", "source": "/tv/Unknown" }),
     )]
+    #[case::torrent_added(
+        Event::TorrentAdded {
+            download: DownloadId(Uuid::from_u128(4)),
+            name: "Frieren.S01.1080p".into(),
+            item: Some(ItemId::Series(SeriesId(Uuid::from_u128(7)))),
+        },
+        json!({
+            "type": "TorrentAdded",
+            "download": "00000000-0000-0000-0000-000000000004",
+            "name": "Frieren.S01.1080p",
+            "item": { "Series": "00000000-0000-0000-0000-000000000007" },
+        }),
+    )]
+    #[case::download_completed(
+        Event::DownloadCompleted {
+            download: DownloadId(Uuid::from_u128(4)),
+            name: "Dune.2021.1080p".into(),
+            content_path: "/downloads/Dune.2021.1080p".into(),
+            item: None,
+        },
+        json!({
+            "type": "DownloadCompleted",
+            "download": "00000000-0000-0000-0000-000000000004",
+            "name": "Dune.2021.1080p",
+            "content_path": "/downloads/Dune.2021.1080p",
+            "item": null,
+        }),
+    )]
     fn stored_format_is_stable(#[case] event: Event, #[case] stored: serde_json::Value) {
         assert_eq!(serde_json::to_value(&event).unwrap(), stored);
         assert_eq!(serde_json::from_value::<Event>(stored).unwrap(), event);
@@ -162,6 +202,13 @@ mod tests {
                 FileTarget::Episodes { series: SeriesId(series), span }
             }),
             any_id().prop_map(|movie| FileTarget::Movie(MovieId(movie))),
+        ]
+    }
+
+    fn any_item() -> impl Strategy<Value = ItemId> {
+        prop_oneof![
+            any_id().prop_map(|id| ItemId::Series(SeriesId(id))),
+            any_id().prop_map(|id| ItemId::Movie(MovieId(id))),
         ]
     }
 
@@ -203,6 +250,17 @@ mod tests {
                 import: ImportId(import),
                 source: source.into()
             }),
+            (any_id(), any::<String>(), proptest::option::of(any_item())).prop_map(|(download, name, item)| {
+                Event::TorrentAdded { download: DownloadId(download), name, item }
+            }),
+            (any_id(), any::<String>(), any::<String>(), proptest::option::of(any_item())).prop_map(
+                |(download, name, content_path, item)| Event::DownloadCompleted {
+                    download: DownloadId(download),
+                    name,
+                    content_path: content_path.into(),
+                    item,
+                }
+            ),
         ]
     }
 

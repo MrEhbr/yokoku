@@ -276,8 +276,8 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 | `MovieAdded { movie, title }` | library | — (history) |
 | `SeriesRemoved { series, title, delete_files }` | library | media |
 | `MovieRemoved { movie, title, delete_files }` | library | media |
-| `TorrentAdded { download, linked_item }` | downloads | — (history) |
-| `DownloadCompleted { download, content_path, linked_item }` | downloads | media |
+| `TorrentAdded { download, name, item }` | downloads | — (history) |
+| `DownloadCompleted { download, name, content_path, item }` | downloads | media (step 6) |
 | `ImportNeedsReview { import, source }` | media | — (history) |
 | `FilesFound { files }` | media (scan) | library, integrations |
 | `FilesImported { import, files }` | media | library, downloads, integrations |

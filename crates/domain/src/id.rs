@@ -37,3 +37,4 @@ id!(MovieId);
 id!(EpisodeId);
 id!(MediaFileId);
 id!(ImportId);
+id!(DownloadId);
