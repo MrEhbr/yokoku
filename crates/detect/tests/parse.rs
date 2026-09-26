@@ -94,6 +94,9 @@ fn aired(year: i16, month: i8, day: i8) -> Numbers {
 #[case("2001.A.Space.Odyssey.1968.1080p.BluRay.mkv", Some("2001 A Space Odyssey"), Some(1968), Numbers::None)]
 #[case("Амели.2001.BDRip.1080p.mkv", Some("Амели"), Some(2001), Numbers::None)]
 #[case("1917.2019.1080p.BluRay.x264.mkv", Some("1917"), Some(2019), Numbers::None)]
+// years in folders
+#[case("Movies Collection 2020/The.Matrix.1999.1080p.mkv", Some("The Matrix"), Some(1999), Numbers::None)]
+#[case("Old 1990s/Doctor.Who.2005.S01E02.mkv", Some("Doctor Who"), Some(2005), episodes(1, &[2]))]
 fn parses_release_names(
     #[case] path: &str,
     #[case] title: Option<&str>,

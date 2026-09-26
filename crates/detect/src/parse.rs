@@ -44,7 +44,10 @@ impl ParsedName {
         let (title, year) = match Self::title_with_year(path) {
             Some((title, year)) => (Some(title), year),
             None if date.is_some() => (result.title().map(str::to_owned), None),
-            None => (result.title().map(str::to_owned), result.year().and_then(|year| year.try_into().ok())),
+            None => (
+                result.title().map(str::to_owned),
+                result.all(Property::Year).last().and_then(|year| year.parse().ok()),
+            ),
         };
 
         Self {
