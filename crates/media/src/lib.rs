@@ -1,5 +1,6 @@
 //! Import pipeline, review, scan, rename, delete and recycle.
 
+mod deleter;
 mod error;
 mod files;
 mod importer;
@@ -11,6 +12,7 @@ mod review;
 mod roots;
 mod scan;
 
+pub use deleter::{Deleter, Recycle};
 pub use error::MediaError;
 pub use importer::{ImportMode, Importer};
 pub use model::{Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind};

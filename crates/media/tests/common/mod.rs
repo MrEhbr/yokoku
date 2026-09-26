@@ -165,3 +165,13 @@ impl App {
         )
     }
 }
+
+impl App {
+    pub fn deleter(&self, recycle: Option<yokoku_media::Recycle>) -> yokoku_media::Deleter {
+        yokoku_media::Deleter::new(Arc::new(self.db.clone()), Arc::new(LocalFileSystem), Arc::new(FixedClock), recycle)
+    }
+
+    pub fn recycle(&self, keep_days: u32) -> Option<yokoku_media::Recycle> {
+        Some(yokoku_media::Recycle { folder: self.path("recycle"), keep_days })
+    }
+}

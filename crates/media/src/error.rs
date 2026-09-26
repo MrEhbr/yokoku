@@ -22,6 +22,8 @@ pub enum MediaError {
     ReplaceInPlace,
     #[error("import {0} has not failed")]
     NotFailed(ImportId),
+    #[error("no library file holds it")]
+    NoFile,
     #[error("import has no row {0}")]
     RowNotFound(usize),
     #[error("series {0} is not in the library")]
