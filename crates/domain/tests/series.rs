@@ -1,0 +1,283 @@
+use std::collections::BTreeMap;
+
+use jiff::{
+    Timestamp, ToSpan,
+    civil::{Date, date},
+};
+use proptest::prelude::*;
+use rstest::rstest;
+use yokoku_domain::{
+    EpisodeMetadata, EpisodeRef, ExternalId, FileStatus, MonitorPreset, SeasonMetadata, Series, SeriesMetadata,
+    SeriesStatus, SourceStatus,
+};
+
+const TODAY: Date = date(2026, 9, 26);
+const YESTERDAY: Date = date(2026, 9, 25);
+const TOMORROW: Date = date(2026, 9, 27);
+
+fn now() -> Timestamp {
+    Timestamp::UNIX_EPOCH
+}
+
+/// Seasons as `(number, air dates)`; episodes are numbered from 1 and get unique source ids.
+fn metadata(status: SourceStatus, seasons: &[(u16, &[Option<Date>])]) -> SeriesMetadata {
+    let mut next_source_id = 100;
+    let seasons = seasons
+        .iter()
+        .map(|&(number, dates)| SeasonMetadata {
+            number,
+            episodes: dates
+                .iter()
+                .zip(1..)
+                .map(|(&air_date, episode)| {
+                    next_source_id += 1;
+                    EpisodeMetadata {
+                        source_id: next_source_id,
+                        number: episode,
+                        title: format!("S{number}E{episode}"),
+                        air_date,
+                    }
+                })
+                .collect(),
+        })
+        .collect();
+    SeriesMetadata {
+        source: ExternalId::Tmdb(1),
+        title: "Frieren".into(),
+        original_title: "Sousou no Frieren".into(),
+        year: Some(2023),
+        poster_path: None,
+        status,
+        seasons,
+    }
+}
+
+fn refs(pairs: &[(u16, u16)]) -> Vec<EpisodeRef> {
+    pairs.iter().map(|&(season, episode)| EpisodeRef { season, episode }).collect()
+}
+
+fn monitored(series: &Series) -> Vec<EpisodeRef> {
+    series.monitored_episodes().map(|(reference, _)| reference).collect()
+}
+
+fn find(series: &Series, season: u16, episode: u16) -> &yokoku_domain::Episode {
+    let season = series.seasons.iter().find(|s| s.number == season).expect("season exists");
+    season.episodes.iter().find(|e| e.number == episode).expect("episode exists")
+}
+
+#[rstest]
+#[case::ended_even_with_future_episodes(SourceStatus::Ended, Some(TOMORROW), SeriesStatus::Ended)]
+#[case::canceled(SourceStatus::Canceled, Some(TOMORROW), SeriesStatus::Ended)]
+#[case::episode_scheduled(SourceStatus::Returning, Some(TOMORROW), SeriesStatus::Continuing)]
+#[case::episode_airs_today(SourceStatus::Returning, Some(TODAY), SeriesStatus::Continuing)]
+#[case::all_episodes_aired(SourceStatus::Returning, Some(YESTERDAY), SeriesStatus::OnBreak)]
+#[case::no_dates_yet(SourceStatus::Planned, None, SeriesStatus::OnBreak)]
+fn status_follows_source_and_schedule(
+    #[case] source_status: SourceStatus,
+    #[case] latest_air_date: Option<Date>,
+    #[case] expected: SeriesStatus,
+) {
+    let series = Series::add(
+        metadata(source_status, &[(1, &[Some(date(2020, 1, 1)), latest_air_date])]),
+        MonitorPreset::All,
+        TODAY,
+        now(),
+    );
+
+    assert_eq!(series.status(TODAY), expected);
+}
+
+#[rstest]
+#[case::aired_yesterday(Some(YESTERDAY), false, FileStatus::Missing)]
+#[case::airs_today(Some(TODAY), false, FileStatus::Upcoming)]
+#[case::no_date(None, false, FileStatus::Upcoming)]
+#[case::downloaded(Some(YESTERDAY), true, FileStatus::Downloaded)]
+fn episode_file_status(#[case] air_date: Option<Date>, #[case] has_file: bool, #[case] expected: FileStatus) {
+    let mut series =
+        Series::add(metadata(SourceStatus::Returning, &[(1, &[air_date])]), MonitorPreset::All, TODAY, now());
+    series.seasons[0].episodes[0].has_file = has_file;
+
+    assert_eq!(series.seasons[0].episodes[0].file_status(TODAY), expected);
+}
+
+#[rstest]
+#[case::all(MonitorPreset::All, true, &[(1, 1), (1, 2), (2, 1), (2, 2), (2, 3)])]
+#[case::future(MonitorPreset::Future, true, &[(2, 2), (2, 3)])]
+#[case::latest_season(MonitorPreset::LatestSeason, true, &[(2, 1), (2, 2), (2, 3)])]
+#[case::none(MonitorPreset::None, false, &[])]
+fn presets_choose_monitored_episodes(
+    #[case] preset: MonitorPreset,
+    #[case] series_monitored: bool,
+    #[case] expected: &[(u16, u16)],
+) {
+    let past = Some(YESTERDAY);
+    let series = Series::add(
+        metadata(SourceStatus::Returning, &[(0, &[past]), (1, &[past, past]), (2, &[past, Some(TOMORROW), None])]),
+        preset,
+        TODAY,
+        now(),
+    );
+
+    assert_eq!(series.monitored, series_monitored);
+    assert_eq!(monitored(&series), refs(expected));
+}
+
+#[test]
+fn seasons_and_episodes_are_ordered_by_number() {
+    let mut unordered = metadata(SourceStatus::Returning, &[(2, &[None, None]), (1, &[None])]);
+    unordered.seasons[0].episodes.reverse();
+
+    let series = Series::add(unordered, MonitorPreset::All, TODAY, now());
+
+    let order: Vec<_> =
+        series.seasons.iter().flat_map(|s| s.episodes.iter().map(move |e| (s.number, e.number))).collect();
+    assert_eq!(order, [(1, 1), (2, 1), (2, 2)]);
+}
+
+#[test]
+fn refresh_keeps_identity_flags_and_files_of_renumbered_episodes() {
+    let original = metadata(SourceStatus::Returning, &[(1, &[None, None])]);
+    let mut series = Series::add(original.clone(), MonitorPreset::All, TODAY, now());
+    let moved = find(&series, 1, 2).clone();
+    series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().has_file = true;
+    series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().monitored = false;
+
+    let mut renumbered = original;
+    let episode = renumbered.seasons[0].episodes.pop().unwrap();
+    renumbered.seasons.push(SeasonMetadata {
+        number: 2,
+        episodes: vec![EpisodeMetadata { number: 1, title: "Renamed".into(), ..episode }],
+    });
+    series.refresh(renumbered, now() + 1.hour());
+
+    let episode = find(&series, 2, 1);
+    assert_eq!(episode.id, moved.id);
+    assert_eq!(episode.title, "Renamed");
+    assert!(episode.has_file);
+    assert!(!episode.monitored);
+    assert_eq!(series.refreshed_at, now() + 1.hour());
+}
+
+#[rstest]
+#[case::monitored_season(true, true)]
+#[case::unmonitored_season(false, false)]
+fn refresh_monitors_new_episodes_like_their_season(#[case] season_monitored: bool, #[case] expected: bool) {
+    let mut series = Series::add(metadata(SourceStatus::Returning, &[(1, &[None])]), MonitorPreset::All, TODAY, now());
+    series.season_mut(1).unwrap().monitored = season_monitored;
+
+    series.refresh(metadata(SourceStatus::Returning, &[(1, &[None, None])]), now());
+
+    assert_eq!(find(&series, 1, 2).monitored, expected);
+    assert_eq!(series.season_mut(1).unwrap().monitored, season_monitored);
+}
+
+#[rstest]
+#[case::monitored_series(MonitorPreset::All, true)]
+#[case::unmonitored_series(MonitorPreset::None, false)]
+fn refresh_monitors_new_seasons_like_the_series(#[case] preset: MonitorPreset, #[case] expected: bool) {
+    let mut series = Series::add(metadata(SourceStatus::Returning, &[(1, &[None])]), preset, TODAY, now());
+
+    series.refresh(metadata(SourceStatus::Returning, &[(0, &[None]), (1, &[None]), (2, &[None])]), now());
+
+    assert_eq!(series.season_mut(2).unwrap().monitored, expected);
+    assert!(!series.season_mut(0).unwrap().monitored);
+}
+
+#[test]
+fn refresh_drops_episodes_gone_from_the_source() {
+    let mut series =
+        Series::add(metadata(SourceStatus::Returning, &[(1, &[None, None])]), MonitorPreset::All, TODAY, now());
+
+    series.refresh(metadata(SourceStatus::Ended, &[(1, &[None])]), now());
+
+    assert_eq!(series.episodes().count(), 1);
+    assert_eq!(series.status(TODAY), SeriesStatus::Ended);
+}
+
+#[rstest]
+#[case::first(1, Some((1, 1)))]
+#[case::crosses_into_season_two(3, Some((2, 1)))]
+#[case::last(4, Some((2, 2)))]
+#[case::past_the_end(5, None)]
+#[case::zero(0, None)]
+fn absolute_numbers_skip_specials(#[case] absolute: u32, #[case] expected: Option<(u16, u16)>) {
+    let series = Series::add(
+        metadata(SourceStatus::Returning, &[(0, &[None]), (1, &[None, None]), (2, &[None, None])]),
+        MonitorPreset::All,
+        TODAY,
+        now(),
+    );
+
+    let expected = expected.map(|(season, episode)| EpisodeRef { season, episode });
+    assert_eq!(series.absolute_to_ref(absolute), expected);
+}
+
+fn any_date() -> impl Strategy<Value = Date> {
+    (0..3_650i64).prop_map(|days| date(2020, 1, 1) + days.days())
+}
+
+fn any_metadata() -> impl Strategy<Value = SeriesMetadata> {
+    prop::collection::btree_map(0..6u16, prop::collection::vec(prop::option::of(any_date()), 0..6), 0..5).prop_map(
+        |seasons: BTreeMap<u16, Vec<Option<Date>>>| {
+            let seasons: Vec<(u16, &[Option<Date>])> =
+                seasons.iter().map(|(&number, dates)| (number, dates.as_slice())).collect();
+            metadata(SourceStatus::Returning, &seasons)
+        },
+    )
+}
+
+fn any_preset() -> impl Strategy<Value = MonitorPreset> {
+    prop_oneof![
+        Just(MonitorPreset::All),
+        Just(MonitorPreset::Future),
+        Just(MonitorPreset::LatestSeason),
+        Just(MonitorPreset::None),
+    ]
+}
+
+proptest! {
+    #[test]
+    fn presets_never_monitor_specials(metadata in any_metadata(), preset in any_preset(), today in any_date()) {
+        let series = Series::add(metadata, preset, today, now());
+
+        prop_assert!(monitored(&series).iter().all(|reference| reference.season != 0));
+    }
+
+    #[test]
+    fn future_preset_monitors_exactly_the_unaired_episodes(metadata in any_metadata(), today in any_date()) {
+        let series = Series::add(metadata, MonitorPreset::Future, today, now());
+
+        for season in series.seasons.iter().filter(|season| season.number != 0) {
+            for episode in &season.episodes {
+                let unaired = episode.air_date.is_none_or(|date| date >= today);
+                prop_assert_eq!(episode.monitored, unaired);
+            }
+        }
+    }
+
+    #[test]
+    fn refreshing_with_unchanged_metadata_changes_nothing(
+        metadata in any_metadata(),
+        preset in any_preset(),
+        today in any_date(),
+    ) {
+        let original = Series::add(metadata.clone(), preset, today, now());
+        let mut refreshed = original.clone();
+
+        refreshed.refresh(metadata, now());
+
+        prop_assert_eq!(refreshed, original);
+    }
+
+    #[test]
+    fn absolute_numbers_cover_every_regular_episode_once(metadata in any_metadata()) {
+        let series = Series::add(metadata, MonitorPreset::All, date(2026, 1, 1), now());
+        let regular = series.seasons.iter().filter(|s| s.number != 0).map(|s| s.episodes.len()).sum::<usize>();
+        let count = u32::try_from(regular).unwrap();
+
+        let mapped: Vec<_> = (1..=count).map(|n| series.absolute_to_ref(n).unwrap()).collect();
+
+        prop_assert!(mapped.windows(2).all(|pair| pair[0] < pair[1]));
+        prop_assert_eq!(series.absolute_to_ref(count + 1), None);
+    }
+}

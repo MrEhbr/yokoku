@@ -26,3 +26,4 @@ macro_rules! id {
 
 id!(SeriesId);
 id!(MovieId);
+id!(EpisodeId);

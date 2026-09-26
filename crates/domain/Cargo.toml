@@ -9,5 +9,10 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+jiff.workspace = true
 serde.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+rstest.workspace = true

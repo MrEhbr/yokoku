@@ -98,18 +98,31 @@ When a module needs another module's data, it declares its own narrow **read por
 
 Value types and rules shared by all modules. Examples:
 
-- Identifiers: `SeriesId`, `MovieId`, `EpisodeId`, `DownloadId`, `ImportId`, `MediaFileId`. Newtypes, never raw integers.
+- Identifiers: `SeriesId`, `MovieId`, `EpisodeId`, and later `DownloadId`, `ImportId`, `MediaFileId`. UUIDv7 newtypes created by the domain, so an aggregate and its events are complete before they are saved. Users refer to items by source id (`tmdb:1396`).
 - `ExternalId { Tmdb(u64), Tvdb(u64) }`. An item stays bound to the provider it was added with.
-- `EpisodeRef { season, episode }`, `EpisodeSpan` (multi-episode files), `AbsoluteNumber`.
+- `Series` → `Season` → `Episode` and `Movie`: aggregates with public fields. Seasons and episodes are kept ordered by number.
+- `SeriesMetadata`, `MovieMetadata`: an item as its source describes it. `library::MetadataProvider` returns these.
+- `EpisodeRef { season, episode }`; later `EpisodeSpan` (multi-episode files).
 - `Numbering { Standard, Absolute }` (FR-1.8).
-- `AirTime`: a date plus an optional time and zone. TMDB provides dates only; the time is filled when a source provides it.
+- Air dates are dates only (`jiff::civil::Date`). TMDB provides no time; a nullable time column is added when a source provides one.
 - `MonitorPreset { All, Future, LatestSeason, None }` (FR-2.2).
-- `FileStatus { Downloaded, Missing, NotAired }`, derived from air time, file presence and "now".
-- `Confidence { Certain, Guess, Unknown }` (FR-4.10).
-- `MovieRelease { Cinema, Digital, Physical }` (FR-1.5, FR-7.3).
-- `ImportMode { HardLink, Copy, Move }` (FR-3.6).
+- `SeriesStatus { Continuing, OnBreak, Ended }`, `MovieStatus { Announced, InCinemas, Released }`, `FileStatus { Downloaded, Missing, Upcoming }`: derived from dates, files and today, never stored.
+- Later: `Confidence { Certain, Guess, Unknown }` (FR-4.10), `ImportMode { HardLink, Copy, Move }` (FR-3.6).
 
-Rules live as methods on these types, for example `Episode::file_status(now)`, `Series::apply_monitor_preset(preset, now)` and `EpisodeList::absolute_to_ref(n)`. Absolute numbers are counted in TMDB episode order, excluding specials, which matches Jellyfin's default order (FR-4.9, FR-5.8).
+### Rules
+
+| Rule | Behaviour |
+|---|---|
+| `Series::status(today)` | `Ended` if the source says ended or canceled; `Continuing` if an episode airs today or later; otherwise `OnBreak`. |
+| `Movie::status(today)` | `Released` from the digital or physical date, `InCinemas` from the cinema date, otherwise `Announced`. |
+| `Episode::file_status(today)` | `Downloaded` with a file; `Missing` from the day after its air date; otherwise `Upcoming`. |
+| `Movie::file_status(today)` | `Missing` only once the movie is `Released`. |
+| `Series::monitored_episodes()` | Monitored at series, season and episode level (FR-2.1, 2.3). |
+| `Series::add(metadata, preset, today, now)` | Applies the preset. Specials are never monitored by a preset. |
+| `Series::refresh(metadata, now)` | Matches episodes by source id, so renumbered episodes keep id, flags and file. New seasons follow the series flag (specials excepted); new episodes follow their season. Episodes gone from the source are dropped. |
+| `Series::absolute_to_ref(n)` | Counts episodes in order, excluding specials, which matches Jellyfin's default TMDB order (FR-4.9, FR-5.8). |
+
+"Today" is the date in the user's configured time zone.
 
 ---
 

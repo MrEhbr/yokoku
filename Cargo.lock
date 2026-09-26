@@ -3044,6 +3044,9 @@ version = "0.0.1"
 name = "yokoku-domain"
 version = "0.0.1"
 dependencies = [
+ "jiff",
+ "proptest",
+ "rstest",
  "serde",
  "uuid",
 ]
