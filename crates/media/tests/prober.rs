@@ -36,9 +36,10 @@ impl MediaProbe for ScriptedProbe {
         if *self.missing.lock().unwrap() {
             return Err(ProbeError::Missing);
         }
-        match self.failing.lock().unwrap().contains(path) {
-            true => Err(ProbeError::Failed { path: path.to_owned(), reason: "Invalid data".into() }),
-            false => Ok(full_hd()),
+        if self.failing.lock().unwrap().contains(path) {
+            Err(ProbeError::Failed { path: path.to_owned(), reason: "Invalid data".into() })
+        } else {
+            Ok(full_hd())
         }
     }
 }

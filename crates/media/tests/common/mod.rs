@@ -106,6 +106,41 @@ impl App {
         let recorded = self.db.event_log().read_after(None, 100).await.unwrap();
         recorded.into_iter().map(|recorded| recorded.event).collect()
     }
+
+    pub async fn db_files(&self) -> Vec<yokoku_media::MediaFile> {
+        yokoku_media::ports::MediaRepo::files(&self.db).await.unwrap()
+    }
+
+    pub fn importer(&self, mode: yokoku_media::ImportMode) -> yokoku_media::Importer {
+        let repo = Arc::new(self.db.clone());
+        yokoku_media::Importer::new(
+            repo.clone(),
+            repo,
+            Arc::new(LocalFileSystem),
+            self.lock(),
+            Arc::new(FixedClock),
+            Naming::default(),
+            mode,
+        )
+    }
+
+    pub fn deleter(&self, recycle: Option<yokoku_media::Recycle>) -> yokoku_media::Deleter {
+        yokoku_media::Deleter::new(
+            Arc::new(self.db.clone()),
+            Arc::new(LocalFileSystem),
+            self.lock(),
+            Arc::new(FixedClock),
+            recycle,
+        )
+    }
+
+    pub fn lock(&self) -> Arc<LockFile> {
+        Arc::new(LockFile::new(self.path(LOCK)))
+    }
+
+    pub fn recycle(&self, keep_days: u32) -> yokoku_media::Recycle {
+        yokoku_media::Recycle { folder: self.path("recycle"), keep_days }
+    }
 }
 
 pub fn episode(season: u16, episode: u16) -> EpisodeRef {
@@ -150,45 +185,4 @@ fn dune_metadata() -> MovieMetadata {
 
 pub fn relative<'a>(app: &App, paths: impl IntoIterator<Item = &'a Path>) -> Vec<String> {
     paths.into_iter().map(|path| path.strip_prefix(app.dir.path()).unwrap().display().to_string()).collect()
-}
-
-impl App {
-    pub async fn db_files(&self) -> Vec<yokoku_media::MediaFile> {
-        yokoku_media::ports::MediaRepo::files(&self.db).await.unwrap()
-    }
-}
-
-impl App {
-    pub fn importer(&self, mode: yokoku_media::ImportMode) -> yokoku_media::Importer {
-        let repo = Arc::new(self.db.clone());
-        yokoku_media::Importer::new(
-            repo.clone(),
-            repo,
-            Arc::new(LocalFileSystem),
-            self.lock(),
-            Arc::new(FixedClock),
-            Naming::default(),
-            mode,
-        )
-    }
-}
-
-impl App {
-    pub fn deleter(&self, recycle: Option<yokoku_media::Recycle>) -> yokoku_media::Deleter {
-        yokoku_media::Deleter::new(
-            Arc::new(self.db.clone()),
-            Arc::new(LocalFileSystem),
-            self.lock(),
-            Arc::new(FixedClock),
-            recycle,
-        )
-    }
-
-    pub fn lock(&self) -> Arc<LockFile> {
-        Arc::new(LockFile::new(self.path(LOCK)))
-    }
-
-    pub fn recycle(&self, keep_days: u32) -> Option<yokoku_media::Recycle> {
-        Some(yokoku_media::Recycle { folder: self.path("recycle"), keep_days })
-    }
 }

@@ -59,7 +59,7 @@ async fn recycled_files_keep_their_place_under_a_folder_for_the_day() {
     let app = App::new().await;
     linked(&app, &[E01, E01_SUBTITLE]).await;
 
-    app.deleter(app.recycle(30)).delete(app.episodes(1, 1, 1)).await.unwrap();
+    app.deleter(Some(app.recycle(30))).delete(app.episodes(1, 1, 1)).await.unwrap();
 
     let day = app.path("recycle/2026-09-26");
     assert!(day.join(E01).exists() && day.join(E01_SUBTITLE).exists());
@@ -70,7 +70,7 @@ async fn recycled_files_keep_their_place_under_a_folder_for_the_day() {
 #[tokio::test]
 async fn a_second_recycled_file_at_the_same_path_goes_under_its_id() {
     let app = App::new().await;
-    let deleter = app.deleter(app.recycle(30));
+    let deleter = app.deleter(Some(app.recycle(30)));
     linked(&app, &[E01]).await;
     deleter.delete(app.episodes(1, 1, 1)).await.unwrap();
     linked(&app, &[E01]).await;
@@ -122,7 +122,7 @@ async fn cleaning_removes_day_folders_older_than_the_kept_days() {
         app.write(folder, 1);
     }
 
-    let removed = app.deleter(app.recycle(30)).clean_recycle().await.unwrap();
+    let removed = app.deleter(Some(app.recycle(30))).clean_recycle().await.unwrap();
 
     assert_eq!(removed, 2);
     let mut left: Vec<_> = fs::read_dir(app.path("recycle")).unwrap().map(|entry| entry.unwrap().file_name()).collect();
