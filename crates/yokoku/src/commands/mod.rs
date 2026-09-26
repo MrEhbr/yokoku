@@ -23,10 +23,13 @@ pub mod settings;
 pub mod show;
 pub mod upcoming;
 
-use anyhow::{Context, Result};
+use std::io::{self, Write};
+
+use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
 use yokoku_domain::{ExternalId, FileStatus, ItemId, MediaKind, MovieStatus, ReleaseKind, SeriesStatus};
 use yokoku_library::{Library, LibraryStatus};
+use yokoku_media::MediaFile;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Kind {
@@ -65,6 +68,26 @@ impl From<Kind> for MediaKind {
             Kind::Series => Self::Series,
             Kind::Movie => Self::Movie,
         }
+    }
+}
+
+/// Lists `files` and asks on stdin to delete them; fails unless the answer is `y` or `yes`.
+pub fn confirm_deletion(files: &[MediaFile], yes: bool) -> Result<()> {
+    if yes || files.is_empty() {
+        return Ok(());
+    }
+    let mut out = io::stdout();
+    for file in files {
+        writeln!(out, "  {}", file.path.display())?;
+    }
+    let noun = if files.len() == 1 { "file" } else { "files" };
+    write!(out, "Delete {} {noun}? [y/N] ", files.len())?;
+    out.flush()?;
+    let mut answer = String::new();
+    io::stdin().read_line(&mut answer)?;
+    match answer.trim().to_lowercase().as_str() {
+        "y" | "yes" => Ok(()),
+        _ => bail!("Nothing was deleted"),
     }
 }
 

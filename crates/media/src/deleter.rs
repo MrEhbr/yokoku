@@ -21,11 +21,20 @@ impl Deleter {
         Self { repo, fs, lock }
     }
 
+    /// The library files holding any of `target`.
+    pub async fn files_of(&self, target: FileTarget) -> Result<Vec<MediaFile>, MediaError> {
+        Ok(self.repo.files().await?.into_iter().filter(|file| file.target.overlaps(&target)).collect())
+    }
+
+    /// The library files of `item`.
+    pub async fn files_of_item(&self, item: ItemId) -> Result<Vec<MediaFile>, MediaError> {
+        Ok(self.repo.files().await?.into_iter().filter(|file| file.target.item() == item).collect())
+    }
+
     /// Removes the library files holding any of `target`, with their subtitles.
     pub async fn delete(&self, target: FileTarget) -> Result<Vec<MediaFile>, MediaError> {
         let _lock = self.lock.acquire().await?;
-        let files: Vec<MediaFile> =
-            self.repo.files().await?.into_iter().filter(|file| file.target.overlaps(&target)).collect();
+        let files = self.files_of(target).await?;
         if files.is_empty() {
             return Err(MediaError::NoFile);
         }
@@ -54,8 +63,7 @@ impl Deleter {
 
     async fn remove_item(&self, item: ItemId) -> Result<(), MediaError> {
         let _lock = self.lock.acquire().await?;
-        let files: Vec<MediaFile> =
-            self.repo.files().await?.into_iter().filter(|file| file.target.item() == item).collect();
+        let files = self.files_of_item(item).await?;
         if !files.is_empty() {
             self.remove(files, DeleteReason::ItemRemoved).await?;
         }

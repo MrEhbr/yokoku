@@ -331,6 +331,7 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 One binary.
 - `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM. Each subscriber gets its own `Delivery` loop; on a signal the monitor stops first, then the deliveries are cancelled and awaited.
 - Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `files`, `jellyfin`, `settings`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
+- `delete` and `remove --delete-files` list the files and ask on stdin before deleting (FR-8.5); no answer counts as no, and `--yes` skips the question.
 
 ### Storage
 

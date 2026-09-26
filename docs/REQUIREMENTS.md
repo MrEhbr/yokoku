@@ -143,7 +143,7 @@ This document describes **what** the app must do, not how it is built.
   - Folders that belong to no library item are ignored.
 - **8.3** Files in an item's folder that it can't recognise are listed for manual matching, using the same review screen as FR-4.11.
 - **8.4** The user can delete a movie or episode file from the app.
-- **8.5** Deleted files are removed for good; there is no recycle folder.
+- **8.5** Deleting files asks for confirmation first; deleted files are removed for good.
 - **8.6** File details are shown: path, size, resolution, and audio/subtitle languages where detectable.
 - **8.7** Files removed or changed outside the app are detected on the next scan.
 - **8.8** Adding an item scans its folder right away (FR-8.2).

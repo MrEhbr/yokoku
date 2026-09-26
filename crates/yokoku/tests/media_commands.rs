@@ -1,8 +1,13 @@
-use std::{fs, path::PathBuf, process::Command};
+use std::{
+    fs,
+    path::PathBuf,
+    process::{Command, Output},
+};
 
 use assert_cmd::prelude::*;
 use jiff::{Timestamp, ToSpan, civil::Date, tz::TimeZone};
 use predicates::prelude::*;
+use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
@@ -68,6 +73,10 @@ impl Setup {
             .env("APP__DATABASE__PATH", &self.database)
             .env("APP__CLOCK__TIMEZONE", "UTC");
         command
+    }
+
+    fn answering(&self, args: &[&str], answer: &str) -> Output {
+        assert_cmd::Command::from_std(self.command()).args(args).write_stdin(answer).output().unwrap()
     }
 
     fn stdout(&self, args: &[&str]) -> String {
@@ -200,11 +209,45 @@ async fn deleting_an_episode_deletes_its_file_and_marks_it_missing() {
     setup.write(file);
     setup.stdout(&["scan"]);
 
-    let deleted = setup.stdout(&["delete", "series", "tmdb:1", "S01E01"]);
+    let deleted = setup.stdout(&["delete", "series", "tmdb:1", "S01E01", "--yes"]);
 
     assert!(deleted.starts_with("Deleted "), "{deleted}");
     assert!(setup.episode_line("S01E01").contains("missing"));
     assert!(!setup.path(file).exists());
+}
+
+#[rstest]
+#[case::declined("n\n", false)]
+#[case::no_answer("", false)]
+#[case::accepted("y\n", true)]
+#[tokio::test]
+async fn deleting_asks_before_it_deletes(#[case] answer: &str, #[case] deletes: bool) {
+    let setup = Setup::new().await;
+    let file = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
+    setup.write(file);
+    setup.stdout(&["scan"]);
+
+    let output = setup.answering(&["delete", "series", "tmdb:1", "S01E01"], answer);
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains(file) && stdout.contains("Delete 1 file? [y/N] "), "{stdout}");
+    assert_eq!(output.status.success(), deletes);
+    assert_eq!(setup.path(file).exists(), !deletes);
+}
+
+#[tokio::test]
+async fn removing_a_series_with_its_files_asks_first() {
+    let setup = Setup::new().await;
+    let file = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
+    setup.write(file);
+    setup.stdout(&["scan"]);
+
+    let output = setup.answering(&["remove", "series", "tmdb:1", "--delete-files"], "n\n");
+
+    assert!(!output.status.success());
+    assert!(String::from_utf8(output.stdout).unwrap().contains("Delete 1 file? [y/N] "));
+    assert!(setup.path(file).exists());
+    assert!(setup.stdout(&["list"]).contains("Frieren"));
 }
 
 #[tokio::test]
@@ -213,7 +256,7 @@ async fn removing_a_series_with_its_files_deletes_them() {
     setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
     setup.stdout(&["scan"]);
 
-    setup.stdout(&["remove", "series", "tmdb:1", "--delete-files"]);
+    setup.stdout(&["remove", "series", "tmdb:1", "--delete-files", "--yes"]);
 
     assert!(!setup.path("tv/Frieren (2023)").exists());
     let history = setup.stdout(&["history", "-n", "2"]);
@@ -250,7 +293,7 @@ async fn changing_library_files_asks_jellyfin_to_rescan() {
     };
 
     let tested = with_jellyfin(&["jellyfin", "test"]);
-    with_jellyfin(&["delete", "series", "tmdb:1", "S01E01"]);
+    with_jellyfin(&["delete", "series", "tmdb:1", "S01E01", "--yes"]);
     with_jellyfin(&["list"]);
 
     assert_eq!(tested, "Connected to Jellyfin 10.10.7\n");
@@ -264,7 +307,7 @@ async fn an_unreachable_jellyfin_does_not_fail_the_change() {
 
     setup
         .command()
-        .args(["delete", "series", "tmdb:1", "S01E01"])
+        .args(["delete", "series", "tmdb:1", "S01E01", "--yes"])
         .env("APP__JELLYFIN__URL", "http://127.0.0.1:9")
         .assert()
         .success()

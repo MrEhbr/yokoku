@@ -6,7 +6,7 @@ use yokoku_domain::{EpisodeSpan, ExternalId, FileTarget, ItemId};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind},
+    commands::{ItemArgs, Kind, confirm_deletion},
     config::Config,
 };
 
@@ -17,6 +17,9 @@ pub struct Args {
     pub source: ExternalId,
     /// Episodes whose file to delete, e.g. `S01E02`; series only
     pub episodes: Option<EpisodeSpan>,
+    /// Delete without asking
+    #[arg(short, long)]
+    pub yes: bool,
 }
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
@@ -28,6 +31,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         (ItemId::Movie(_), Some(_)) => bail!("A movie takes no episodes"),
     };
 
+    confirm_deletion(&app.deleter.files_of(target).await?, args.yes)?;
     let deleted = app.deleter.delete(target).await?;
     app.deliver_events().await?;
     let mut out = io::stdout();
