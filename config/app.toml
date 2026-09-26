@@ -1,0 +1,7 @@
+[log]
+format = "console"
+output = "stderr"
+
+[greet]
+greeting = "Hello"
+count = 1

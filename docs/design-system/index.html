@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yokoku — Paper design system</title>
+  <script src="./theme.js"></script>
+  <link rel="stylesheet" href="./design-system.css">
+  <script src="./specimen.js" defer></script>
+</head>
+<body>
+  <a href="#main" class="sr-only focus:not-sr-only focus:block focus:p-3">Skip to content</a>
+  <header class="border-b border-ink">
+    <div class="mx-auto flex max-w-content flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+      <a href="./index.html" class="font-mono text-xl tracking-tight">yokoku <span class="text-caption text-muted">予告</span></a>
+      <span class="hidden font-mono text-caption text-muted sm:block">PAPER / DESIGN SYSTEM 1.0</span>
+      <label class="flex items-center gap-2 text-caption">Appearance <select data-theme-picker class="yk-select w-auto" aria-label="Appearance"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    </div>
+  </header>
+  <main id="main" class="mx-auto max-w-content px-5 pb-12 sm:px-8">
+    <div class="py-8 sm:py-12">
+      <p class="yk-kicker mb-4">A library with a little character</p>
+      <h1 class="font-display text-page leading-tight tracking-tight sm:text-display">The <mark class="yk-highlight">Paper</mark> system.</h1>
+      <p class="mt-5 max-w-2xl text-base text-muted">Warm surfaces. Clear type. Compact controls. A shared design language for movies, series, and the files that connect them.</p>
+    </div>
+    <nav class="flex flex-wrap border-b border-line" role="tablist" aria-label="Design system sections">
+      <button type="button" id="tab-foundations" class="yk-tab" role="tab" aria-controls="foundations" aria-selected="true">01 Foundations</button>
+      <button type="button" id="tab-components" class="yk-tab" role="tab" aria-controls="components" aria-selected="false" tabindex="-1">02 Components</button>
+      <button type="button" id="tab-workflows" class="yk-tab" role="tab" aria-controls="workflows" aria-selected="false" tabindex="-1">03 Workflows</button>
+    </nav>
+
+    <section id="foundations" role="tabpanel" aria-labelledby="tab-foundations">
+      <section class="py-8">
+        <div class="mb-5 flex flex-wrap items-baseline justify-between gap-3"><h2 class="font-mono text-section">01 / Color with a job</h2><p class="text-caption text-muted">Pink is an action color. Status has its own language.</p></div>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <div class="yk-swatch bg-canvas"><span class="font-medium">Canvas</span><code class="text-caption">bg-canvas</code></div>
+          <div class="yk-swatch bg-surface"><span class="font-medium">Surface</span><code class="text-caption">bg-surface</code></div>
+          <div class="yk-swatch bg-subtle"><span class="font-medium">Subtle</span><code class="text-caption">bg-subtle</code></div>
+          <div class="yk-swatch border-ink bg-ink text-canvas"><span class="font-medium">Ink</span><code class="text-caption">text-ink</code></div>
+          <div class="yk-swatch border-ink bg-accent text-accent-ink"><span class="font-medium">Accent</span><code class="text-caption">bg-accent</code></div>
+          <div class="yk-swatch bg-canvas text-muted"><span class="font-medium">Secondary</span><code class="text-caption">text-muted</code></div>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-x-6 gap-y-3"><span class="yk-status text-success">✓ Downloaded</span><span class="yk-status text-warning">! Missing</span><span class="yk-status text-danger">× Import failed</span><span class="yk-status text-info">○ Upcoming</span><span class="yk-status text-muted">— Not monitored</span></div>
+      </section>
+      <section class="yk-section grid gap-8 md:grid-cols-2">
+        <div><h2 class="yk-section-title">02 / Two voices</h2><p class="font-display text-page tracking-tight">Worth keeping.</p><p class="mt-2 yk-hint">IBM Plex Mono · Headings, episode numbers, file paths</p><p class="mt-6 text-section font-medium">Your next episode is ready.</p><p class="mt-2 yk-hint">DM Sans · Controls, descriptions, everyday reading</p></div>
+        <div class="grid content-start gap-3"><p class="yk-kicker">Type scale</p><div class="flex items-baseline justify-between gap-3 border-b border-line pb-2"><span class="yk-page-title">Library</span><code class="text-caption text-muted">32 / 38.4</code></div><div class="flex justify-between border-b border-line pb-2"><span class="text-section font-medium">Review import</span><code class="text-caption text-muted">18 / 25.2</code></div><div class="flex justify-between border-b border-line pb-2"><span>Set season for selected files</span><code class="text-caption text-muted">14 / 21</code></div><div class="flex justify-between gap-3"><span class="yk-code">S01E03 · The signal</span><code class="text-caption text-muted">12 / 18</code></div></div>
+      </section>
+      <section class="yk-section grid gap-8 md:grid-cols-2">
+        <div><h2 class="yk-section-title">03 / Room to work</h2><div class="flex flex-wrap gap-3" aria-label="Spacing scale"><span class="yk-tag">4</span><span class="yk-tag">8</span><span class="yk-tag">12</span><span class="yk-tag">16</span><span class="yk-tag">24</span><span class="yk-tag">32</span><span class="yk-tag">48 px</span></div><p class="mt-4 text-muted">36px desktop controls. 44px touch targets. Dense rows keep readable text; compactness comes from spacing.</p></div>
+        <div><h2 class="yk-section-title">04 / A clean edge</h2><div class="max-w-sm border border-ink bg-surface p-5 shadow-paper"><p class="font-medium">Square corners. One-pixel borders.</p><p class="mt-2 text-muted">Hard shadows belong on posters and dialogs. Tables use quiet horizontal rules.</p></div></div>
+      </section>
+    </section>
+
+    <section id="components" role="tabpanel" aria-labelledby="tab-components" hidden>
+      <section class="py-8"><h2 class="yk-section-title">01 / Actions</h2><div class="flex flex-wrap items-center gap-3"><button type="button" class="yk-button yk-button-primary" data-open="import">Review import</button><button type="button" class="yk-button" data-open="rename">Rename files</button><button type="button" class="yk-button yk-button-quiet" data-notice="Refresh requested in this component demo.">Refresh</button><button type="button" class="yk-button yk-button-danger" data-notice="Destructive actions require a separate confirmation naming the affected files.">Delete files</button><button type="button" class="yk-button" disabled>Unavailable</button><button type="button" class="yk-button" aria-busy="true" disabled>Importing…</button></div><p class="mt-4 yk-hint">One primary action per context. Delete uses a distinct danger treatment.</p><p id="component-notice" class="mt-3 text-caption text-muted" role="status"></p></section>
+      <section class="yk-section grid gap-6 md:grid-cols-3">
+        <div class="yk-field"><label class="yk-label" for="example-search">Search library</label><input id="example-search" class="yk-input" type="search" placeholder="Movie or series title"><p class="yk-hint">Labels stay visible when the field is filled.</p></div>
+        <div class="yk-field"><label class="yk-label" for="example-numbering">Episode numbering</label><select id="example-numbering" class="yk-select"><option>Season / episode</option><option>Absolute numbering</option></select><p class="yk-hint">Choose how incoming files are interpreted.</p></div>
+        <div class="yk-field"><label class="yk-label" for="example-path">Series root folder</label><input id="example-path" class="yk-input" value="/missing/shows" aria-invalid="true" aria-describedby="path-error"><p id="path-error" class="text-caption text-danger">Folder cannot be found.</p></div>
+      </section>
+      <section class="yk-section grid gap-8 md:grid-cols-2"><div><h2 class="yk-section-title">02 / Selection & monitoring</h2><div class="grid gap-3"><label class="yk-check-target gap-2"><input class="yk-checkbox" type="checkbox" checked> Monitored</label><label class="yk-check-target gap-2"><input class="yk-checkbox" type="checkbox"> Include file in this operation</label><label class="yk-check-target gap-2"><input id="mixed-checkbox" class="yk-checkbox" type="checkbox"> Some episodes monitored</label></div></div><div><h2 class="yk-section-title">03 / Progress & feedback</h2><div class="flex justify-between gap-3 text-caption"><span>Orbital · Season 1</span><span>64% · 2 min left</span></div><progress class="yk-progress mt-2" value="64" max="100" aria-label="Orbital download progress">64%</progress><div class="yk-alert yk-alert-warning mt-5">1 file needs an episode match before import.</div></div></section>
+      <section class="yk-section"><h2 class="yk-section-title">04 / Compact information</h2><div class="overflow-x-auto"><table class="yk-table"><caption class="sr-only">Example episode availability</caption><thead><tr><th>Episode</th><th>Title</th><th>File</th><th>Monitoring</th></tr></thead><tbody><tr><td class="font-mono text-caption">S01E01</td><td>Arrival</td><td><span class="yk-status text-success">✓ Downloaded</span></td><td>Monitored</td></tr><tr><td class="font-mono text-caption">S01E02</td><td>First contact</td><td><span class="yk-status text-warning">! Missing</span></td><td>Monitored</td></tr><tr><td class="font-mono text-caption">S01E03</td><td>The signal</td><td><span class="yk-status text-info">○ Upcoming</span></td><td>Monitored</td></tr></tbody></table></div></section>
+    </section>
+
+    <section id="workflows" role="tabpanel" aria-labelledby="tab-workflows" hidden>
+      <section class="py-8 grid gap-8 md:grid-cols-2">
+        <div><p class="yk-kicker mb-3">01 / New files</p><h2 class="mb-3 text-section font-medium">Match once. Import a batch.</h2><p class="mb-5 text-muted">Automatic suggestions fill the new-name dropdown. Set a series or season for selected files, then correct exceptions.</p><button type="button" class="yk-button yk-button-primary" data-open="import">Open import review</button></div>
+        <div><p class="yk-kicker mb-3">02 / Existing files</p><h2 class="mb-3 text-section font-medium">A preview, then a rename.</h2><p class="mb-5 text-muted">Generate names from saved rules and existing episode matches. Check the changes you want to apply.</p><button type="button" class="yk-button" data-open="rename">Open rename preview</button></div>
+      </section>
+      <section class="yk-section grid gap-8 md:grid-cols-2"><div><h2 class="yk-section-title">03 / One naming policy</h2><p class="text-muted">Naming rules apply to new imports. Changing a rule does not silently rename the existing library.</p></div><div class="yk-field"><label for="naming-format" class="yk-label">Series filename format</label><select id="naming-format" class="yk-select"><option value="full">Title (Year) - S01E01 - Episode title</option><option value="compact">Title (Year) - S01E01</option></select><output id="naming-example" class="yk-code mt-2 break-all"></output><p class="yk-hint">Preview setting only · Try the rename dialog after changing this.</p></div></section>
+      <section class="yk-section"><h2 class="yk-section-title">04 / Keep the work clear</h2><div class="grid gap-6 md:grid-cols-3"><div><span class="yk-status text-success">✓ Certain</span><p class="mt-2 text-muted">Conflict-free certain matches can import automatically.</p></div><div><span class="yk-status text-warning">? Guess / unknown</span><p class="mt-2 text-muted">Keep them in review until corrected or skipped.</p></div><div><span class="yk-status text-danger">! Conflict</span><p class="mt-2 text-muted">Offer Replace, Skip, or Keep both. Never choose silently.</p></div></div></section>
+    </section>
+    <footer class="border-t border-ink pt-5 flex flex-wrap justify-between gap-3 text-caption text-muted"><span>Yokoku / Paper · v1.0</span><span>Tailwind CSS 4.3.3 · Local fonts · Sample content</span></footer>
+  </main>
+
+  <dialog id="file-dialog" class="yk-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+    <header class="mb-4 flex items-start justify-between gap-4"><div><h2 id="dialog-title" class="text-section font-medium">Review import</h2><p id="dialog-description" class="mt-1 text-caption text-muted"></p></div><button type="button" class="yk-button yk-button-quiet min-w-9 px-2" data-close aria-label="Close dialog">×</button></header>
+    <div id="bulk-tools" class="yk-bulk-bar mb-3"><span id="selected-count" class="mr-auto self-center text-caption text-muted"></span><label class="yk-field"><span class="yk-label">Series</span><select id="bulk-series" class="yk-select w-auto"><option value="orbital">Orbital</option><option value="night">Night Train</option></select></label><label class="yk-field"><span class="yk-label">Season</span><select id="bulk-season" class="yk-select w-auto"><option value="1">1</option><option value="2">2</option></select></label><button type="button" id="redetect" class="yk-button text-caption">Detect again</button><button type="button" id="order-open" class="yk-button text-caption">Assign in order</button></div>
+    <div id="order-tools" class="mb-3 flex flex-wrap items-end gap-2 bg-subtle p-3" hidden><label class="yk-field"><span class="yk-label">First episode</span><select id="order-start" class="yk-select w-auto"><option value="1">Episode 1</option><option value="2">Episode 2</option><option value="3">Episode 3</option></select></label><button type="button" class="yk-button text-caption" id="order-preview">Preview order</button><button type="button" class="yk-button text-caption" id="order-apply" hidden>Apply assignments</button><button type="button" class="yk-button yk-button-quiet text-caption" id="order-cancel">Cancel assignment</button></div>
+    <p id="rename-format" class="mb-3 text-caption text-muted" hidden></p>
+    <div class="mb-2 flex justify-between gap-4 text-caption text-muted"><label class="yk-check-target gap-2"><input type="checkbox" id="select-all" class="yk-checkbox" checked> Select all</label><span>Old name → New name</span></div><div id="file-rows"></div>
+    <p id="dialog-feedback" class="mt-3 text-caption" role="status" aria-live="polite"></p>
+    <footer class="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4"><span id="operation-note" class="mr-auto text-caption text-muted"></span><button type="button" class="yk-button" data-close>Cancel</button><button type="button" id="commit-files" class="yk-button yk-button-primary">Import selected</button></footer>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,92 @@
+@font-face {
+  font-family: 'DM Sans';
+  src: url('./fonts/dm-sans.ttf') format('truetype');
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/ibm-plex-mono.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/ibm-plex-mono-medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+  --yk-canvas: light-dark(#fbfaf7, #20211f);
+  --yk-surface: light-dark(#ffffff, #262824);
+  --yk-subtle: light-dark(#eeeee7, #30332c);
+  --yk-ink: light-dark(#222521, #eeeee6);
+  --yk-muted: light-dark(#62645f, #b0b3aa);
+  --yk-line: light-dark(#d8d9d1, #464941);
+  --yk-control: light-dark(#777a73, #8a9184);
+  --yk-accent: light-dark(#e99db4, #dfa0b4);
+  --yk-accent-hover: light-dark(#e28ca7, #e9b2c3);
+  --yk-accent-ink: #282027;
+  --yk-success: light-dark(#376344, #a1c8a2);
+  --yk-success-soft: light-dark(#e7f0e6, #293a2c);
+  --yk-warning: light-dark(#805018, #e1b576);
+  --yk-warning-soft: light-dark(#f7ecd9, #3b3122);
+  --yk-danger: light-dark(#a1353b, #f0a1a7);
+  --yk-danger-soft: light-dark(#f9e8e9, #412a2d);
+  --yk-info: light-dark(#355e82, #a3c5e5);
+  --yk-info-soft: light-dark(#e6eef6, #263746);
+  --yk-overlay: light-dark(#22252166, #090b0cb3);
+}
+[data-theme='light'] { color-scheme: light; }
+[data-theme='dark'] { color-scheme: dark; }
+
+@theme inline {
+  --color-canvas: var(--yk-canvas);
+  --color-surface: var(--yk-surface);
+  --color-subtle: var(--yk-subtle);
+  --color-ink: var(--yk-ink);
+  --color-muted: var(--yk-muted);
+  --color-line: var(--yk-line);
+  --color-control: var(--yk-control);
+  --color-accent: var(--yk-accent);
+  --color-accent-hover: var(--yk-accent-hover);
+  --color-accent-ink: var(--yk-accent-ink);
+  --color-success: var(--yk-success);
+  --color-success-soft: var(--yk-success-soft);
+  --color-warning: var(--yk-warning);
+  --color-warning-soft: var(--yk-warning-soft);
+  --color-danger: var(--yk-danger);
+  --color-danger-soft: var(--yk-danger-soft);
+  --color-info: var(--yk-info);
+  --color-info-soft: var(--yk-info-soft);
+  --color-overlay: var(--yk-overlay);
+  --shadow-paper: 3px 3px 0 var(--yk-ink);
+  --shadow-dialog: 4px 4px 0 color-mix(in srgb, var(--yk-ink) 35%, transparent);
+}
+@theme {
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-display: 'IBM Plex Mono', ui-monospace, monospace;
+  --spacing: 0.25rem;
+  --radius-control: 0;
+  --radius-panel: 0;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.5;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.5;
+  --text-section: 1.125rem;
+  --text-section--line-height: 1.4;
+  --text-page: 2rem;
+  --text-page--line-height: 1.2;
+  --text-display: 3rem;
+  --text-display--line-height: 1.1;
+  --container-dialog: 46rem;
+  --container-content: 80rem;
+  --ease-interface: cubic-bezier(0.2, 0, 0, 1);
+}
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));

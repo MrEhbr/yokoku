@@ -1,0 +1,21 @@
+# Rustfmt configuration
+# See: https://rust-lang.github.io/rustfmt/
+#
+# Only non-default options are set. `use_small_heuristics = "Max"` derives every
+# sub-width (chains, calls, arrays, struct literals) from `max_width`, so no
+# individual width is pinned.
+
+edition = "2024"
+style_edition = "2024"
+
+max_width = 120
+use_small_heuristics = "Max"
+
+newline_style = "Unix"
+match_block_trailing_comma = true
+use_field_init_shorthand = true
+
+# Nightly-only. Requires a nightly rustfmt; `just fmt` and the CI formatting
+# job both use one.
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
