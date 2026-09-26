@@ -41,6 +41,12 @@ pub trait FileSystem: Send + Sync {
 
     /// A file that is already gone counts as removed.
     async fn remove_file(&self, path: &Path) -> Result<(), FsError>;
+
+    /// Folders directly in `dir`, ordered by path; hidden ones are skipped.
+    async fn folders_in(&self, dir: &Path) -> Result<Vec<PathBuf>, FsError>;
+
+    /// Removes `dir` with everything in it; a folder that is already gone counts as removed.
+    async fn remove_folder(&self, dir: &Path) -> Result<(), FsError>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

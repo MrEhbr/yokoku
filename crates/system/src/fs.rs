@@ -71,6 +71,30 @@ impl FileSystem for LocalFileSystem {
             _ => Ok(()),
         }
     }
+
+    async fn folders_in(&self, dir: &Path) -> Result<Vec<PathBuf>, FsError> {
+        let dir = dir.to_owned();
+        blocking(move || {
+            let mut folders = Vec::new();
+            for entry in fs::read_dir(&dir).map_err(at(&dir))? {
+                let entry = entry.map_err(at(&dir))?;
+                let hidden = entry.file_name().to_string_lossy().starts_with('.');
+                if !hidden && entry.file_type().map_err(at(&entry.path()))?.is_dir() {
+                    folders.push(entry.path());
+                }
+            }
+            folders.sort();
+            Ok(folders)
+        })
+        .await
+    }
+
+    async fn remove_folder(&self, dir: &Path) -> Result<(), FsError> {
+        match tokio::fs::remove_dir_all(dir).await {
+            Err(source) if source.kind() != io::ErrorKind::NotFound => Err(FsError { path: dir.to_owned(), source }),
+            _ => Ok(()),
+        }
+    }
 }
 
 async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, FsError> + Send + 'static) -> Result<T, FsError> {
