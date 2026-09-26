@@ -40,19 +40,25 @@ impl Default for ServeConfig {
     }
 }
 
+impl ServeConfig {
+    pub fn schedules(&self) -> Result<Schedules> {
+        Ok(Schedules {
+            sync_downloads: schedule(&self.sync_downloads)?,
+            execute_imports: schedule(&self.execute_imports)?,
+            cleanup_recycle: schedule(&self.cleanup_recycle)?,
+            rescan_media_server: schedule(&self.rescan_media_server)?,
+            refresh_metadata: schedule(&self.refresh_metadata)?,
+            scan_library: schedule(&self.scan_library)?,
+        })
+    }
+}
+
 #[derive(Parser)]
 pub struct Args {}
 
 /// Delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(config: &Config, _args: Args) -> Result<()> {
-    let schedules = Schedules {
-        sync_downloads: schedule(&config.serve.sync_downloads)?,
-        execute_imports: schedule(&config.serve.execute_imports)?,
-        cleanup_recycle: schedule(&config.serve.cleanup_recycle)?,
-        rescan_media_server: schedule(&config.serve.rescan_media_server)?,
-        refresh_metadata: schedule(&config.serve.refresh_metadata)?,
-        scan_library: schedule(&config.serve.scan_library)?,
-    };
+    let schedules = config.serve.schedules()?;
     let app = App::open(config).await?;
     let recovered = app.importer.recover().await?;
     if recovered > 0 {
