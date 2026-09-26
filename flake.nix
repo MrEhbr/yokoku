@@ -65,6 +65,7 @@
             zig_0_13
             curl
             prek
+            transmission_4
           ];
 
           env = {
