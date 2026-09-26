@@ -1,8 +1,16 @@
-use std::{path::Path, sync::LazyLock};
+use std::{borrow::Cow, path::Path, sync::LazyLock};
 
 use hunch::{HunchResult, Property, hunch};
 use jiff::civil::Date;
 use regex::Regex;
+
+/// A file stem that starts with a bare episode number: `05`, `03 - Pilot`, `03.Grilled`.
+static BARE_NUMBER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[0-9]{1,3}(?:[\s._-]+[^\s._\-0-9(].*)?$").expect("valid regex"));
+
+/// Jellyfin naming: `Title (Year)`, optionally followed by ` - ` and the rest of the name.
+static TITLE_WITH_YEAR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(?P<title>.+?) \((?P<year>[0-9]{4})\)(?: - .+)?$").expect("valid regex"));
 
 /// What a file's name and folders say about it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,133 +29,72 @@ pub enum Numbers {
         season: u16,
         episodes: Vec<u16>,
     },
-    /// Episode numbers without a season in the file name: absolute numbers, or episodes of the folder's season.
+    /// Episode numbers without a season in the name or folders: absolute numbers, or episodes of an unknown season.
     Seasonless {
         episodes: Vec<u16>,
-        folder_season: Option<u16>,
     },
     Date(Date),
 }
 
-/// A stem that is only an episode number, optionally followed by a title: `05`, `03 - Pilot`.
-static BARE_NUMBER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(?P<episode>[0-9]{1,3})(?:[\s._-]+(?P<title>.+))?$").expect("valid regex"));
+impl ParsedName {
+    /// Parses a file path relative to its download or root folder.
+    pub fn parse(path: &Path) -> Self {
+        let result = hunch(&Self::hunch_input(path));
+        let date = result.date().and_then(|date| date.parse::<Date>().ok());
+        let (title, year) = match Self::title_with_year(path) {
+            Some((title, year)) => (Some(title), year),
+            None if date.is_some() => (result.title().map(str::to_owned), None),
+            None => (result.title().map(str::to_owned), result.year().and_then(|year| year.try_into().ok())),
+        };
 
-static FOLDER_SEASON: LazyLock<[Regex; 2]> = LazyLock::new(|| {
-    [r"(?i)(?:^|[^\p{L}\p{N}])s(?P<season>[0-9]{1,2})(?:[^\p{L}\p{N}]|$)", r"(?i)season[\s._-]*(?P<season>[0-9]{1,3})"]
-        .map(|pattern| Regex::new(pattern).expect("valid regex"))
-});
+        Self {
+            title,
+            year,
+            numbers: date.map_or_else(|| Numbers::from(&result), Numbers::Date),
+            episode_title: result.episode_title().map(str::to_owned),
+        }
+    }
 
-static SPECIALS_FOLDER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^specials?$").expect("valid regex"));
-
-/// A folder named only by its season: `S02`, `Season 2`, `Specials`.
-static SEASON_ONLY_FOLDER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^(?:s[0-9]{1,2}|season[\s._-]*[0-9]{1,3}|specials?)$").expect("valid regex"));
-
-/// Jellyfin naming: `Title (Year)`, optionally followed by ` - ` and the rest of the name.
-static TITLE_WITH_YEAR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(?P<title>.+?) \((?P<year>[0-9]{4})\)(?: - (?P<rest>.+))?$").expect("valid regex"));
-
-/// Parses a file path relative to its download or root folder.
-pub fn parse(path: &Path) -> ParsedName {
-    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    let extension = path.extension().map(|extension| extension.to_string_lossy());
-    let folders: Vec<String> = path
-        .parent()
-        .into_iter()
-        .flat_map(Path::components)
-        .map(|component| component.as_os_str().to_string_lossy().into_owned())
-        .rev()
-        .collect();
-    let folder_season = folders.iter().find_map(|folder| folder_season(folder));
-    let folder_title = || {
-        folders.iter().filter(|folder| !SEASON_ONLY_FOLDER.is_match(folder.trim())).find_map(|folder| {
-            match TITLE_WITH_YEAR.captures(folder) {
-                Some(named) if named.name("rest").is_none() => Some(named["title"].to_owned()),
-                _ => hunch(folder).title().map(str::to_owned),
-            }
+    /// `Title (Year)` from the file stem, or from the folders above a bare-number file.
+    fn title_with_year(path: &Path) -> Option<(String, Option<i16>)> {
+        let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+        let folders = path.parent().into_iter().flat_map(Path::iter).rev().map(|folder| folder.to_string_lossy());
+        let folders = folders.filter(|_| BARE_NUMBER.is_match(&stem));
+        std::iter::once(stem.clone()).chain(folders).find_map(|name| {
+            let named = TITLE_WITH_YEAR.captures(&name)?;
+            Some((named["title"].to_owned(), named["year"].parse().ok()))
         })
-    };
-
-    if let Some(named) = TITLE_WITH_YEAR.captures(&stem) {
-        let parsed = match named.name("rest") {
-            Some(rest) => parse_name(rest.as_str(), extension.as_deref(), folder_season, || None),
-            None => ParsedName { title: None, year: None, numbers: Numbers::None, episode_title: None },
-        };
-        return ParsedName { title: Some(named["title"].to_owned()), year: named["year"].parse().ok(), ..parsed };
-    }
-    parse_name(&stem, extension.as_deref(), folder_season, folder_title)
-}
-
-/// Parses a file stem; `folder_title` supplies the title when the stem has none.
-fn parse_name(
-    stem: &str,
-    extension: Option<&str>,
-    folder_season: Option<u16>,
-    folder_title: impl Fn() -> Option<String>,
-) -> ParsedName {
-    if let Some(captures) = BARE_NUMBER.captures(stem)
-        && let Ok(episode) = captures["episode"].parse()
-    {
-        return ParsedName {
-            title: folder_title(),
-            year: None,
-            numbers: Numbers::Seasonless { episodes: vec![episode], folder_season },
-            episode_title: captures.name("title").map(|title| words(title.as_str())),
-        };
     }
 
-    let file_name = match extension {
-        Some(extension) => format!("{stem}.{extension}"),
-        None => stem.to_owned(),
-    };
-    let result = hunch(&file_name);
-    let date = result.date().and_then(|date| date.parse::<Date>().ok());
-    let numbers = match date {
-        Some(date) => Numbers::Date(date),
-        None => numbers(&result, folder_season),
-    };
-
-    ParsedName {
-        title: result.title().map(str::to_owned).or_else(folder_title),
-        year: if date.is_some() { None } else { result.year().and_then(|year| i16::try_from(year).ok()) },
-        numbers,
-        episode_title: result.episode_title().map(str::to_owned),
+    /// The path with `Specials` folders as season 0 and a bare leading episode number marked `E`.
+    fn hunch_input(path: &Path) -> String {
+        let folders = path.parent().into_iter().flat_map(Path::iter).map(|folder| match folder.to_string_lossy() {
+            folder if ["special", "specials"].iter().any(|name| folder.eq_ignore_ascii_case(name)) => {
+                Cow::Borrowed("Season 0")
+            },
+            folder => folder,
+        });
+        let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+        let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+        let file_name = if BARE_NUMBER.is_match(&stem) { Cow::Owned(format!("E{file_name}")) } else { file_name };
+        folders.chain([file_name]).collect::<Vec<_>>().join("/")
     }
 }
 
-fn numbers(result: &HunchResult, folder_season: Option<u16>) -> Numbers {
-    let mut episodes: Vec<u16> =
-        result.all(Property::Episode).iter().filter_map(|episode| episode.parse().ok()).collect();
-    if episodes.is_empty() {
-        episodes = result.all(Property::AbsoluteEpisode).iter().filter_map(|episode| episode.parse().ok()).collect();
-    }
-    episodes.sort_unstable();
-    episodes.dedup();
+impl From<&HunchResult> for Numbers {
+    fn from(result: &HunchResult) -> Self {
+        let numbers = |property| -> Vec<u16> { result.all(property).iter().filter_map(|n| n.parse().ok()).collect() };
+        let mut episodes = numbers(Property::Episode);
+        if episodes.is_empty() {
+            episodes = numbers(Property::AbsoluteEpisode);
+        }
+        episodes.sort_unstable();
+        episodes.dedup();
 
-    if episodes.is_empty() {
-        return Numbers::None;
+        match result.season().and_then(|season| u16::try_from(season).ok()) {
+            _ if episodes.is_empty() => Self::None,
+            Some(season) => Self::Episodes { season, episodes },
+            None => Self::Seasonless { episodes },
+        }
     }
-    match result.season().and_then(|season| u16::try_from(season).ok()) {
-        Some(season) => Numbers::Episodes { season, episodes },
-        None => Numbers::Seasonless { episodes, folder_season },
-    }
-}
-
-fn folder_season(folder: &str) -> Option<u16> {
-    if SPECIALS_FOLDER.is_match(folder.trim()) {
-        return Some(0);
-    }
-    FOLDER_SEASON.iter().find_map(|pattern| pattern.captures(folder)?["season"].parse().ok())
-}
-
-/// Dots and underscores become spaces; separators at the ends are trimmed.
-fn words(text: &str) -> String {
-    let spaced = text.replace(['.', '_'], " ");
-    spaced
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .trim_matches(|c: char| c == '-' || c.is_whitespace())
-        .to_owned()
 }

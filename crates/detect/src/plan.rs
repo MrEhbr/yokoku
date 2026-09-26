@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use yokoku_domain::{Confidence, Episode, EpisodeRef, EpisodeSpan, FileTarget, Movie, Numbering, Series};
 
 use crate::{
-    DownloadFile, Numbers, ParsedName, Video, classify, parse,
+    DownloadFile, Numbers, ParsedName, Video, classify,
     titles::{TitleMatch, best_match, normalize},
 };
 
@@ -81,7 +81,7 @@ pub fn plan(files: &[DownloadFile], target: Target<'_>) -> ImportPlan {
 }
 
 fn series_row<'a>(video: Video, choose_series: impl Fn(&ParsedName) -> Option<(&'a Series, bool)>) -> PlanRow {
-    let parsed = parse(&video.path);
+    let parsed = ParsedName::parse(&video.path);
     let resolved = choose_series(&parsed).and_then(|(series, series_certain)| {
         let (span, episodes_certain) = resolve_episodes(series, &parsed)?;
         Some((series, span, series_certain && episodes_certain))
@@ -119,7 +119,7 @@ fn movie_rows<'a>(
         }
     }
     let video = main_video.expect("the largest video is in the list");
-    let parsed = parse(&video.path);
+    let parsed = ParsedName::parse(&video.path);
 
     let row = match choose_movie(&parsed) {
         Some((movie, certain)) => PlanRow {
@@ -205,10 +205,9 @@ fn choose<'a, T: Titled>(parsed: &ParsedName, items: &'a [T]) -> Option<(&'a T, 
 fn resolve_episodes(series: &Series, parsed: &ParsedName) -> Option<(EpisodeSpan, bool)> {
     match &parsed.numbers {
         Numbers::Episodes { season, episodes } => Some((existing_span(series, *season, episodes)?, true)),
-        Numbers::Seasonless { episodes, folder_season } => match (series.numbering, folder_season) {
-            (Numbering::Absolute, _) => Some((absolute_span(series, episodes)?, true)),
-            (Numbering::Standard, Some(season)) => Some((existing_span(series, *season, episodes)?, true)),
-            (Numbering::Standard, None) => {
+        Numbers::Seasonless { episodes } => match series.numbering {
+            Numbering::Absolute => Some((absolute_span(series, episodes)?, true)),
+            Numbering::Standard => {
                 let regular: Vec<u16> =
                     series.seasons.iter().map(|season| season.number).filter(|&number| number != 0).collect();
                 let guess = match regular.as_slice() {
