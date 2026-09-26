@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod app;
 mod args;
 mod commands;
 mod config;
@@ -10,13 +11,14 @@ use clap::Parser;
 
 use crate::args::Args;
 
-fn run() -> Result<()> {
+async fn run() -> Result<()> {
     let args = Args::parse();
-    args::route(args)
+    args::route(args).await
 }
 
-fn main() {
-    if let Err(error) = run() {
+#[tokio::main]
+async fn main() {
+    if let Err(error) = run().await {
         eprintln!("Error: {:?}", error);
         std::process::exit(1);
     }

@@ -7,3 +7,8 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+yokoku-library.workspace = true
+
+jiff.workspace = true

@@ -4,7 +4,11 @@ use anyhow::Result;
 use config::{Environment, File, FileFormat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{commands::greet::GreetConfig, logging::LogConfig};
+use crate::{
+    app::{ClockConfig, DatabaseConfig},
+    commands::{greet::GreetConfig, list::ListConfig},
+    logging::LogConfig,
+};
 
 const ENV_PREFIX: &str = "APP";
 
@@ -13,7 +17,13 @@ pub struct Config {
     #[serde(default)]
     pub log: LogConfig,
     #[serde(default)]
+    pub database: DatabaseConfig,
+    #[serde(default)]
+    pub clock: ClockConfig,
+    #[serde(default)]
     pub greet: GreetConfig,
+    #[serde(default)]
+    pub list: ListConfig,
 }
 
 /// Load configuration with precedence: env vars (APP__*) > config file > defaults.

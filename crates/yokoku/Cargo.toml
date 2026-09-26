@@ -16,17 +16,26 @@ default = []
 tokio-console = ["dep:console-subscriber"]
 
 [dependencies]
+yokoku-db.workspace = true
+yokoku-domain.workspace = true
+yokoku-library.workspace = true
+yokoku-system.workspace = true
+
 anyhow.workspace = true
 clap.workspace = true
 clap-verbosity-flag.workspace = true
 config.workspace = true
 console-subscriber = { workspace = true, optional = true }
+jiff.workspace = true
 serde.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+yokoku-events.workspace = true
+
 assert_cmd.workspace = true
 criterion.workspace = true
 predicates.workspace = true

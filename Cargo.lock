@@ -3012,12 +3012,19 @@ dependencies = [
  "config",
  "console-subscriber",
  "criterion",
+ "jiff",
  "predicates",
  "serde",
  "tempfile",
+ "tokio",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "yokoku-db",
+ "yokoku-domain",
+ "yokoku-events",
+ "yokoku-library",
+ "yokoku-system",
 ]
 
 [[package]]
@@ -3051,6 +3058,7 @@ dependencies = [
  "proptest",
  "rstest",
  "serde",
+ "thiserror",
  "uuid",
 ]
 
@@ -3115,6 +3123,10 @@ version = "0.0.1"
 [[package]]
 name = "yokoku-system"
 version = "0.0.1"
+dependencies = [
+ "jiff",
+ "yokoku-library",
+]
 
 [[package]]
 name = "yokoku-transmission"

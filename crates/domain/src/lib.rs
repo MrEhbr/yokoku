@@ -6,7 +6,7 @@ mod id;
 mod movie;
 mod series;
 
-pub use external::ExternalId;
+pub use external::{ExternalId, ParseExternalIdError};
 pub use file_status::FileStatus;
 pub use id::{EpisodeId, MovieId, SeriesId};
 pub use movie::{Movie, MovieMetadata, MovieStatus, Releases};

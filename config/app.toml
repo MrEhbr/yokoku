@@ -2,6 +2,15 @@
 format = "console"
 output = "stderr"
 
+[database]
+path = "yokoku.db"
+
+[clock]
+# timezone = "Europe/Berlin"
+
+[list]
+sort = "title"
+
 [greet]
 greeting = "Hello"
 count = 1

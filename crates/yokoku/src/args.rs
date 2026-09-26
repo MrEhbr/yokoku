@@ -23,6 +23,16 @@ pub struct Args {
 pub enum Command {
     /// Greet someone
     Greet(commands::greet::Args),
+    /// List library items
+    List(commands::list::Args),
+    /// Show a series or movie in detail
+    Show(commands::show::Args),
+    /// Mark a series, season, episode or movie monitored or not
+    Monitor(commands::monitor::Args),
+    /// Set a series' episode numbering
+    Numbering(commands::numbering::Args),
+    /// Remove a series or movie from the library
+    Remove(commands::remove::Args),
 }
 
 impl Args {
@@ -39,7 +49,7 @@ impl Args {
     }
 }
 
-pub fn route(args: Args) -> Result<()> {
+pub async fn route(args: Args) -> Result<()> {
     use Command::*;
 
     let config = args.resolve_config()?;
@@ -47,5 +57,10 @@ pub fn route(args: Args) -> Result<()> {
 
     match args.command {
         Greet(cmd_args) => commands::greet::run(&config, cmd_args),
+        List(cmd_args) => commands::list::run(&config, cmd_args).await,
+        Show(cmd_args) => commands::show::run(&config, cmd_args).await,
+        Monitor(cmd_args) => commands::monitor::run(&config, cmd_args).await,
+        Numbering(cmd_args) => commands::numbering::run(&config, cmd_args).await,
+        Remove(cmd_args) => commands::remove::run(&config, cmd_args).await,
     }
 }
