@@ -107,7 +107,8 @@ Value types and rules shared by all modules. Examples:
 - Air dates are dates only (`jiff::civil::Date`). TMDB provides no time; a nullable time column is added when a source provides one.
 - `MonitorPreset { All, Future, LatestSeason, None }` (FR-2.2).
 - `SeriesStatus { Continuing, OnBreak, Ended }`, `MovieStatus { Announced, InCinemas, Released }`, `FileStatus { Downloaded, Missing, Upcoming }`: derived from dates, files and today, never stored.
-- Later: `Confidence { Certain, Guess, Unknown }` (FR-4.10), `ImportMode { HardLink, Copy, Move }` (FR-3.6).
+- `Confidence { Unknown, Guess, Certain }` (FR-4.10) and `SubtitleTags` (language, SDH, forced), shared by `detect` and `naming`.
+- Later: `ImportMode { HardLink, Copy, Move }` (FR-3.6).
 
 ### Rules
 
@@ -215,7 +216,14 @@ scan: unknown file ┘                                                  │
                          └──────▶ Failed   (ImportFailed) ── retry ──▶ Approved
 ```
 
-- **`detect::plan`** is a pure function. It classifies files (video, subtitle, junk), parses names, matches them against the real episode list, converts absolute numbers, assigns confidence and finds conflicts (FR-4.1 – 4.13).
+- **`detect::plan`** is a pure function (FR-4.1 – 4.13):
+  - **Classify:** videos; subtitles attached by name prefix, by a folder named after the video, or to the only video; samples, extras and other files ignored.
+  - **Parse:** `hunch` reads scene names; own rules add Russian `сезон`/`серия`, bare-number files, season from folders (`S02`, `Season 2`, `Specials`) and a date taking priority over years. A corpus of real-style names is the test table.
+  - **Series:** a linked series is trusted. Otherwise titles are compared without accents or punctuation against title and original title; a year more than one off rules an item out; a tie means no match.
+  - **Episodes:** `S01E02` must exist in the series; seasonless numbers use absolute numbering or the folder season; a date matches the one episode airing that day; a name without numbers matches a unique episode title.
+  - **Confidence:** `Certain` only when both the item and the episode were determined firmly; otherwise `Guess`; nothing found is `Unknown`.
+  - **Conflicts:** two rows for the same episode or movie, or a target that already has a file.
+  - **Movies:** the largest video is the movie; other videos are ignored as extras. An unlinked download is tried as a series first, then as a movie.
 - **`naming`** renders the target path, relative to the root folder, from patterns validated when settings are saved (FR-5):
   - One pattern per path component with tokens `{title}`, `{year}`, `{season}`, `{episodes}`, `{episode_title}`. A `[...]` group is dropped when a token inside has no value.
   - Defaults follow Jellyfin: `Title (Year)/Season 01/Title (Year) - S01E01 - Episode Title.ext` and `Title (Year)/Title (Year).ext`.

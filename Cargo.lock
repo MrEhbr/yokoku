@@ -3076,6 +3076,8 @@ dependencies = [
  "proptest",
  "regex",
  "rstest",
+ "strsim",
+ "unicode-normalization",
  "yokoku-domain",
 ]
 
