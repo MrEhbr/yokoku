@@ -7,3 +7,12 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+hunch.workspace = true
+jiff.workspace = true
+regex.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+rstest.workspace = true
