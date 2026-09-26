@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, fmt, str::FromStr};
 
 use jiff::{Timestamp, civil::Date};
 use serde::{Deserialize, Serialize};
@@ -87,6 +87,29 @@ impl EpisodeSpan {
     pub fn refs(&self) -> impl Iterator<Item = EpisodeRef> {
         let season = self.season;
         (self.first..=self.last).map(move |episode| EpisodeRef { season, episode })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("expected episodes like S01E02 or S01E01-E03, got {0:?}")]
+pub struct ParseEpisodeSpanError(String);
+
+impl FromStr for EpisodeSpan {
+    type Err = ParseEpisodeSpanError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let invalid = || ParseEpisodeSpanError(value.to_owned());
+        let number = |digits: &str| -> Result<u16, ParseEpisodeSpanError> {
+            if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(invalid());
+            }
+            digits.parse().map_err(|_| invalid())
+        };
+
+        let upper = value.to_ascii_uppercase();
+        let (season, episodes) = upper.strip_prefix('S').and_then(|rest| rest.split_once('E')).ok_or_else(invalid)?;
+        let (first, last) = episodes.split_once("-E").unwrap_or((episodes, episodes));
+        Self::new(number(season)?, number(first)?, number(last)?).ok_or_else(invalid)
     }
 }
 

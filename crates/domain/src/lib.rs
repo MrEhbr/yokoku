@@ -18,7 +18,7 @@ pub use file_target::FileTarget;
 pub use id::{EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
 pub use movie::{Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
 pub use series::{
-    Episode, EpisodeMetadata, EpisodeRef, EpisodeSpan, MonitorPreset, Numbering, Season, SeasonMetadata, Series,
-    SeriesMetadata, SeriesStatus, SourceStatus,
+    Episode, EpisodeMetadata, EpisodeRef, EpisodeSpan, MonitorPreset, Numbering, ParseEpisodeSpanError, Season,
+    SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus,
 };
 pub use subtitle::SubtitleTags;
