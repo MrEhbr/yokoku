@@ -6,7 +6,7 @@ use std::{
 };
 
 use tracing::warn;
-use yokoku_detect::{DownloadFile, classify};
+use yokoku_detect::{Classified, DownloadFile};
 use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
 use yokoku_events::{DeleteReason, Event};
 use yokoku_naming::{Naming, subtitle_path};
@@ -201,7 +201,7 @@ impl Importer {
         } else {
             self.fs.files_in(source.parent().unwrap_or(source)).await?
         };
-        Ok(classify(&files)
+        Ok(Classified::from_files(&files)
             .videos
             .into_iter()
             .map(|video| {

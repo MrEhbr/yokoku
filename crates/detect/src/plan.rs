@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use yokoku_domain::{Confidence, Episode, EpisodeRef, EpisodeSpan, FileTarget, Movie, Numbering, Series};
 
 use crate::{
-    DownloadFile, Numbers, ParsedName, Video, classify,
+    Classified, DownloadFile, Numbers, ParsedName, Video,
     titles::{TitleMatch, best_match, normalize},
 };
 
@@ -53,7 +53,7 @@ impl ImportPlan {
 
 /// Matches every video in a download to the library (FR-4).
 pub fn plan(files: &[DownloadFile], target: Target<'_>) -> ImportPlan {
-    let classified = classify(files);
+    let classified = Classified::from_files(files);
     let mut ignored = classified.ignored;
     let videos = classified.videos;
 

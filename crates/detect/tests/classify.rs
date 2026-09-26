@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use proptest::prelude::*;
 use rstest::rstest;
-use yokoku_detect::{Classified, DownloadFile, classify};
+use yokoku_detect::{Classified, DownloadFile};
 use yokoku_domain::SubtitleTags;
 
 fn files(paths: &[&str]) -> Vec<DownloadFile> {
@@ -26,7 +26,7 @@ fn subtitles_of<'a>(classified: &'a Classified, video: &str) -> Vec<&'a str> {
 
 #[test]
 fn keeps_videos_and_ignores_junk() {
-    let classified = classify(&files(&[
+    let classified = Classified::from_files(&files(&[
         "Show.S01/Show.S01E02.mkv",
         "Show.S01/Show.S01E01.MP4",
         "Show.S01/Show.S01E01.sample.mkv",
@@ -55,14 +55,14 @@ fn keeps_videos_and_ignores_junk() {
 
 #[test]
 fn a_title_containing_sample_is_not_a_sample() {
-    let classified = classify(&files(&["Free.Samples.2012.1080p.mkv"]));
+    let classified = Classified::from_files(&files(&["Free.Samples.2012.1080p.mkv"]));
 
     assert_eq!(videos(&classified), ["Free.Samples.2012.1080p.mkv"]);
 }
 
 #[test]
 fn attaches_subtitles_named_after_their_video() {
-    let classified = classify(&files(&[
+    let classified = Classified::from_files(&files(&[
         "Show.S01E01.mkv",
         "Show.S01E02.mkv",
         "Show.S01E01.en.srt",
@@ -77,7 +77,7 @@ fn attaches_subtitles_named_after_their_video() {
 
 #[test]
 fn attaches_subtitles_in_folders_named_after_their_video() {
-    let classified = classify(&files(&[
+    let classified = Classified::from_files(&files(&[
         "Show.S01/Show.S01E01.mkv",
         "Show.S01/Show.S01E02.mkv",
         "Show.S01/Subs/Show.S01E02/2_English.srt",
@@ -93,21 +93,22 @@ fn attaches_subtitles_in_folders_named_after_their_video() {
 
 #[test]
 fn attaches_any_subtitle_to_a_single_video() {
-    let classified = classify(&files(&["Movie.2021/Movie.2021.1080p.mkv", "Movie.2021/Subs/English.srt"]));
+    let classified =
+        Classified::from_files(&files(&["Movie.2021/Movie.2021.1080p.mkv", "Movie.2021/Subs/English.srt"]));
 
     assert_eq!(subtitles_of(&classified, "Movie.2021/Movie.2021.1080p.mkv"), ["Movie.2021/Subs/English.srt"]);
 }
 
 #[test]
 fn ignores_subtitles_that_match_no_video() {
-    let classified = classify(&files(&["Show.S01E01.mkv", "Show.S01E02.mkv", "Subs/English.srt"]));
+    let classified = Classified::from_files(&files(&["Show.S01E01.mkv", "Show.S01E02.mkv", "Subs/English.srt"]));
 
     assert_eq!(ignored(&classified), ["Subs/English.srt"]);
 }
 
 #[test]
 fn ignores_subtitles_inside_samples() {
-    let classified = classify(&files(&["Movie.mkv", "Sample/Movie.en.srt"]));
+    let classified = Classified::from_files(&files(&["Movie.mkv", "Sample/Movie.en.srt"]));
 
     assert_eq!(ignored(&classified), ["Sample/Movie.en.srt"]);
 }
@@ -129,7 +130,7 @@ fn reads_subtitle_language_and_flags(
     #[case] sdh: bool,
     #[case] forced: bool,
 ) {
-    let classified = classify(&files(&["Movie.mkv", subtitle]));
+    let classified = Classified::from_files(&files(&["Movie.mkv", subtitle]));
 
     let tags = &classified.videos[0].subtitles[0].tags;
     assert_eq!(tags, &SubtitleTags { language: language.map(Into::into), sdh, forced });
@@ -157,7 +158,7 @@ proptest! {
     fn every_file_lands_in_exactly_one_place(paths in prop::collection::btree_set(any_path(), 0..12)) {
         let input: Vec<_> = paths.iter().map(|path| DownloadFile { path: PathBuf::from(path), size: 1 }).collect();
 
-        let classified = classify(&input);
+        let classified = Classified::from_files(&input);
 
         let mut output: Vec<PathBuf> = classified.ignored.clone();
         for video in &classified.videos {

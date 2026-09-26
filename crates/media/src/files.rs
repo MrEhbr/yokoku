@@ -1,6 +1,6 @@
 use std::{io, path::Path};
 
-use yokoku_detect::{DownloadFile, Subtitle, classify};
+use yokoku_detect::{Classified, DownloadFile, Subtitle};
 
 use crate::ports::{FileSystem, FsError};
 
@@ -17,7 +17,7 @@ pub(crate) async fn sidecar_subtitles(fs: &dyn FileSystem, video: &Path) -> Resu
         })
         .collect();
 
-    let owner = classify(&candidates).videos.into_iter().find(|candidate| candidate.path == video);
+    let owner = Classified::from_files(&candidates).videos.into_iter().find(|candidate| candidate.path == video);
     Ok(owner.map(|video| video.subtitles).unwrap_or_default())
 }
 
