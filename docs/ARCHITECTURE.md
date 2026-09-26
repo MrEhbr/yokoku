@@ -185,7 +185,7 @@ Owns library files, root folders, naming settings, imports and the recycle folde
   - Root folders: add (absolute, existing, not overlapping another root), list, remove.
   - Scan root folders (FR-8.2, 8.3, 8.7): each entry of a root is detected on its own against series (series root) or movies (movie root). New files that are `Certain`, conflict-free and hold nothing already linked are linked in place; the rest of the entry becomes one import in review. Linked files missing from disk are forgotten with `FileDeleted { reason: External }`. A root that cannot be read fails the scan, so an unmounted disk never looks empty.
   - Rename with preview (FR-5.7): `Renamer::preview(scope)` lists the moves naming asks for, for the whole library, a series or a movie; `apply` makes them file by file. Subtitles beside a video (named after it) move with it and get normalised language tags. Files outside every root, whose item is gone, or that would share a path are skipped; a file already at the new path is never replaced, and that move is reported as failed. Folders left empty are removed up to the root.
-  - Delete or recycle files; clean up the recycle folder.
+  - Delete or recycle files (FR-8.4, 8.5): `Deleter::delete(target)` removes the files holding an episode span or movie, with their subtitles and folders left empty, committing each file with `FileDeleted { reason: User }`. With `[recycle] folder` set they move to `<recycle>/<day>/<root folder name>/<path>` (`recycled: true`; under the file id when that path is taken that day), and `clean_recycle` removes day folders older than `keep_days` (daily `CleanupRecycle` job); the folder name is the only record needed. Removing a series or movie with `delete_files` does the same for all its files (`ItemRemoved`).
   - Retry a failed import.
 - **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `Clock`; later `MediaProbe`, `ImportQueue`.
 - **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`, `FileRenamed`; later `ImportFailed`.
@@ -311,7 +311,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | `RefreshItem { item }` | queue | `library::refresh` |
 | `ExecuteImports` | cron, every 5 s, one tick at a time | `Importer::run_pending` |
 | `ScanLibrary` | cron, daily; on demand | `media::scan` |
-| `CleanupRecycle` | cron, daily | `media::cleanup_recycle` |
+| `CleanupRecycle` | cron, daily at 04:00 | `Deleter::clean_recycle` |
 | `RescanMediaServer` | queue, debounced | `integrations::rescan` |
 
 Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and `serve` runs them with `Monitor::run_with_signal`. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.

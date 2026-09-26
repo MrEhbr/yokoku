@@ -1,5 +1,6 @@
 pub mod add;
 pub mod calendar;
+pub mod delete;
 pub mod download;
 pub mod greet;
 pub mod history;
@@ -8,6 +9,7 @@ pub mod list;
 pub mod missing;
 pub mod monitor;
 pub mod numbering;
+pub mod recycle;
 pub mod refresh;
 pub mod remove;
 pub mod rename;

@@ -17,11 +17,17 @@ pub struct ServeConfig {
     pub sync_downloads: String,
     /// Cron schedule with seconds for carrying out approved imports.
     pub execute_imports: String,
+    /// Cron schedule with seconds for removing old recycled files.
+    pub cleanup_recycle: String,
 }
 
 impl Default for ServeConfig {
     fn default() -> Self {
-        Self { sync_downloads: "*/30 * * * * *".into(), execute_imports: "*/5 * * * * *".into() }
+        Self {
+            sync_downloads: "*/30 * * * * *".into(),
+            execute_imports: "*/5 * * * * *".into(),
+            cleanup_recycle: "0 0 4 * * *".into(),
+        }
     }
 }
 
@@ -33,6 +39,7 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
     let schedules = Schedules {
         sync_downloads: schedule(&config.serve.sync_downloads)?,
         execute_imports: schedule(&config.serve.execute_imports)?,
+        cleanup_recycle: schedule(&config.serve.cleanup_recycle)?,
     };
     let app = App::open(config).await?;
     let recovered = app.importer.recover().await?;
@@ -42,8 +49,10 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
 
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);
-    let monitor =
-        yokoku_jobs::monitor(Jobs { downloads: app.downloads.clone(), importer: app.importer.clone() }, schedules);
+    let monitor = yokoku_jobs::monitor(
+        Jobs { downloads: app.downloads.clone(), importer: app.importer.clone(), deleter: app.deleter.clone() },
+        schedules,
+    );
     info!("serving");
     let result = monitor.run_with_signal(stop_signal()).await;
 

@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use crate::{
     app::{ClockConfig, DatabaseConfig, MetadataConfig, TransmissionConfig},
     commands::{
-        add::AddConfig, greet::GreetConfig, import::ImportConfig, list::ListConfig, serve::ServeConfig,
-        upcoming::UpcomingConfig,
+        add::AddConfig, greet::GreetConfig, import::ImportConfig, list::ListConfig, recycle::RecycleConfig,
+        serve::ServeConfig, upcoming::UpcomingConfig,
     },
     logging::LogConfig,
 };
@@ -39,6 +39,8 @@ pub struct Config {
     pub serve: ServeConfig,
     #[serde(default)]
     pub import: ImportConfig,
+    #[serde(default)]
+    pub recycle: RecycleConfig,
 }
 
 /// Load configuration with precedence: env vars (APP__*) > config file > defaults.

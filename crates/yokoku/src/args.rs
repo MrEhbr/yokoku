@@ -59,6 +59,10 @@ pub enum Command {
     Import(commands::import::Args),
     /// Show what happened, newest first
     History(commands::history::Args),
+    /// Delete the file of an episode or movie, or move it to the recycle folder
+    Delete(commands::delete::Args),
+    /// Manage the recycle folder
+    Recycle(commands::recycle::Args),
     /// Deliver events and run scheduled jobs until stopped
     Serve(commands::serve::Args),
 }
@@ -103,6 +107,8 @@ pub async fn route(args: Args) -> Result<()> {
         Download(cmd_args) => commands::download::run(&config, cmd_args).await,
         Import(cmd_args) => commands::import::run(&config, cmd_args).await,
         History(cmd_args) => commands::history::run(&config, cmd_args).await,
+        Delete(cmd_args) => commands::delete::run(&config, cmd_args).await,
+        Recycle(cmd_args) => commands::recycle::run(&config, cmd_args).await,
         Serve(cmd_args) => commands::serve::run(&config, cmd_args).await,
     }
 }

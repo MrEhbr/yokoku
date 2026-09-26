@@ -31,10 +31,16 @@ days = 14
 [serve]
 sync_downloads = "*/30 * * * * *"
 execute_imports = "*/5 * * * * *"
+cleanup_recycle = "0 0 4 * * *"
 
 # How finished downloads reach the library: hardlink, copy or move.
 [import]
 mode = "hardlink"
+
+# Deleted files move here and are kept for keep_days; without a folder they are deleted.
+[recycle]
+# folder = "/media/recycle"
+keep_days = 30
 
 [greet]
 greeting = "Hello"

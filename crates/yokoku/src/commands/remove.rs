@@ -24,6 +24,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         ItemId::Series(id) => app.library.remove_series(id, args.delete_files).await?,
         ItemId::Movie(id) => app.library.remove_movie(id, args.delete_files).await?,
     }
+    app.deliver_events().await?;
 
     writeln!(out, "Removed {} {}", crate::commands::kind_label(args.item.kind.into()), args.item.source)?;
     Ok(())

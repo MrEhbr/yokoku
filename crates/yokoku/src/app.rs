@@ -10,7 +10,7 @@ use yokoku_domain::Clock;
 use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
 use yokoku_library::{Library, MetadataSync, Schedule};
-use yokoku_media::{Importer, Renamer, Review, RootFolders, Scanner, ports::FileSystem};
+use yokoku_media::{Deleter, Importer, Renamer, Review, RootFolders, Scanner, ports::FileSystem};
 use yokoku_metadata::TmdbClient;
 use yokoku_naming::Naming;
 use yokoku_system::{LocalFileSystem, SystemClock};
@@ -111,6 +111,7 @@ pub struct App {
     pub downloads: Arc<Downloads>,
     pub importer: Arc<Importer>,
     pub history: History,
+    pub deleter: Arc<Deleter>,
     sync: Option<MetadataSync>,
     db: Arc<Database>,
     subscribers: Vec<Arc<dyn Subscriber>>,
@@ -129,6 +130,7 @@ impl App {
         });
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
+        let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), clock.clone(), config.recycle.recycle()));
         let transmission = &config.transmission;
         let mut client = TransmissionClient::new(&transmission.url);
         if let Some(username) = &transmission.username {
@@ -152,7 +154,8 @@ impl App {
                 config.import.mode.into(),
             )),
             history: History::new(Arc::new(db.event_log())),
-            subscribers: subscriptions::subscribers(&db, &fs, &clock),
+            subscribers: subscriptions::subscribers(&db, &fs, &clock, &deleter),
+            deleter,
             sync,
             db,
         })
