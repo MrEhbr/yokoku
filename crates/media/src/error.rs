@@ -18,6 +18,10 @@ pub enum MediaError {
     OverlappingRoot { path: PathBuf, existing: PathBuf },
     #[error("{} is not a root folder", .0.display())]
     RootNotFound(PathBuf),
+    #[error("{} is a {} root folder", .path.display(), .kind.as_str())]
+    WrongRootKind { path: PathBuf, kind: RootKind },
+    #[error("{} still holds {items} library items", .path.display())]
+    RootInUse { path: PathBuf, items: usize },
     #[error("import {0} does not exist")]
     ImportNotFound(ImportId),
     #[error("import {0} is not waiting for review")]
@@ -42,8 +46,6 @@ pub enum MediaError {
     ConflictingRows(Vec<usize>),
     #[error("row {0} has no match")]
     RowUnmatched(usize),
-    #[error("there is no {} root folder", .0.as_str())]
-    NoRootFolder(RootKind),
     #[error("{} already exists", .0.display())]
     AlreadyExists(PathBuf),
     #[error("{} is missing", .0.display())]

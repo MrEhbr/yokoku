@@ -1,13 +1,15 @@
+use std::path::PathBuf;
+
 use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
-use yokoku_domain::{ExternalId, MediaFileId, Movie, MovieId, Releases, StorageError};
+use yokoku_domain::{ExternalId, ItemFolder, MediaFileId, Movie, MovieId, Releases, StorageError};
 use yokoku_events::Event;
 use yokoku_library::ports::MovieRepo;
 
 use crate::{
     Database, DbError,
-    codec::{Int, SourceColumns, Text},
+    codec::{Int, PathText, SourceColumns, Text},
 };
 
 #[derive(sqlx::FromRow)]
@@ -23,6 +25,8 @@ struct MovieRow {
     cinema_date: Option<Text<Date>>,
     digital_date: Option<Text<Date>>,
     physical_date: Option<Text<Date>>,
+    root: String,
+    folder: String,
     monitored: bool,
     file_id: Option<Text<MediaFileId>>,
     added_at: Text<Timestamp>,
@@ -52,6 +56,16 @@ impl MovieRepo for Database {
         }
     }
 
+    async fn find_by_folder(&self, folder: &ItemFolder) -> Result<Option<MovieId>, StorageError> {
+        let id: Option<Text<MovieId>> = sqlx::query_scalar("SELECT id FROM movies WHERE root = ? AND folder = ?")
+            .bind(PathText(&folder.root))
+            .bind(&folder.name)
+            .fetch_optional(self.pool())
+            .await
+            .map_err(DbError::from)?;
+        Ok(id.map(|id| id.0))
+    }
+
     async fn ids(&self) -> Result<Vec<MovieId>, StorageError> {
         Ok(self.movie_ids().await?)
     }
@@ -79,8 +93,9 @@ impl Database {
 
         sqlx::query(
             "INSERT INTO movies (id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,
-                                 cinema_date, digital_date, physical_date, monitored, file_id, added_at, refreshed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 cinema_date, digital_date, physical_date, root, folder, monitored, file_id, added_at,
+                                 refreshed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                  title = excluded.title, original_title = excluded.original_title,
                  alternate_titles = excluded.alternate_titles, year = excluded.year,
@@ -100,6 +115,8 @@ impl Database {
         .bind(date(movie.releases.cinema))
         .bind(date(movie.releases.digital))
         .bind(date(movie.releases.physical))
+        .bind(PathText(&movie.folder.root))
+        .bind(&movie.folder.name)
         .bind(movie.monitored)
         .bind(movie.file.map(|file| file.to_string()))
         .bind(movie.added_at.to_string())
@@ -115,7 +132,8 @@ impl Database {
     pub(crate) async fn load_movie(&self, id: MovieId) -> Result<Option<Movie>, DbError> {
         let row: Option<MovieRow> = sqlx::query_as(
             "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,
-                    cinema_date, digital_date, physical_date, monitored, file_id, added_at, refreshed_at, revision
+                    cinema_date, digital_date, physical_date, root, folder, monitored, file_id, added_at, refreshed_at,
+                    revision
              FROM movies WHERE id = ?",
         )
         .bind(id.to_string())
@@ -149,6 +167,7 @@ impl TryFrom<MovieRow> for Movie {
                 digital: row.digital_date.map(|date| date.0),
                 physical: row.physical_date.map(|date| date.0),
             },
+            folder: ItemFolder { root: PathBuf::from(row.root), name: row.folder },
             monitored: row.monitored,
             file: row.file_id.map(|file| file.0),
             added_at: row.added_at.0,

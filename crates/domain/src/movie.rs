@@ -1,6 +1,6 @@
 use jiff::{Timestamp, civil::Date};
 
-use crate::{ExternalId, FileStatus, MediaFileId, MovieId};
+use crate::{ExternalId, FileStatus, ItemFolder, MediaFileId, MovieId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Releases {
@@ -60,6 +60,8 @@ pub struct Movie {
     pub year: Option<i16>,
     pub poster_path: Option<String>,
     pub releases: Releases,
+    /// Set when the movie is added; never changes.
+    pub folder: ItemFolder,
     pub monitored: bool,
     pub file: Option<MediaFileId>,
     pub added_at: Timestamp,
@@ -69,7 +71,7 @@ pub struct Movie {
 }
 
 impl Movie {
-    pub fn add(metadata: MovieMetadata, monitored: bool, now: Timestamp) -> Self {
+    pub fn add(metadata: MovieMetadata, folder: ItemFolder, monitored: bool, now: Timestamp) -> Self {
         Self {
             id: MovieId::generate(),
             source: metadata.source,
@@ -79,6 +81,7 @@ impl Movie {
             year: metadata.year,
             poster_path: metadata.poster_path,
             releases: metadata.releases,
+            folder,
             monitored,
             file: None,
             added_at: now,

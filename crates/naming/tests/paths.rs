@@ -4,7 +4,7 @@ use jiff::Timestamp;
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::{
-    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, MonitorPreset, Movie, MovieMetadata, Releases,
+    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases,
     SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_naming::{Naming, NamingError, NamingTemplates, sanitize};
@@ -19,7 +19,7 @@ fn movie(title: &str, year: Option<i16>) -> Movie {
         poster_path: None,
         releases: Releases::default(),
     };
-    Movie::add(metadata, true, Timestamp::UNIX_EPOCH)
+    Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
 }
 
 /// Seasons as `(number, episode titles)`.
@@ -48,7 +48,13 @@ fn series(title: &str, year: Option<i16>, seasons: &[(u16, &[&str])]) -> Series 
             })
             .collect(),
     };
-    Series::add(metadata, MonitorPreset::All, jiff::civil::date(2026, 1, 1), Timestamp::UNIX_EPOCH)
+    Series::add(
+        metadata,
+        ItemFolder::default(),
+        MonitorPreset::All,
+        jiff::civil::date(2026, 1, 1),
+        Timestamp::UNIX_EPOCH,
+    )
 }
 
 fn span(season: u16, first: u16, last: u16) -> EpisodeSpan {
@@ -66,7 +72,11 @@ fn movie_paths_follow_jellyfin(
     #[case] extension: &str,
     #[case] expected: &str,
 ) {
-    assert_eq!(Naming::default().movie_path(&movie(title, year), extension), PathBuf::from(expected));
+    let naming = Naming::default();
+
+    let path = PathBuf::from(naming.movie_folder(title, year)).join(naming.movie_path(&movie(title, year), extension));
+
+    assert_eq!(path, PathBuf::from(expected));
 }
 
 #[rstest]
@@ -84,7 +94,12 @@ fn episode_paths_follow_jellyfin(#[case] span: EpisodeSpan, #[case] expected: &s
         &[(0, &["Recap"]), (1, &["The Journey's End", "It Didn't Have to Be Magic"]), (2, &[""])],
     );
 
-    assert_eq!(Naming::default().episode_path(&frieren, span, "mkv"), Ok(PathBuf::from(expected)));
+    let naming = Naming::default();
+
+    let path = PathBuf::from(naming.series_folder("Frieren", Some(2023)))
+        .join(naming.episode_path(&frieren, span, "mkv").unwrap());
+
+    assert_eq!(path, PathBuf::from(expected));
 }
 
 #[test]
@@ -107,7 +122,8 @@ fn custom_templates_shape_every_component() {
     let naming = Naming::new(&templates).unwrap();
     let frieren = series("Frieren", Some(2023), &[(1, &["The Journey's End"])]);
 
-    let path = naming.episode_path(&frieren, span(1, 1, 1), "mkv").unwrap();
+    let path = PathBuf::from(naming.series_folder("Frieren", Some(2023)))
+        .join(naming.episode_path(&frieren, span(1, 1, 1), "mkv").unwrap());
 
     assert_eq!(path, PathBuf::from("Frieren/S01/S01E01 The Journey's End.mkv"));
 }
@@ -116,11 +132,14 @@ fn custom_templates_shape_every_component() {
 fn long_titles_keep_file_names_within_limits() {
     let title = "Very Long Title ".repeat(40);
 
-    let path = Naming::default().movie_path(&movie(&title, Some(2021)), "mkv");
+    let naming = Naming::default();
 
-    let file_name = path.file_name().unwrap().to_str().unwrap();
+    let folder = naming.movie_folder(&title, Some(2021));
+    let path = naming.movie_path(&movie(&title, Some(2021)), "mkv");
+
+    let file_name = path.to_str().unwrap();
     assert!(file_name.len() <= 205 && file_name.ends_with(".mkv"), "{file_name}");
-    assert!(path.parent().unwrap().to_str().unwrap().len() <= 255);
+    assert!(folder.len() <= 255);
 }
 
 fn components(path: &Path) -> Vec<String> {
@@ -129,7 +148,7 @@ fn components(path: &Path) -> Vec<String> {
 
 proptest! {
     #[test]
-    fn any_titles_give_clean_paths_of_fixed_depth(
+    fn any_titles_give_clean_folders_and_paths_of_fixed_depth(
         title in any::<String>(),
         episode_title in any::<String>(),
         year in prop::option::of(1900..2100i16),
@@ -138,13 +157,15 @@ proptest! {
         let naming = Naming::default();
         let series = series(&title, year, &[(season, &[episode_title.as_str()])]);
 
+        let folders = [naming.movie_folder(&title, year), naming.series_folder(&title, year)];
         let movie_path = naming.movie_path(&movie(&title, year), "mkv");
         let episode_path = naming.episode_path(&series, span(season, 1, 1), "mkv").unwrap();
 
-        prop_assert_eq!(components(&movie_path).len(), 2);
-        prop_assert_eq!(components(&episode_path).len(), 3);
-        for component in components(&episode_path).iter().take(2).chain(components(&movie_path).first()) {
+        prop_assert_eq!(components(&movie_path).len(), 1);
+        prop_assert_eq!(components(&episode_path).len(), 2);
+        for component in folders.iter().chain(components(&episode_path).first()) {
             prop_assert_eq!(&sanitize(component), component);
+            prop_assert_eq!(components(Path::new(component)).len(), 1);
         }
     }
 }

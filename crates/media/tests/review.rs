@@ -10,10 +10,10 @@ use yokoku_media::{
     ports::{Changes, MediaRepo},
 };
 
-/// Scans three unrecognised files in one folder and returns their import.
+/// Scans three unrecognised files in Frieren's folder and returns their import.
 async fn pending(app: &App) -> ImportId {
     for name in ["a", "b", "c"] {
-        app.write(&format!("tv/Unsorted/{name}.mkv"), 10);
+        app.write(&format!("tv/Frieren (2023)/{name}.mkv"), 10);
     }
     let report = app.scanner.scan().await.unwrap();
     report.needs_review[0]
@@ -31,7 +31,10 @@ async fn approving_links_matched_rows_and_leaves_skipped_ones() {
 
     assert_eq!(
         files.iter().map(|file| (file.path.clone(), file.target)).collect::<Vec<_>>(),
-        [(app.path("tv/Unsorted/a.mkv"), app.episodes(1, 1, 2)), (app.path("tv/Unsorted/b.mkv"), app.movie()),]
+        [
+            (app.path("tv/Frieren (2023)/a.mkv"), app.episodes(1, 1, 2)),
+            (app.path("tv/Frieren (2023)/b.mkv"), app.movie()),
+        ]
     );
     assert_eq!(app.db_files().await.len(), 2);
     let linked = files.iter().map(|file| LinkedFile { file: file.id, path: file.path.clone(), target: file.target });

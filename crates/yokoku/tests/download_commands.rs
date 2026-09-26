@@ -10,7 +10,7 @@ use wiremock::{
     matchers::{body_partial_json, header, method},
 };
 use yokoku_db::Database;
-use yokoku_domain::{ExternalId, Movie, MovieMetadata, Releases};
+use yokoku_domain::{ExternalId, ItemFolder, Movie, MovieMetadata, Releases};
 use yokoku_events::{Event, EventLog};
 use yokoku_library::ports::MovieRepo;
 
@@ -24,7 +24,7 @@ struct Setup {
 }
 
 impl Setup {
-    /// A library with "Dune" (tmdb:10) and a movie root, a finished download of it on disk, and a
+    /// A library with "Dune" (tmdb:10) in `movies/Dune (2021)` and a movie root, a finished download of it on disk, and a
     /// Transmission that knows the session handshake.
     async fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
@@ -39,7 +39,8 @@ impl Setup {
             poster_path: None,
             releases: Releases::default(),
         };
-        MovieRepo::save(&db, &mut Movie::add(dune, true, Timestamp::now()), &[]).await.unwrap();
+        let folder = ItemFolder::new(dir.path().join("movies"), "Dune (2021)".into()).unwrap();
+        MovieRepo::save(&db, &mut Movie::add(dune, folder, true, Timestamp::now()), &[]).await.unwrap();
 
         let transmission = MockServer::start().await;
         Mock::given(method("POST"))

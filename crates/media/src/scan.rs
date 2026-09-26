@@ -1,16 +1,17 @@
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::HashSet,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
+use async_trait::async_trait;
 use jiff::Timestamp;
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
-use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, MediaFileId};
-use yokoku_events::{DeleteReason, Event};
+use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId};
+use yokoku_events::{DeleteReason, Event, HandlerError, Recorded, Subscriber};
 
 use crate::{
-    Import, ImportRow, ImportStatus, MediaError, MediaFile, RootKind,
+    Import, ImportRow, ImportStatus, MediaError, MediaFile,
     ports::{Catalog, Changes, FileSystem, LibraryLock, MediaRepo},
 };
 
@@ -32,6 +33,12 @@ pub struct ScanReport {
     pub needs_review: Vec<ImportId>,
 }
 
+/// Library files and the files already taken by imports, read once per scan.
+struct Known {
+    files: Vec<MediaFile>,
+    claimed: HashSet<PathBuf>,
+}
+
 impl Scanner {
     pub fn new(
         repo: Arc<dyn MediaRepo>,
@@ -43,32 +50,73 @@ impl Scanner {
         Self { repo, catalog, fs, lock, clock }
     }
 
-    /// Links new files in every root folder, sends the rest to review and forgets linked files
-    /// that are gone (FR-8.2, FR-8.3, FR-8.7). Each root folder is committed on its own; one
-    /// that cannot be read stops the scan before anything in it changes.
+    /// Links new files in the folder of every library item, sends the rest to review and forgets
+    /// linked files that are gone (FR-8.2, FR-8.3, FR-8.7). Nothing else in a root folder is read.
+    /// Each item folder is committed on its own; a root folder that cannot be read stops the scan
+    /// before anything in it changes.
     pub async fn scan(&self) -> Result<ScanReport, MediaError> {
         let _lock = self.lock.acquire().await?;
         let series = self.catalog.all_series().await?;
         let movies = self.catalog.all_movies().await?;
-        let claimed = self.claimed_paths().await?;
+        let known = self.known().await?;
 
+        let items = series
+            .iter()
+            .map(|series| (&series.folder, Target::Series(series)))
+            .chain(movies.iter().map(|movie| (&movie.folder, Target::Movie(movie))));
         let mut report = ScanReport::default();
-        for root in self.repo.root_folders().await? {
-            let listed = self.fs.files(&root.path).await?;
-            let known = self.repo.files().await?;
-            let target = match root.kind {
-                RootKind::Series => Target::Library { series: &series, movies: &[] },
-                RootKind::Movies => Target::Library { series: &[], movies: &movies },
-            };
-            let now = self.clock.now().timestamp();
-            let (changes, events) = scan_root(&root.path, listed, &known, &claimed, target, now);
-
-            self.repo.save(&changes, &events).await?;
-            report.found += changes.added_files.len();
-            report.vanished += changes.removed_files.len();
-            report.needs_review.extend(changes.imports.iter().map(|import| import.id));
+        for (folder, target) in items {
+            self.scan_folder(folder, target, &known, &mut report).await?;
         }
         Ok(report)
+    }
+
+    /// Scans the folder of one item, as `scan` does (FR-8.8); an item no longer in the library is
+    /// left alone.
+    pub async fn scan_item(&self, item: ItemId) -> Result<ScanReport, MediaError> {
+        let _lock = self.lock.acquire().await?;
+        let known = self.known().await?;
+        let mut report = ScanReport::default();
+        match item {
+            ItemId::Series(id) => {
+                if let Some(series) = self.catalog.series(id).await? {
+                    self.scan_folder(&series.folder, Target::Series(&series), &known, &mut report).await?;
+                }
+            },
+            ItemId::Movie(id) => {
+                if let Some(movie) = self.catalog.movie(id).await? {
+                    self.scan_folder(&movie.folder, Target::Movie(&movie), &known, &mut report).await?;
+                }
+            },
+        }
+        Ok(report)
+    }
+
+    /// A missing item folder holds no files; a missing root folder fails.
+    async fn scan_folder(
+        &self,
+        folder: &ItemFolder,
+        target: Target<'_>,
+        known: &Known,
+        report: &mut ScanReport,
+    ) -> Result<(), MediaError> {
+        if !self.fs.is_dir(&folder.root).await? {
+            return Err(MediaError::NotAFolder(folder.root.clone()));
+        }
+        let path = folder.path();
+        let listed = if self.fs.is_dir(&path).await? { self.fs.files(&path).await? } else { Vec::new() };
+        let now = self.clock.now().timestamp();
+        let (changes, events) = scan_folder(&folder.root, &path, listed, known, target, now);
+
+        self.repo.save(&changes, &events).await?;
+        report.found += changes.added_files.len();
+        report.vanished += changes.removed_files.len();
+        report.needs_review.extend(changes.imports.iter().map(|import| import.id));
+        Ok(())
+    }
+
+    async fn known(&self) -> Result<Known, MediaError> {
+        Ok(Known { files: self.repo.files().await?, claimed: self.claimed_paths().await? })
     }
 
     /// Files of imports not yet done, and files the user chose to skip.
@@ -85,62 +133,72 @@ impl Scanner {
     }
 }
 
-fn scan_root(
+#[async_trait]
+impl Subscriber for Scanner {
+    fn name(&self) -> &'static str {
+        "media.scan_added"
+    }
+
+    async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
+        let item = match &recorded.event {
+            Event::SeriesAdded { series, .. } => ItemId::Series(*series),
+            Event::MovieAdded { movie, .. } => ItemId::Movie(*movie),
+            _ => return Ok(()),
+        };
+        self.scan_item(item).await?;
+        Ok(())
+    }
+}
+
+/// Detection sees paths relative to `root`.
+fn scan_folder(
     root: &Path,
+    folder: &Path,
     listed: Vec<DownloadFile>,
-    known: &[MediaFile],
-    claimed: &HashSet<PathBuf>,
+    known: &Known,
     target: Target<'_>,
     now: Timestamp,
 ) -> (Changes, Vec<Event>) {
     let listed_paths: HashSet<&Path> = listed.iter().map(|file| file.path.as_path()).collect();
-    let (vanished, kept): (Vec<&MediaFile>, Vec<&MediaFile>) =
-        known.iter().partition(|file| file.path.starts_with(root) && !listed_paths.contains(file.path.as_path()));
-    let known_paths: HashSet<&Path> = known.iter().map(|file| file.path.as_path()).collect();
+    let (vanished, kept): (Vec<&MediaFile>, Vec<&MediaFile>) = known
+        .files
+        .iter()
+        .partition(|file| file.path.starts_with(folder) && !listed_paths.contains(file.path.as_path()));
+    let known_paths: HashSet<&Path> = known.files.iter().map(|file| file.path.as_path()).collect();
     let mut occupied: Vec<FileTarget> = kept.iter().map(|file| file.target).collect();
 
+    let new_files: Vec<DownloadFile> = listed
+        .into_iter()
+        .filter(|file| !known_paths.contains(file.path.as_path()) && !known.claimed.contains(&file.path))
+        .filter_map(|file| Some(DownloadFile { path: file.path.strip_prefix(root).ok()?.to_owned(), size: file.size }))
+        .collect();
+
     let mut changes = Changes::default();
-    let new_files =
-        listed.into_iter().filter(|file| !known_paths.contains(file.path.as_path()) && !claimed.contains(&file.path));
-    for (entry, files) in group_by_entry(root, new_files) {
-        let mut rows = Vec::new();
-        for row in ImportPlan::new(&files, target).rows {
-            let path = root.join(&row.video.path);
-            let size = row.video.size;
-            let certain = row.confidence == Confidence::Certain && row.conflicts.is_empty();
-            match row.target {
-                Some(target) if certain && !occupied.iter().any(|taken| taken.overlaps(&target)) => {
-                    occupied.push(target);
-                    changes.added_files.push(MediaFile {
-                        id: MediaFileId::generate(),
-                        path,
-                        size,
-                        target,
-                        added_at: now,
-                    });
-                },
-                target => rows.push(ImportRow {
-                    path,
-                    size,
-                    target,
-                    confidence: row.confidence,
-                    skipped: false,
-                    replace: false,
-                }),
-            }
+    let mut rows = Vec::new();
+    for row in ImportPlan::new(&new_files, target).rows {
+        let path = root.join(&row.video.path);
+        let size = row.video.size;
+        let certain = row.confidence == Confidence::Certain && row.conflicts.is_empty();
+        match row.target {
+            Some(target) if certain && !occupied.iter().any(|taken| taken.overlaps(&target)) => {
+                occupied.push(target);
+                changes.added_files.push(MediaFile { id: MediaFileId::generate(), path, size, target, added_at: now });
+            },
+            target => {
+                rows.push(ImportRow { path, size, target, confidence: row.confidence, skipped: false, replace: false })
+            },
         }
-        if !rows.is_empty() {
-            let id = ImportId::generate();
-            changes.imports.push(Import {
-                id,
-                source: root.join(entry),
-                download: None,
-                status: ImportStatus::NeedsReview,
-                error: None,
-                rows,
-                created_at: now,
-            });
-        }
+    }
+    if !rows.is_empty() {
+        changes.imports.push(Import {
+            id: ImportId::generate(),
+            source: folder.to_owned(),
+            download: None,
+            status: ImportStatus::NeedsReview,
+            error: None,
+            rows,
+            created_at: now,
+        });
     }
 
     let mut events: Vec<Event> = vanished
@@ -164,19 +222,4 @@ fn scan_root(
     );
     changes.removed_files = vanished.iter().map(|file| file.id).collect();
     (changes, events)
-}
-
-/// Files grouped by the root folder entry they are in, with paths relative to the root.
-fn group_by_entry(root: &Path, files: impl Iterator<Item = DownloadFile>) -> BTreeMap<PathBuf, Vec<DownloadFile>> {
-    let mut groups: BTreeMap<PathBuf, Vec<DownloadFile>> = BTreeMap::new();
-    for file in files {
-        let Ok(relative) = file.path.strip_prefix(root) else { continue };
-        let Some(entry) = relative.components().next() else { continue };
-        let relative = relative.to_owned();
-        groups
-            .entry(PathBuf::from(entry.as_os_str()))
-            .or_default()
-            .push(DownloadFile { path: relative, size: file.size });
-    }
-    groups
 }

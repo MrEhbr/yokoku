@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt, str::FromStr};
 use jiff::{Timestamp, civil::Date};
 use serde::{Deserialize, Serialize};
 
-use crate::{EpisodeId, ExternalId, FileStatus, MediaFileId, SeriesId};
+use crate::{EpisodeId, ExternalId, FileStatus, ItemFolder, MediaFileId, SeriesId};
 
 const SPECIALS: u16 = 0;
 
@@ -203,6 +203,8 @@ pub struct Series {
     pub poster_path: Option<String>,
     pub source_status: SourceStatus,
     pub numbering: Numbering,
+    /// Set when the series is added; never changes.
+    pub folder: ItemFolder,
     pub monitored: bool,
     pub seasons: Vec<Season>,
     pub added_at: Timestamp,
@@ -231,7 +233,13 @@ pub struct Episode {
 
 impl Series {
     /// Specials are never monitored by a preset.
-    pub fn add(metadata: SeriesMetadata, preset: MonitorPreset, today: Date, now: Timestamp) -> Self {
+    pub fn add(
+        metadata: SeriesMetadata,
+        folder: ItemFolder,
+        preset: MonitorPreset,
+        today: Date,
+        now: Timestamp,
+    ) -> Self {
         let latest_season = metadata.seasons.iter().map(|season| season.number).filter(|&n| n != SPECIALS).max();
 
         let seasons = metadata
@@ -266,6 +274,7 @@ impl Series {
             poster_path: metadata.poster_path,
             source_status: metadata.status,
             numbering: Numbering::default(),
+            folder,
             monitored: preset != MonitorPreset::None,
             seasons,
             added_at: now,

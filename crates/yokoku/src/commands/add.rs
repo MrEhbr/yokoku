@@ -1,10 +1,14 @@
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    path::{self, PathBuf},
+};
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 use yokoku_domain::MonitorPreset;
+use yokoku_media::RootKind;
 
 use crate::{
     app::App,
@@ -39,6 +43,14 @@ pub struct Args {
     /// What to monitor, overriding `add.monitor`; movies accept `all` or `none`
     #[arg(long)]
     pub monitor: Option<Monitor>,
+
+    /// Root folder to add the item to; it must be a root of the item's type
+    #[arg(long)]
+    pub root: PathBuf,
+
+    /// Name of the item's folder in the root, e.g. an existing folder; defaults to the naming pattern
+    #[arg(long)]
+    pub folder: Option<String>,
 }
 
 impl Args {
@@ -61,10 +73,21 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
     let mut out = io::stdout();
     let sync = app.sync()?;
+    let root_kind = match args.item.kind {
+        Kind::Series => RootKind::Series,
+        Kind::Movie => RootKind::Movies,
+    };
+    let root = app.roots.get(root_kind, &path::absolute(&args.root)?).await?.path;
     match args.item.kind {
         Kind::Series => {
-            let series = sync.add_series(args.item.source, settings.monitor.into()).await?;
-            writeln!(out, "Added series {} {}", title_with_year(&series.title, series.year), series.source)?;
+            let series = sync.add_series(args.item.source, settings.monitor.into(), root, args.folder).await?;
+            writeln!(
+                out,
+                "Added series {} {} in {}",
+                title_with_year(&series.title, series.year),
+                series.source,
+                series.folder.path().display()
+            )?;
         },
         Kind::Movie => {
             let monitored = match settings.monitor {
@@ -72,12 +95,18 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 Monitor::None => false,
                 Monitor::Future | Monitor::LatestSeason => bail!("movies can only be monitored with `all` or `none`"),
             };
-            let movie = sync.add_movie(args.item.source, monitored).await?;
-            writeln!(out, "Added movie {} {}", title_with_year(&movie.title, movie.year), movie.source)?;
+            let movie = sync.add_movie(args.item.source, monitored, root, args.folder).await?;
+            writeln!(
+                out,
+                "Added movie {} {} in {}",
+                title_with_year(&movie.title, movie.year),
+                movie.source,
+                movie.folder.path().display()
+            )?;
         },
     }
 
-    Ok(())
+    app.deliver_events().await
 }
 
 impl From<Monitor> for MonitorPreset {

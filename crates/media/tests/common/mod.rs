@@ -14,8 +14,8 @@ use jiff::{
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Clock, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, MonitorPreset, Movie, MovieMetadata,
-    Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Clock, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset, Movie,
+    MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
@@ -40,8 +40,8 @@ pub fn now() -> Timestamp {
     FixedClock.now().timestamp()
 }
 
-/// Series and movie root folders on disk, "Frieren (2023)" with two seasons of three episodes,
-/// and "Dune (2021)".
+/// Series and movie root folders on disk, "Frieren (2023)" with two seasons of three episodes in
+/// `tv/Frieren (2023)`, and "Dune (2021)" in `movies/Dune (2021)`.
 pub struct App {
     pub dir: TempDir,
     pub db: Database,
@@ -64,15 +64,17 @@ impl App {
         let repo = Arc::new(db.clone());
         let fs = Arc::new(LocalFileSystem);
         let clock = Arc::new(FixedClock);
-        let roots = RootFolders::new(repo.clone(), fs.clone());
+        let roots = RootFolders::new(repo.clone(), repo.clone(), fs.clone());
         let lock = Arc::new(LockFile::new(dir.path().join(LOCK)));
         let scanner = Scanner::new(repo.clone(), repo.clone(), fs, lock.clone(), clock.clone());
         let review = Review::new(repo.clone(), repo.clone(), clock);
         let renamer = Renamer::new(repo.clone(), repo.clone(), Arc::new(LocalFileSystem), lock, Naming::default());
         let planner = ImportPlanner::new(repo.clone(), repo, Arc::new(LocalFileSystem), Arc::new(FixedClock));
 
-        let mut frieren = Series::add(frieren_metadata(), MonitorPreset::All, TODAY, now());
-        let mut dune = Movie::add(dune_metadata(), true, now());
+        let tv = ItemFolder::new(dir.path().join("tv"), "Frieren (2023)".into()).unwrap();
+        let movies = ItemFolder::new(dir.path().join("movies"), "Dune (2021)".into()).unwrap();
+        let mut frieren = Series::add(frieren_metadata(), tv, MonitorPreset::All, TODAY, now());
+        let mut dune = Movie::add(dune_metadata(), movies, true, now());
         SeriesRepo::save(&db, &mut frieren, &[]).await.unwrap();
         MovieRepo::save(&db, &mut dune, &[]).await.unwrap();
 

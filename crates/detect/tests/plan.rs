@@ -7,8 +7,8 @@ use jiff::{
 use rstest::rstest;
 use yokoku_detect::{Conflict, DownloadFile, ImportPlan, Target};
 use yokoku_domain::{
-    Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, MediaFileId, MonitorPreset, Movie, MovieMetadata,
-    Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MediaFileId, MonitorPreset, Movie,
+    MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -48,7 +48,7 @@ fn series(spec: SeriesSpec<'_>) -> Series {
             })
             .collect(),
     };
-    Series::add(metadata, MonitorPreset::All, TODAY, Timestamp::UNIX_EPOCH)
+    Series::add(metadata, ItemFolder::default(), MonitorPreset::All, TODAY, Timestamp::UNIX_EPOCH)
 }
 
 fn numbered(count: usize) -> Vec<String> {
@@ -65,7 +65,7 @@ fn movie(source: u64, title: &str, original_title: &str, year: i16) -> Movie {
         poster_path: None,
         releases: Releases::default(),
     };
-    Movie::add(metadata, true, Timestamp::UNIX_EPOCH)
+    Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
 }
 
 struct Library {

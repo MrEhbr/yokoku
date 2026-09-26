@@ -21,7 +21,7 @@ pub enum Command {
     Add { kind: Kind, path: PathBuf },
     /// List root folders
     List,
-    /// Remove a root folder; files in it stay linked to the library
+    /// Remove a root folder; refused while series or movies belong to it
     Remove { path: PathBuf },
 }
 

@@ -10,7 +10,7 @@ use yokoku_events::Event;
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
-    MediaError, MediaFile, RootFolder, files,
+    MediaError, MediaFile, files,
     ports::{Catalog, Changes, FileSystem, LibraryLock, MediaRepo},
 };
 
@@ -105,7 +105,7 @@ impl Renamer {
                 plan.skipped.push(skip(SkipReason::OutsideRoots));
                 continue;
             };
-            let Some(to) = self.target_path(&file, root, &mut series).await? else {
+            let Some(to) = self.target_path(&file, &mut series).await? else {
                 plan.skipped.push(skip(SkipReason::NotInLibrary));
                 continue;
             };
@@ -171,27 +171,29 @@ impl Renamer {
         Ok(report)
     }
 
-    /// `None` when the file's series, episodes or movie are gone.
+    /// The naming path in the item's folder; `None` when the file's series, episodes or movie are gone.
     async fn target_path(
         &self,
         file: &MediaFile,
-        root: &RootFolder,
         series: &mut HashMap<SeriesId, Option<Series>>,
     ) -> Result<Option<PathBuf>, MediaError> {
         let extension = file.path.extension().unwrap_or_default().to_string_lossy();
-        let relative = match file.target {
+        Ok(match file.target {
             FileTarget::Episodes { series: id, span } => {
                 let series = match series.entry(id) {
                     Entry::Occupied(entry) => entry.into_mut(),
                     Entry::Vacant(entry) => entry.insert(self.catalog.series(id).await?),
                 };
-                series.as_ref().and_then(|series| self.naming.episode_path(series, span, &extension).ok())
+                series.as_ref().and_then(|series| {
+                    Some(series.folder.path().join(self.naming.episode_path(series, span, &extension).ok()?))
+                })
             },
-            FileTarget::Movie(id) => {
-                self.catalog.movie(id).await?.map(|movie| self.naming.movie_path(&movie, &extension))
-            },
-        };
-        Ok(relative.map(|relative| root.path.join(relative)))
+            FileTarget::Movie(id) => self
+                .catalog
+                .movie(id)
+                .await?
+                .map(|movie| movie.folder.path().join(self.naming.movie_path(&movie, &extension))),
+        })
     }
 
     /// Subtitles beside `video` whose names start with the video's name.

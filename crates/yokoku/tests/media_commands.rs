@@ -5,10 +5,13 @@ use jiff::{Timestamp, ToSpan, civil::Date, tz::TimeZone};
 use predicates::prelude::*;
 use tempfile::TempDir;
 use yokoku_db::Database;
-use yokoku_domain::{EpisodeMetadata, ExternalId, MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SourceStatus};
+use yokoku_domain::{
+    EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+};
 use yokoku_library::ports::SeriesRepo;
 
-/// A database with "Frieren" (tmdb:1), two episodes aired a week ago, and a series root `tv`.
+/// A database with "Frieren" (tmdb:1) in `tv/Frieren (2023)`, two episodes aired a week ago, and a series
+/// root `tv`.
 struct Setup {
     dir: TempDir,
     database: PathBuf,
@@ -26,6 +29,8 @@ impl Setup {
             title: format!("Episode {number}"),
             air_date: Some(week_ago),
         };
+        let tv = dir.path().canonicalize().unwrap().join("tv");
+        let folder = ItemFolder::new(tv, "Frieren (2023)".into()).unwrap();
         let frieren = SeriesMetadata {
             source: ExternalId::Tmdb(1),
             title: "Frieren".into(),
@@ -36,7 +41,7 @@ impl Setup {
             status: SourceStatus::Returning,
             seasons: vec![SeasonMetadata { number: 1, episodes: vec![episode(1), episode(2)] }],
         };
-        SeriesRepo::save(&db, &mut Series::add(frieren, MonitorPreset::All, today(), Timestamp::now()), &[])
+        SeriesRepo::save(&db, &mut Series::add(frieren, folder, MonitorPreset::All, today(), Timestamp::now()), &[])
             .await
             .unwrap();
 
@@ -86,12 +91,21 @@ async fn root_folders_are_added_as_absolute_paths_listed_and_removed() {
     let setup = Setup::new().await;
     let tv = setup.path("tv").canonicalize().unwrap();
 
+    fs::create_dir(setup.path("anime")).unwrap();
+    let anime = setup.stdout(&["root", "add", "series", "anime"]);
     let listed = setup.stdout(&["root", "list"]);
-    let removed = setup.stdout(&["root", "remove", "tv"]);
+    let removed = setup.stdout(&["root", "remove", "anime"]);
 
-    assert_eq!(listed, format!("series  {}\n", tv.display()));
-    assert_eq!(removed, format!("Removed root {}\n", tv.display()));
-    assert_eq!(setup.stdout(&["root", "list"]), "No root folders; add one with `yokoku root add`.\n");
+    assert_eq!(anime, format!("Added series root {}\n", tv.with_file_name("anime").display()));
+    assert_eq!(listed, format!("series  {}\nseries  {}\n", tv.with_file_name("anime").display(), tv.display()));
+    assert_eq!(removed, format!("Removed root {}\n", tv.with_file_name("anime").display()));
+    assert_eq!(setup.stdout(&["root", "list"]), format!("series  {}\n", tv.display()));
+    setup
+        .command()
+        .args(["root", "remove", "tv"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("still holds 1 library items"));
 }
 
 #[tokio::test]
@@ -109,7 +123,7 @@ async fn scanned_files_mark_their_episodes_downloaded() {
 #[tokio::test]
 async fn unrecognised_files_are_matched_through_review() {
     let setup = Setup::new().await;
-    setup.write("tv/Unsorted/clip.mkv");
+    setup.write("tv/Frieren (2023)/clip.mkv");
     assert!(setup.stdout(&["scan"]).contains("1 folders need review"));
     let listed = setup.stdout(&["review", "list"]);
     let import = listed.split_whitespace().next().unwrap().to_owned();
@@ -118,7 +132,7 @@ async fn unrecognised_files_are_matched_through_review() {
     let shown = setup.stdout(&["review", "show", &import]);
     let approved = setup.stdout(&["review", "approve", &import]);
 
-    assert!(listed.contains("1 files") && listed.contains("Unsorted"), "{listed}");
+    assert!(listed.contains("1 files") && listed.contains("Frieren (2023)"), "{listed}");
     assert!(shown.contains("clip.mkv") && shown.contains("Frieren (2023) S01E01-E02"), "{shown}");
     assert_eq!(approved, "Linked 1 files\n");
     assert!(setup.episode_line("S01E02").contains("downloaded"));
@@ -128,7 +142,7 @@ async fn unrecognised_files_are_matched_through_review() {
 #[tokio::test]
 async fn a_series_match_needs_episodes() {
     let setup = Setup::new().await;
-    setup.write("tv/Unsorted/clip.mkv");
+    setup.write("tv/Frieren (2023)/clip.mkv");
     setup.stdout(&["scan"]);
     let listed = setup.stdout(&["review", "list"]);
     let import = listed.split_whitespace().next().unwrap();
@@ -144,7 +158,7 @@ async fn a_series_match_needs_episodes() {
 #[tokio::test]
 async fn rename_previews_then_applies() {
     let setup = Setup::new().await;
-    setup.write("tv/frieren/Frieren (2023) - S01E01.mkv");
+    setup.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.mkv");
     setup.stdout(&["scan"]);
 
     let preview = setup.stdout(&["rename"]);
@@ -152,7 +166,7 @@ async fn rename_previews_then_applies() {
 
     assert_eq!(
         preview,
-        "frieren/Frieren (2023) - S01E01.mkv\n  -> Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv\n\
+        "Frieren (2023)/S1/Frieren (2023) - S01E01.mkv\n  -> Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv\n\
          Run with --apply to rename 1 files.\n"
     );
     assert_eq!(applied, "Renamed 1 files\n");
@@ -315,7 +329,7 @@ async fn files_are_probed_on_request_once_ffprobe_is_there() {
 #[tokio::test]
 async fn renames_follow_the_configured_patterns() {
     let setup = Setup::new().await;
-    setup.write("tv/frieren/Frieren (2023) - S01E01.mkv");
+    setup.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.mkv");
     setup.stdout(&["scan"]);
 
     let preview = setup
@@ -328,7 +342,7 @@ async fn renames_follow_the_configured_patterns() {
 
     assert_eq!(
         String::from_utf8(preview.stdout).unwrap(),
-        "frieren/Frieren (2023) - S01E01.mkv\n  -> Frieren (2023)/S01/S01E01 Episode 1.mkv\nRun with --apply to rename 1 files.\n"
+        "Frieren (2023)/S1/Frieren (2023) - S01E01.mkv\n  -> Frieren (2023)/S01/S01E01 Episode 1.mkv\nRun with --apply to rename 1 files.\n"
     );
 }
 
@@ -344,7 +358,7 @@ async fn an_invalid_pattern_is_refused_with_its_reason() {
 #[tokio::test]
 async fn stored_settings_apply_to_every_command() {
     let setup = Setup::new().await;
-    setup.write("tv/frieren/Frieren (2023) - S01E01.mkv");
+    setup.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.mkv");
     setup.stdout(&["scan"]);
 
     setup.stdout(&["settings", "set", "naming.season_folder", "S{season}"]);

@@ -5,6 +5,7 @@ use std::{fs, os::unix::fs::MetadataExt, path::Path};
 use common::{App, relative};
 use yokoku_domain::{DownloadId, ImportId, ItemId};
 use yokoku_events::{DeleteReason, Event, LinkedFile};
+use yokoku_library::ports::SeriesRepo;
 use yokoku_media::{Approval, ImportMode, ImportStatus, MediaError, ports::MediaRepo};
 
 const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv";
@@ -137,14 +138,16 @@ async fn replacing_removes_the_old_library_file() {
 }
 
 #[tokio::test]
-async fn without_a_root_folder_the_import_fails() {
+async fn files_go_to_the_item_folder_after_its_title_changes() {
     let app = App::new().await;
     approved(&app).await;
-    app.roots.remove(&app.path("tv")).await.unwrap();
+    let mut frieren = app.frieren.clone();
+    frieren.title = "Sousou no Frieren".into();
+    SeriesRepo::save(&app.db, &mut frieren, &[]).await.unwrap();
 
-    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run_pending().await.unwrap();
 
-    assert_eq!(finished[0].error.as_deref(), Some("there is no series root folder"));
+    assert!(app.path("tv/Frieren (2023)/Season 01/Sousou no Frieren (2023) - S01E01 - Episode 1.mkv").exists());
 }
 
 #[tokio::test]

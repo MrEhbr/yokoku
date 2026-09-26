@@ -1,4 +1,6 @@
-use yokoku_domain::{EpisodeRef, ExternalId, MovieId, SeriesId, StorageError};
+use std::path::PathBuf;
+
+use yokoku_domain::{EpisodeRef, ExternalId, InvalidFolderName, MovieId, SeriesId, StorageError};
 
 use crate::ports::MetadataError;
 
@@ -6,6 +8,10 @@ use crate::ports::MetadataError;
 pub enum LibraryError {
     #[error("{0} is already in the library")]
     AlreadyInLibrary(ExternalId),
+    #[error(transparent)]
+    InvalidFolder(#[from] InvalidFolderName),
+    #[error("{} already belongs to another item", .0.display())]
+    FolderTaken(PathBuf),
     #[error("series {0} is not in the library")]
     SeriesNotFound(SeriesId),
     #[error("movie {0} is not in the library")]

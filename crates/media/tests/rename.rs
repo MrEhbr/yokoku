@@ -2,13 +2,17 @@ mod common;
 
 use std::fs;
 
-use common::{App, relative};
+use common::{App, now, relative};
+use yokoku_domain::MediaFileId;
 use yokoku_events::Event;
-use yokoku_library::ports::MovieRepo;
-use yokoku_media::{RenameScope, SkipReason, Skipped};
+use yokoku_library::ports::{MovieRepo, SeriesRepo};
+use yokoku_media::{
+    MediaFile, RenameScope, SkipReason, Skipped,
+    ports::{Changes, MediaRepo},
+};
 
 const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv";
-const MESSY: &str = "tv/frieren/Frieren (2023) - S01E01.mkv";
+const MESSY: &str = "tv/Frieren (2023)/S1/Frieren (2023) - S01E01.mkv";
 
 /// Links `path` to the library through a scan.
 async fn linked(app: &App, path: &str) {
@@ -21,7 +25,7 @@ async fn linked(app: &App, path: &str) {
 async fn preview_lists_moves_without_touching_disk() {
     let app = App::new().await;
     linked(&app, MESSY).await;
-    app.write("tv/frieren/Frieren (2023) - S01E01.eng.srt", 1);
+    app.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.eng.srt", 1);
 
     let plan = app.renamer.preview(RenameScope::All).await.unwrap();
 
@@ -39,7 +43,7 @@ async fn preview_lists_moves_without_touching_disk() {
 async fn applying_moves_videos_and_subtitles_and_tidies_old_folders() {
     let app = App::new().await;
     linked(&app, MESSY).await;
-    app.write("tv/frieren/Frieren (2023) - S01E01.eng.srt", 1);
+    app.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.eng.srt", 1);
 
     let report = app.renamer.apply(RenameScope::All).await.unwrap();
 
@@ -47,7 +51,7 @@ async fn applying_moves_videos_and_subtitles_and_tidies_old_folders() {
     assert!(report.failed.is_empty(), "{:?}", report.failed);
     assert!(app.path(E01).exists());
     assert!(app.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.en.srt").exists());
-    assert!(!app.path("tv/frieren").exists());
+    assert!(!app.path("tv/Frieren (2023)/S1").exists());
     let files = app.db_files().await;
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01]);
     assert_eq!(
@@ -77,7 +81,7 @@ async fn files_already_in_place_are_not_listed() {
 async fn a_scope_limits_the_plan_to_one_item() {
     let app = App::new().await;
     linked(&app, MESSY).await;
-    linked(&app, "movies/dune.2021.mkv").await;
+    linked(&app, "movies/Dune (2021)/dune.2021.mkv").await;
 
     let series = app.renamer.preview(RenameScope::Series(app.frieren.id)).await.unwrap();
     let movie = app.renamer.preview(RenameScope::Movie(app.dune.id)).await.unwrap();
@@ -93,7 +97,8 @@ async fn a_scope_limits_the_plan_to_one_item() {
 async fn files_without_a_root_or_a_library_item_are_skipped() {
     let app = App::new().await;
     linked(&app, MESSY).await;
-    linked(&app, "movies/dune.2021.mkv").await;
+    linked(&app, "movies/Dune (2021)/dune.2021.mkv").await;
+    SeriesRepo::remove(&app.db, app.frieren.id, &[]).await.unwrap();
     app.roots.remove(&app.path("tv")).await.unwrap();
     MovieRepo::remove(&app.db, app.dune.id, &[]).await.unwrap();
 
@@ -103,7 +108,7 @@ async fn files_without_a_root_or_a_library_item_are_skipped() {
     assert_eq!(
         plan.skipped,
         [
-            Skipped { path: app.path("movies/dune.2021.mkv"), reason: SkipReason::NotInLibrary },
+            Skipped { path: app.path("movies/Dune (2021)/dune.2021.mkv"), reason: SkipReason::NotInLibrary },
             Skipped { path: app.path(MESSY), reason: SkipReason::OutsideRoots },
         ]
     );
@@ -129,19 +134,15 @@ async fn an_unlinked_file_at_the_new_path_is_never_replaced() {
 #[tokio::test]
 async fn files_that_would_share_a_path_are_skipped() {
     let app = App::new().await;
-    let mut remake = yokoku_domain::Movie {
-        id: yokoku_domain::MovieId::generate(),
-        source: yokoku_domain::ExternalId::Tmdb(1),
-        revision: 0,
-        ..app.dune.clone()
+    let file = |name: &str| MediaFile {
+        id: MediaFileId::generate(),
+        path: app.write(&format!("movies/Dune (2021)/{name}.mkv"), 10),
+        size: 10,
+        target: app.movie(),
+        added_at: now(),
     };
-    MovieRepo::save(&app.db, &mut remake, &[]).await.unwrap();
-    app.write("movies/unsorted/a.mkv", 10);
-    app.write("movies/unsorted/b.mkv", 10);
-    let import = app.scanner.scan().await.unwrap().needs_review[0];
-    app.review.match_row(import, 1, app.movie()).await.unwrap();
-    app.review.match_row(import, 2, yokoku_domain::FileTarget::Movie(remake.id)).await.unwrap();
-    app.review.approve(import).await.unwrap();
+    let changes = Changes { added_files: vec![file("a"), file("b")], ..Changes::default() };
+    MediaRepo::save(&app.db, &changes, &[]).await.unwrap();
 
     let plan = app.renamer.preview(RenameScope::All).await.unwrap();
 

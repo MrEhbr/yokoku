@@ -1,17 +1,18 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
 use yokoku_domain::{
-    Episode, EpisodeId, ExternalId, MediaFileId, Numbering, Season, Series, SeriesId, SourceStatus, StorageError,
+    Episode, EpisodeId, ExternalId, ItemFolder, MediaFileId, Numbering, Season, Series, SeriesId, SourceStatus,
+    StorageError,
 };
 use yokoku_events::Event;
 use yokoku_library::ports::SeriesRepo;
 
 use crate::{
     Database, DbError,
-    codec::{Int, SourceColumns, Text},
+    codec::{Int, PathText, SourceColumns, Text},
 };
 
 #[derive(sqlx::FromRow)]
@@ -26,6 +27,8 @@ struct SeriesRow {
     poster_path: Option<String>,
     source_status: Text<SourceStatus>,
     numbering: Text<Numbering>,
+    root: String,
+    folder: String,
     monitored: bool,
     added_at: Text<Timestamp>,
     refreshed_at: Text<Timestamp>,
@@ -72,6 +75,16 @@ impl SeriesRepo for Database {
         }
     }
 
+    async fn find_by_folder(&self, folder: &ItemFolder) -> Result<Option<SeriesId>, StorageError> {
+        let id: Option<Text<SeriesId>> = sqlx::query_scalar("SELECT id FROM series WHERE root = ? AND folder = ?")
+            .bind(PathText(&folder.root))
+            .bind(&folder.name)
+            .fetch_optional(self.pool())
+            .await
+            .map_err(DbError::from)?;
+        Ok(id.map(|id| id.0))
+    }
+
     async fn ids(&self) -> Result<Vec<SeriesId>, StorageError> {
         Ok(self.series_ids().await?)
     }
@@ -102,7 +115,7 @@ impl Database {
         let id = id.to_string();
         let Some(row) = sqlx::query_as::<_, SeriesRow>(
             "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path, source_status,
-                    numbering, monitored, added_at, refreshed_at, revision
+                    numbering, root, folder, monitored, added_at, refreshed_at, revision
              FROM series WHERE id = ?",
         )
         .bind(&id)
@@ -135,8 +148,8 @@ impl Database {
 
         sqlx::query(
             "INSERT INTO series (id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,
-                                 source_status, numbering, monitored, added_at, refreshed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 source_status, numbering, root, folder, monitored, added_at, refreshed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                  title = excluded.title, original_title = excluded.original_title,
                  alternate_titles = excluded.alternate_titles, year = excluded.year,
@@ -154,6 +167,8 @@ impl Database {
         .bind(&series.poster_path)
         .bind(series.source_status.as_str())
         .bind(series.numbering.as_str())
+        .bind(PathText(&series.folder.root))
+        .bind(&series.folder.name)
         .bind(series.monitored)
         .bind(series.added_at.to_string())
         .bind(series.refreshed_at.to_string())
@@ -255,6 +270,7 @@ impl SeriesRow {
             poster_path: self.poster_path,
             source_status: self.source_status.0,
             numbering: self.numbering.0,
+            folder: ItemFolder { root: PathBuf::from(self.root), name: self.folder },
             monitored: self.monitored,
             seasons,
             added_at: self.added_at.0,

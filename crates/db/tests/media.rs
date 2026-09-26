@@ -6,8 +6,8 @@ use rstest::{fixture, rstest};
 use uuid::Uuid;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Confidence, DownloadId, EpisodeSpan, ExternalId, FileTarget, ImportId, MediaFileId, MonitorPreset, Movie, MovieId,
-    MovieMetadata, Releases, Series, SeriesId, SeriesMetadata, SourceStatus,
+    Confidence, DownloadId, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MediaFileId, MonitorPreset,
+    Movie, MovieId, MovieMetadata, Releases, Series, SeriesId, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{DeleteReason, Event, EventLog};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
@@ -224,6 +224,7 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
             status: SourceStatus::Returning,
             seasons: vec![],
         },
+        ItemFolder::default(),
         MonitorPreset::All,
         now().to_zoned(TimeZone::UTC).date(),
         now(),
@@ -238,6 +239,7 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
             poster_path: None,
             releases: Releases::default(),
         },
+        ItemFolder::default(),
         true,
         now(),
     );

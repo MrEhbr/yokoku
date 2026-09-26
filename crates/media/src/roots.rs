@@ -5,22 +5,34 @@ use std::{
 
 use crate::{
     MediaError, RootFolder, RootKind,
-    ports::{FileSystem, MediaRepo},
+    ports::{Catalog, FileSystem, MediaRepo},
 };
 
 /// Root folder settings (FR-8.1).
 pub struct RootFolders {
     repo: Arc<dyn MediaRepo>,
+    catalog: Arc<dyn Catalog>,
     fs: Arc<dyn FileSystem>,
 }
 
 impl RootFolders {
-    pub fn new(repo: Arc<dyn MediaRepo>, fs: Arc<dyn FileSystem>) -> Self {
-        Self { repo, fs }
+    pub fn new(repo: Arc<dyn MediaRepo>, catalog: Arc<dyn Catalog>, fs: Arc<dyn FileSystem>) -> Self {
+        Self { repo, catalog, fs }
     }
 
     pub async fn list(&self) -> Result<Vec<RootFolder>, MediaError> {
         Ok(self.repo.root_folders().await?)
+    }
+
+    /// The root folder of `kind` at `path`, for adding an item to it.
+    pub async fn get(&self, kind: RootKind, path: &Path) -> Result<RootFolder, MediaError> {
+        let path: PathBuf = path.components().collect();
+        let root = self.list().await?.into_iter().find(|root| root.path == path);
+        match root {
+            Some(root) if root.kind == kind => Ok(root),
+            Some(root) => Err(MediaError::WrongRootKind { path, kind: root.kind }),
+            None => Err(MediaError::RootNotFound(path)),
+        }
     }
 
     /// The path must be an existing absolute folder that neither contains nor lies inside
@@ -45,9 +57,16 @@ impl RootFolders {
         Ok(root)
     }
 
-    /// Files under the folder stay linked to the library.
+    /// Refused while series or movies belong to the folder.
     pub async fn remove(&self, path: &Path) -> Result<(), MediaError> {
         let path: PathBuf = path.components().collect();
+        let series = self.catalog.all_series().await?;
+        let movies = self.catalog.all_movies().await?;
+        let items = series.iter().filter(|series| series.folder.root == path).count()
+            + movies.iter().filter(|movie| movie.folder.root == path).count();
+        if items > 0 {
+            return Err(MediaError::RootInUse { path, items });
+        }
         if !self.repo.remove_root_folder(&path).await? {
             return Err(MediaError::RootNotFound(path));
         }

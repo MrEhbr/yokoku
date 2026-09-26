@@ -100,7 +100,8 @@ Value types and rules shared by all modules. Examples:
 
 - Identifiers: `SeriesId`, `MovieId`, `EpisodeId`, and later `DownloadId`, `ImportId`, `MediaFileId`. UUIDv7 newtypes created by the domain, so an aggregate and its events are complete before they are saved. Users refer to items by source id (`tmdb:1396`).
 - `ExternalId { Tmdb(u64), Tvdb(u64) }`. An item stays bound to the provider it was added with.
-- `Series` → `Season` → `Episode` and `Movie`: aggregates with public fields. Seasons and episodes are kept ordered by number.
+- `Series` → `Season` → `Episode` and `Movie`: aggregates with public fields. Seasons and episodes are kept ordered by number. Each carries its root folder path (`root`) and its folder name in that root (`folder`), both set when it is added and never changed.
+- `RootFolder { kind, path }` and `RootKind { Series, Movies }` (FR-8.1): `library` checks an item's root against its kind; `media` stores the root folders.
 - `SeriesMetadata`, `MovieMetadata`: an item as its source describes it. `library::MetadataProvider` returns these.
 - `EpisodeRef { season, episode }` (`S01E02`) and `EpisodeSpan`, consecutive episodes of one season for multi-episode files (`S01E01-E03`).
 - `FileTarget { Episodes { series, span }, Movie(movie) }`: what a video file holds. `detect` produces it; `media` stores it.
@@ -149,7 +150,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
 
 - **Use cases**, split by what they depend on:
   - `Library` (repositories + clock): list with filter and sort, series and movie details, set monitoring, set numbering, remove.
-  - `MetadataSync` (+ metadata source): search, add (applying a monitor preset), refresh one item or all.
+  - `MetadataSync` (+ metadata source): search, add (applying a monitor preset, into a root folder of the item's kind, which the caller takes from `media`), refresh one item or all.
   - `Schedule` (repositories + clock): calendar for a date range, upcoming, missing grouped by series. Only monitored items appear (FR-2.3).
 - **Later:** iCal feed (served by `web`).
 - **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates, events in the same transaction), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
@@ -183,16 +184,17 @@ Owns library files, root folders, naming settings, imports and the recycle folde
   - Plan an import from a download or from files found by a scan.
   - Review: match a row to episodes or a movie in the library, or skip it; approve once every other row has a conflict-free match. Skipped files are not offered again by later scans.
   - Run an approved import.
-  - Root folders: add (absolute, existing, not overlapping another root), list, remove.
-  - Scan root folders (FR-8.2, 8.3, 8.7): each entry of a root is detected on its own against series (series root) or movies (movie root). New files that are `Certain`, conflict-free and hold nothing already linked are linked in place; the rest of the entry becomes one import in review. Linked files missing from disk are forgotten with `FileDeleted { reason: External }`. A root that cannot be read fails the scan, so an unmounted disk never looks empty.
-  - Rename with preview (FR-5.7): `Renamer::preview(scope)` lists the moves naming asks for, for the whole library, a series or a movie; `apply` makes them file by file. Subtitles beside a video (named after it) move with it and get normalised language tags. Files outside every root, whose item is gone, or that would share a path are skipped; a file already at the new path is never replaced, and that move is reported as failed. Folders left empty are removed up to the root.
+  - Root folders: add (absolute, existing, not overlapping another root), list, remove (refused while items belong to it).
+  - Scan item folders (FR-8.2, 8.3, 8.7): the files under each item's `root/folder` are detected against that item alone (`Target::Series` / `Target::Movie`); nothing else in a root is read. New files that are `Certain`, conflict-free and hold nothing already linked are linked in place; the rest of the folder becomes one import in review. Linked files missing from disk are forgotten with `FileDeleted { reason: External }`. A root that cannot be read fails the scan, so an unmounted disk never looks empty.
+  - Rename with preview (FR-5.7): `Renamer::preview(scope)` lists the moves naming asks for, for the whole library, a series or a movie; `apply` makes them file by file, inside the item's `root/folder`. Subtitles beside a video (named after it) move with it and get normalised language tags. Files outside every root, whose item is gone, or that would share a path are skipped; a file already at the new path is never replaced, and that move is reported as failed. Folders left empty are removed up to the root.
   - Delete or recycle files (FR-8.4, 8.5): `Deleter::delete(target)` removes the files holding an episode span or movie, with their subtitles and folders left empty, committing each file with `FileDeleted { reason: User }`. With `[recycle] folder` set they move to `<recycle>/<day>/<root folder name>/<path>` (`recycled: true`; under the file id when that path is taken that day), and `clean_recycle` removes day folders older than `keep_days` (daily `CleanupRecycle` job); the folder name is the only record needed. Removing a series or movie with `delete_files` does the same for all its files (`ItemRemoved`).
+  - Scan an added item (FR-8.8): the `media.scan_added` subscriber scans the new item's folder as above.
   - Retry a failed import.
   - File details (FR-8.6): the `media.probe` subscriber probes the files of `FilesFound` and `FilesImported` with `ffprobe` (`[files] ffprobe`) and stores duration, the video stream (codec, size; cover art is skipped) and each audio (language, codec, channels) and subtitle stream (language, forced) per file; details go with the file when it is removed and stay through renames. A file that cannot be probed, or a missing `ffprobe`, is only logged; `Prober::probe_missing` (`yokoku files probe`) reads every file never probed. `Prober::details(item)` adds the subtitle files beside each video.
 - **Library lock:** scan, import, rename and delete change files on disk before they commit, so each holds the `LibraryLock` from its first read of library files until its last commit; a scan never sees a file that is placed but not yet stored. `LockFile` in `system` takes an exclusive `flock` on `<database>.lock`, so the CLI and `serve` wait for each other as well. An import holds it per import, from its claim to its commit.
 - **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `LibraryLock`, `MediaProbe` (`FfProbe` in `system`), `Clock`; later `ImportQueue`.
 - **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`, `FileRenamed`; later `ImportFailed`.
-- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesRemoved`, `MovieRemoved` (delete or recycle files when asked).
+- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesAdded`, `MovieAdded` (scan the item's folder), `SeriesRemoved`, `MovieRemoved` (delete or recycle files when asked).
 
 ### 5.4 `integrations`
 
@@ -236,13 +238,13 @@ scan: unknown file ┘                                                  │
   - **Confidence:** `Certain` only when both the item and the episode were determined firmly; otherwise `Guess`; nothing found is `Unknown`.
   - **Conflicts:** two rows for the same episode or movie, or a target that already has a file.
   - **Movies:** the largest video is the movie; other videos are ignored as extras. An unlinked download is tried as a series first, then as a movie.
-- **`naming`** renders the target path, relative to the root folder, from the `[naming]` patterns (FR-5.6); an invalid pattern stops the app from starting and names the pattern:
+- **`naming`** renders, from the `[naming]` patterns (FR-5.6), an item's folder name (once, when it is added) and each file's path relative to that folder; an invalid pattern stops the app from starting and names the pattern:
   - One pattern per path component with tokens `{title}`, `{year}`, `{season}`, `{episodes}`, `{episode_title}`. A `[...]` group is dropped when a token inside has no value.
   - Defaults follow Jellyfin: `Title (Year)/Season 01/Title (Year) - S01E01 - Episode Title.ext` and `Title (Year)/Title (Year).ext`.
   - Every component is sanitised for Linux, macOS, Windows and SMB. File stems are capped at 200 bytes so subtitle suffixes always fit; folders at 255.
   - Subtitles take the video stem plus `.language[.sdh][.forced].ext`.
 - **Planning** (`ImportPlanner`, on `DownloadCompleted`): the download's files are read relative to the download's parent folder, so the torrent's folder name counts as a title, and matched against the linked item, or the whole library when there is none or it was removed. One import per download (a unique index); a redelivered event changes nothing. The import is `Approved` when every row is `Certain`, conflict-free and takes no episode or movie that already has a file, `NeedsReview` otherwise, and `Failed` (with `ImportFailed`) when the download holds no video.
-- **Execution** (`Importer`) places each row that is not skipped, with its subtitles, at the naming path in the item's root folder: the root holding the series' other files, else the first root of that kind. `[import] mode` is `hardlink` (default; keeps seeding), `copy` or `move`. It is idempotent per file: a destination holding the same data or the same size, or the moved file itself, counts as placed, so re-running after a crash is safe. Success commits the new files, `Done`, `FileDeleted { reason: Replaced }` for replaced files and `FilesImported` in one transaction; any failure stores the reason as `Failed` and emits `ImportFailed`; `retry` queues it again.
+- **Execution** (`Importer`) places each row that is not skipped, with its subtitles, at the naming path in the item's `root/folder`. `[import] mode` is `hardlink` (default; keeps seeding), `copy` or `move`. It is idempotent per file: a destination holding the same data or the same size, or the moved file itself, counts as placed, so re-running after a crash is safe. Success commits the new files, `Done`, `FileDeleted { reason: Replaced }` for replaced files and `FilesImported` in one transaction; any failure stores the reason as `Failed` and emits `ImportFailed`; `retry` queues it again.
 - **Replace** (FR-4.12): a review row of a download can replace the library file holding its target; the old file is deleted before the new one is placed. Keeping both is not offered, since an episode holds one file.
 - **One at a time:** `claim_next_approved` moves the oldest `Approved` import to `Importing` in one statement, so the CLI and `serve` never run the same import, and the job runs one tick at a time. `serve` moves imports left `Importing` by a stopped process back to `Approved` when it starts.
 - **Hard links** that fail across filesystems fall back to copy, with a warning; moves across filesystems copy and then delete.

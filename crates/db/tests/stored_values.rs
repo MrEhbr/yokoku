@@ -5,7 +5,8 @@ use rstest::rstest;
 use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 use yokoku_db::Database;
 use yokoku_domain::{
-    DownloadId, EpisodeMetadata, ExternalId, MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    DownloadId, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series, SeriesMetadata,
+    SourceStatus,
 };
 use yokoku_downloads::{Download, DownloadState, DownloadStatus, ports::DownloadRepo};
 use yokoku_library::ports::SeriesRepo;
@@ -33,7 +34,7 @@ fn series(episode_source_id: u64) -> Series {
             }],
         }],
     };
-    Series::add(metadata, MonitorPreset::All, date(2026, 9, 26), now())
+    Series::add(metadata, ItemFolder::default(), MonitorPreset::All, date(2026, 9, 26), now())
 }
 
 #[rstest]

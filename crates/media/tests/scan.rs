@@ -3,7 +3,7 @@ mod common;
 use std::fs;
 
 use common::{App, relative};
-use yokoku_domain::Confidence;
+use yokoku_domain::{Confidence, ItemId};
 use yokoku_events::{DeleteReason, Event, LinkedFile};
 use yokoku_media::{ImportRow, ImportStatus, MediaFile, ScanReport};
 
@@ -33,47 +33,65 @@ async fn certain_matches_are_linked_where_they_are() {
     );
     assert_eq!(
         app.events().await,
-        [Event::FilesFound { files: linked(&files[..1]) }, Event::FilesFound { files: linked(&files[1..]) },]
+        [Event::FilesFound { files: linked(&files[1..]) }, Event::FilesFound { files: linked(&files[..1]) }]
     );
 }
 
 #[tokio::test]
-async fn unsure_matches_go_to_review_per_folder() {
+async fn unsure_matches_go_to_review_per_item_folder() {
     let app = App::new().await;
     app.write(E01, 10);
     app.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E09.mkv", 11);
     app.write("tv/Frieren (2023)/Frieren - 02.mkv", 12);
-    app.write("tv/Home Videos/birthday.mkv", 13);
 
     let report = app.scanner.scan().await.unwrap();
 
     assert_eq!(report.found, 1);
     let pending = app.review.pending().await.unwrap();
     assert_eq!(report.needs_review, pending.iter().map(|import| import.id).collect::<Vec<_>>());
-    assert_eq!(
-        relative(&app, pending.iter().map(|import| import.source.as_path())),
-        ["tv/Frieren (2023)", "tv/Home Videos"]
-    );
+    assert_eq!(relative(&app, pending.iter().map(|import| import.source.as_path())), ["tv/Frieren (2023)"]);
     let rows = |index: usize| -> Vec<(Option<_>, Confidence)> {
         pending[index].rows.iter().map(|row: &ImportRow| (row.target, row.confidence)).collect()
     };
     assert_eq!(rows(0), [(Some(app.episodes(1, 2, 2)), Confidence::Guess), (None, Confidence::Unknown)]);
-    assert_eq!(rows(1), [(None, Confidence::Unknown)]);
     assert!(pending.iter().all(|import| import.status == ImportStatus::NeedsReview));
     let events = app.events().await;
     assert!(events.contains(&Event::ImportNeedsReview { import: pending[0].id, source: pending[0].source.clone() }));
 }
 
 #[tokio::test]
-async fn movie_roots_match_only_movies() {
+async fn files_outside_item_folders_are_ignored() {
     let app = App::new().await;
-    app.write("movies/Frieren (2023) - S01E01.mkv", 10);
+    app.write("tv/Home Videos/birthday.mkv", 13);
+    app.write("tv/Frieren (2023) - S01E01.mkv", 10);
+    app.write("movies/Dune (2021).mkv", 30);
 
     let report = app.scanner.scan().await.unwrap();
 
-    assert_eq!(report.found, 0);
-    let pending = app.review.pending().await.unwrap();
-    assert_eq!(pending[0].rows[0].target, None);
+    assert_eq!(report, ScanReport::default());
+    assert!(app.review.pending().await.unwrap().is_empty());
+    assert!(app.events().await.is_empty());
+}
+
+#[tokio::test]
+async fn an_item_folder_not_on_disk_holds_no_files() {
+    let app = App::new().await;
+
+    let report = app.scanner.scan().await.unwrap();
+
+    assert_eq!(report, ScanReport::default());
+}
+
+#[tokio::test]
+async fn scanning_an_item_reads_only_its_folder() {
+    let app = App::new().await;
+    app.write(E01, 10);
+    app.write(DUNE, 30);
+
+    let report = app.scanner.scan_item(ItemId::Series(app.frieren.id)).await.unwrap();
+
+    assert_eq!(report, ScanReport { found: 1, ..ScanReport::default() });
+    assert_eq!(relative(&app, app.db_files().await.iter().map(|file| file.path.as_path())), [E01]);
 }
 
 #[tokio::test]
@@ -95,7 +113,7 @@ async fn a_second_file_for_a_linked_episode_goes_to_review() {
 async fn scanning_again_changes_nothing() {
     let app = App::new().await;
     app.write(E01, 10);
-    app.write("tv/Home Videos/birthday.mkv", 13);
+    app.write("tv/Frieren (2023)/Frieren - 02.mkv", 12);
     app.scanner.scan().await.unwrap();
     let events = app.events().await;
 

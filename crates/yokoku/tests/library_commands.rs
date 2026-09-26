@@ -6,8 +6,8 @@ use predicates::prelude::*;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    EpisodeMetadata, ExternalId, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata,
-    SourceStatus,
+    EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series,
+    SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
@@ -80,8 +80,14 @@ async fn seeded_library() -> Library {
         releases: Releases { digital: Some(today() - 30.days()), ..Releases::default() },
     };
 
-    SeriesRepo::save(&db, &mut Series::add(frieren, MonitorPreset::All, today(), Timestamp::now()), &[]).await.unwrap();
-    MovieRepo::save(&db, &mut Movie::add(dune, true, Timestamp::now()), &[]).await.unwrap();
+    SeriesRepo::save(
+        &db,
+        &mut Series::add(frieren, ItemFolder::default(), MonitorPreset::All, today(), Timestamp::now()),
+        &[],
+    )
+    .await
+    .unwrap();
+    MovieRepo::save(&db, &mut Movie::add(dune, ItemFolder::default(), true, Timestamp::now()), &[]).await.unwrap();
     library
 }
 

@@ -1,6 +1,6 @@
 mod common;
 
-use common::{App, TODAY, movie_metadata, series_metadata};
+use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use jiff::{
     ToSpan,
     civil::{Date, date},
@@ -30,10 +30,10 @@ async fn populated() -> App {
     ));
     app.metadata.put_movie(movie_metadata(11, "Arrakis", Releases { cinema: day(2), ..Releases::default() }));
 
-    let frieren = app.sync.add_series(ExternalId::Tmdb(1), MonitorPreset::All).await.unwrap();
-    let pluto = app.sync.add_series(ExternalId::Tmdb(2), MonitorPreset::All).await.unwrap();
-    app.sync.add_movie(ExternalId::Tmdb(10), true).await.unwrap();
-    app.sync.add_movie(ExternalId::Tmdb(11), false).await.unwrap();
+    let frieren = app.sync.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    let pluto = app.sync.add_series(ExternalId::Tmdb(2), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    app.sync.add_movie(ExternalId::Tmdb(10), true, ROOT.into(), None).await.unwrap();
+    app.sync.add_movie(ExternalId::Tmdb(11), false, ROOT.into(), None).await.unwrap();
 
     app.library.set_season_monitored(pluto.id, 1, false).await.unwrap();
     let mut frieren = app.library.series(frieren.id).await.unwrap();

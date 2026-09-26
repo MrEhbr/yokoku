@@ -9,11 +9,14 @@ CREATE TABLE series (
     poster_path      TEXT,
     source_status    TEXT    NOT NULL,
     numbering        TEXT    NOT NULL,
+    root             TEXT    NOT NULL,
+    folder           TEXT    NOT NULL,
     monitored        INTEGER NOT NULL,
     added_at         TEXT    NOT NULL,
     refreshed_at     TEXT    NOT NULL,
     revision         INTEGER NOT NULL DEFAULT 1,
-    UNIQUE (source_kind, source_id)
+    UNIQUE (source_kind, source_id),
+    UNIQUE (root, folder)
 ) STRICT;
 
 CREATE TABLE seasons (
@@ -49,10 +52,13 @@ CREATE TABLE movies (
     cinema_date      TEXT,
     digital_date     TEXT,
     physical_date    TEXT,
+    root             TEXT    NOT NULL,
+    folder           TEXT    NOT NULL,
     monitored        INTEGER NOT NULL,
     file_id          TEXT,
     added_at         TEXT    NOT NULL,
     refreshed_at     TEXT    NOT NULL,
     revision         INTEGER NOT NULL DEFAULT 1,
-    UNIQUE (source_kind, source_id)
+    UNIQUE (source_kind, source_id),
+    UNIQUE (root, folder)
 ) STRICT;

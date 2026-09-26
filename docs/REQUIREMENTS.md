@@ -50,7 +50,7 @@ This document describes **what** the app must do, not how it is built.
 ## 3. Functional requirements
 
 ### FR-1 Library
-- **1.1** The user can search for a movie or series by title and add it to the library.
+- **1.1** The user can search for a movie or series by title and add it to the library, choosing its root folder (FR-8.1).
 - **1.2** The library lists all items with poster, title, year, type (movie/series), status and whether files are present.
   - Series status: continuing, on break, or ended.
   - Movie status: announced, in cinemas, or released.
@@ -117,7 +117,7 @@ This document describes **what** the app must do, not how it is built.
 - **5.4** Specials go into `Season 00`.
 - **5.5** Characters that aren't allowed in file names are replaced safely.
 - **5.6** Naming patterns are configurable, with Jellyfin-compatible defaults.
-- **5.7** The user can rename existing library files, with a preview (old → new) before applying.
+- **5.7** The user can rename existing library files, with a preview (old → new) before applying. Files are renamed inside their item's folder; the folder itself is never renamed (FR-8.1).
 - **5.8** Episode numbers in names must follow the same metadata source and episode order that Jellyfin uses.
 
 ### FR-6 Next episode tracking
@@ -134,13 +134,19 @@ This document describes **what** the app must do, not how it is built.
 - **7.5** Optional: an iCal feed, so the calendar can be shown in other calendar apps.
 
 ### FR-8 File management
-- **8.1** The user configures root folders for movies and for series.
-- **8.2** The app scans root folders and links existing files to library items, so an existing collection can be imported.
-- **8.3** Files it can't recognise are listed for manual matching, using the same review screen as FR-4.11.
+- **8.1** The user configures root folders, each for movies or for series, with any number of each (e.g. `Anime`, `Shows`, `Movies`).
+  - Every item belongs to one root folder of its kind, chosen when it is added.
+  - Each item has its own folder in that root folder, named by the FR-5.1 layout when it is added (e.g. `Shows/Title (Year)`), or a name the user gives, such as an existing folder. The folder never changes afterwards, even when the item's title or year does.
+  - A root folder that holds items can't be removed.
+- **8.2** The app scans the folder of each library item and links the files there to that item, so an existing collection can be imported.
+  - Items are only added from the app (FR-1.1); a scan never adds items.
+  - Folders that belong to no library item are ignored.
+- **8.3** Files in an item's folder that it can't recognise are listed for manual matching, using the same review screen as FR-4.11.
 - **8.4** The user can delete a movie or episode file from the app.
 - **8.5** Deleted files optionally go to a recycle folder, which is cleaned up automatically after N days.
 - **8.6** File details are shown: path, size, resolution, and audio/subtitle languages where detectable.
 - **8.7** Files removed or changed outside the app are detected on the next scan.
+- **8.8** Adding an item scans its folder right away (FR-8.2).
 
 ### FR-9 History and activity
 - **9.1** A history log records adds, torrent additions, imports, renames and deletions, each with a date and the item it affected.

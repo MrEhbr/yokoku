@@ -1,11 +1,13 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
-use yokoku_domain::{Clock, ExternalId, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId};
+use yokoku_domain::{
+    Clock, ExternalId, ItemFolder, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
+};
 use yokoku_events::Event;
 
 use crate::{
     LibraryError,
-    ports::{MetadataProvider, MovieRepo, SearchResult, SeriesRepo},
+    ports::{FolderNames, MetadataProvider, MovieRepo, SearchResult, SeriesRepo},
     retry,
 };
 
@@ -14,6 +16,7 @@ pub struct MetadataSync {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
     metadata: Arc<dyn MetadataProvider>,
+    folders: Arc<dyn FolderNames>,
     clock: Arc<dyn Clock>,
 }
 
@@ -40,9 +43,10 @@ impl MetadataSync {
         series: Arc<dyn SeriesRepo>,
         movies: Arc<dyn MovieRepo>,
         metadata: Arc<dyn MetadataProvider>,
+        folders: Arc<dyn FolderNames>,
         clock: Arc<dyn Clock>,
     ) -> Self {
-        Self { series, movies, metadata, clock }
+        Self { series, movies, metadata, folders, clock }
     }
 
     pub async fn search(&self, query: &str) -> Result<Vec<SearchHit>, LibraryError> {
@@ -57,26 +61,50 @@ impl MetadataSync {
         Ok(hits)
     }
 
-    pub async fn add_series(&self, source: ExternalId, preset: MonitorPreset) -> Result<Series, LibraryError> {
+    /// Adds the series in `root`, in the folder `folder` or else the one its naming pattern gives.
+    /// The caller checks that `root` is a series root folder.
+    pub async fn add_series(
+        &self,
+        source: ExternalId,
+        preset: MonitorPreset,
+        root: PathBuf,
+        folder: Option<String>,
+    ) -> Result<Series, LibraryError> {
         if self.series.find_by_source(source).await?.is_some() {
             return Err(LibraryError::AlreadyInLibrary(source));
         }
         let metadata = self.metadata.series(source).await?;
+        let folder = ItemFolder::new(root, folder.unwrap_or_else(|| self.folders.series_folder(&metadata)))?;
+        if self.series.find_by_folder(&folder).await?.is_some() {
+            return Err(LibraryError::FolderTaken(folder.path()));
+        }
         let now = self.clock.now();
 
-        let mut series = Series::add(metadata, preset, now.date(), now.timestamp());
+        let mut series = Series::add(metadata, folder, preset, now.date(), now.timestamp());
         let added = Event::SeriesAdded { series: series.id, title: series.title.clone() };
         self.series.save(&mut series, &[added]).await?;
         Ok(series)
     }
 
-    pub async fn add_movie(&self, source: ExternalId, monitored: bool) -> Result<Movie, LibraryError> {
+    /// Adds the movie in `root`, in the folder `folder` or else the one its naming pattern gives.
+    /// The caller checks that `root` is a movie root folder.
+    pub async fn add_movie(
+        &self,
+        source: ExternalId,
+        monitored: bool,
+        root: PathBuf,
+        folder: Option<String>,
+    ) -> Result<Movie, LibraryError> {
         if self.movies.find_by_source(source).await?.is_some() {
             return Err(LibraryError::AlreadyInLibrary(source));
         }
         let metadata = self.metadata.movie(source).await?;
+        let folder = ItemFolder::new(root, folder.unwrap_or_else(|| self.folders.movie_folder(&metadata)))?;
+        if self.movies.find_by_folder(&folder).await?.is_some() {
+            return Err(LibraryError::FolderTaken(folder.path()));
+        }
 
-        let mut movie = Movie::add(metadata, monitored, self.clock.now().timestamp());
+        let mut movie = Movie::add(metadata, folder, monitored, self.clock.now().timestamp());
         let added = Event::MovieAdded { movie: movie.id, title: movie.title.clone() };
         self.movies.save(&mut movie, &[added]).await?;
         Ok(movie)

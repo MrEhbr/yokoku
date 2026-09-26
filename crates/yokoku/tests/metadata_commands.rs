@@ -11,7 +11,7 @@ use wiremock::{
 
 struct Tmdb {
     server: MockServer,
-    _dir: TempDir,
+    dir: TempDir,
     database: PathBuf,
 }
 
@@ -25,7 +25,7 @@ async fn respond(server: &MockServer, endpoint: &str, append: &str, body: &str) 
     mock.respond_with(ResponseTemplate::new(200).set_body_json(fixture(body))).mount(server).await;
 }
 
-/// Serves the recorded search for "dune", Frieren and Dune.
+/// Serves the recorded search for "dune", Frieren and Dune, with root folders `tv` and `movies`.
 async fn tmdb() -> Tmdb {
     let server = MockServer::start().await;
     Mock::given(path("/search/multi"))
@@ -38,10 +38,27 @@ async fn tmdb() -> Tmdb {
 
     let dir = tempfile::tempdir().unwrap();
     let database = dir.path().join("yokoku.db");
-    Tmdb { server, _dir: dir, database }
+    let tmdb = Tmdb { server, dir, database };
+    for (kind, root) in [("series", "tv"), ("movies", "movies")] {
+        std::fs::create_dir(tmdb.path(root)).unwrap();
+        tmdb.command().args(["root", "add", kind]).arg(tmdb.path(root)).assert().success();
+    }
+    tmdb
 }
 
 impl Tmdb {
+    fn path(&self, relative: &str) -> PathBuf {
+        self.dir.path().join(relative)
+    }
+
+    /// `yokoku add` into the root folder of the item's kind.
+    fn add(&self, args: &[&str]) -> Command {
+        let root = if args[0] == "series" { "tv" } else { "movies" };
+        let mut command = self.command();
+        command.arg("add").args(args).arg("--root").arg(self.path(root));
+        command
+    }
+
     fn command(&self) -> Command {
         let mut command = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
         command
@@ -56,7 +73,7 @@ impl Tmdb {
 #[tokio::test(flavor = "multi_thread")]
 async fn search_marks_items_already_in_the_library() {
     let tmdb = tmdb().await;
-    tmdb.command().args(["add", "movie", "tmdb:438631"]).assert().success();
+    tmdb.add(&["movie", "tmdb:438631"]).assert().success();
 
     let output = tmdb.command().args(["search", "dune"]).output().unwrap();
 
@@ -74,16 +91,14 @@ async fn search_marks_items_already_in_the_library() {
 async fn add_puts_series_and_movies_in_the_library() {
     let tmdb = tmdb().await;
 
-    tmdb.command()
-        .args(["add", "series", "tmdb:209867", "--monitor", "none"])
+    tmdb.add(&["series", "tmdb:209867", "--monitor", "none"]).assert().success().stdout(format!(
+        "Added series Frieren: Beyond Journey's End (2023) tmdb:209867 in {}\n",
+        tmdb.path("tv/Frieren - Beyond Journey's End (2023)").display()
+    ));
+    tmdb.add(&["movie", "tmdb:438631"])
         .assert()
         .success()
-        .stdout("Added series Frieren: Beyond Journey's End (2023) tmdb:209867\n");
-    tmdb.command()
-        .args(["add", "movie", "tmdb:438631"])
-        .assert()
-        .success()
-        .stdout("Added movie Dune (2021) tmdb:438631\n");
+        .stdout(format!("Added movie Dune (2021) tmdb:438631 in {}\n", tmdb.path("movies/Dune (2021)").display()));
 
     tmdb.command()
         .args(["show", "series", "tmdb:209867"])
@@ -98,17 +113,53 @@ async fn add_puts_series_and_movies_in_the_library() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn add_rejects_duplicates_and_series_presets_for_movies() {
+async fn add_uses_a_given_folder_and_links_the_files_already_there() {
     let tmdb = tmdb().await;
-    tmdb.command().args(["add", "series", "tmdb:209867"]).assert().success();
+    let video = tmdb.path("movies/dune/dune.2021.mkv");
+    std::fs::create_dir_all(video.parent().unwrap()).unwrap();
+    std::fs::write(&video, b"video").unwrap();
+
+    tmdb.add(&["movie", "tmdb:438631", "--folder", "dune"])
+        .assert()
+        .success()
+        .stdout(format!("Added movie Dune (2021) tmdb:438631 in {}\n", tmdb.path("movies/dune").display()));
 
     tmdb.command()
-        .args(["add", "series", "tmdb:209867"])
+        .args(["show", "movie", "tmdb:438631"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("downloaded"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn add_needs_a_root_folder_of_the_item_kind() {
+    let tmdb = tmdb().await;
+
+    tmdb.command()
+        .args(["add", "movie", "tmdb:438631", "--root"])
+        .arg(tmdb.path("tv"))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("is a series root folder"));
+    tmdb.command()
+        .args(["add", "movie", "tmdb:438631", "--root"])
+        .arg(tmdb.path("elsewhere"))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("is not a root folder"));
+    tmdb.command().args(["add", "movie", "tmdb:438631"]).assert().failure().stderr(predicate::str::contains("--root"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn add_rejects_duplicates_and_series_presets_for_movies() {
+    let tmdb = tmdb().await;
+    tmdb.add(&["series", "tmdb:209867"]).assert().success();
+
+    tmdb.add(&["series", "tmdb:209867"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("tmdb:209867 is already in the library"));
-    tmdb.command()
-        .args(["add", "movie", "tmdb:438631", "--monitor", "future"])
+    tmdb.add(&["movie", "tmdb:438631", "--monitor", "future"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("movies can only be monitored with `all` or `none`"));
@@ -117,8 +168,8 @@ async fn add_rejects_duplicates_and_series_presets_for_movies() {
 #[tokio::test(flavor = "multi_thread")]
 async fn refresh_updates_one_item_or_the_whole_library() {
     let tmdb = tmdb().await;
-    tmdb.command().args(["add", "series", "tmdb:209867"]).assert().success();
-    tmdb.command().args(["add", "movie", "tmdb:438631"]).assert().success();
+    tmdb.add(&["series", "tmdb:209867"]).assert().success();
+    tmdb.add(&["movie", "tmdb:438631"]).assert().success();
 
     tmdb.command().args(["refresh"]).assert().success().stdout("Refreshed 2 items\n");
     tmdb.command().args(["refresh", "movie", "tmdb:438631"]).assert().success().stdout("Refreshed tmdb:438631\n");

@@ -3,7 +3,9 @@ use jiff::{
     civil::{Date, date},
 };
 use rstest::rstest;
-use yokoku_domain::{ExternalId, FileStatus, MediaFileId, Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
+use yokoku_domain::{
+    ExternalId, FileStatus, ItemFolder, MediaFileId, Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases,
+};
 
 const TODAY: Date = date(2026, 9, 26);
 
@@ -18,7 +20,7 @@ fn movie(cinema: Option<i64>, digital: Option<i64>, physical: Option<i64>) -> Mo
         poster_path: None,
         releases: Releases { cinema: from_today(cinema), digital: from_today(digital), physical: from_today(physical) },
     };
-    Movie::add(metadata, true, Timestamp::UNIX_EPOCH)
+    Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
 }
 
 #[rstest]

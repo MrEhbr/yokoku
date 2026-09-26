@@ -15,15 +15,6 @@ yokoku_domain::string_enum!(RootKind, "root folder kind" {
     Movies => "movies",
 });
 
-impl From<FileTarget> for RootKind {
-    fn from(target: FileTarget) -> Self {
-        match target {
-            FileTarget::Episodes { .. } => Self::Series,
-            FileTarget::Movie(_) => Self::Movies,
-        }
-    }
-}
-
 /// A folder holding the library's series or movies (FR-8.1).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootFolder {

@@ -7,13 +7,13 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_db::Database;
-use yokoku_domain::Clock;
+use yokoku_domain::{Clock, MovieMetadata, SeriesMetadata};
 use yokoku_downloads::{DownloadOptions, Downloads, PickUp};
 use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
 use yokoku_integrations::Rescans;
-use yokoku_library::{Library, MetadataSync, Schedule};
+use yokoku_library::{Library, MetadataSync, Schedule, ports::FolderNames};
 use yokoku_media::{
-    Deleter, Importer, Prober, Renamer, Review, RootFolders, Scanner,
+    Deleter, ImportPlanner, Importer, Prober, Renamer, Review, RootFolders, Scanner,
     ports::{FileSystem, LibraryLock},
 };
 use yokoku_metadata::TmdbClient;
@@ -187,13 +187,14 @@ impl App {
         let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
         let db = Arc::new(db);
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()?));
+        let naming = config.naming.naming()?;
         let metadata = &config.metadata;
         let sync = metadata.tmdb_token.as_ref().map(|token| {
             let tmdb = TmdbClient::new(token, &metadata.language, &metadata.region).with_base_url(&metadata.tmdb_url);
-            Arc::new(MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), clock.clone()))
+            let folders = Arc::new(NamedFolders(naming.clone()));
+            Arc::new(MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), folders, clock.clone()))
         });
 
-        let naming = config.naming.naming()?;
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
         let lock: Arc<dyn LibraryLock> = Arc::new(LockFile::new(path.with_extension("lock")));
         let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(FfProbe::new(&config.files.ffprobe))));
@@ -210,12 +211,13 @@ impl App {
             client = client.with_credentials(username, transmission.password.clone().unwrap_or_default());
         }
         let downloads = Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone(), transmission.options()));
+        let scanner = Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone()));
 
         Ok(Self {
             library: Library::new(db.clone(), db.clone(), clock.clone()),
             schedule: Schedule::new(db.clone(), db.clone(), clock.clone()),
-            roots: RootFolders::new(db.clone(), fs.clone()),
-            scanner: Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone())),
+            roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
+            scanner: scanner.clone(),
             review: Review::new(db.clone(), db.clone(), clock.clone()),
             downloads: downloads.clone(),
             renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), naming.clone()),
@@ -229,7 +231,15 @@ impl App {
                 config.import.mode.into(),
             )),
             history: History::new(Arc::new(db.event_log())),
-            subscribers: subscriptions::subscribers(&db, &fs, &clock, &deleter, &downloads, &prober, rescans.as_ref()),
+            subscribers: subscriptions::subscribers(
+                &db,
+                &Arc::new(ImportPlanner::new(db.clone(), db.clone(), fs.clone(), clock.clone())),
+                &deleter,
+                &downloads,
+                &prober,
+                &scanner,
+                rescans.as_ref(),
+            ),
             deleter,
             prober,
             rescans,
@@ -275,6 +285,19 @@ impl App {
     /// `None` while no TMDB token is configured.
     pub fn metadata(&self) -> Option<Arc<MetadataSync>> {
         self.sync.clone()
+    }
+}
+
+/// Names new item folders with the configured naming patterns.
+struct NamedFolders(Naming);
+
+impl FolderNames for NamedFolders {
+    fn series_folder(&self, metadata: &SeriesMetadata) -> String {
+        self.0.series_folder(&metadata.title, metadata.year)
+    }
+
+    fn movie_folder(&self, metadata: &MovieMetadata) -> String {
+        self.0.movie_folder(&metadata.title, metadata.year)
     }
 }
 

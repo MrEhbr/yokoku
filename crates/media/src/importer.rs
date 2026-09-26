@@ -12,7 +12,7 @@ use yokoku_events::{DeleteReason, Event};
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
-    Import, ImportStatus, MediaError, MediaFile, RootFolder, RootKind, files,
+    Import, ImportStatus, MediaError, MediaFile, files,
     ports::{Catalog, Changes, FileSystem, FsError, LibraryLock, MediaRepo},
 };
 
@@ -138,7 +138,6 @@ impl Importer {
 
     /// Places every row that is not skipped; the error says why the import stopped.
     async fn place_all(&self, import: &Import) -> Result<Placed, MediaError> {
-        let roots = self.repo.root_folders().await?;
         let library = self.repo.files().await?;
         let subtitles = self.subtitles(&import.source).await?;
         let now = self.clock.now().timestamp();
@@ -146,9 +145,7 @@ impl Importer {
 
         for (number, row) in (1..).zip(&import.rows).filter(|(_, row)| !row.skipped) {
             let target = row.target.ok_or(MediaError::RowUnmatched(number))?;
-            let root =
-                root_for(target, &roots, &library).ok_or_else(|| MediaError::NoRootFolder(RootKind::from(target)))?;
-            let destination = root.join(self.relative_path(target, &row.path).await?);
+            let destination = self.destination(target, &row.path).await?;
 
             if row.replace {
                 for old in library.iter().filter(|file| file.target.overlaps(&target)) {
@@ -175,16 +172,17 @@ impl Importer {
         Ok(placed)
     }
 
-    async fn relative_path(&self, target: FileTarget, video: &Path) -> Result<PathBuf, MediaError> {
+    /// The naming path in the item's folder.
+    async fn destination(&self, target: FileTarget, video: &Path) -> Result<PathBuf, MediaError> {
         let extension = video.extension().unwrap_or_default().to_string_lossy();
         match target {
             FileTarget::Episodes { series: id, span } => {
                 let series = self.catalog.series(id).await?.ok_or(MediaError::SeriesNotFound(id))?;
-                Ok(self.naming.episode_path(&series, span, &extension)?)
+                Ok(series.folder.path().join(self.naming.episode_path(&series, span, &extension)?))
             },
             FileTarget::Movie(id) => {
                 let movie = self.catalog.movie(id).await?.ok_or(MediaError::MovieNotFound(id))?;
-                Ok(self.naming.movie_path(&movie, &extension))
+                Ok(movie.folder.path().join(self.naming.movie_path(&movie, &extension)))
             },
         }
     }
@@ -244,20 +242,4 @@ impl Importer {
         };
         Ok(result?)
     }
-}
-
-/// The root holding the series' other files, or else the first root of the item's kind.
-fn root_for<'a>(target: FileTarget, roots: &'a [RootFolder], library: &[MediaFile]) -> Option<&'a Path> {
-    let kind = RootKind::from(target);
-    let candidates = || roots.iter().filter(move |root| root.kind == kind);
-    let same_item = |file: &&MediaFile| match (file.target, target) {
-        (FileTarget::Episodes { series, .. }, FileTarget::Episodes { series: wanted, .. }) => series == wanted,
-        (file, wanted) => file == wanted,
-    };
-    library
-        .iter()
-        .filter(same_item)
-        .find_map(|file| candidates().find(|root| file.path.starts_with(&root.path)))
-        .or_else(|| candidates().next())
-        .map(|root| root.path.as_path())
 }

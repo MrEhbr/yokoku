@@ -18,10 +18,13 @@ use yokoku_domain::{
 use yokoku_events::{Event, EventLog};
 use yokoku_library::{
     Library, MetadataSync, Schedule,
-    ports::{MetadataError, MetadataProvider, SearchResult},
+    ports::{FolderNames, MetadataError, MetadataProvider, SearchResult},
 };
 
 pub const TODAY: Date = date(2026, 9, 26);
+
+/// The root folder items are added to.
+pub const ROOT: &str = "/library";
 
 pub struct FixedClock(Mutex<Zoned>);
 
@@ -35,6 +38,19 @@ impl FixedClock {
 impl Clock for FixedClock {
     fn now(&self) -> Zoned {
         self.0.lock().unwrap().clone()
+    }
+}
+
+/// Names each folder after the item's source id.
+pub struct SourceFolders;
+
+impl FolderNames for SourceFolders {
+    fn series_folder(&self, metadata: &SeriesMetadata) -> String {
+        metadata.source.to_string()
+    }
+
+    fn movie_folder(&self, metadata: &MovieMetadata) -> String {
+        metadata.source.to_string()
     }
 }
 
@@ -164,7 +180,7 @@ impl App {
         let repo = Arc::new(db.clone());
         let library = Library::new(repo.clone(), repo.clone(), clock.clone());
         let schedule = Schedule::new(repo.clone(), repo.clone(), clock.clone());
-        let sync = MetadataSync::new(repo.clone(), repo, metadata.clone(), clock.clone());
+        let sync = MetadataSync::new(repo.clone(), repo, metadata.clone(), Arc::new(SourceFolders), clock.clone());
         Self { db, clock, metadata, library, schedule, sync }
     }
 
