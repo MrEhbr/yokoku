@@ -172,6 +172,8 @@ Owns the downloads Yokoku knows about and the Transmission connection settings.
 
 Transmission runs on the same host as Yokoku. The paths it reports are used as-is; no path mapping.
 
+`yokoku-transmission` speaks Transmission's RPC: it repeats a call once with the session id a 409 answer carries, sends basic auth when configured, and labels added torrents `yokoku`. A torrent counts as complete when its metadata is known, its selected size is above zero, nothing is left and it is not being checked. Tests replay recorded answers with wiremock; an ignored live test starts `transmission-daemon`, adds a torrent made from local data and syncs it to completion.
+
 ### 5.3 `media`
 
 Owns library files, root folders, naming settings, imports and the recycle folder.
