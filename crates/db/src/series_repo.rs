@@ -131,17 +131,7 @@ impl Database {
     async fn save_series(&self, series: &mut Series, events: &[Event]) -> Result<(), DbError> {
         let id = series.id.to_string();
         let source = SourceColumns::from(series.source);
-        let mut tx = self.begin().await?;
-        if series.revision > 0 {
-            let claimed = sqlx::query("UPDATE series SET revision = revision + 1 WHERE id = ? AND revision = ?")
-                .bind(&id)
-                .bind(Int(series.revision))
-                .execute(&mut *tx)
-                .await?;
-            if claimed.rows_affected() == 0 {
-                return Err(DbError::Conflict);
-            }
-        }
+        let mut tx = self.begin_save("series", &id, series.revision).await?;
 
         sqlx::query(
             "INSERT INTO series (id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,

@@ -1,13 +1,13 @@
 use std::{path::Path, time::Duration};
 
 use sqlx::{
-    Sqlite, SqlitePool, Transaction,
+    AssertSqlSafe, Sqlite, SqlitePool, Transaction,
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use yokoku_events::{Event, NewEvents};
 
-use crate::{DbError, SqliteEventLog, event_log};
+use crate::{DbError, SqliteEventLog, codec::Int, event_log};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
@@ -52,6 +52,30 @@ impl Database {
 
     pub async fn begin(&self) -> Result<Transaction<'static, Sqlite>, DbError> {
         Ok(self.pool.begin().await?)
+    }
+
+    /// Begins a transaction that bumps the row's revision; `Conflict` when the stored revision is
+    /// not `revision`. A zero revision is a new row and bumps nothing.
+    pub(crate) async fn begin_save(
+        &self,
+        table: &'static str,
+        id: &str,
+        revision: u64,
+    ) -> Result<Transaction<'static, Sqlite>, DbError> {
+        let mut tx = self.begin().await?;
+        if revision > 0 {
+            let claimed = sqlx::query(AssertSqlSafe(format!(
+                "UPDATE {table} SET revision = revision + 1 WHERE id = ? AND revision = ?"
+            )))
+            .bind(id)
+            .bind(Int(revision))
+            .execute(&mut *tx)
+            .await?;
+            if claimed.rows_affected() == 0 {
+                return Err(DbError::Conflict);
+            }
+        }
+        Ok(tx)
     }
 
     /// Appends `events` inside `tx`, commits, then wakes event deliveries.

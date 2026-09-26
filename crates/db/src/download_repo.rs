@@ -85,17 +85,7 @@ impl Database {
             None => (None, None),
         };
 
-        let mut tx = self.begin().await?;
-        if download.revision > 0 {
-            let claimed = sqlx::query("UPDATE downloads SET revision = revision + 1 WHERE id = ? AND revision = ?")
-                .bind(download.id.to_string())
-                .bind(Int(download.revision))
-                .execute(&mut *tx)
-                .await?;
-            if claimed.rows_affected() == 0 {
-                return Err(DbError::Conflict);
-            }
-        }
+        let mut tx = self.begin_save("downloads", &download.id.to_string(), download.revision).await?;
         sqlx::query(
             "INSERT INTO downloads (id, hash, name, series_id, movie_id, state, size, done, download_rate, eta,
                                     download_dir, error, added_at, completed_at, imported_at)

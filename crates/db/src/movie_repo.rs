@@ -75,17 +75,7 @@ impl Database {
     async fn save_movie(&self, movie: &mut Movie, events: &[Event]) -> Result<(), DbError> {
         let source = SourceColumns::from(movie.source);
         let date = |date: Option<Date>| date.map(|date| date.to_string());
-        let mut tx = self.begin().await?;
-        if movie.revision > 0 {
-            let claimed = sqlx::query("UPDATE movies SET revision = revision + 1 WHERE id = ? AND revision = ?")
-                .bind(movie.id.to_string())
-                .bind(Int(movie.revision))
-                .execute(&mut *tx)
-                .await?;
-            if claimed.rows_affected() == 0 {
-                return Err(DbError::Conflict);
-            }
-        }
+        let mut tx = self.begin_save("movies", &movie.id.to_string(), movie.revision).await?;
 
         sqlx::query(
             "INSERT INTO movies (id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,

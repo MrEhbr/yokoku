@@ -50,7 +50,7 @@ impl Database {
         for stream in streams {
             match (stream.kind.as_str(), stream.channels) {
                 ("audio", Some(channels)) => {
-                    info.audio.push(AudioStream { codec: stream.codec, language: stream.language, channels })
+                    info.audio.push(AudioStream { codec: stream.codec, language: stream.language, channels });
                 },
                 ("subtitle", None) => info.subtitles.push(SubtitleStream {
                     codec: stream.codec,
