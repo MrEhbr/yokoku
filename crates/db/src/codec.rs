@@ -92,3 +92,11 @@ pub(crate) fn revision(value: i64) -> Result<u64, DbError> {
 pub(crate) fn revision_to_i64(revision: u64) -> Result<i64, DbError> {
     i64::try_from(revision).map_err(|_| DbError::InvalidValue(format!("revision {revision}")))
 }
+
+pub(crate) fn titles_to_json(titles: &[String]) -> Result<String, DbError> {
+    Ok(serde_json::to_string(titles)?)
+}
+
+pub(crate) fn titles_from_json(value: &str) -> Result<Vec<String>, DbError> {
+    Ok(serde_json::from_str(value)?)
+}

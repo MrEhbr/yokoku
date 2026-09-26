@@ -12,6 +12,7 @@ struct MovieRow {
     source_id: i64,
     title: String,
     original_title: String,
+    alternate_titles: String,
     year: Option<i16>,
     poster_path: Option<String>,
     cinema_date: Option<String>,
@@ -81,11 +82,12 @@ impl Database {
         }
 
         sqlx::query(
-            "INSERT INTO movies (id, source_kind, source_id, title, original_title, year, poster_path, cinema_date,
-                                 digital_date, physical_date, monitored, file_id, added_at, refreshed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "INSERT INTO movies (id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,
+                                 cinema_date, digital_date, physical_date, monitored, file_id, added_at, refreshed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
-                 title = excluded.title, original_title = excluded.original_title, year = excluded.year,
+                 title = excluded.title, original_title = excluded.original_title,
+                 alternate_titles = excluded.alternate_titles, year = excluded.year,
                  poster_path = excluded.poster_path, cinema_date = excluded.cinema_date,
                  digital_date = excluded.digital_date, physical_date = excluded.physical_date,
                  monitored = excluded.monitored, file_id = excluded.file_id,
@@ -96,6 +98,7 @@ impl Database {
         .bind(source_id)
         .bind(&movie.title)
         .bind(&movie.original_title)
+        .bind(codec::titles_to_json(&movie.alternate_titles)?)
         .bind(movie.year)
         .bind(&movie.poster_path)
         .bind(date(movie.releases.cinema))
@@ -115,8 +118,8 @@ impl Database {
 
     pub(crate) async fn load_movie(&self, id: MovieId) -> Result<Option<Movie>, DbError> {
         let row: Option<MovieRow> = sqlx::query_as(
-            "SELECT id, source_kind, source_id, title, original_title, year, poster_path, cinema_date, digital_date,
-                    physical_date, monitored, file_id, added_at, refreshed_at, revision
+            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,
+                    cinema_date, digital_date, physical_date, monitored, file_id, added_at, refreshed_at, revision
              FROM movies WHERE id = ?",
         )
         .bind(id.to_string())
@@ -138,6 +141,7 @@ fn movie(row: MovieRow) -> Result<Movie, DbError> {
         source: codec::source_from_columns(&row.source_kind, row.source_id)?,
         title: row.title,
         original_title: row.original_title,
+        alternate_titles: codec::titles_from_json(&row.alternate_titles)?,
         year: row.year,
         poster_path: row.poster_path,
         releases: Releases {

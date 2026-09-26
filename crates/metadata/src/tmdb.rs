@@ -127,6 +127,7 @@ impl MetadataProvider for TmdbClient {
             status: wire::source_status(details.status.as_deref()),
             title: details.name,
             original_title: details.original_name,
+            alternate_titles: Vec::new(),
             poster_path: details.poster_path,
             seasons,
         })
@@ -143,6 +144,7 @@ impl MetadataProvider for TmdbClient {
             releases: releases(&details, &self.region),
             title: details.title,
             original_title: details.original_title,
+            alternate_titles: Vec::new(),
             poster_path: details.poster_path,
         })
     }

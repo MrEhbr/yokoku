@@ -32,6 +32,7 @@ fn series_metadata(source: u64, seasons: &[(u16, &[Option<Date>])]) -> SeriesMet
         source: ExternalId::Tmdb(source),
         title: "Frieren".into(),
         original_title: "Sousou no Frieren".into(),
+        alternate_titles: vec!["Frieren: Beyond Journey's End".into(), "葬送のフリーレン".into()],
         year: Some(2023),
         poster_path: Some("/frieren.jpg".into()),
         status: SourceStatus::Returning,
@@ -62,6 +63,7 @@ fn movie_metadata(source: u64) -> MovieMetadata {
         source: ExternalId::Tmdb(source),
         title: "Dune".into(),
         original_title: "Dune".into(),
+        alternate_titles: vec!["Dune: Part One".into()],
         year: None,
         poster_path: None,
         releases: Releases { cinema: Some(TODAY), digital: None, physical: Some(TODAY + 90.days()) },
@@ -162,13 +164,13 @@ fn any_date() -> impl Strategy<Value = Date> {
 }
 
 fn any_metadata() -> impl Strategy<Value = SeriesMetadata> {
-    prop::collection::btree_map(0..5u16, prop::collection::vec(prop::option::of(any_date()), 0..5), 0..4).prop_map(
-        |seasons: BTreeMap<u16, Vec<Option<Date>>>| {
-            let seasons: Vec<(u16, &[Option<Date>])> =
-                seasons.iter().map(|(&number, dates)| (number, dates.as_slice())).collect();
-            series_metadata(1, &seasons)
-        },
-    )
+    let seasons = prop::collection::btree_map(0..5u16, prop::collection::vec(prop::option::of(any_date()), 0..5), 0..4);
+    let titles = prop::collection::vec("\\PC{0,20}", 0..3);
+    (seasons, titles).prop_map(|(seasons, titles): (BTreeMap<u16, Vec<Option<Date>>>, Vec<String>)| {
+        let seasons: Vec<(u16, &[Option<Date>])> =
+            seasons.iter().map(|(&number, dates)| (number, dates.as_slice())).collect();
+        SeriesMetadata { alternate_titles: titles, ..series_metadata(1, &seasons) }
+    })
 }
 
 fn block_on<T>(future: impl Future<Output = T>) -> T {

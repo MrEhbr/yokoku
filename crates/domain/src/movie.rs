@@ -42,6 +42,8 @@ pub struct MovieMetadata {
     pub source: ExternalId,
     pub title: String,
     pub original_title: String,
+    /// Other names the item is known by, such as romanisations.
+    pub alternate_titles: Vec<String>,
     pub year: Option<i16>,
     pub poster_path: Option<String>,
     pub releases: Releases,
@@ -53,6 +55,8 @@ pub struct Movie {
     pub source: ExternalId,
     pub title: String,
     pub original_title: String,
+    /// Other names the item is known by, such as romanisations.
+    pub alternate_titles: Vec<String>,
     pub year: Option<i16>,
     pub poster_path: Option<String>,
     pub releases: Releases,
@@ -71,6 +75,7 @@ impl Movie {
             source: metadata.source,
             title: metadata.title,
             original_title: metadata.original_title,
+            alternate_titles: metadata.alternate_titles,
             year: metadata.year,
             poster_path: metadata.poster_path,
             releases: metadata.releases,
@@ -85,6 +90,7 @@ impl Movie {
     pub fn refresh(&mut self, metadata: MovieMetadata, now: Timestamp) {
         self.title = metadata.title;
         self.original_title = metadata.original_title;
+        self.alternate_titles = metadata.alternate_titles;
         self.year = metadata.year;
         self.poster_path = metadata.poster_path;
         self.releases = metadata.releases;

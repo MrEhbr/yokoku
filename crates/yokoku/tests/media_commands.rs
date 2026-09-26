@@ -30,6 +30,7 @@ impl Setup {
             source: ExternalId::Tmdb(1),
             title: "Frieren".into(),
             original_title: "Sousou no Frieren".into(),
+            alternate_titles: Vec::new(),
             year: Some(2023),
             poster_path: None,
             status: SourceStatus::Returning,

@@ -34,6 +34,7 @@ impl Setup {
             source: ExternalId::Tmdb(10),
             title: "Dune".into(),
             original_title: "Dune".into(),
+            alternate_titles: Vec::new(),
             year: Some(2021),
             poster_path: None,
             releases: Releases::default(),
