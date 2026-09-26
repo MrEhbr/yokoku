@@ -31,9 +31,9 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let scope = match args.kind.zip(args.source) {
+    let scope = match ItemArgs::optional(args.kind, args.source) {
         None => RenameScope::All,
-        Some((kind, source)) => match (ItemArgs { kind, source }).resolve(&app.library).await? {
+        Some(item) => match item.resolve(&app.library).await? {
             ItemId::Series(id) => RenameScope::Series(id),
             ItemId::Movie(id) => RenameScope::Movie(id),
         },

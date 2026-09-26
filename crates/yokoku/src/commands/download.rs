@@ -58,8 +58,8 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             writeln!(out, "Connected to {version}")?;
         },
         Command::Add(args) => {
-            let item = match args.kind.zip(args.source) {
-                Some((kind, source)) => Some(ItemArgs { kind, source }.resolve(&app.library).await?),
+            let item = match ItemArgs::optional(args.kind, args.source) {
+                Some(item) => Some(item.resolve(&app.library).await?),
                 None => None,
             };
             let download = app.downloads.add(&torrent_source(&args.torrent)?, item).await?;

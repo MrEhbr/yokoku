@@ -28,11 +28,16 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         .await?
         .with_context(|| format!("series {} is not in the library", args.source))?;
 
-    let numbering = match args.numbering {
-        Numbering::Standard => SeriesNumbering::Standard,
-        Numbering::Absolute => SeriesNumbering::Absolute,
-    };
-    app.library.set_numbering(series.id, numbering).await?;
+    app.library.set_numbering(series.id, args.numbering.into()).await?;
 
     Ok(())
+}
+
+impl From<Numbering> for SeriesNumbering {
+    fn from(numbering: Numbering) -> Self {
+        match numbering {
+            Numbering::Standard => Self::Standard,
+            Numbering::Absolute => Self::Absolute,
+        }
+    }
 }

@@ -46,6 +46,11 @@ pub struct ItemArgs {
 }
 
 impl ItemArgs {
+    /// `None` unless both `kind` and `source` are given.
+    pub fn optional(kind: Option<Kind>, source: Option<ExternalId>) -> Option<Self> {
+        kind.zip(source).map(|(kind, source)| Self { kind, source })
+    }
+
     pub async fn resolve(&self, library: &Library) -> Result<ItemId> {
         let id = match self.kind {
             Kind::Series => library.find_series(self.source).await?.map(|series| ItemId::Series(series.id)),

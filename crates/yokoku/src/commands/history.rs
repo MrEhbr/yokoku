@@ -28,8 +28,8 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let item = match args.kind.zip(args.source) {
-        Some((kind, source)) => Some(ItemArgs { kind, source }.resolve(&app.library).await?),
+    let item = match ItemArgs::optional(args.kind, args.source) {
+        Some(item) => Some(item.resolve(&app.library).await?),
         None => None,
     };
     let time_zone = config.clock.time_zone()?;
@@ -87,8 +87,5 @@ fn describe(event: &Event) -> Vec<String> {
 }
 
 fn removed(kind: &str, title: &str, delete_files: bool) -> String {
-    match delete_files {
-        true => format!("Removed {kind} {title} and its files"),
-        false => format!("Removed {kind} {title}"),
-    }
+    if delete_files { format!("Removed {kind} {title} and its files") } else { format!("Removed {kind} {title}") }
 }

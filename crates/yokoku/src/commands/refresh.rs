@@ -25,7 +25,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
     let mut out = io::stdout();
     let sync = app.sync()?;
-    let item = args.kind.zip(args.source).map(|(kind, source)| ItemArgs { kind, source });
+    let item = ItemArgs::optional(args.kind, args.source);
 
     let Some(item) = item else {
         let report = sync.refresh_all().await?;
