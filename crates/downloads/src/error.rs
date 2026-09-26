@@ -1,4 +1,6 @@
-use crate::ports::{ClientError, StorageError};
+use yokoku_domain::StorageError;
+
+use crate::ports::ClientError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DownloadError {

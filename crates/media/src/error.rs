@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use yokoku_domain::{EpisodeSpan, ImportId, MovieId, SeriesId};
+use yokoku_domain::{EpisodeSpan, ImportId, MovieId, SeriesId, StorageError};
 
-use crate::ports::{FsError, ProbeError, StorageError};
+use crate::ports::{FsError, ProbeError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum MediaError {

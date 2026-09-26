@@ -2,6 +2,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use jiff::Timestamp;
+use yokoku_domain::StorageError;
 
 #[async_trait]
 pub trait MediaServer: Send + Sync {
@@ -28,14 +29,4 @@ pub trait RescanStore: Send + Sync {
     async fn request(&self, at: Timestamp) -> Result<(), StorageError>;
     /// Clears the request only if it is still the one made at `at`.
     async fn clear(&self, at: Timestamp) -> Result<(), StorageError>;
-}
-
-#[derive(Debug, thiserror::Error)]
-#[error(transparent)]
-pub struct StorageError(Box<dyn Error + Send + Sync>);
-
-impl StorageError {
-    pub fn new(source: impl Into<Box<dyn Error + Send + Sync>>) -> Self {
-        Self(source.into())
-    }
 }

@@ -5,12 +5,12 @@ use std::{
 };
 
 use async_trait::async_trait;
-use yokoku_domain::{Clock, DownloadId, ItemId};
+use yokoku_domain::{Clock, DownloadId, ItemId, StorageError};
 use yokoku_events::{Event, HandlerError, Recorded, Subscriber};
 
 use crate::{
     Download, DownloadError, DownloadState, DownloadStatus,
-    ports::{DownloadClient, DownloadRepo, StorageError, Torrent, TorrentSource},
+    ports::{DownloadClient, DownloadRepo, Torrent, TorrentSource},
 };
 
 /// Torrents added through Yokoku and their state in the download client (FR-3).

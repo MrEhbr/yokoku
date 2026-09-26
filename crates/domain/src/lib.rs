@@ -9,6 +9,7 @@ mod id;
 mod item;
 mod movie;
 mod series;
+mod storage_error;
 mod string_enum;
 mod subtitle;
 
@@ -24,5 +25,6 @@ pub use series::{
     Episode, EpisodeMetadata, EpisodeRef, EpisodeSpan, MonitorPreset, Numbering, ParseEpisodeSpanError, Season,
     SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus,
 };
+pub use storage_error::StorageError;
 pub use string_enum::ParseEnumError;
 pub use subtitle::SubtitleTags;

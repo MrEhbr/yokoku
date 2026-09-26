@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use jiff::SignedDuration;
-use yokoku_domain::Clock;
+use yokoku_domain::{Clock, StorageError};
 use yokoku_events::{Event, HandlerError, Recorded, Subscriber};
 
-use crate::ports::{MediaServer, MediaServerError, RescanStore, StorageError};
+use crate::ports::{MediaServer, MediaServerError, RescanStore};
 
 /// Tells the media server to rescan after library files change (FR-10.4); a burst of changes
 /// leads to one rescan.

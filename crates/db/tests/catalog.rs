@@ -9,10 +9,10 @@ use rstest::{fixture, rstest};
 use yokoku_db::Database;
 use yokoku_domain::{
     EpisodeMetadata, ExternalId, MediaFileId, MonitorPreset, Movie, MovieMetadata, Numbering, Releases, SeasonMetadata,
-    Series, SeriesMetadata, SourceStatus,
+    Series, SeriesMetadata, SourceStatus, StorageError,
 };
 use yokoku_events::{Event, EventLog};
-use yokoku_library::ports::{MovieRepo, SeriesRepo, StorageError};
+use yokoku_library::ports::{MovieRepo, SeriesRepo};
 
 const TODAY: Date = date(2026, 9, 26);
 

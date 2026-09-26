@@ -1,4 +1,6 @@
-use crate::{LibraryError, ports::StorageError};
+use yokoku_domain::StorageError;
+
+use crate::LibraryError;
 
 const ATTEMPTS: u32 = 5;
 

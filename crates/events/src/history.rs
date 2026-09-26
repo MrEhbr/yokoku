@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use yokoku_domain::ItemId;
+use yokoku_domain::{ItemId, StorageError};
 
-use crate::{EventId, EventLog, EventLogError, Recorded};
+use crate::{EventId, EventLog, Recorded};
 
 const BATCH: u32 = 200;
 
@@ -22,7 +22,7 @@ impl History {
         item: Option<ItemId>,
         before: Option<EventId>,
         limit: usize,
-    ) -> Result<Vec<Recorded>, EventLogError> {
+    ) -> Result<Vec<Recorded>, StorageError> {
         let mut entries = Vec::new();
         let mut before = before;
         while entries.len() < limit {

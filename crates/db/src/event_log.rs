@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use jiff::Timestamp;
 use sqlx::{SqliteConnection, SqlitePool, types::Json};
-use yokoku_events::{Event, EventId, EventLog, EventLogError, Failure, Recorded};
+use yokoku_domain::StorageError;
+use yokoku_events::{Event, EventId, EventLog, Failure, Recorded};
 
 use crate::{DbError, codec::Text};
 
@@ -44,52 +45,52 @@ impl SqliteEventLog {
 
 #[async_trait]
 impl EventLog for SqliteEventLog {
-    async fn last_delivered(&self, subscriber: &str) -> Result<Option<EventId>, EventLogError> {
+    async fn last_delivered(&self, subscriber: &str) -> Result<Option<EventId>, StorageError> {
         let position: Option<i64> =
             sqlx::query_scalar("SELECT last_event_id FROM subscriber_positions WHERE subscriber = ?")
                 .bind(subscriber)
                 .fetch_optional(&self.pool)
                 .await
-                .map_err(EventLogError::new)?;
+                .map_err(StorageError::new)?;
 
         Ok(position.map(EventId))
     }
 
-    async fn read_after(&self, after: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, EventLogError> {
+    async fn read_after(&self, after: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, StorageError> {
         let rows: Vec<EventRow> =
             sqlx::query_as("SELECT id, payload, occurred_at FROM events WHERE id > ? ORDER BY id LIMIT ?")
                 .bind(after.map_or(0, |id| id.0))
                 .bind(limit)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(EventLogError::new)?;
+                .map_err(StorageError::new)?;
 
         Ok(rows.into_iter().map(Recorded::from).collect())
     }
 
-    async fn read_before(&self, before: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, EventLogError> {
+    async fn read_before(&self, before: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, StorageError> {
         let rows: Vec<EventRow> =
             sqlx::query_as("SELECT id, payload, occurred_at FROM events WHERE id < ? ORDER BY id DESC LIMIT ?")
                 .bind(before.map_or(i64::MAX, |id| id.0))
                 .bind(limit)
                 .fetch_all(&self.pool)
                 .await
-                .map_err(EventLogError::new)?;
+                .map_err(StorageError::new)?;
         Ok(rows.into_iter().map(Recorded::from).collect())
     }
 
-    async fn mark_delivered(&self, subscriber: &str, event: EventId) -> Result<(), EventLogError> {
+    async fn mark_delivered(&self, subscriber: &str, event: EventId) -> Result<(), StorageError> {
         sqlx::query(UPSERT_POSITION)
             .bind(subscriber)
             .bind(event.0)
             .execute(&self.pool)
             .await
-            .map_err(EventLogError::new)?;
+            .map_err(StorageError::new)?;
 
         Ok(())
     }
 
-    async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, Failure)>, EventLogError> {
+    async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, Failure)>, StorageError> {
         let rows: Vec<FailedRow> = sqlx::query_as(
             "SELECT events.id, events.payload, events.occurred_at, failed_deliveries.error, failed_deliveries.attempts
              FROM failed_deliveries JOIN events ON events.id = failed_deliveries.event_id
@@ -98,7 +99,7 @@ impl EventLog for SqliteEventLog {
         .bind(subscriber)
         .fetch_all(&self.pool)
         .await
-        .map_err(EventLogError::new)?;
+        .map_err(StorageError::new)?;
 
         Ok(rows
             .into_iter()
@@ -109,7 +110,7 @@ impl EventLog for SqliteEventLog {
             .collect())
     }
 
-    async fn record_failure(&self, subscriber: &str, failure: &Failure) -> Result<(), EventLogError> {
+    async fn record_failure(&self, subscriber: &str, failure: &Failure) -> Result<(), StorageError> {
         sqlx::query(
             "UPDATE failed_deliveries
              SET error = ?, attempts = ?, failed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -121,22 +122,22 @@ impl EventLog for SqliteEventLog {
         .bind(failure.event.0)
         .execute(&self.pool)
         .await
-        .map_err(EventLogError::new)?;
+        .map_err(StorageError::new)?;
         Ok(())
     }
 
-    async fn resolve(&self, subscriber: &str, event: EventId) -> Result<(), EventLogError> {
+    async fn resolve(&self, subscriber: &str, event: EventId) -> Result<(), StorageError> {
         sqlx::query("DELETE FROM failed_deliveries WHERE subscriber = ? AND event_id = ?")
             .bind(subscriber)
             .bind(event.0)
             .execute(&self.pool)
             .await
-            .map_err(EventLogError::new)?;
+            .map_err(StorageError::new)?;
         Ok(())
     }
 
-    async fn give_up(&self, subscriber: &str, failure: &Failure) -> Result<(), EventLogError> {
-        let mut tx = self.pool.begin().await.map_err(EventLogError::new)?;
+    async fn give_up(&self, subscriber: &str, failure: &Failure) -> Result<(), StorageError> {
+        let mut tx = self.pool.begin().await.map_err(StorageError::new)?;
 
         sqlx::query(
             "INSERT INTO failed_deliveries (subscriber, event_id, error, attempts) VALUES (?, ?, ?, ?)
@@ -149,16 +150,16 @@ impl EventLog for SqliteEventLog {
         .bind(failure.attempts)
         .execute(&mut *tx)
         .await
-        .map_err(EventLogError::new)?;
+        .map_err(StorageError::new)?;
 
         sqlx::query(UPSERT_POSITION)
             .bind(subscriber)
             .bind(failure.event.0)
             .execute(&mut *tx)
             .await
-            .map_err(EventLogError::new)?;
+            .map_err(StorageError::new)?;
 
-        tx.commit().await.map_err(EventLogError::new)
+        tx.commit().await.map_err(StorageError::new)
     }
 }
 

@@ -3,8 +3,9 @@ use std::{sync::Arc, time::Duration};
 use tokio::time::{Instant, sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
+use yokoku_domain::StorageError;
 
-use crate::{EventLog, EventLogError, Failure, Listener, Recorded, Subscriber};
+use crate::{EventLog, Failure, Listener, Recorded, Subscriber};
 
 #[derive(Debug, Clone)]
 pub struct DeliveryConfig {
@@ -66,7 +67,7 @@ impl Delivery {
 
     /// Tries again the events given up on earlier, then delivers every event already in the log;
     /// returns how many new events there were.
-    pub async fn catch_up(&self) -> Result<usize, EventLogError> {
+    pub async fn catch_up(&self) -> Result<usize, StorageError> {
         self.retry_failed().await?;
         let mut delivered = 0;
         loop {
@@ -101,7 +102,7 @@ impl Delivery {
 
     /// Tries each event given up on once more; returns how many succeeded. They arrive after newer
     /// events, which idempotent handlers accept.
-    pub async fn retry_failed(&self) -> Result<usize, EventLogError> {
+    pub async fn retry_failed(&self) -> Result<usize, StorageError> {
         let subscriber = self.subscriber.name();
         let mut resolved = 0;
         for (recorded, failure) in self.log.failed(subscriber).await? {
@@ -120,7 +121,7 @@ impl Delivery {
         Ok(resolved)
     }
 
-    async fn deliver_batch(&self) -> Result<usize, EventLogError> {
+    async fn deliver_batch(&self) -> Result<usize, StorageError> {
         let after = self.log.last_delivered(self.subscriber.name()).await?;
         let batch = self.log.read_after(after, self.config.batch_size).await?;
         for recorded in &batch {
@@ -129,7 +130,7 @@ impl Delivery {
         Ok(batch.len())
     }
 
-    async fn deliver(&self, recorded: &Recorded) -> Result<(), EventLogError> {
+    async fn deliver(&self, recorded: &Recorded) -> Result<(), StorageError> {
         let subscriber = self.subscriber.name();
         let mut attempt = 1;
         loop {

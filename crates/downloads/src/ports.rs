@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use yokoku_domain::DownloadId;
+use yokoku_domain::{DownloadId, StorageError};
 use yokoku_events::Event;
 
 use crate::{Download, DownloadStatus};
@@ -69,18 +69,4 @@ pub trait DownloadRepo: Send + Sync {
     /// Newest first.
     async fn list(&self) -> Result<Vec<Download>, StorageError>;
     async fn save(&self, download: &mut Download, events: &[Event]) -> Result<(), StorageError>;
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum StorageError {
-    #[error("the item was changed or removed at the same time")]
-    Conflict,
-    #[error(transparent)]
-    Other(Box<dyn Error + Send + Sync>),
-}
-
-impl StorageError {
-    pub fn new(source: impl Into<Box<dyn Error + Send + Sync>>) -> Self {
-        Self::Other(source.into())
-    }
 }

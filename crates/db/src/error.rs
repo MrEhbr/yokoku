@@ -1,7 +1,4 @@
-use yokoku_downloads::ports::StorageError as DownloadStorageError;
-use yokoku_integrations::ports::StorageError as IntegrationsStorageError;
-use yokoku_library::ports::StorageError;
-use yokoku_media::ports::StorageError as MediaStorageError;
+use yokoku_domain::StorageError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
@@ -23,26 +20,5 @@ impl From<DbError> for StorageError {
             DbError::Conflict => Self::Conflict,
             error => Self::new(error),
         }
-    }
-}
-
-impl From<DbError> for MediaStorageError {
-    fn from(error: DbError) -> Self {
-        Self::new(error)
-    }
-}
-
-impl From<DbError> for DownloadStorageError {
-    fn from(error: DbError) -> Self {
-        match error {
-            DbError::Conflict => Self::Conflict,
-            error => Self::new(error),
-        }
-    }
-}
-
-impl From<DbError> for IntegrationsStorageError {
-    fn from(error: DbError) -> Self {
-        Self::new(error)
     }
 }

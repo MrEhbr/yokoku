@@ -1,6 +1,6 @@
-use yokoku_domain::{EpisodeRef, ExternalId, MovieId, SeriesId};
+use yokoku_domain::{EpisodeRef, ExternalId, MovieId, SeriesId, StorageError};
 
-use crate::ports::{MetadataError, StorageError};
+use crate::ports::MetadataError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {

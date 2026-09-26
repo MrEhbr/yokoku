@@ -1,7 +1,9 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use yokoku_domain::{ExternalId, MediaKind, Movie, MovieId, MovieMetadata, Series, SeriesId, SeriesMetadata};
+use yokoku_domain::{
+    ExternalId, MediaKind, Movie, MovieId, MovieMetadata, Series, SeriesId, SeriesMetadata, StorageError,
+};
 use yokoku_events::Event;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,18 +56,4 @@ pub trait MovieRepo: Send + Sync {
     async fn ids(&self) -> Result<Vec<MovieId>, StorageError>;
     async fn save(&self, movie: &mut Movie, events: &[Event]) -> Result<(), StorageError>;
     async fn remove(&self, id: MovieId, events: &[Event]) -> Result<(), StorageError>;
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum StorageError {
-    #[error("the item was changed or removed at the same time")]
-    Conflict,
-    #[error(transparent)]
-    Other(Box<dyn Error + Send + Sync>),
-}
-
-impl StorageError {
-    pub fn new(source: impl Into<Box<dyn Error + Send + Sync>>) -> Self {
-        Self::Other(source.into())
-    }
 }

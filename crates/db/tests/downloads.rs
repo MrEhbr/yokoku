@@ -1,11 +1,8 @@
 use jiff::Timestamp;
 use proptest::prelude::*;
 use yokoku_db::Database;
-use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId};
-use yokoku_downloads::{
-    Download, DownloadState, DownloadStatus,
-    ports::{DownloadRepo, StorageError},
-};
+use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId, StorageError};
+use yokoku_downloads::{Download, DownloadState, DownloadStatus, ports::DownloadRepo};
 
 fn any_state() -> impl Strategy<Value = DownloadState> {
     prop_oneof![

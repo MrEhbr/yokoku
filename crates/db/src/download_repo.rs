@@ -2,11 +2,8 @@ use std::path::PathBuf;
 
 use async_trait::async_trait;
 use jiff::Timestamp;
-use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId};
-use yokoku_downloads::{
-    Download, DownloadState, DownloadStatus,
-    ports::{DownloadRepo, StorageError},
-};
+use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId, StorageError};
+use yokoku_downloads::{Download, DownloadState, DownloadStatus, ports::DownloadRepo};
 use yokoku_events::Event;
 
 use crate::{

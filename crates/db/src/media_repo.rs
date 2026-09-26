@@ -5,11 +5,12 @@ use jiff::Timestamp;
 use sqlx::{Sqlite, Transaction};
 use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId,
+    StorageError,
 };
 use yokoku_events::Event;
 use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind,
-    ports::{Catalog, Changes, MediaRepo, StorageError},
+    ports::{Catalog, Changes, MediaRepo},
 };
 
 use crate::{

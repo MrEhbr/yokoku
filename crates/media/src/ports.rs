@@ -1,12 +1,11 @@
 use std::{
-    error::Error,
     io,
     path::{Path, PathBuf},
 };
 
 use async_trait::async_trait;
 use yokoku_detect::DownloadFile;
-use yokoku_domain::{DownloadId, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId};
+use yokoku_domain::{DownloadId, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError};
 use yokoku_events::Event;
 
 use crate::{Import, ImportStatus, MediaFile, MediaInfo, RootFolder};
@@ -146,14 +145,4 @@ pub struct Changes {
     pub renamed_files: Vec<(MediaFileId, PathBuf)>,
     /// Inserted or replaced with all their rows.
     pub imports: Vec<Import>,
-}
-
-#[derive(Debug, thiserror::Error)]
-#[error(transparent)]
-pub struct StorageError(Box<dyn Error + Send + Sync>);
-
-impl StorageError {
-    pub fn new(source: impl Into<Box<dyn Error + Send + Sync>>) -> Self {
-        Self(source.into())
-    }
 }

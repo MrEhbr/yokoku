@@ -3,9 +3,11 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
-use yokoku_domain::{Episode, EpisodeId, ExternalId, MediaFileId, Numbering, Season, Series, SeriesId, SourceStatus};
+use yokoku_domain::{
+    Episode, EpisodeId, ExternalId, MediaFileId, Numbering, Season, Series, SeriesId, SourceStatus, StorageError,
+};
 use yokoku_events::Event;
-use yokoku_library::ports::{SeriesRepo, StorageError};
+use yokoku_library::ports::SeriesRepo;
 
 use crate::{
     Database, DbError,
