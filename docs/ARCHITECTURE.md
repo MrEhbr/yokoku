@@ -114,7 +114,8 @@ Value types and rules shared by all modules. Examples:
 
 | Rule | Behaviour |
 |---|---|
-| `Series::status(today)` | `Ended` if the source says ended or canceled; `Continuing` if an episode airs today or later; otherwise `OnBreak`. |
+| `Series::status(today)` | `Ended` if the source says ended or canceled; `Continuing` if a followed episode airs today or later; otherwise `OnBreak`. |
+| `Series::next_episode` / `last_aired` | Over followed episodes: every regular episode, and specials only when their season and the episode are monitored. The library list sorts by the same next date. |
 | `Movie::status(today)` | `Released` from the digital or physical date, `InCinemas` from the cinema date, otherwise `Announced`. |
 | `Episode::file_status(today)` | `Downloaded` with a file; `Missing` from the day after its air date; otherwise `Upcoming`. |
 | `Movie::file_status(today)` | `Missing` only once the movie is `Released`. |

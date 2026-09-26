@@ -67,7 +67,7 @@ impl LibraryEntry {
             status: LibraryStatus::Series(series.status(today)),
             has_files: series.episodes().any(|episode| episode.has_file),
             added_at: series.added_at,
-            next_release: series.episodes().filter_map(|episode| episode.air_date).filter(|&date| date >= today).min(),
+            next_release: series.next_episode(today).and_then(|(_, episode)| episode.air_date),
         }
     }
 

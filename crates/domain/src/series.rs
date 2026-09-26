@@ -244,9 +244,7 @@ impl Series {
     pub fn status(&self, today: Date) -> SeriesStatus {
         match self.source_status {
             SourceStatus::Ended | SourceStatus::Canceled => SeriesStatus::Ended,
-            _ if self.episodes().any(|episode| episode.air_date.is_some_and(|date| date >= today)) => {
-                SeriesStatus::Continuing
-            },
+            _ if self.next_episode(today).is_some() => SeriesStatus::Continuing,
             _ => SeriesStatus::OnBreak,
         }
     }
@@ -264,22 +262,33 @@ impl Series {
         })
     }
 
-    /// The earliest episode airing today or later.
+    /// The earliest followed episode airing today or later.
     pub fn next_episode(&self, today: Date) -> Option<(EpisodeRef, &Episode)> {
-        self.numbered_episodes()
+        self.followed_episodes()
             .filter_map(|(reference, episode)| Some((episode.air_date?, reference, episode)))
             .filter(|&(date, ..)| date >= today)
             .min_by_key(|&(date, reference, _)| (date, reference))
             .map(|(_, reference, episode)| (reference, episode))
     }
 
-    /// The latest episode that aired before today.
+    /// The latest followed episode that aired before today.
     pub fn last_aired(&self, today: Date) -> Option<(EpisodeRef, &Episode)> {
-        self.numbered_episodes()
+        self.followed_episodes()
             .filter_map(|(reference, episode)| Some((episode.air_date?, reference, episode)))
             .filter(|&(date, ..)| date < today)
             .max_by_key(|&(date, reference, _)| (date, reference))
             .map(|(_, reference, episode)| (reference, episode))
+    }
+
+    /// Regular episodes plus specials monitored at season and episode level.
+    fn followed_episodes(&self) -> impl Iterator<Item = (EpisodeRef, &Episode)> {
+        self.seasons.iter().flat_map(|season| {
+            season
+                .episodes
+                .iter()
+                .filter(move |episode| season.number != SPECIALS || (season.monitored && episode.monitored))
+                .map(|episode| (EpisodeRef { season: season.number, episode: episode.number }, episode))
+        })
     }
 
     /// Episodes monitored at series, season and episode level.

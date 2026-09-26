@@ -52,6 +52,15 @@ fn metadata(status: SourceStatus, seasons: &[(u16, &[Option<Date>])]) -> SeriesM
     }
 }
 
+fn regular_air_dates(series: &Series) -> impl Iterator<Item = Date> {
+    series
+        .seasons
+        .iter()
+        .filter(|season| season.number != 0)
+        .flat_map(|season| &season.episodes)
+        .filter_map(|e| e.air_date)
+}
+
 fn refs(pairs: &[(u16, u16)]) -> Vec<EpisodeRef> {
     pairs.iter().map(|&(season, episode)| EpisodeRef { season, episode }).collect()
 }
@@ -315,6 +324,46 @@ fn same_day_episodes_are_ordered_by_number() {
     assert_eq!(series.last_aired(TODAY).map(|(reference, _)| reference), Some(EpisodeRef { season: 2, episode: 2 }));
 }
 
+fn follow_specials(series: &mut Series) {
+    let specials = series.season_mut(0).unwrap();
+    specials.monitored = true;
+    for episode in &mut specials.episodes {
+        episode.monitored = true;
+    }
+}
+
+#[rstest]
+#[case::unmonitored_specials_are_ignored(false, (1, 2), (1, 1))]
+#[case::monitored_specials_count(true, (0, 2), (0, 1))]
+fn next_and_last_aired_include_only_followed_specials(
+    #[case] follow: bool,
+    #[case] next: (u16, u16),
+    #[case] last: (u16, u16),
+) {
+    let seasons: &[(u16, &[Option<Date>])] =
+        &[(0, &[Some(YESTERDAY), Some(TOMORROW)]), (1, &[Some(date(2026, 9, 1)), Some(date(2026, 10, 10))])];
+    let mut series = Series::add(metadata(SourceStatus::Returning, seasons), MonitorPreset::All, TODAY, now());
+    if follow {
+        follow_specials(&mut series);
+    }
+
+    assert_eq!(series.next_episode(TODAY).map(|(reference, _)| reference), refs(&[next]).pop());
+    assert_eq!(series.last_aired(TODAY).map(|(reference, _)| reference), refs(&[last]).pop());
+}
+
+#[rstest]
+#[case::unmonitored_special(false, SeriesStatus::OnBreak)]
+#[case::monitored_special(true, SeriesStatus::Continuing)]
+fn only_followed_specials_keep_a_series_continuing(#[case] follow: bool, #[case] expected: SeriesStatus) {
+    let seasons: &[(u16, &[Option<Date>])] = &[(0, &[Some(TOMORROW)]), (1, &[Some(YESTERDAY)])];
+    let mut series = Series::add(metadata(SourceStatus::Returning, seasons), MonitorPreset::All, TODAY, now());
+    if follow {
+        follow_specials(&mut series);
+    }
+
+    assert_eq!(series.status(TODAY), expected);
+}
+
 #[rstest]
 #[case(1, 2, "S01E02")]
 #[case(0, 13, "S00E13")]
@@ -327,7 +376,7 @@ proptest! {
     #[test]
     fn next_episode_is_the_earliest_on_or_after_today(metadata in any_metadata(), today in any_date()) {
         let series = Series::add(metadata, MonitorPreset::All, today, now());
-        let upcoming: Vec<Date> = series.episodes().filter_map(|e| e.air_date).filter(|&d| d >= today).collect();
+        let upcoming: Vec<Date> = regular_air_dates(&series).filter(|&d| d >= today).collect();
 
         let next = series.next_episode(today).and_then(|(_, episode)| episode.air_date);
 
@@ -337,7 +386,7 @@ proptest! {
     #[test]
     fn last_aired_is_the_latest_before_today(metadata in any_metadata(), today in any_date()) {
         let series = Series::add(metadata, MonitorPreset::All, today, now());
-        let aired: Vec<Date> = series.episodes().filter_map(|e| e.air_date).filter(|&d| d < today).collect();
+        let aired: Vec<Date> = regular_air_dates(&series).filter(|&d| d < today).collect();
 
         let last = series.last_aired(today).and_then(|(_, episode)| episode.air_date);
 

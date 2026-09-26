@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 2cddfe9f5a52fce8f0b1a90ecbc0d3a1d62e053cae5ec3d5bf320cd7dc346cc5 # shrinks to metadata = SeriesMetadata { source: Tmdb(1), title: "Frieren", original_title: "Sousou no Frieren", year: Some(2023), poster_path: None, status: Returning, seasons: [SeasonMetadata { number: 0, episodes: [EpisodeMetadata { source_id: 101, number: 1, title: "S0E1", air_date: Some(2020-01-01) }] }] }, today = 2020-01-02
+cc 8bb6f36256616d5877a223f4a48db8f63af8f2f4a7b83af31b34d90b0f81d880 # shrinks to metadata = SeriesMetadata { source: Tmdb(1), title: "Frieren", original_title: "Sousou no Frieren", year: Some(2023), poster_path: None, status: Returning, seasons: [SeasonMetadata { number: 0, episodes: [EpisodeMetadata { source_id: 101, number: 1, title: "S0E1", air_date: Some(2021-02-23) }] }] }, today = 2020-01-01
