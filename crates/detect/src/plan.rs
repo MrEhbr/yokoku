@@ -139,13 +139,13 @@ fn unknown(video: Video, parsed: ParsedName) -> PlanRow {
 }
 
 trait Titled {
-    fn titles(&self) -> [&str; 2];
+    fn titles(&self) -> impl Iterator<Item = &str>;
     fn year(&self) -> Option<i16>;
 }
 
 impl Titled for Series {
-    fn titles(&self) -> [&str; 2] {
-        [&self.title, &self.original_title]
+    fn titles(&self) -> impl Iterator<Item = &str> {
+        [&self.title, &self.original_title].into_iter().chain(&self.alternate_titles).map(String::as_str)
     }
 
     fn year(&self) -> Option<i16> {
@@ -154,8 +154,8 @@ impl Titled for Series {
 }
 
 impl Titled for Movie {
-    fn titles(&self) -> [&str; 2] {
-        [&self.title, &self.original_title]
+    fn titles(&self) -> impl Iterator<Item = &str> {
+        [&self.title, &self.original_title].into_iter().chain(&self.alternate_titles).map(String::as_str)
     }
 
     fn year(&self) -> Option<i16> {

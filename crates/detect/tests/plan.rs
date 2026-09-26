@@ -82,10 +82,11 @@ impl Library {
         let mut frieren = series(SeriesSpec {
             source: 1,
             title: "Frieren: Beyond Journey's End",
-            original_title: "Sousou no Frieren",
+            original_title: "葬送のフリーレン",
             year: 2023,
             seasons: &[(0, &["Recap"]), (1, &s1), (2, &s2)],
         });
+        frieren.alternate_titles = vec!["Sousou no Frieren".into(), "Sōsō no Furīren".into()];
         frieren.numbering = Numbering::Absolute;
 
         let breaking_bad = series(SeriesSpec {
@@ -136,7 +137,10 @@ impl Library {
                 movie(10, "Dune", "Dune", 2021),
                 movie(11, "Dune: Part Two", "Dune: Part Two", 2024),
                 movie(12, "Blade Runner 2049", "Blade Runner 2049", 2017),
-                movie(13, "Amélie", "Le Fabuleux Destin d'Amélie Poulain", 2001),
+                Movie {
+                    alternate_titles: vec!["Amelie from Montmartre".into()],
+                    ..movie(13, "Amélie", "Le Fabuleux Destin d'Amélie Poulain", 2001)
+                },
             ],
         }
     }
@@ -293,6 +297,8 @@ fn names_without_numbers_match_by_episode_title(
 #[rstest]
 #[case::exact_title("Breaking.Bad.S01E01.720p.mkv", Some((2, 1, 1)), Confidence::Certain)]
 #[case::original_title("Метод.S01E02.WEB-DL.mkv", Some((6, 1, 2)), Confidence::Certain)]
+#[case::alternate_title("Sousou.no.Frieren.S01E03.1080p.mkv", Some((1, 1, 3)), Confidence::Certain)]
+#[case::romanised_title("Soso.no.Furiren.S01E03.1080p.mkv", Some((1, 1, 3)), Confidence::Certain)]
 #[case::year_picks_the_series("Doctor.Who.2005.S01E01.720p.mkv", Some((5, 1, 1)), Confidence::Certain)]
 #[case::close_title("Breaking.Bd.S01E01.720p.mkv", Some((2, 1, 1)), Confidence::Guess)]
 #[case::ambiguous_title("Doctor.Who.S01E01.720p.mkv", None, Confidence::Unknown)]
@@ -317,6 +323,7 @@ fn unlinked_series_match_by_title(
 #[case::number_in_the_title("Blade.Runner.2049.2017.2160p.UHD.BluRay.x265.mkv", 12, Confidence::Guess)]
 #[case::accents_are_ignored("Amelie.2001.1080p.BluRay.mkv", 13, Confidence::Certain)]
 #[case::original_title("Le.Fabuleux.Destin.d.Amelie.Poulain.2001.mkv", 13, Confidence::Certain)]
+#[case::alternate_title("Amelie.from.Montmartre.2001.1080p.mkv", 13, Confidence::Certain)]
 #[case::release_year_one_off("Amelie.2002.1080p.mkv", 13, Confidence::Guess)]
 fn unlinked_movies_match_by_title_and_year(#[case] name: &str, #[case] source: u64, #[case] confidence: Confidence) {
     let library = Library::new();
