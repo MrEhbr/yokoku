@@ -1,6 +1,7 @@
 //! Import pipeline, review, scan, rename, delete and recycle.
 
 mod error;
+mod importer;
 mod model;
 mod planner;
 pub mod ports;
@@ -10,6 +11,7 @@ mod roots;
 mod scan;
 
 pub use error::MediaError;
+pub use importer::{ImportMode, Importer};
 pub use model::{Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind};
 pub use planner::ImportPlanner;
 pub use rename::{Move, Rename, RenameFailure, RenamePlan, RenameReport, RenameScope, Renamer, SkipReason, Skipped};

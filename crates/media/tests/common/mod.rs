@@ -151,3 +151,17 @@ impl App {
         yokoku_media::ports::MediaRepo::files(&self.db).await.unwrap()
     }
 }
+
+impl App {
+    pub fn importer(&self, mode: yokoku_media::ImportMode) -> yokoku_media::Importer {
+        let repo = Arc::new(self.db.clone());
+        yokoku_media::Importer::new(
+            repo.clone(),
+            repo,
+            Arc::new(LocalFileSystem),
+            Arc::new(FixedClock),
+            Naming::default(),
+            mode,
+        )
+    }
+}

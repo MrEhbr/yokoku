@@ -20,6 +20,8 @@ pub enum MediaError {
     NotInReview(ImportId),
     #[error("only files from a download can replace library files")]
     ReplaceInPlace,
+    #[error("import {0} has not failed")]
+    NotFailed(ImportId),
     #[error("import has no row {0}")]
     RowNotFound(usize),
     #[error("series {0} is not in the library")]
