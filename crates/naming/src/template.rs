@@ -51,9 +51,7 @@ pub(crate) struct Template {
 
 impl Template {
     pub(crate) fn parse(source: &str, allowed: &[Token], required: &[Token]) -> Result<Self, String> {
-        let mut parts = Vec::new();
-        let mut group: Option<Vec<Part>> = None;
-        let mut literal = String::new();
+        let mut builder = Builder::default();
         let mut chars = source.chars();
 
         while let Some(c) = chars.next() {
@@ -71,29 +69,29 @@ impl Template {
                     if !allowed.contains(&token) {
                         return Err(format!("{token} cannot be used in this pattern"));
                     }
-                    flush(&mut literal, &mut parts, &mut group);
-                    target(&mut parts, &mut group).push(Part::Token(token));
+                    builder.push(Part::Token(token));
                 },
                 '}' => return Err("unmatched }".into()),
-                '[' if group.is_some() => return Err("optional groups cannot be nested".into()),
+                '[' if builder.group.is_some() => return Err("optional groups cannot be nested".into()),
                 '[' => {
-                    flush(&mut literal, &mut parts, &mut group);
-                    group = Some(Vec::new());
+                    builder.flush();
+                    builder.group = Some(Vec::new());
                 },
                 ']' => {
-                    flush(&mut literal, &mut parts, &mut group);
-                    parts.push(Part::Optional(group.take().ok_or("unmatched ]")?));
+                    builder.flush();
+                    let group = builder.group.take().ok_or("unmatched ]")?;
+                    builder.parts.push(Part::Optional(group));
                 },
                 '/' | '\\' => return Err("a pattern names one folder or file and cannot contain / or \\".into()),
-                c => literal.push(c),
+                c => builder.literal.push(c),
             }
         }
-        if group.is_some() {
+        if builder.group.is_some() {
             return Err("unclosed [".into());
         }
-        flush(&mut literal, &mut parts, &mut group);
+        builder.flush();
 
-        let template = Self { parts };
+        let template = Self { parts: builder.parts };
         if let Some(missing) = required.iter().find(|&&token| !template.contains(token)) {
             return Err(format!("must contain {missing}"));
         }
@@ -136,12 +134,24 @@ fn render_group(parts: &[Part], value: &dyn Fn(Token) -> Option<String>) -> Opti
     Some(rendered)
 }
 
-fn target<'a>(parts: &'a mut Vec<Part>, group: &'a mut Option<Vec<Part>>) -> &'a mut Vec<Part> {
-    group.as_mut().unwrap_or(parts)
+/// Parts collected while parsing; new parts go into the open optional group, if any.
+#[derive(Default)]
+struct Builder {
+    parts: Vec<Part>,
+    group: Option<Vec<Part>>,
+    literal: String,
 }
 
-fn flush(literal: &mut String, parts: &mut Vec<Part>, group: &mut Option<Vec<Part>>) {
-    if !literal.is_empty() {
-        target(parts, group).push(Part::Literal(std::mem::take(literal)));
+impl Builder {
+    fn push(&mut self, part: Part) {
+        self.flush();
+        self.group.as_mut().unwrap_or(&mut self.parts).push(part);
+    }
+
+    fn flush(&mut self) {
+        if !self.literal.is_empty() {
+            let literal = Part::Literal(std::mem::take(&mut self.literal));
+            self.group.as_mut().unwrap_or(&mut self.parts).push(literal);
+        }
     }
 }
