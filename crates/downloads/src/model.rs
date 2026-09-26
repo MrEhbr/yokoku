@@ -69,6 +69,11 @@ impl Download {
             size => u8::try_from(self.status.done.min(size) * 100 / size).unwrap_or(100),
         }
     }
+
+    pub(crate) fn mark_removed(&mut self) {
+        self.status =
+            DownloadStatus { state: DownloadState::Removed, download_rate: 0, eta: None, ..self.status.clone() };
+    }
 }
 
 impl DownloadStatus {

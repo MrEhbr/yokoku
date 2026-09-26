@@ -57,9 +57,10 @@ impl ScriptedClient {
     }
 
     fn check(&self) -> Result<(), ClientError> {
-        match *self.unavailable.lock().unwrap() {
-            true => Err(ClientError::Unavailable("connection refused".into())),
-            false => Ok(()),
+        if *self.unavailable.lock().unwrap() {
+            Err(ClientError::Unavailable("connection refused".into()))
+        } else {
+            Ok(())
         }
     }
 }

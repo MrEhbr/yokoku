@@ -118,7 +118,7 @@ impl Downloads {
             let clean_up = seeded && self.options.remove_after_seeding && download.imported_at.is_some();
             if clean_up {
                 self.client.remove(&download.hash, true).await?;
-                mark_removed(&mut download);
+                download.mark_removed();
                 events.push(Event::TorrentRemoved {
                     download: download.id,
                     name: download.name.clone(),
@@ -197,7 +197,7 @@ impl Downloads {
     /// Returns `DownloadCompleted` when the download has just finished.
     fn apply(&self, download: &mut Download, torrent: Option<Torrent>) -> Option<Event> {
         let Some(torrent) = torrent else {
-            mark_removed(download);
+            download.mark_removed();
             return None;
         };
         download.name = torrent.name;
@@ -227,9 +227,4 @@ impl Subscriber for Downloads {
         }
         Ok(())
     }
-}
-
-fn mark_removed(download: &mut Download) {
-    download.status =
-        DownloadStatus { state: DownloadState::Removed, download_rate: 0, eta: None, ..download.status.clone() };
 }
