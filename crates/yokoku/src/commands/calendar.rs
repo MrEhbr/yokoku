@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use anyhow::Result;
 use clap::Parser;
 use jiff::civil::Date;
@@ -25,27 +27,29 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let day = args.date.unwrap_or_else(|| app.schedule.today());
     let (from, to) = if args.month { month_of(day) } else { week_of(day) };
 
-    println!("{from} to {to}");
-    print_calendar(&app.schedule.calendar(from, to).await?);
+    let mut out = io::stdout();
+    writeln!(out, "{from} to {to}")?;
+    print_calendar(&mut out, &app.schedule.calendar(from, to).await?)?;
 
     Ok(())
 }
 
 /// Entries grouped under their date.
-pub fn print_calendar(entries: &[CalendarEntry]) {
+pub fn print_calendar(out: &mut impl Write, entries: &[CalendarEntry]) -> io::Result<()> {
     if entries.is_empty() {
-        println!("Nothing scheduled.");
+        writeln!(out, "Nothing scheduled.")?;
     }
     let mut current = None;
     for entry in entries {
         if current != Some(entry.date) {
-            println!("{}", entry.date.strftime("%Y-%m-%d %a"));
+            writeln!(out, "{}", entry.date.strftime("%Y-%m-%d %a"))?;
             current = Some(entry.date);
         }
         let release = match &entry.release {
             CalendarRelease::Episode { reference, title } => format!("{reference}  {title}"),
             CalendarRelease::Movie(kind) => release_label(*kind).to_owned(),
         };
-        println!("  {:<30} {:<40} {}", entry.title, release, file_status_label(entry.status));
+        writeln!(out, "  {:<30} {:<40} {}", entry.title, release, file_status_label(entry.status))?;
     }
+    Ok(())
 }

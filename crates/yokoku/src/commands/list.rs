@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
@@ -68,14 +70,16 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
+    let mut out = io::stdout();
     let filter = LibraryFilter { kind: args.kind.map(Into::into), status: args.status.map(Into::into) };
     let entries = app.library.list(filter, settings.sort.into()).await?;
 
     if entries.is_empty() {
-        println!("No items.");
+        writeln!(out, "No items.")?;
     }
     for entry in entries {
-        println!(
+        writeln!(
+            out,
             "{:<40} {:<6} {:<10} {:<5} {:<10} {}",
             title_with_year(&entry.title, entry.year),
             kind_label(entry.id.kind()),
@@ -83,7 +87,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             if entry.has_files { "files" } else { "-" },
             entry.next_release.map_or_else(|| "-".to_owned(), |date| date.to_string()),
             entry.source,
-        );
+        )?;
     }
 
     Ok(())

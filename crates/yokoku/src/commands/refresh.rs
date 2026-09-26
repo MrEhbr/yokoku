@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use anyhow::{Result, bail};
 use clap::Parser;
 use yokoku_domain::ExternalId;
@@ -22,18 +24,19 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
+    let mut out = io::stdout();
     let sync = app.sync()?;
     let item = args.kind.zip(args.source).map(|(kind, source)| ItemArgs { kind, source });
 
     let Some(item) = item else {
         let report = sync.refresh_all().await?;
-        println!("Refreshed {} items", report.refreshed);
+        writeln!(out, "Refreshed {} items", report.refreshed)?;
         for failure in &report.failures {
             let name = match failure.item {
                 ItemId::Series(id) => app.library.series(id).await.map(|series| series.title),
                 ItemId::Movie(id) => app.library.movie(id).await.map(|movie| movie.title),
             };
-            println!("Failed {}: {}", name.unwrap_or_else(|_| "unknown item".into()), failure.error);
+            writeln!(out, "Failed {}: {}", name.unwrap_or_else(|_| "unknown item".into()), failure.error)?;
         }
         if !report.failures.is_empty() {
             bail!("{} items could not be refreshed", report.failures.len());
@@ -45,6 +48,6 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         ItemId::Series(id) => sync.refresh_series(id).await.map(drop)?,
         ItemId::Movie(id) => sync.refresh_movie(id).await.map(drop)?,
     }
-    println!("Refreshed {}", item.source);
+    writeln!(out, "Refreshed {}", item.source)?;
     Ok(())
 }

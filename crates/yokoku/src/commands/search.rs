@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use anyhow::Result;
 use clap::Parser;
 
@@ -16,20 +18,22 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
+    let mut out = io::stdout();
     let hits = app.sync()?.search(&args.query.join(" ")).await?;
 
     if hits.is_empty() {
-        println!("No results.");
+        writeln!(out, "No results.")?;
     }
     for hit in hits {
         let result = hit.result;
-        println!(
+        writeln!(
+            out,
             "{:<6} {:<50} {:<14} {}",
             kind_label(result.kind),
             title_with_year(&result.title, result.year),
             result.source,
             if hit.in_library { "in library" } else { "" },
-        );
+        )?;
     }
 
     Ok(())

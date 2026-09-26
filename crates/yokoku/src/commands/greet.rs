@@ -5,6 +5,8 @@
 //! 3. Add a variant to `Command` in `src/args.rs` and dispatch it in `route`.
 //! 4. Add its config section to `Config` in `src/config.rs`.
 
+use std::io::{self, Write};
+
 use anyhow::{Result, ensure};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -60,9 +62,10 @@ pub fn run(config: &Config, args: Args) -> Result<()> {
     let settings = args.apply_overrides(&config.greet);
     debug!(?settings, "resolved command settings");
 
+    let mut out = io::stdout();
     for _ in 0..settings.count {
         info!(name = %args.name, "greeting");
-        println!("{}, {}!", settings.greeting, args.name);
+        writeln!(out, "{}, {}!", settings.greeting, args.name)?;
     }
 
     Ok(())

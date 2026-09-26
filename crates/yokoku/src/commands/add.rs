@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
@@ -57,11 +59,12 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
+    let mut out = io::stdout();
     let sync = app.sync()?;
     match args.item.kind {
         Kind::Series => {
             let series = sync.add_series(args.item.source, settings.monitor.into()).await?;
-            println!("Added series {} {}", title_with_year(&series.title, series.year), series.source);
+            writeln!(out, "Added series {} {}", title_with_year(&series.title, series.year), series.source)?;
         },
         Kind::Movie => {
             let monitored = match settings.monitor {
@@ -70,7 +73,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 Monitor::Future | Monitor::LatestSeason => bail!("movies can only be monitored with `all` or `none`"),
             };
             let movie = sync.add_movie(args.item.source, monitored).await?;
-            println!("Added movie {} {}", title_with_year(&movie.title, movie.year), movie.source);
+            writeln!(out, "Added movie {} {}", title_with_year(&movie.title, movie.year), movie.source)?;
         },
     }
 

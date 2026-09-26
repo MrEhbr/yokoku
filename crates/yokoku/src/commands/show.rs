@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use anyhow::Result;
 use clap::Parser;
 use jiff::civil::Date;
@@ -19,46 +21,50 @@ pub struct Args {
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
     let today = app.library.today();
+    let mut out = io::stdout();
 
     match args.item.resolve(&app.library).await? {
-        ItemId::Series(id) => print_series(&app.library.series(id).await?, today),
-        ItemId::Movie(id) => print_movie(&app.library.movie(id).await?, today),
+        ItemId::Series(id) => print_series(&mut out, &app.library.series(id).await?, today)?,
+        ItemId::Movie(id) => print_movie(&mut out, &app.library.movie(id).await?, today)?,
     }
 
     Ok(())
 }
 
-fn print_series(series: &Series, today: Date) {
+fn print_series(out: &mut impl Write, series: &Series, today: Date) -> io::Result<()> {
     let numbering = match series.numbering {
         Numbering::Standard => "standard",
         Numbering::Absolute => "absolute",
     };
-    println!(
+    writeln!(
+        out,
         "{}  {}  {}  {}  numbering: {numbering}",
         title_with_year(&series.title, series.year),
         series.source,
         status_label(LibraryStatus::Series(series.status(today))),
         monitored_label(series.monitored),
-    );
+    )?;
     match series.next_episode(today) {
         Some((reference, episode)) => {
-            println!("Next      {reference}  {}  {}", date_label(episode.air_date), episode.title)
+            writeln!(out, "Next      {reference}  {}  {}", date_label(episode.air_date), episode.title)?
         },
-        None => println!("Next      -"),
+        None => writeln!(out, "Next      -")?,
     }
     match series.last_aired(today) {
-        Some((reference, episode)) => println!(
+        Some((reference, episode)) => writeln!(
+            out,
             "Last      {reference}  {}  {}",
             date_label(episode.air_date),
             file_status_label(episode.file_status(today))
-        ),
-        None => println!("Last      -"),
+        )?,
+        None => writeln!(out, "Last      -")?,
     }
 
     for season in &series.seasons {
-        println!("Season {}  {}", season.number, monitored_label(season.monitored));
+        writeln!(out, "Season {}  {}", season.number, monitored_label(season.monitored))?;
         for episode in &season.episodes {
-            println!(
+            writeln!(
+                out,
                 "  S{:02}E{:02}  {:<10}  {:<10}  {:<11}  {}",
                 season.number,
                 episode.number,
@@ -66,23 +72,25 @@ fn print_series(series: &Series, today: Date) {
                 file_status_label(episode.file_status(today)),
                 monitored_label(episode.monitored),
                 episode.title,
-            );
+            )?;
         }
     }
+    Ok(())
 }
 
-fn print_movie(movie: &Movie, today: Date) {
-    println!(
+fn print_movie(out: &mut impl Write, movie: &Movie, today: Date) -> io::Result<()> {
+    writeln!(
+        out,
         "{}  {}  {}  {}",
         title_with_year(&movie.title, movie.year),
         movie.source,
         status_label(LibraryStatus::Movie(movie.status(today))),
         monitored_label(movie.monitored),
-    );
-    println!("Cinema    {}", date_label(movie.releases.cinema));
-    println!("Digital   {}", date_label(movie.releases.digital));
-    println!("Physical  {}", date_label(movie.releases.physical));
-    println!("File      {}", file_status_label(movie.file_status(today)));
+    )?;
+    writeln!(out, "Cinema    {}", date_label(movie.releases.cinema))?;
+    writeln!(out, "Digital   {}", date_label(movie.releases.digital))?;
+    writeln!(out, "Physical  {}", date_label(movie.releases.physical))?;
+    writeln!(out, "File      {}", file_status_label(movie.file_status(today)))
 }
 
 fn monitored_label(monitored: bool) -> &'static str {

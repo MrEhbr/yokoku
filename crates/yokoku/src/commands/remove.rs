@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use anyhow::Result;
 use clap::Parser;
 use yokoku_library::ItemId;
@@ -16,12 +18,13 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
+    let mut out = io::stdout();
 
     match args.item.resolve(&app.library).await? {
         ItemId::Series(id) => app.library.remove_series(id, args.delete_files).await?,
         ItemId::Movie(id) => app.library.remove_movie(id, args.delete_files).await?,
     }
 
-    println!("Removed {} {}", crate::commands::kind_label(args.item.kind.into()), args.item.source);
+    writeln!(out, "Removed {} {}", crate::commands::kind_label(args.item.kind.into()), args.item.source)?;
     Ok(())
 }
