@@ -68,6 +68,10 @@ impl Setup {
     }
 
     async fn torrent_at(&self, left: u64) {
+        self.torrent(left, false).await;
+    }
+
+    async fn torrent(&self, left: u64, seeding_done: bool) {
         self.transmission.reset().await;
         Mock::given(method("POST"))
             .and(|request: &Request| !request.headers.contains_key("X-Transmission-Session-Id"))
@@ -83,7 +87,7 @@ impl Setup {
             "hashString": HASH, "name": "Dune.2021.1080p", "status": if left == 0 { 6 } else { 4 },
             "sizeWhenDone": 4_000_000_000u64, "leftUntilDone": left, "rateDownload": 5_000_000, "eta": 600,
             "downloadDir": self.dir.path().join("downloads"), "error": 0, "errorString": "", "metadataPercentComplete": 1.0,
-            "isFinished": false, "labels": ["yokoku"],
+            "isFinished": seeding_done, "labels": ["yokoku"],
         });
         self.answer("torrent-get", json!({ "torrents": [torrent] })).await;
     }
@@ -243,4 +247,33 @@ async fn a_failed_import_is_listed_and_retried() {
     assert!(listed.contains("failed") && listed.contains("already exists"), "{listed}");
     assert!(retried.starts_with("Imported "), "{retried}");
     assert_eq!(setup.stdout(&["import", "list"]), "No imports waiting.\n");
+}
+
+#[tokio::test]
+async fn imported_downloads_leave_transmission_with_their_data_once_seeded() {
+    let setup = Setup::new().await;
+    setup.torrent_at(0).await;
+    setup.stdout(&["download", "add", &format!("magnet:?xt=urn:btih:{HASH}"), "movie", "tmdb:10"]);
+    setup.torrent(0, true).await;
+    setup.answer("torrent-remove", json!({})).await;
+
+    let output = setup
+        .command()
+        .args(["download", "sync"])
+        .env("APP__TRANSMISSION__REMOVE_AFTER_SEEDING", "true")
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("1 removed from Transmission after seeding"), "{stdout}");
+    let requests = setup.transmission.received_requests().await.unwrap();
+    let removals: Vec<Value> = requests
+        .iter()
+        .map(|request| serde_json::from_slice::<Value>(&request.body).unwrap())
+        .filter(|body| body["method"] == "torrent-remove")
+        .collect();
+    assert_eq!(removals.len(), 1);
+    assert_eq!(removals[0]["arguments"], json!({ "ids": [HASH], "delete-local-data": true }));
+    assert!(setup.events().await.iter().any(|event| matches!(event, Event::TorrentRemoved { .. })));
+    assert!(setup.stdout(&["download", "list"]).contains("removed"));
 }

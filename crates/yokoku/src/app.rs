@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_db::Database;
 use yokoku_domain::Clock;
-use yokoku_downloads::Downloads;
+use yokoku_downloads::{DownloadOptions, Downloads};
 use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
 use yokoku_integrations::Rescans;
 use yokoku_library::{Library, MetadataSync, Schedule};
@@ -87,11 +87,24 @@ pub struct TransmissionConfig {
     pub username: Option<String>,
     /// Set it through `APP__TRANSMISSION__PASSWORD`.
     pub password: Option<String>,
+    /// Removes imported torrents, with their data, once Transmission finished seeding them.
+    pub remove_after_seeding: bool,
 }
 
 impl Default for TransmissionConfig {
     fn default() -> Self {
-        Self { url: "http://localhost:9091/transmission/rpc".into(), username: None, password: None }
+        Self {
+            url: "http://localhost:9091/transmission/rpc".into(),
+            username: None,
+            password: None,
+            remove_after_seeding: false,
+        }
+    }
+}
+
+impl TransmissionConfig {
+    fn options(&self) -> DownloadOptions {
+        DownloadOptions { remove_after_seeding: self.remove_after_seeding }
     }
 }
 
@@ -101,6 +114,7 @@ impl fmt::Debug for TransmissionConfig {
             .field("url", &self.url)
             .field("username", &self.username)
             .field("password", &self.password.as_ref().map(|_| "<redacted>"))
+            .field("remove_after_seeding", &self.remove_after_seeding)
             .finish()
     }
 }
@@ -150,7 +164,7 @@ impl App {
         if let Some(username) = &transmission.username {
             client = client.with_credentials(username, transmission.password.clone().unwrap_or_default());
         }
-        let downloads = Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone()));
+        let downloads = Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone(), transmission.options()));
 
         Ok(Self {
             library: Library::new(db.clone(), db.clone(), clock.clone()),

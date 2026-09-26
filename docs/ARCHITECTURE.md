@@ -164,10 +164,10 @@ Owns the downloads Yokoku knows about and the Transmission connection settings.
   - Test the connection.
   - Add a torrent (magnet link or .torrent file), linked to a movie or series or left unlinked.
   - Sync with the client: progress, state, completion, and optionally torrents picked up by label or folder.
-  - Remove a torrent once seeding is finished.
-- **Ports:** `DownloadRepo`, `DownloadClient` (version, add, torrents by info hash), `Clock`.
+  - Remove a torrent once seeding is finished (FR-3.7, `[transmission] remove_after_seeding`, off by default): a sync removes a download with its data from the client when it was imported (`imported_at`, set by the `FilesImported` that names it) and the client reports seeding finished (Transmission `isFinished`: the ratio or idle limit was reached), then marks it `Removed` and emits `TorrentRemoved`. The library keeps its own hard link or copy; a download never imported, or still in review, stays.
+- **Ports:** `DownloadRepo`, `DownloadClient` (version, add, torrents by info hash, all torrents, remove), `Clock`.
 - **Sync:** every download not yet `Removed` takes the client's status (state, bytes done, rate, ETA, folder). The first sync that sees it complete sets `completed_at` and emits `DownloadCompleted` in the same transaction; a torrent missing from the client becomes `Removed` and is no longer synced. Adding a torrent syncs it at once, so a torrent that is already complete emits both events.
-- **Emits:** `TorrentAdded`, `DownloadCompleted` (once per download; the sync is idempotent).
+- **Emits:** `TorrentAdded`, `DownloadCompleted` (once per download; the sync is idempotent), `TorrentRemoved`.
 - **Subscribes to:** `FilesImported` (marks the download imported so it can be removed after seeding).
 
 Transmission runs on the same host as Yokoku. The paths it reports are used as-is; no path mapping.
@@ -284,16 +284,17 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 | `MovieRemoved { movie, title, delete_files }` | library | media |
 | `TorrentAdded { download, name, item }` | downloads | — (history) |
 | `DownloadCompleted { download, name, content_path, item }` | downloads | media |
+| `TorrentRemoved { download, name, item }` | downloads | — (history) |
 | `ImportNeedsReview { import, source }` | media | — (history) |
 | `FilesFound { files }` | media (scan) | library, integrations |
-| `FilesImported { import, files }` | media | library, downloads, integrations |
+| `FilesImported { import, download, files }` | media | library, downloads, integrations |
 | `ImportFailed { import, source, reason }` | media | — (history) |
 | `FileRenamed { file, from, to, target }` | media | integrations |
 | `FileDeleted { file, path, target, reason, recycled }` | media | library, integrations |
 
 Events carry the titles and paths that history needs to display, so history still reads correctly after the item is removed. File events list each file as `LinkedFile { file, path, target }`, where `target` is a `FileTarget`.
 
-`FileDeleted.reason` is `External`, `Replaced` (an import replaced the file), `User` or `ItemRemoved`; `recycled` says the file went to the recycle folder. Fields added to a variant later default when older events are read (`recycled: false`, `FileRenamed.target: None`), so stored events keep their meaning. `Event::items()` names the series and movies an event concerns, for history by item. A file removed outside the app is reported by the next scan with `External` (FR-8.7).
+`FileDeleted.reason` is `External`, `Replaced` (an import replaced the file), `User` or `ItemRemoved`; `recycled` says the file went to the recycle folder. Fields added to a variant later default when older events are read (`recycled: false`, `FileRenamed.target: None`, `FilesImported.download: None`; migration 0010 marks downloads with a finished import as imported), so stored events keep their meaning. `Event::items()` names the series and movies an event concerns, for history by item. A file removed outside the app is reported by the next scan with `External` (FR-8.7).
 
 ### 7.4 Registry
 

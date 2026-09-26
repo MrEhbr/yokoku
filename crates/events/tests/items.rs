@@ -32,6 +32,7 @@ fn linked(target: FileTarget) -> LinkedFile {
 )]
 #[case::renamed_before_targets(Event::FileRenamed { file: MediaFileId::generate(), from: "/a".into(), to: "/b".into(), target: None }, vec![])]
 #[case::unlinked_torrent(Event::TorrentAdded { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: None }, vec![])]
+#[case::removed_torrent(Event::TorrentRemoved { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: Some(ItemId::Movie(movie())) }, vec![ItemId::Movie(movie())])]
 #[case::review(Event::ImportNeedsReview { import: ImportId::generate(), source: "/x".into() }, vec![])]
 fn events_name_the_items_they_concern(#[case] event: Event, #[case] items: Vec<ItemId>) {
     assert_eq!(event.items(), items);

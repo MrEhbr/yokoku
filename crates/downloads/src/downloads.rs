@@ -14,6 +14,13 @@ pub struct Downloads {
     repo: Arc<dyn DownloadRepo>,
     client: Arc<dyn DownloadClient>,
     clock: Arc<dyn Clock>,
+    options: DownloadOptions,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DownloadOptions {
+    /// Removes a torrent with its data once it is imported and the client finished seeding it (FR-3.7).
+    pub remove_after_seeding: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -23,11 +30,18 @@ pub struct SyncReport {
     pub completed: Vec<DownloadId>,
     /// Downloads the client no longer has.
     pub removed: usize,
+    /// Imported downloads removed from the client after seeding.
+    pub cleaned_up: usize,
 }
 
 impl Downloads {
-    pub fn new(repo: Arc<dyn DownloadRepo>, client: Arc<dyn DownloadClient>, clock: Arc<dyn Clock>) -> Self {
-        Self { repo, client, clock }
+    pub fn new(
+        repo: Arc<dyn DownloadRepo>,
+        client: Arc<dyn DownloadClient>,
+        clock: Arc<dyn Clock>,
+        options: DownloadOptions,
+    ) -> Self {
+        Self { repo, client, clock, options }
     }
 
     /// The client's name and version (FR-3.1).
@@ -67,7 +81,8 @@ impl Downloads {
 
     /// Records each download's progress and state; a download that finished emits
     /// `DownloadCompleted` once, however often and however many syncs run. A download another
-    /// sync saved in the meantime is left to that sync.
+    /// sync saved in the meantime is left to that sync. With `remove_after_seeding`, an imported
+    /// download whose seeding finished is removed from the client, emitting `TorrentRemoved`.
     pub async fn sync(&self) -> Result<SyncReport, DownloadError> {
         let active: Vec<Download> = self
             .repo
@@ -84,13 +99,26 @@ impl Downloads {
         for mut download in active {
             let torrent = torrents.remove(&download.hash);
             let removed = torrent.is_none();
+            let seeded = torrent.as_ref().is_some_and(|torrent| torrent.seeding_done);
             let completed = self.apply(&mut download, torrent);
-            match self.repo.save(&mut download, completed.as_slice()).await {
+            let mut events: Vec<Event> = completed.iter().cloned().collect();
+            let clean_up = seeded && self.options.remove_after_seeding && download.imported_at.is_some();
+            if clean_up {
+                self.client.remove(&download.hash, true).await?;
+                mark_removed(&mut download);
+                events.push(Event::TorrentRemoved {
+                    download: download.id,
+                    name: download.name.clone(),
+                    item: download.item,
+                });
+            }
+            match self.repo.save(&mut download, &events).await {
                 Err(StorageError::Conflict) => continue,
                 result => result?,
             }
             report.synced += 1;
             report.removed += usize::from(removed);
+            report.cleaned_up += usize::from(clean_up);
             if completed.is_some() {
                 report.completed.push(download.id);
             }
@@ -111,12 +139,7 @@ impl Downloads {
     /// Returns `DownloadCompleted` when the download has just finished.
     fn apply(&self, download: &mut Download, torrent: Option<Torrent>) -> Option<Event> {
         let Some(torrent) = torrent else {
-            download.status = DownloadStatus {
-                state: DownloadState::Removed,
-                download_rate: 0,
-                eta: None,
-                ..download.status.clone()
-            };
+            mark_removed(download);
             return None;
         };
         download.name = torrent.name;
@@ -146,4 +169,9 @@ impl Subscriber for Downloads {
         }
         Ok(())
     }
+}
+
+fn mark_removed(download: &mut Download) {
+    download.status =
+        DownloadStatus { state: DownloadState::Removed, download_rate: 0, eta: None, ..download.status.clone() };
 }

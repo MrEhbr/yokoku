@@ -82,6 +82,7 @@ fn describe(event: &Event) -> Vec<String> {
         Event::ImportFailed { source, reason, .. } => vec![format!("Import of {} failed: {reason}", source.display())],
         Event::TorrentAdded { name, .. } => vec![format!("Added torrent {name}")],
         Event::DownloadCompleted { name, .. } => vec![format!("Finished downloading {name}")],
+        Event::TorrentRemoved { name, .. } => vec![format!("Removed torrent {name} after seeding")],
     }
 }
 

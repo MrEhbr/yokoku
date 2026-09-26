@@ -94,6 +94,9 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             if report.removed > 0 {
                 writeln!(out, "{} are no longer in Transmission", report.removed)?;
             }
+            if report.cleaned_up > 0 {
+                writeln!(out, "{} removed from Transmission after seeding", report.cleaned_up)?;
+            }
             run_imports(&app, &mut out).await?;
             let waiting = app.review.pending().await?.len();
             if waiting > 0 {

@@ -9,10 +9,11 @@ use jiff::{
     civil::{Date, date},
     tz::TimeZone,
 };
+use rstest::rstest;
 use yokoku_db::Database;
 use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, MovieId};
 use yokoku_downloads::{
-    Download, DownloadError, DownloadState, DownloadStatus, Downloads,
+    Download, DownloadError, DownloadOptions, DownloadState, DownloadStatus, Downloads,
     ports::{AddedTorrent, ClientError, DownloadClient, Torrent, TorrentSource},
 };
 use yokoku_events::{Event, EventId, EventLog, Recorded, Subscriber};
@@ -45,6 +46,10 @@ impl ScriptedClient {
 
     fn forget(&self) {
         self.torrents.lock().unwrap().clear();
+    }
+
+    fn finish_seeding(&self) {
+        self.torrents.lock().unwrap().values_mut().for_each(|torrent| torrent.seeding_done = true);
     }
 
     fn check(&self) -> Result<(), ClientError> {
@@ -115,9 +120,13 @@ struct Setup {
 }
 
 async fn setup() -> Setup {
+    setup_with(DownloadOptions::default()).await
+}
+
+async fn setup_with(options: DownloadOptions) -> Setup {
     let db = Database::open_in_memory().await.unwrap();
     let client = Arc::new(ScriptedClient::default());
-    let downloads = Downloads::new(Arc::new(db.clone()), client.clone(), Arc::new(FixedClock));
+    let downloads = Downloads::new(Arc::new(db.clone()), client.clone(), Arc::new(FixedClock), options);
     Setup { db, client, downloads }
 }
 
@@ -280,4 +289,53 @@ async fn imports_of_scanned_files_or_unknown_downloads_change_nothing() {
     setup.downloads.handle(&imported(Some(DownloadId::generate()))).await.unwrap();
 
     assert_eq!(setup.only_download().await, added);
+}
+
+const CLEAN_UP: DownloadOptions = DownloadOptions { remove_after_seeding: true };
+
+#[tokio::test]
+async fn an_imported_download_is_removed_with_its_data_once_seeded() {
+    let setup = setup_with(CLEAN_UP).await;
+    setup.client.set(1000, 1000);
+    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.downloads.mark_imported(added.id).await.unwrap();
+    setup.client.finish_seeding();
+
+    let report = setup.downloads.sync().await.unwrap();
+    let again = setup.downloads.sync().await.unwrap();
+
+    assert_eq!((report.cleaned_up, again.synced), (1, 0));
+    assert_eq!(*setup.client.removed.lock().unwrap(), [(HASH.to_owned(), true)]);
+    assert_eq!(setup.only_download().await.status.state, DownloadState::Removed);
+    assert_eq!(
+        setup.events().await.last(),
+        Some(&Event::TorrentRemoved { download: added.id, name: added.name, item: None })
+    );
+}
+
+#[rstest]
+#[case::not_imported(CLEAN_UP, false, true)]
+#[case::still_seeding(CLEAN_UP, true, false)]
+#[case::switched_off(DownloadOptions::default(), true, true)]
+#[tokio::test]
+async fn other_downloads_stay_in_the_client(
+    #[case] options: DownloadOptions,
+    #[case] imported: bool,
+    #[case] seeded: bool,
+) {
+    let setup = setup_with(options).await;
+    setup.client.set(1000, 1000);
+    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    if imported {
+        setup.downloads.mark_imported(added.id).await.unwrap();
+    }
+    if seeded {
+        setup.client.finish_seeding();
+    }
+
+    let report = setup.downloads.sync().await.unwrap();
+
+    assert_eq!(report.cleaned_up, 0);
+    assert!(setup.client.removed.lock().unwrap().is_empty());
+    assert_eq!(setup.only_download().await.status.state, DownloadState::Seeding);
 }

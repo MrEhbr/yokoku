@@ -75,6 +75,12 @@ pub enum Event {
         content_path: PathBuf,
         item: Option<ItemId>,
     },
+    /// Removed from the download client, with its data, after its import once seeding finished.
+    TorrentRemoved {
+        download: DownloadId,
+        name: String,
+        item: Option<ItemId>,
+    },
 }
 
 impl Event {
@@ -88,7 +94,9 @@ impl Event {
             },
             Self::FileDeleted { target, .. } => vec![target.item()],
             Self::FileRenamed { target, .. } => target.iter().map(FileTarget::item).collect(),
-            Self::TorrentAdded { item, .. } | Self::DownloadCompleted { item, .. } => item.iter().copied().collect(),
+            Self::TorrentAdded { item, .. }
+            | Self::DownloadCompleted { item, .. }
+            | Self::TorrentRemoved { item, .. } => item.iter().copied().collect(),
             Self::ImportNeedsReview { .. } | Self::ImportFailed { .. } => Vec::new(),
         };
         let mut seen = Vec::with_capacity(items.len());
@@ -223,6 +231,10 @@ mod tests {
             "item": { "Series": "00000000-0000-0000-0000-000000000007" },
         }),
     )]
+    #[case::torrent_removed(
+        Event::TorrentRemoved { download: DownloadId(Uuid::from_u128(4)), name: "Dune.2021.1080p".into(), item: None },
+        json!({ "type": "TorrentRemoved", "download": "00000000-0000-0000-0000-000000000004", "name": "Dune.2021.1080p", "item": null }),
+    )]
     #[case::download_completed(
         Event::DownloadCompleted {
             download: DownloadId(Uuid::from_u128(4)),
@@ -346,6 +358,9 @@ mod tests {
             }),
             (any_id(), any::<String>(), proptest::option::of(any_item())).prop_map(|(download, name, item)| {
                 Event::TorrentAdded { download: DownloadId(download), name, item }
+            }),
+            (any_id(), any::<String>(), proptest::option::of(any_item())).prop_map(|(download, name, item)| {
+                Event::TorrentRemoved { download: DownloadId(download), name, item }
             }),
             (any_id(), any::<String>(), any::<String>(), proptest::option::of(any_item())).prop_map(
                 |(download, name, content_path, item)| Event::DownloadCompleted {
