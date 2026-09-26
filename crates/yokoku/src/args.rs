@@ -67,13 +67,23 @@ pub enum Command {
     Recycle(commands::recycle::Args),
     /// Test the Jellyfin connection or ask it to rescan
     Jellyfin(commands::jellyfin::Args),
+    /// Store settings in the database, over the config file
+    Settings(commands::settings::Args),
     /// Deliver events and run scheduled jobs until stopped
     Serve(commands::serve::Args),
 }
 
 impl Args {
-    fn resolve_config(&self) -> Result<Config> {
-        let mut config: Config = crate::config::load(self.config.as_deref()).context("Failed to load configuration")?;
+    async fn resolve_config(&self) -> Result<Config> {
+        let path = self.config.as_deref();
+        let mut config: Config = crate::config::load(path, &[]).context("Failed to load configuration")?;
+        if !matches!(self.command, Command::Settings(_)) {
+            let stored = commands::settings::stored(&config.database.path).await?;
+            if !stored.is_empty() {
+                config = crate::config::load(path, &stored)
+                    .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
+            }
+        }
 
         // `tracing_level()` yields the default level even when no flag was
         // passed, so only consult it when the user actually supplied one.
@@ -88,7 +98,7 @@ impl Args {
 pub async fn route(args: Args) -> Result<()> {
     use Command::*;
 
-    let config = args.resolve_config()?;
+    let config = args.resolve_config().await?;
     let _guard = logging::setup(&config.log).context("Failed to initialize logging")?;
 
     match args.command {
@@ -115,6 +125,7 @@ pub async fn route(args: Args) -> Result<()> {
         Files(cmd_args) => commands::files::run(&config, cmd_args).await,
         Recycle(cmd_args) => commands::recycle::run(&config, cmd_args).await,
         Jellyfin(cmd_args) => commands::jellyfin::run(&config, cmd_args).await,
+        Settings(cmd_args) => commands::settings::run(&config, args.config.as_deref(), cmd_args).await,
         Serve(cmd_args) => commands::serve::run(&config, cmd_args).await,
     }
 }

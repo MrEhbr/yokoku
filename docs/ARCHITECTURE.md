@@ -202,9 +202,11 @@ Owns library files, root folders, naming settings, imports and the recycle folde
 
 ### 5.5 Settings
 
-Each module owns its settings section: metadata provider and API keys in `library`, Transmission in `downloads`, root folders, naming, import mode and recycle in `media`, Jellyfin in `integrations`. All sections are stored in the database (FR-10.3). The settings screen composes them.
+Each module owns its settings section: metadata provider in `library`, Transmission in `downloads`, root folders, naming, import mode and recycle in `media`, Jellyfin in `integrations`. The binary maps each section to its module's types.
 
-Bootstrap values that are needed before the database exists (database path, bind address, log format) come from the existing TOML file and `APP__*` environment variables.
+Settings are layered, later over earlier: defaults, the TOML file, values stored in the database (FR-10.3), then `APP__*` environment variables. Stored values live in `settings (key, value)` by dotted key (`import.mode`) as JSON; `yokoku settings set|unset|list|get` edits them, and the settings screen will too. `set` loads the whole configuration with the new value and validates it (types, naming patterns, schedules, time zone) before storing, so a stored value cannot stop the app. Stored values are read once at start, so `serve` picks up a change when restarted; a stored value that no longer loads fails every command except `settings`, which can unset it.
+
+Not stored: bootstrap values needed before the database opens (`database`, `log`), and secrets (TMDB token, Transmission password, Jellyfin API key), which come only from `APP__*` variables and are never printed. Commands that need no database never create one to read settings.
 
 ---
 
@@ -327,7 +329,7 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 
 One binary.
 - `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM. Each subscriber gets its own `Delivery` loop; on a signal the monitor stops first, then the deliveries are cancelled and awaited.
-- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `recycle`, `jellyfin`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
+- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `files`, `recycle`, `jellyfin`, `settings`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
 
 ### Storage
 

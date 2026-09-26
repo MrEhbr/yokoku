@@ -340,3 +340,28 @@ async fn an_invalid_pattern_is_refused_with_its_reason() {
         predicate::str::contains("Invalid [naming] setting").and(predicate::str::contains("episode file pattern")),
     );
 }
+
+#[tokio::test]
+async fn stored_settings_apply_to_every_command() {
+    let setup = Setup::new().await;
+    setup.write("tv/frieren/Frieren (2023) - S01E01.mkv");
+    setup.stdout(&["scan"]);
+
+    setup.stdout(&["settings", "set", "naming.season_folder", "S{season}"]);
+    let preview = setup.stdout(&["rename"]);
+
+    assert!(preview.contains("-> Frieren (2023)/S01/Frieren (2023) - S01E01 - Episode 1.mkv"), "{preview}");
+}
+
+#[tokio::test]
+async fn a_stored_value_that_no_longer_loads_can_still_be_unset() {
+    let setup = Setup::new().await;
+    let db = Database::open(&setup.database).await.unwrap();
+    db.set_setting("import.mode", &serde_json::json!("sideways")).await.unwrap();
+
+    setup.command().arg("list").assert().failure().stderr(predicate::str::contains("see `yokoku settings list`"));
+    let unset = setup.stdout(&["settings", "unset", "import.mode"]);
+
+    assert_eq!(unset, "Unset import.mode\n");
+    setup.command().arg("list").assert().success();
+}
