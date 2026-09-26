@@ -1,8 +1,12 @@
 use std::path::PathBuf;
 
 use yokoku_domain::{EpisodeSpan, ImportId, MovieId, SeriesId, StorageError};
+use yokoku_naming::NamingError;
 
-use crate::ports::{FsError, ProbeError};
+use crate::{
+    RootKind,
+    ports::{FsError, ProbeError},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum MediaError {
@@ -36,6 +40,16 @@ pub enum MediaError {
     UnmatchedRows(Vec<usize>),
     #[error("rows {} conflict with each other or with library files; match or skip them", numbers(.0))]
     ConflictingRows(Vec<usize>),
+    #[error("row {0} has no match")]
+    RowUnmatched(usize),
+    #[error("there is no {} root folder", .0.as_str())]
+    NoRootFolder(RootKind),
+    #[error("{} already exists", .0.display())]
+    AlreadyExists(PathBuf),
+    #[error("{} is missing", .0.display())]
+    SourceMissing(PathBuf),
+    #[error(transparent)]
+    Naming(#[from] NamingError),
     #[error(transparent)]
     FileSystem(#[from] FsError),
     #[error(transparent)]

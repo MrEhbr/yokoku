@@ -123,8 +123,9 @@ impl Importer {
                 };
                 (changes, events)
             },
-            Err(reason) => {
-                warn!(import = %import.id, %reason, "import failed");
+            Err(error) => {
+                warn!(import = %import.id, %error, "import failed");
+                let reason = error.to_string();
                 import.status = ImportStatus::Failed;
                 import.error = Some(reason.clone());
                 let event = Event::ImportFailed { import: import.id, source: import.source.clone(), reason };
@@ -136,26 +137,24 @@ impl Importer {
     }
 
     /// Places every row that is not skipped; the error says why the import stopped.
-    async fn place_all(&self, import: &Import) -> Result<Placed, String> {
-        let roots = self.repo.root_folders().await.map_err(|error| error.to_string())?;
-        let library = self.repo.files().await.map_err(|error| error.to_string())?;
-        let subtitles = self.subtitles(&import.source).await.map_err(|error| error.to_string())?;
+    async fn place_all(&self, import: &Import) -> Result<Placed, MediaError> {
+        let roots = self.repo.root_folders().await?;
+        let library = self.repo.files().await?;
+        let subtitles = self.subtitles(&import.source).await?;
         let now = self.clock.now().timestamp();
         let mut placed = Placed::default();
 
         for (number, row) in (1..).zip(&import.rows).filter(|(_, row)| !row.skipped) {
-            let target = row.target.ok_or_else(|| format!("row {number} has no match"))?;
-            let root = root_for(target, &roots, &library).ok_or_else(|| match target {
-                FileTarget::Episodes { .. } => "there is no series root folder".to_owned(),
-                FileTarget::Movie(_) => "there is no movie root folder".to_owned(),
-            })?;
+            let target = row.target.ok_or(MediaError::RowUnmatched(number))?;
+            let root =
+                root_for(target, &roots, &library).ok_or_else(|| MediaError::NoRootFolder(RootKind::from(target)))?;
             let destination = root.join(self.relative_path(target, &row.path).await?);
 
             if row.replace {
                 for old in library.iter().filter(|file| file.target.overlaps(&target)) {
                     let placed_over = old.path == destination && self.already_placed(&row.path, &destination).await?;
                     if !placed_over {
-                        self.fs.remove_file(&old.path).await.map_err(|error| error.to_string())?;
+                        self.fs.remove_file(&old.path).await?;
                     }
                     placed.replaced.push(old.clone());
                 }
@@ -176,16 +175,15 @@ impl Importer {
         Ok(placed)
     }
 
-    async fn relative_path(&self, target: FileTarget, video: &Path) -> Result<PathBuf, String> {
+    async fn relative_path(&self, target: FileTarget, video: &Path) -> Result<PathBuf, MediaError> {
         let extension = video.extension().unwrap_or_default().to_string_lossy();
-        let gone = || "its series or movie is no longer in the library".to_owned();
         match target {
-            FileTarget::Episodes { series, span } => {
-                let series = self.catalog.series(series).await.map_err(|error| error.to_string())?.ok_or_else(gone)?;
-                self.naming.episode_path(&series, span, &extension).map_err(|error| error.to_string())
+            FileTarget::Episodes { series: id, span } => {
+                let series = self.catalog.series(id).await?.ok_or(MediaError::SeriesNotFound(id))?;
+                Ok(self.naming.episode_path(&series, span, &extension)?)
             },
-            FileTarget::Movie(movie) => {
-                let movie = self.catalog.movie(movie).await.map_err(|error| error.to_string())?.ok_or_else(gone)?;
+            FileTarget::Movie(id) => {
+                let movie = self.catalog.movie(id).await?.ok_or(MediaError::MovieNotFound(id))?;
                 Ok(self.naming.movie_path(&movie, &extension))
             },
         }
@@ -211,10 +209,9 @@ impl Importer {
     }
 
     /// The destination already holds the source: the same data or size, or the moved file itself.
-    async fn already_placed(&self, source: &Path, destination: &Path) -> Result<bool, String> {
-        let describe = |error: FsError| error.to_string();
-        let from = self.fs.stat(source).await.map_err(describe)?;
-        Ok(match (from, self.fs.stat(destination).await.map_err(describe)?) {
+    async fn already_placed(&self, source: &Path, destination: &Path) -> Result<bool, MediaError> {
+        let from = self.fs.stat(source).await?;
+        Ok(match (from, self.fs.stat(destination).await?) {
             (Some(from), Some(to)) => from.same_file(&to) || from.size == to.size,
             (None, Some(_)) => self.mode == ImportMode::Move,
             (_, None) => false,
@@ -223,15 +220,14 @@ impl Importer {
 
     /// A destination that already holds the file counts as placed, so a retry picks up where an
     /// interrupted import stopped.
-    async fn place(&self, source: &Path, destination: &Path) -> Result<(), String> {
+    async fn place(&self, source: &Path, destination: &Path) -> Result<(), MediaError> {
         if self.already_placed(source, destination).await? {
             return Ok(());
         }
-        let describe = |error: FsError| error.to_string();
-        let from = self.fs.stat(source).await.map_err(describe)?;
-        match (from, self.fs.stat(destination).await.map_err(describe)?) {
-            (_, Some(_)) => return Err(format!("{} already exists", destination.display())),
-            (None, None) => return Err(format!("{} is missing", source.display())),
+        let from = self.fs.stat(source).await?;
+        match (from, self.fs.stat(destination).await?) {
+            (_, Some(_)) => return Err(MediaError::AlreadyExists(destination.to_owned())),
+            (None, None) => return Err(MediaError::SourceMissing(source.to_owned())),
             (Some(_), None) => {},
         }
 
@@ -246,16 +242,13 @@ impl Importer {
             ImportMode::Copy => self.fs.copy(source, destination).await,
             ImportMode::Move => files::move_file(self.fs.as_ref(), source, destination).await,
         };
-        result.map_err(describe)
+        Ok(result?)
     }
 }
 
 /// The root holding the series' other files, or else the first root of the item's kind.
 fn root_for<'a>(target: FileTarget, roots: &'a [RootFolder], library: &[MediaFile]) -> Option<&'a Path> {
-    let kind = match target {
-        FileTarget::Episodes { .. } => RootKind::Series,
-        FileTarget::Movie(_) => RootKind::Movies,
-    };
+    let kind = RootKind::from(target);
     let candidates = || roots.iter().filter(move |root| root.kind == kind);
     let same_item = |file: &&MediaFile| match (file.target, target) {
         (FileTarget::Episodes { series, .. }, FileTarget::Episodes { series: wanted, .. }) => series == wanted,
