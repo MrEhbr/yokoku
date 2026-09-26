@@ -109,6 +109,7 @@ Value types and rules shared by all modules. Examples:
 - `MonitorPreset { All, Future, LatestSeason, None }` (FR-2.2).
 - `SeriesStatus { Continuing, OnBreak, Ended }`, `MovieStatus { Announced, InCinemas, Released }`, `FileStatus { Downloaded, Missing, Upcoming }`: derived from dates, files and today, never stored.
 - `Confidence { Unknown, Guess, Certain }` (FR-4.10) and `SubtitleTags` (language, SDH, forced), shared by `detect` and `naming`.
+- `Clock`: the one port every module needs, so it lives here rather than in a module.
 - Later: `ImportMode { HardLink, Copy, Move }` (FR-3.6).
 
 ### Rules

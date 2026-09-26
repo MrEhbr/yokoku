@@ -3878,7 +3878,7 @@ name = "yokoku-system"
 version = "0.0.1"
 dependencies = [
  "jiff",
- "yokoku-library",
+ "yokoku-domain",
 ]
 
 [[package]]

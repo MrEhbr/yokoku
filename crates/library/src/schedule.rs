@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use jiff::{ToSpan, civil::Date};
-use yokoku_domain::{EpisodeRef, ExternalId, FileStatus, MovieId, ReleaseKind, SeriesId};
+use yokoku_domain::{Clock, EpisodeRef, ExternalId, FileStatus, MovieId, ReleaseKind, SeriesId};
 
 use crate::{
     ItemId, LibraryError,
     catalog::Catalog,
-    ports::{Clock, MovieRepo, SeriesRepo},
+    ports::{MovieRepo, SeriesRepo},
 };
 
 /// Release tracking over monitored items: calendar, upcoming and missing.

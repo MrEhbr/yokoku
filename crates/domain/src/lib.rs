@@ -1,5 +1,6 @@
 //! Shared value types and domain rules.
 
+mod clock;
 mod confidence;
 mod external;
 mod file_status;
@@ -9,6 +10,7 @@ mod movie;
 mod series;
 mod subtitle;
 
+pub use clock::Clock;
 pub use confidence::Confidence;
 pub use external::{ExternalId, ParseExternalIdError};
 pub use file_status::FileStatus;

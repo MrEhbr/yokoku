@@ -9,6 +9,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-yokoku-library.workspace = true
+yokoku-domain.workspace = true
 
 jiff.workspace = true

@@ -1,5 +1,5 @@
 use jiff::{Timestamp, Zoned, tz::TimeZone};
-use yokoku_library::ports::Clock;
+use yokoku_domain::Clock;
 
 #[derive(Debug, Clone)]
 pub struct SystemClock {

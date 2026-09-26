@@ -1,7 +1,6 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use jiff::Zoned;
 use yokoku_domain::{ExternalId, Movie, MovieId, MovieMetadata, Series, SeriesId, SeriesMetadata};
 use yokoku_events::Event;
 
@@ -34,11 +33,6 @@ pub enum MetadataError {
     NotFound(ExternalId),
     #[error("metadata source unavailable")]
     Unavailable(#[source] Box<dyn Error + Send + Sync>),
-}
-
-pub trait Clock: Send + Sync {
-    /// The current time in the user's time zone.
-    fn now(&self) -> Zoned;
 }
 
 /// Writes store the aggregate and `events` in one transaction.

@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use jiff::civil::Date;
-use yokoku_domain::{EpisodeRef, ExternalId, Movie, MovieId, Numbering, Series, SeriesId};
+use yokoku_domain::{Clock, EpisodeRef, ExternalId, Movie, MovieId, Numbering, Series, SeriesId};
 use yokoku_events::Event;
 
 use crate::{
     LibraryEntry, LibraryError, LibraryFilter, LibrarySort,
     catalog::Catalog,
-    ports::{Clock, MovieRepo, SeriesRepo},
+    ports::{MovieRepo, SeriesRepo},
 };
 
 /// Queries and changes that need no metadata source.
