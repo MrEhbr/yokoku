@@ -3856,11 +3856,13 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "tracing",
  "yokoku-db",
  "yokoku-detect",
  "yokoku-domain",
  "yokoku-events",
  "yokoku-library",
+ "yokoku-naming",
  "yokoku-system",
 ]
 

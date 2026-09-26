@@ -154,7 +154,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
 - **Later:** iCal feed (served by `web`).
 - **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates, events in the same transaction), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
 - **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
-- **Subscribes to:** `FilesFound`, `FilesImported`, `FileDeleted` (`FileTracker` updates the file projection), later `FileRenamed`.
+- **Subscribes to:** `FilesFound`, `FilesImported`, `FileDeleted` (`FileTracker` updates the file projection). `FileRenamed` keeps the file id, so the projection needs no change.
 
 ### 5.2 `downloads`
 
@@ -181,11 +181,11 @@ Owns library files, root folders, naming settings, imports and the recycle folde
   - Run an approved import.
   - Root folders: add (absolute, existing, not overlapping another root), list, remove.
   - Scan root folders (FR-8.2, 8.3, 8.7): each entry of a root is detected on its own against series (series root) or movies (movie root). New files that are `Certain`, conflict-free and hold nothing already linked are linked in place; the rest of the entry becomes one import in review. Linked files missing from disk are forgotten with `FileDeleted { reason: External }`. A root that cannot be read fails the scan, so an unmounted disk never looks empty.
-  - Rename with preview.
+  - Rename with preview (FR-5.7): `Renamer::preview(scope)` lists the moves naming asks for, for the whole library, a series or a movie; `apply` makes them file by file. Subtitles beside a video (named after it) move with it and get normalised language tags. Files outside every root, whose item is gone, or that would share a path are skipped; a file already at the new path is never replaced, and that move is reported as failed. Folders left empty are removed up to the root.
   - Delete or recycle files; clean up the recycle folder.
   - Retry a failed import.
 - **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes, events)` so a use case commits everything in one transaction), `Catalog` (read-only view of `library` data), `FileSystem`, `Clock`; later `MediaProbe`, `ImportQueue`.
-- **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`; later `ImportFailed`, `FileRenamed`.
+- **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`, `FileRenamed`; later `ImportFailed`.
 - **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesRemoved`, `MovieRemoved` (delete or recycle files when asked).
 
 ### 5.4 `integrations`

@@ -19,7 +19,8 @@ use yokoku_domain::{
 };
 use yokoku_events::{Event, EventLog};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
-use yokoku_media::{Review, RootFolders, RootKind, Scanner};
+use yokoku_media::{Renamer, Review, RootFolders, RootKind, Scanner};
+use yokoku_naming::Naming;
 use yokoku_system::LocalFileSystem;
 
 pub const TODAY: Date = date(2026, 9, 26);
@@ -44,6 +45,7 @@ pub struct App {
     pub roots: RootFolders,
     pub scanner: Scanner,
     pub review: Review,
+    pub renamer: Renamer,
     pub frieren: Series,
     pub dune: Movie,
 }
@@ -60,14 +62,15 @@ impl App {
         let clock = Arc::new(FixedClock);
         let roots = RootFolders::new(repo.clone(), fs.clone());
         let scanner = Scanner::new(repo.clone(), repo.clone(), fs, clock.clone());
-        let review = Review::new(repo.clone(), repo, clock);
+        let review = Review::new(repo.clone(), repo.clone(), clock);
+        let renamer = Renamer::new(repo.clone(), repo, Arc::new(LocalFileSystem), Naming::default());
 
         let frieren = Series::add(frieren_metadata(), MonitorPreset::All, TODAY, now());
         let dune = Movie::add(dune_metadata(), true, now());
         SeriesRepo::save(&db, &frieren, &[]).await.unwrap();
         MovieRepo::save(&db, &dune, &[]).await.unwrap();
 
-        let app = Self { dir, db, roots, scanner, review, frieren, dune };
+        let app = Self { dir, db, roots, scanner, review, renamer, frieren, dune };
         app.roots.add(RootKind::Series, &app.path("tv")).await.unwrap();
         app.roots.add(RootKind::Movies, &app.path("movies")).await.unwrap();
         app

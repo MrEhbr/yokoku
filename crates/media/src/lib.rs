@@ -3,12 +3,14 @@
 mod error;
 mod model;
 pub mod ports;
+mod rename;
 mod review;
 mod roots;
 mod scan;
 
 pub use error::MediaError;
 pub use model::{Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind};
+pub use rename::{Move, Rename, RenameFailure, RenamePlan, RenameReport, RenameScope, Renamer, SkipReason, Skipped};
 pub use review::{ImportReview, Review, ReviewRow};
 pub use roots::RootFolders;
 pub use scan::{ScanReport, Scanner};

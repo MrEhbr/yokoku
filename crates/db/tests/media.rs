@@ -221,3 +221,16 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
     assert_eq!(Catalog::movie(&db, movie.id).await.unwrap(), Some(movie));
     assert_eq!(Catalog::movie(&db, MovieId::generate()).await.unwrap(), None);
 }
+
+#[rstest]
+#[tokio::test]
+async fn renamed_files_keep_their_id_and_target(#[future] db: Database) {
+    let db = db.await;
+    let moved = file("/tv/a.mkv", episodes(1, 1));
+    MediaRepo::save(&db, &Changes { added_files: vec![moved.clone()], ..Changes::default() }, &[]).await.unwrap();
+
+    let changes = Changes { renamed_files: vec![(moved.id, "/tv/Frieren/a.mkv".into())], ..Changes::default() };
+    MediaRepo::save(&db, &changes, &[]).await.unwrap();
+
+    assert_eq!(db.files().await.unwrap(), [MediaFile { path: "/tv/Frieren/a.mkv".into(), ..moved }]);
+}

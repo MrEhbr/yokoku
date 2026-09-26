@@ -138,6 +138,14 @@ impl MediaRepo for Database {
         for file in &changes.added_files {
             insert_file(&mut tx, file).await?;
         }
+        for (id, path) in &changes.renamed_files {
+            sqlx::query("UPDATE media_files SET path = ? WHERE id = ?")
+                .bind(path_str(path)?)
+                .bind(id.to_string())
+                .execute(&mut *tx)
+                .await
+                .map_err(DbError::from)?;
+        }
         for import in &changes.imports {
             save_import(&mut tx, import).await?;
         }

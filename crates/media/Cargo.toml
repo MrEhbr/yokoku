@@ -12,10 +12,12 @@ workspace = true
 yokoku-detect.workspace = true
 yokoku-domain.workspace = true
 yokoku-events.workspace = true
+yokoku-naming.workspace = true
 
 async-trait.workspace = true
 jiff.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 yokoku-db.workspace = true

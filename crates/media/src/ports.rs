@@ -66,6 +66,8 @@ pub trait MediaRepo: Send + Sync {
 pub struct Changes {
     pub added_files: Vec<MediaFile>,
     pub removed_files: Vec<MediaFileId>,
+    /// New paths of files that moved.
+    pub renamed_files: Vec<(MediaFileId, PathBuf)>,
     /// Inserted or replaced with all their rows.
     pub imports: Vec<Import>,
 }
