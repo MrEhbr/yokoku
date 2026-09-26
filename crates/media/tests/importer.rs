@@ -166,8 +166,12 @@ async fn interrupted_imports_are_queued_again() {
     let importer = app.importer(ImportMode::HardLink);
 
     assert_eq!(importer.list().await.unwrap()[0].status, ImportStatus::Importing);
-    assert_eq!(importer.recover().await.unwrap(), 1);
-    assert_eq!(importer.run_pending().await.unwrap()[0].id, id);
+    let finished = importer.run_pending().await.unwrap();
+
+    assert_eq!(
+        finished.iter().map(|import| (import.id, import.status)).collect::<Vec<_>>(),
+        [(id, ImportStatus::Done)]
+    );
 }
 
 const E02: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E02 - Episode 2.mkv";

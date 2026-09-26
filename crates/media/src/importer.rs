@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use tracing::warn;
+use tracing::{info, warn};
 use yokoku_detect::{Classified, DownloadFile};
 use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
 use yokoku_events::{DeleteReason, Event};
@@ -69,10 +69,17 @@ impl Importer {
 
     /// Carries out approved imports one at a time until none is left; each is claimed first, so
     /// concurrent runners never share one. Returns each import with the status it ended in.
+    ///
+    /// Imports run only under the library lock, so one still `Importing` once the lock is held was
+    /// left by a stopped process and is queued again.
     pub async fn run_pending(&self) -> Result<Vec<Import>, MediaError> {
         let mut finished = Vec::new();
         loop {
             let _lock = self.lock.acquire().await?;
+            let recovered = self.repo.reset_importing().await?;
+            if recovered > 0 {
+                info!(recovered, "queued interrupted imports again");
+            }
             let Some(import) = self.repo.claim_next_approved().await? else { break };
             finished.push(self.execute(import).await?);
         }
@@ -88,11 +95,6 @@ impl Importer {
         import.status = ImportStatus::Approved;
         import.error = None;
         Ok(self.repo.save(&Changes { imports: vec![import], ..Changes::default() }, &[]).await?)
-    }
-
-    /// Queues again the imports a stopped process left running; returns how many.
-    pub async fn recover(&self) -> Result<u64, MediaError> {
-        Ok(self.repo.reset_importing().await?)
     }
 
     /// Stores what the import changed on disk, whether it finished or failed part way.

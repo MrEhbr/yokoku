@@ -11,9 +11,14 @@ use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Confidence, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MonitorPreset,
+    SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_library::ports::SeriesRepo;
+use yokoku_media::{
+    Import, ImportRow, ImportStatus,
+    ports::{Changes, MediaRepo},
+};
 
 /// A database with "Frieren" (tmdb:1) in `tv/Frieren (2023)`, two episodes aired a week ago, and a series
 /// root `tv`.
@@ -460,4 +465,35 @@ async fn a_stored_value_that_no_longer_loads_can_still_be_unset() {
 
     assert_eq!(unset, "Unset import.mode\n");
     setup.command().arg("list").assert().success();
+}
+
+#[tokio::test]
+async fn an_import_left_running_by_a_stopped_command_runs_again() {
+    let setup = Setup::new().await;
+    setup.write("downloads/Frieren.S01E01.mkv");
+    let source = setup.path("downloads/Frieren.S01E01.mkv");
+    let db = Database::open(&setup.database).await.unwrap();
+    let series = SeriesRepo::find_by_source(&db, ExternalId::Tmdb(1)).await.unwrap().unwrap();
+    let import = Import {
+        id: ImportId::generate(),
+        source: source.clone(),
+        download: Some(DownloadId::generate()),
+        status: ImportStatus::Importing,
+        error: None,
+        rows: vec![ImportRow {
+            path: source.clone(),
+            size: 5,
+            target: Some(FileTarget::Episodes { series: series.id, span: EpisodeSpan::new(1, 1, 1).unwrap() }),
+            confidence: Confidence::Certain,
+            skipped: false,
+            replace: false,
+        }],
+        created_at: Timestamp::now(),
+    };
+    MediaRepo::save(&db, &Changes { imports: vec![import], ..Changes::default() }, &[]).await.unwrap();
+
+    let stdout = setup.stdout(&["import", "run"]);
+
+    assert_eq!(stdout, format!("Imported {}\n", source.display()));
+    assert!(setup.episode_line("S01E01").contains("downloaded"));
 }

@@ -56,10 +56,6 @@ pub struct Args {}
 pub async fn run(config: &Config, _args: Args) -> Result<()> {
     let schedules = config.serve.schedules()?;
     let app = App::open(config).await?;
-    let recovered = app.importer.recover().await?;
-    if recovered > 0 {
-        info!(recovered, "queued interrupted imports again");
-    }
 
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);
