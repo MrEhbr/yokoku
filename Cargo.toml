@@ -13,6 +13,7 @@ yokoku-db = { path = "crates/db" }
 yokoku-domain = { path = "crates/domain" }
 yokoku-events = { path = "crates/events" }
 yokoku-library = { path = "crates/library" }
+yokoku-metadata = { path = "crates/metadata" }
 yokoku-system = { path = "crates/system" }
 
 anyhow = "1.0"

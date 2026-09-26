@@ -1,10 +1,13 @@
+pub mod add;
 pub mod calendar;
 pub mod greet;
 pub mod list;
 pub mod missing;
 pub mod monitor;
 pub mod numbering;
+pub mod refresh;
 pub mod remove;
+pub mod search;
 pub mod show;
 pub mod upcoming;
 

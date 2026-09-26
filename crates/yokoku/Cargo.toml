@@ -19,6 +19,7 @@ tokio-console = ["dep:console-subscriber"]
 yokoku-db.workspace = true
 yokoku-domain.workspace = true
 yokoku-library.workspace = true
+yokoku-metadata.workspace = true
 yokoku-system.workspace = true
 
 anyhow.workspace = true
@@ -39,7 +40,9 @@ yokoku-events.workspace = true
 assert_cmd.workspace = true
 criterion.workspace = true
 predicates.workspace = true
+serde_json.workspace = true
 tempfile.workspace = true
+wiremock.workspace = true
 
 [[bench]]
 name = "benchmark"

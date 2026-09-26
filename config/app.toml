@@ -8,6 +8,14 @@ path = "yokoku.db"
 [clock]
 # timezone = "Europe/Berlin"
 
+# The token is read from APP__METADATA__TMDB_TOKEN; keep it out of this file.
+[metadata]
+language = "en-US"
+region = "US"
+
+[add]
+monitor = "all"
+
 [list]
 sort = "title"
 

@@ -23,6 +23,12 @@ pub struct Args {
 pub enum Command {
     /// Greet someone
     Greet(commands::greet::Args),
+    /// Search the metadata source for series and movies
+    Search(commands::search::Args),
+    /// Add a series or movie to the library
+    Add(commands::add::Args),
+    /// Refresh metadata for one item or the whole library
+    Refresh(commands::refresh::Args),
     /// List library items
     List(commands::list::Args),
     /// Show a series or movie in detail
@@ -63,6 +69,9 @@ pub async fn route(args: Args) -> Result<()> {
 
     match args.command {
         Greet(cmd_args) => commands::greet::run(&config, cmd_args),
+        Search(cmd_args) => commands::search::run(&config, cmd_args).await,
+        Add(cmd_args) => commands::add::run(&config, cmd_args).await,
+        Refresh(cmd_args) => commands::refresh::run(&config, cmd_args).await,
         List(cmd_args) => commands::list::run(&config, cmd_args).await,
         Show(cmd_args) => commands::show::run(&config, cmd_args).await,
         Monitor(cmd_args) => commands::monitor::run(&config, cmd_args).await,

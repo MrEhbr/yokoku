@@ -3735,15 +3735,18 @@ dependencies = [
  "jiff",
  "predicates",
  "serde",
+ "serde_json",
  "tempfile",
  "tokio",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "wiremock",
  "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
  "yokoku-library",
+ "yokoku-metadata",
  "yokoku-system",
 ]
 
