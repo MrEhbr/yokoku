@@ -38,7 +38,7 @@ struct EpisodeRow {
     title: String,
     air_date: Option<String>,
     monitored: bool,
-    has_file: bool,
+    file_id: Option<String>,
 }
 
 #[async_trait]
@@ -107,7 +107,7 @@ impl Database {
                 .fetch_all(self.pool())
                 .await?;
         let episodes: Vec<EpisodeRow> = sqlx::query_as(
-            "SELECT id, season_number, source_id, number, title, air_date, monitored, has_file
+            "SELECT id, season_number, source_id, number, title, air_date, monitored, file_id
              FROM episodes WHERE series_id = ? ORDER BY season_number, number",
         )
         .bind(&id)
@@ -161,12 +161,12 @@ impl Database {
             for episode in &season.episodes {
                 sqlx::query(
                     "INSERT INTO episodes (id, series_id, season_number, source_id, number, title, air_date,
-                                           monitored, has_file)
+                                           monitored, file_id)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON CONFLICT (id) DO UPDATE SET
                          season_number = excluded.season_number, number = excluded.number,
                          title = excluded.title, air_date = excluded.air_date,
-                         monitored = excluded.monitored, has_file = excluded.has_file",
+                         monitored = excluded.monitored, file_id = excluded.file_id",
                 )
                 .bind(episode.id.to_string())
                 .bind(&id)
@@ -176,7 +176,7 @@ impl Database {
                 .bind(&episode.title)
                 .bind(episode.air_date.map(|date| date.to_string()))
                 .bind(episode.monitored)
-                .bind(episode.has_file)
+                .bind(episode.file.map(|file| file.to_string()))
                 .execute(&mut *tx)
                 .await?;
             }
@@ -210,7 +210,7 @@ fn assemble(row: SeriesRow, seasons: Vec<SeasonRow>, episodes: Vec<EpisodeRow>) 
             title: episode.title,
             air_date: codec::date(episode.air_date.as_deref())?,
             monitored: episode.monitored,
-            has_file: episode.has_file,
+            file: codec::file_id(episode.file_id.as_deref())?,
         });
     }
 

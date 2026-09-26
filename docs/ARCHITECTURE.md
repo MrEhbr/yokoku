@@ -144,7 +144,7 @@ src/
 
 ### 5.1 `library`
 
-Owns movies, series, seasons, episodes, monitoring flags, and a projection of which episodes have files.
+Owns movies, series, seasons, episodes, monitoring flags, and a projection of the media file holding each episode and movie (`file: Option<MediaFileId>`). Tracking the id rather than a flag keeps the projection correct whatever order file events arrive in.
 
 - **Use cases**, split by what they depend on:
   - `Library` (repositories + clock): list with filter and sort, series and movie details, set monitoring, set numbering, remove.

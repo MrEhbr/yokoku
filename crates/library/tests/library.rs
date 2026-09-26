@@ -4,7 +4,8 @@ use common::{App, TODAY, movie_metadata, series_metadata};
 use jiff::{SignedDuration, ToSpan};
 use rstest::{fixture, rstest};
 use yokoku_domain::{
-    EpisodeRef, ExternalId, MonitorPreset, MovieStatus, Numbering, Releases, SeriesId, SeriesStatus, SourceStatus,
+    EpisodeRef, ExternalId, MediaFileId, MonitorPreset, MovieStatus, Numbering, Releases, SeriesId, SeriesStatus,
+    SourceStatus,
 };
 use yokoku_events::Event;
 use yokoku_library::{LibraryError, LibraryFilter, LibrarySort, LibraryStatus, ports::MediaKind};
@@ -49,7 +50,7 @@ async fn populated() -> App {
     app.sync.add_movie(ExternalId::Tmdb(11), true).await.unwrap();
 
     let mut frieren = app.library.series(frieren.id).await.unwrap();
-    frieren.seasons[0].episodes[0].has_file = true;
+    frieren.seasons[0].episodes[0].file = Some(MediaFileId::generate());
     yokoku_library::ports::SeriesRepo::save(&app.db, &frieren, &[]).await.unwrap();
     app
 }

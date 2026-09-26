@@ -7,8 +7,8 @@ use jiff::{
 use rstest::rstest;
 use yokoku_detect::{Conflict, DownloadFile, ImportPlan, Target, plan};
 use yokoku_domain::{
-    Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, MonitorPreset, Movie, MovieMetadata, Numbering,
-    Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, MediaFileId, MonitorPreset, Movie, MovieMetadata,
+    Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -347,7 +347,7 @@ fn movies_keep_the_largest_video_and_ignore_the_rest() {
 #[test]
 fn episodes_that_already_have_files_are_conflicts() {
     let mut library = Library::new();
-    library.series[1].seasons[0].episodes[0].has_file = true;
+    library.series[1].seasons[0].episodes[0].file = Some(MediaFileId::generate());
     let bad = library.series(2);
 
     let plan = plan(&files(&["Breaking.Bad.S01E01.mkv"]), Target::Series(bad));

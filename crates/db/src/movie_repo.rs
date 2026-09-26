@@ -18,7 +18,7 @@ struct MovieRow {
     digital_date: Option<String>,
     physical_date: Option<String>,
     monitored: bool,
-    has_file: bool,
+    file_id: Option<String>,
     added_at: String,
     refreshed_at: String,
 }
@@ -28,7 +28,7 @@ impl MovieRepo for Database {
     async fn get(&self, id: MovieId) -> Result<Option<Movie>, StorageError> {
         let row: Option<MovieRow> = sqlx::query_as(
             "SELECT id, source_kind, source_id, title, original_title, year, poster_path, cinema_date, digital_date,
-                    physical_date, monitored, has_file, added_at, refreshed_at
+                    physical_date, monitored, file_id, added_at, refreshed_at
              FROM movies WHERE id = ?",
         )
         .bind(id.to_string())
@@ -86,13 +86,13 @@ impl Database {
 
         sqlx::query(
             "INSERT INTO movies (id, source_kind, source_id, title, original_title, year, poster_path, cinema_date,
-                                 digital_date, physical_date, monitored, has_file, added_at, refreshed_at)
+                                 digital_date, physical_date, monitored, file_id, added_at, refreshed_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                  title = excluded.title, original_title = excluded.original_title, year = excluded.year,
                  poster_path = excluded.poster_path, cinema_date = excluded.cinema_date,
                  digital_date = excluded.digital_date, physical_date = excluded.physical_date,
-                 monitored = excluded.monitored, has_file = excluded.has_file,
+                 monitored = excluded.monitored, file_id = excluded.file_id,
                  refreshed_at = excluded.refreshed_at",
         )
         .bind(movie.id.to_string())
@@ -106,7 +106,7 @@ impl Database {
         .bind(date(movie.releases.digital))
         .bind(date(movie.releases.physical))
         .bind(movie.monitored)
-        .bind(movie.has_file)
+        .bind(movie.file.map(|file| file.to_string()))
         .bind(movie.added_at.to_string())
         .bind(movie.refreshed_at.to_string())
         .execute(&mut *tx)
@@ -130,7 +130,7 @@ fn movie(row: MovieRow) -> Result<Movie, DbError> {
             physical: codec::date(row.physical_date.as_deref())?,
         },
         monitored: row.monitored,
-        has_file: row.has_file,
+        file: codec::file_id(row.file_id.as_deref())?,
         added_at: codec::timestamp(&row.added_at)?,
         refreshed_at: codec::timestamp(&row.refreshed_at)?,
     })

@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt};
 
 use jiff::{Timestamp, civil::Date};
 
-use crate::{EpisodeId, ExternalId, FileStatus, SeriesId};
+use crate::{EpisodeId, ExternalId, FileStatus, MediaFileId, SeriesId};
 
 const SPECIALS: u16 = 0;
 
@@ -148,7 +148,7 @@ pub struct Episode {
     pub title: String,
     pub air_date: Option<Date>,
     pub monitored: bool,
-    pub has_file: bool,
+    pub file: Option<MediaFileId>,
 }
 
 impl Series {
@@ -343,13 +343,13 @@ impl Episode {
             title: metadata.title,
             air_date: metadata.air_date,
             monitored,
-            has_file: false,
+            file: None,
         }
     }
 
     /// An episode counts as aired from the day after its air date.
     pub fn file_status(&self, today: Date) -> FileStatus {
-        if self.has_file {
+        if self.file.is_some() {
             FileStatus::Downloaded
         } else if has_aired(self.air_date, today) {
             FileStatus::Missing

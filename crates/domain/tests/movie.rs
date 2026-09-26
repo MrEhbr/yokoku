@@ -3,7 +3,7 @@ use jiff::{
     civil::{Date, date},
 };
 use rstest::rstest;
-use yokoku_domain::{ExternalId, FileStatus, Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
+use yokoku_domain::{ExternalId, FileStatus, MediaFileId, Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
 
 const TODAY: Date = date(2026, 9, 26);
 
@@ -47,7 +47,7 @@ fn file_status_is_missing_only_after_home_release(
     #[case] expected: FileStatus,
 ) {
     let mut movie = movie(cinema, digital, None);
-    movie.has_file = has_file;
+    movie.file = has_file.then(MediaFileId::generate);
 
     assert_eq!(movie.file_status(TODAY), expected);
 }

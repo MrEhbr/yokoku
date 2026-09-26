@@ -1,6 +1,6 @@
 use jiff::{Timestamp, civil::Date};
 
-use crate::{ExternalId, FileStatus, MovieId};
+use crate::{ExternalId, FileStatus, MediaFileId, MovieId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Releases {
@@ -57,7 +57,7 @@ pub struct Movie {
     pub poster_path: Option<String>,
     pub releases: Releases,
     pub monitored: bool,
-    pub has_file: bool,
+    pub file: Option<MediaFileId>,
     pub added_at: Timestamp,
     pub refreshed_at: Timestamp,
 }
@@ -73,7 +73,7 @@ impl Movie {
             poster_path: metadata.poster_path,
             releases: metadata.releases,
             monitored,
-            has_file: false,
+            file: None,
             added_at: now,
             refreshed_at: now,
         }
@@ -102,7 +102,7 @@ impl Movie {
 
     /// Missing only once a digital or physical release is out.
     pub fn file_status(&self, today: Date) -> FileStatus {
-        if self.has_file {
+        if self.file.is_some() {
             FileStatus::Downloaded
         } else if self.status(today) == MovieStatus::Released {
             FileStatus::Missing

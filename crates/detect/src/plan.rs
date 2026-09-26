@@ -90,7 +90,7 @@ fn series_row<'a>(video: Video, choose_series: impl Fn(&ParsedName) -> Option<(&
     let Some((series, span, certain)) = resolved else {
         return unknown(video, parsed);
     };
-    let has_file = span.refs().any(|reference| series.episode(reference).is_some_and(|episode| episode.has_file));
+    let has_file = span.refs().any(|reference| series.episode(reference).is_some_and(|episode| episode.file.is_some()));
     PlanRow {
         video,
         parsed,
@@ -127,7 +127,7 @@ fn movie_rows<'a>(
             parsed,
             target: Some(FileTarget::Movie(movie.id)),
             confidence: if certain { Confidence::Certain } else { Confidence::Guess },
-            conflicts: movie.has_file.then_some(Conflict::AlreadyHasFile).into_iter().collect(),
+            conflicts: movie.file.is_some().then_some(Conflict::AlreadyHasFile).into_iter().collect(),
         },
         None => unknown(video, parsed),
     };

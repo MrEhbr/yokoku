@@ -1,6 +1,6 @@
 use jiff::{Timestamp, civil::Date};
 use uuid::Uuid;
-use yokoku_domain::{ExternalId, Numbering, SourceStatus};
+use yokoku_domain::{ExternalId, MediaFileId, Numbering, SourceStatus};
 
 use crate::DbError;
 
@@ -79,4 +79,8 @@ pub(crate) fn timestamp(value: &str) -> Result<Timestamp, DbError> {
 
 pub(crate) fn date(value: Option<&str>) -> Result<Option<Date>, DbError> {
     value.map(|value| value.parse().map_err(|_| DbError::InvalidValue(format!("date {value:?}")))).transpose()
+}
+
+pub(crate) fn file_id(value: Option<&str>) -> Result<Option<MediaFileId>, DbError> {
+    value.map(|value| uuid(value).map(MediaFileId)).transpose()
 }

@@ -8,8 +8,8 @@ use proptest::prelude::*;
 use rstest::{fixture, rstest};
 use yokoku_db::Database;
 use yokoku_domain::{
-    EpisodeMetadata, ExternalId, MonitorPreset, Movie, MovieMetadata, Numbering, Releases, SeasonMetadata, Series,
-    SeriesMetadata, SourceStatus,
+    EpisodeMetadata, ExternalId, MediaFileId, MonitorPreset, Movie, MovieMetadata, Numbering, Releases, SeasonMetadata,
+    Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
@@ -78,7 +78,7 @@ async fn saved_series_loads_back_equal(#[future(awt)] db: Database) {
         now(),
     );
     series.numbering = Numbering::Absolute;
-    series.seasons[1].episodes[0].has_file = true;
+    series.seasons[1].episodes[0].file = Some(MediaFileId::generate());
 
     SeriesRepo::save(&db, &series, &[]).await.unwrap();
 
@@ -146,7 +146,7 @@ async fn movies_round_trip_and_update(#[future(awt)] db: Database) {
     MovieRepo::save(&db, &movie, &[]).await.unwrap();
     assert_eq!(MovieRepo::get(&db, movie.id).await.unwrap(), Some(movie.clone()));
 
-    movie.has_file = true;
+    movie.file = Some(MediaFileId::generate());
     movie.refresh(MovieMetadata { title: "Dune: Part One".into(), ..movie_metadata(438631) }, now() + 1.hour());
     MovieRepo::save(&db, &movie, &[]).await.unwrap();
 

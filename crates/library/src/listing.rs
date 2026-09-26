@@ -65,7 +65,7 @@ impl LibraryEntry {
             year: series.year,
             poster_path: series.poster_path.clone(),
             status: LibraryStatus::Series(series.status(today)),
-            has_files: series.episodes().any(|episode| episode.has_file),
+            has_files: series.episodes().any(|episode| episode.file.is_some()),
             added_at: series.added_at,
             next_release: series.next_episode(today).and_then(|(_, episode)| episode.air_date),
         }
@@ -80,7 +80,7 @@ impl LibraryEntry {
             year: movie.year,
             poster_path: movie.poster_path.clone(),
             status: LibraryStatus::Movie(movie.status(today)),
-            has_files: movie.has_file,
+            has_files: movie.file.is_some(),
             added_at: movie.added_at,
             next_release: releases.into_iter().flatten().filter(|&date| date >= today).min(),
         }

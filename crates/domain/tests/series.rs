@@ -7,8 +7,8 @@ use jiff::{
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::{
-    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, MonitorPreset, SeasonMetadata, Series,
-    SeriesMetadata, SeriesStatus, SourceStatus,
+    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, MediaFileId, MonitorPreset, SeasonMetadata,
+    Series, SeriesMetadata, SeriesStatus, SourceStatus,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -104,7 +104,7 @@ fn status_follows_source_and_schedule(
 fn episode_file_status(#[case] air_date: Option<Date>, #[case] has_file: bool, #[case] expected: FileStatus) {
     let mut series =
         Series::add(metadata(SourceStatus::Returning, &[(1, &[air_date])]), MonitorPreset::All, TODAY, now());
-    series.seasons[0].episodes[0].has_file = has_file;
+    series.seasons[0].episodes[0].file = has_file.then(MediaFileId::generate);
 
     assert_eq!(series.seasons[0].episodes[0].file_status(TODAY), expected);
 }
@@ -148,7 +148,7 @@ fn refresh_keeps_identity_flags_and_files_of_renumbered_episodes() {
     let original = metadata(SourceStatus::Returning, &[(1, &[None, None])]);
     let mut series = Series::add(original.clone(), MonitorPreset::All, TODAY, now());
     let moved = find(&series, 1, 2).clone();
-    series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().has_file = true;
+    series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().file = Some(MediaFileId::generate());
     series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().monitored = false;
 
     let mut renumbered = original;
@@ -162,7 +162,7 @@ fn refresh_keeps_identity_flags_and_files_of_renumbered_episodes() {
     let episode = find(&series, 2, 1);
     assert_eq!(episode.id, moved.id);
     assert_eq!(episode.title, "Renamed");
-    assert!(episode.has_file);
+    assert!(episode.file.is_some());
     assert!(!episode.monitored);
     assert_eq!(series.refreshed_at, now() + 1.hour());
 }

@@ -6,7 +6,7 @@ use jiff::{
     civil::{Date, date},
 };
 use rstest::rstest;
-use yokoku_domain::{EpisodeRef, ExternalId, FileStatus, MonitorPreset, Releases, SourceStatus};
+use yokoku_domain::{EpisodeRef, ExternalId, FileStatus, MediaFileId, MonitorPreset, Releases, SourceStatus};
 use yokoku_library::{CalendarEntry, CalendarRelease, month_of, ports::SeriesRepo, week_of};
 
 /// - Frieren: special tomorrow; S01 at -14 (downloaded), -7, today, +7
@@ -37,7 +37,7 @@ async fn populated() -> App {
 
     app.library.set_season_monitored(pluto.id, 1, false).await.unwrap();
     let mut frieren = app.library.series(frieren.id).await.unwrap();
-    frieren.episode_mut(EpisodeRef { season: 1, episode: 1 }).unwrap().has_file = true;
+    frieren.episode_mut(EpisodeRef { season: 1, episode: 1 }).unwrap().file = Some(MediaFileId::generate());
     SeriesRepo::save(&app.db, &frieren, &[]).await.unwrap();
     app
 }
