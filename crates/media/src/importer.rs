@@ -95,56 +95,62 @@ impl Importer {
         Ok(self.repo.reset_importing().await?)
     }
 
+    /// Stores what the import changed on disk, whether it finished or failed part way.
     async fn execute(&self, mut import: Import) -> Result<Import, MediaError> {
-        let (changes, events) = match self.place_all(&import).await {
-            Ok(placed) => {
-                import.status = ImportStatus::Done;
-                let mut events: Vec<Event> = placed
-                    .replaced
-                    .iter()
-                    .map(|file| Event::FileDeleted {
-                        file: file.id,
-                        path: file.path.clone(),
-                        target: file.target,
-                        reason: DeleteReason::Replaced,
-                    })
-                    .collect();
-                events.push(Event::FilesImported {
-                    import: import.id,
-                    download: import.download,
-                    files: placed.added.iter().map(MediaFile::linked).collect(),
-                });
-                let changes = Changes {
-                    added_files: placed.added,
-                    removed_files: placed.replaced.iter().map(|file| file.id).collect(),
-                    imports: vec![import.clone()],
-                    ..Changes::default()
-                };
-                (changes, events)
-            },
+        let mut placed = Placed::default();
+        let outcome = self.place_all(&import, &mut placed).await;
+
+        let mut events: Vec<Event> = placed
+            .replaced
+            .iter()
+            .map(|file| Event::FileDeleted {
+                file: file.id,
+                path: file.path.clone(),
+                target: file.target,
+                reason: DeleteReason::Replaced,
+            })
+            .collect();
+        if outcome.is_ok() || !placed.added.is_empty() {
+            events.push(Event::FilesImported {
+                import: import.id,
+                download: import.download,
+                files: placed.added.iter().map(MediaFile::linked).collect(),
+            });
+        }
+        match outcome {
+            Ok(()) => import.status = ImportStatus::Done,
             Err(error) => {
                 warn!(import = %import.id, %error, "import failed");
                 let reason = error.to_string();
                 import.status = ImportStatus::Failed;
                 import.error = Some(reason.clone());
-                let event = Event::ImportFailed { import: import.id, source: import.source.clone(), reason };
-                (Changes { imports: vec![import.clone()], ..Changes::default() }, vec![event])
+                events.push(Event::ImportFailed { import: import.id, source: import.source.clone(), reason });
             },
+        }
+        let changes = Changes {
+            removed_files: placed.replaced.iter().map(|file| file.id).collect(),
+            added_files: placed.added,
+            imports: vec![import.clone()],
+            ..Changes::default()
         };
         self.repo.save(&changes, &events).await?;
         Ok(import)
     }
 
-    /// Places every row that is not skipped; the error says why the import stopped.
-    async fn place_all(&self, import: &Import) -> Result<Placed, MediaError> {
+    /// Places every row that is not skipped, collecting each change in `placed` as it happens; the
+    /// error says why the import stopped. A row already in the library as its target counts as done.
+    async fn place_all(&self, import: &Import, placed: &mut Placed) -> Result<(), MediaError> {
         let library = self.repo.files().await?;
         let subtitles = self.subtitles(&import.source).await?;
         let now = self.clock.now().timestamp();
-        let mut placed = Placed::default();
 
         for (number, row) in (1..).zip(&import.rows).filter(|(_, row)| !row.skipped) {
             let target = row.target.ok_or(MediaError::RowUnmatched(number))?;
             let destination = self.destination(target, &row.path).await?;
+            let linked = library.iter().any(|file| file.path == destination && file.target == target);
+            if linked && self.already_placed(&row.path, &destination).await? {
+                continue;
+            }
 
             if row.replace {
                 for old in library.iter().filter(|file| file.target.overlaps(&target)) {
@@ -168,7 +174,7 @@ impl Importer {
                 added_at: now,
             });
         }
-        Ok(placed)
+        Ok(())
     }
 
     /// The naming path in the item's folder.
