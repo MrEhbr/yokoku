@@ -78,7 +78,8 @@ impl LibraryFilter {
 
 impl LibrarySort {
     pub(crate) fn compare(self, a: &LibraryEntry, b: &LibraryEntry) -> Ordering {
-        let by_title = || a.title.to_lowercase().cmp(&b.title.to_lowercase());
+        let by_title =
+            || a.title.chars().flat_map(char::to_lowercase).cmp(b.title.chars().flat_map(char::to_lowercase));
         match self {
             Self::Title => by_title(),
             Self::Added => b.added_at.cmp(&a.added_at).then_with(by_title),

@@ -61,16 +61,20 @@ impl Default for LogConfig {
         Self { level: Some(Level::INFO), format: LogFormat::Console, output: LogOutput::Stderr }
     }
 }
+/// Directives added to the configured level when `RUST_LOG` is unset.
+const QUIET_DEPENDENCIES: &str =
+    "hyper=warn,h2=warn,ureq=warn,rustls=warn,want=warn,mio=warn,tokio=warn,tokenizers=warn";
 
+/// Filters by `RUST_LOG` when set, else by the configured level.
+///
 /// Returns a WorkerGuard that must be held until program exit to ensure log flush.
 pub fn setup(config: &LogConfig) -> Result<WorkerGuard> {
     let level_filter: LevelFilter = config.level.into();
-
-    let env_filter =
-        EnvFilter::builder().with_default_directive(level_filter.into()).with_env_var("RUST_LOG").from_env_lossy();
-    let env_filter = QUIET_TARGETS.into_iter().fold(env_filter, |filter, target| {
-        filter.add_directive(format!("{target}=warn").parse().expect("static directive is valid"))
-    });
+    let directives = match std::env::var(EnvFilter::DEFAULT_ENV) {
+        Ok(directives) if !directives.is_empty() => directives,
+        _ => format!("{level_filter},{QUIET_DEPENDENCIES}"),
+    };
+    let env_filter = EnvFilter::builder().parse_lossy(directives);
 
     let (writer, guard) = match &config.output {
         LogOutput::Stderr => tracing_appender::non_blocking(std::io::stderr()),
@@ -97,8 +101,8 @@ pub fn setup(config: &LogConfig) -> Result<WorkerGuard> {
         LogFormat::Json => tracing_subscriber::fmt::layer()
             .json()
             .flatten_event(true)
-            .with_current_span(true)
-            .with_span_list(false)
+            .with_current_span(false)
+            .with_span_list(true)
             .with_writer(writer)
             .boxed(),
     }
