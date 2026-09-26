@@ -1,5 +1,6 @@
 //! Catalog, monitoring, metadata refresh and schedule queries.
 
+mod catalog;
 mod error;
 mod library;
 mod listing;

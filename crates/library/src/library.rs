@@ -6,6 +6,7 @@ use yokoku_events::Event;
 
 use crate::{
     LibraryEntry, LibraryError, LibraryFilter, LibrarySort,
+    catalog::Catalog,
     ports::{Clock, MovieRepo, SeriesRepo},
 };
 
@@ -27,13 +28,10 @@ impl Library {
 
     pub async fn list(&self, filter: LibraryFilter, sort: LibrarySort) -> Result<Vec<LibraryEntry>, LibraryError> {
         let today = self.today();
-        let mut entries = Vec::new();
-        for id in self.series.ids().await? {
-            entries.push(LibraryEntry::from_series(&self.series(id).await?, today));
-        }
-        for id in self.movies.ids().await? {
-            entries.push(LibraryEntry::from_movie(&self.movie(id).await?, today));
-        }
+        let catalog = Catalog::load(self.series.as_ref(), self.movies.as_ref()).await?;
+        let series = catalog.series.iter().map(|series| LibraryEntry::from_series(series, today));
+        let movies = catalog.movies.iter().map(|movie| LibraryEntry::from_movie(movie, today));
+        let mut entries: Vec<_> = series.chain(movies).collect();
 
         entries.retain(|entry| filter.matches(entry));
         entries.sort_by(|a, b| sort.compare(a, b));
