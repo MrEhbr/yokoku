@@ -27,6 +27,34 @@ pub trait FileSystem: Send + Sync {
 
     /// Removes `dir` and then each parent while they are empty, stopping before `stop`.
     async fn remove_empty_folders(&self, dir: &Path, stop: &Path) -> Result<(), FsError>;
+
+    /// `None` when nothing is at `path`.
+    async fn stat(&self, path: &Path) -> Result<Option<FileStat>, FsError>;
+
+    /// Links `to` to the same data as `from`, creating missing folders. Fails when `to` exists, and
+    /// with `io::ErrorKind::CrossesDevices` when the two are on different file systems.
+    async fn hard_link(&self, from: &Path, to: &Path) -> Result<(), FsError>;
+
+    /// Copies through a hidden partial file, so `to` appears only once complete. Creates missing
+    /// folders; fails when `to` exists.
+    async fn copy(&self, from: &Path, to: &Path) -> Result<(), FsError>;
+
+    /// A file that is already gone counts as removed.
+    async fn remove_file(&self, path: &Path) -> Result<(), FsError>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FileStat {
+    pub size: u64,
+    pub device: u64,
+    pub inode: u64,
+}
+
+impl FileStat {
+    /// Both name the same data, as hard links do.
+    pub fn same_file(&self, other: &FileStat) -> bool {
+        (self.device, self.inode) == (other.device, other.inode)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

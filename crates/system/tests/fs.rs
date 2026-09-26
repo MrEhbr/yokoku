@@ -178,3 +178,59 @@ async fn changes_only_the_letter_case() {
     let names: Vec<_> = fs::read_dir(dir.path()).unwrap().map(|entry| entry.unwrap().file_name()).collect();
     assert_eq!(names, ["Frieren.mkv"]);
 }
+
+#[tokio::test]
+async fn stat_tells_sizes_and_linked_files_apart() {
+    let dir = TempDir::new().unwrap();
+    let original = write(dir.path(), "Dune.mkv", 7);
+    let copy = write(dir.path(), "copy.mkv", 7);
+    let link = dir.path().join("Movies/Dune (2021)/Dune (2021).mkv");
+
+    LocalFileSystem.hard_link(&original, &link).await.unwrap();
+
+    let stat = |path: PathBuf| async move { LocalFileSystem.stat(&path).await.unwrap().unwrap() };
+    let (original, copy, link) = (stat(original).await, stat(copy).await, stat(link).await);
+    assert_eq!((original.size, link.size), (7, 7));
+    assert!(original.same_file(&link));
+    assert!(!original.same_file(&copy));
+    assert_eq!(LocalFileSystem.stat(&dir.path().join("missing")).await.unwrap(), None);
+}
+
+#[tokio::test]
+async fn copies_into_new_folders_without_leaving_partial_files() {
+    let dir = TempDir::new().unwrap();
+    let from = write(dir.path(), "downloads/Dune.mkv", 9);
+    let to = dir.path().join("Movies/Dune (2021)/Dune (2021).mkv");
+
+    LocalFileSystem.copy(&from, &to).await.unwrap();
+
+    assert_eq!(fs::read(&to).unwrap().len(), 9);
+    assert!(from.exists());
+    let names: Vec<_> = fs::read_dir(to.parent().unwrap()).unwrap().map(|entry| entry.unwrap().file_name()).collect();
+    assert_eq!(names, ["Dune (2021).mkv"]);
+}
+
+#[tokio::test]
+async fn links_and_copies_never_replace_a_file() {
+    let dir = TempDir::new().unwrap();
+    let from = write(dir.path(), "a.mkv", 3);
+    let to = write(dir.path(), "b.mkv", 5);
+
+    let link = LocalFileSystem.hard_link(&from, &to).await.unwrap_err();
+    let copy = LocalFileSystem.copy(&from, &to).await.unwrap_err();
+
+    assert_eq!(link.source.kind(), std::io::ErrorKind::AlreadyExists);
+    assert_eq!(copy.source.kind(), std::io::ErrorKind::AlreadyExists);
+    assert_eq!(fs::read(&to).unwrap().len(), 5);
+}
+
+#[tokio::test]
+async fn removing_a_missing_file_is_fine() {
+    let dir = TempDir::new().unwrap();
+    let file = write(dir.path(), "a.mkv", 3);
+
+    LocalFileSystem.remove_file(&file).await.unwrap();
+    LocalFileSystem.remove_file(&file).await.unwrap();
+
+    assert!(!file.exists());
+}
