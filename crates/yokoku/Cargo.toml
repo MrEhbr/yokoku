@@ -37,6 +37,7 @@ config.workspace = true
 console-subscriber = { workspace = true, optional = true }
 jiff.workspace = true
 jiff-cron.workspace = true
+secrecy.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
@@ -51,6 +52,7 @@ criterion.workspace = true
 predicates.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
+toml.workspace = true
 wiremock.workspace = true
 
 [[bench]]

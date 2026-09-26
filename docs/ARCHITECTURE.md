@@ -198,7 +198,7 @@ Owns library files, root folders, naming settings and imports.
 
 ### 5.4 `integrations`
 
-- Rescans Jellyfin after `FilesImported`, `FileRenamed` and `FileDeleted` (FR-10.4). The `Rescans` subscriber only records that a rescan is due (the latest request time, one row); `run_due(quiet)` rescans once no request arrived for the quiet period and clears the request only if it was not renewed meanwhile, so a burst leads to one rescan, a request made during a rescan is kept, and a failed rescan stays pending. `serve` checks every 10 s with a 30 s quiet period; the CLI rescans right after delivering events and only warns when Jellyfin cannot be reached. Off unless `[jellyfin] url` is set; the API key comes from `APP__JELLYFIN__API_KEY`.
+- Rescans Jellyfin after `FilesImported`, `FileRenamed` and `FileDeleted` (FR-10.4). The `Rescans` subscriber only records that a rescan is due (the latest request time, one row); `run_due(quiet)` rescans once no request arrived for the quiet period and clears the request only if it was not renewed meanwhile, so a burst leads to one rescan, a request made during a rescan is kept, and a failed rescan stays pending. `serve` checks every 10 s with a 30 s quiet period; the CLI rescans right after delivering events and only warns when Jellyfin cannot be reached. Off unless `[jellyfin] url` is set; `api_key` is a secret.
 - **Ports:** `MediaServer` (`JellyfinClient` in `system`: `POST /Library/Refresh`, `GET /System/Info`, `Authorization: MediaBrowser Token`), `RescanStore`.
 - Future notifications (REQUIREMENTS §6) go here.
 
@@ -208,7 +208,7 @@ Each module owns its settings section: metadata provider in `library`, Transmiss
 
 Settings are layered, later over earlier: defaults, the TOML file, values stored in the database (FR-10.3), then `APP__*` environment variables. Stored values live in `settings (key, value)` by dotted key (`import.mode`) as JSON; `yokoku settings set|unset|list|get` edits them, and the settings screen will too. `set` loads the whole configuration with the new value and validates it (types, naming patterns, schedules, time zone) before storing, so a stored value cannot stop the app. Stored values are read once at start, so `serve` picks up a change when restarted; a stored value that no longer loads fails every command except `settings`, which can unset it.
 
-Not stored: bootstrap values needed before the database opens (`database`, `log`), and secrets (TMDB token, Transmission password, Jellyfin API key), which come only from `APP__*` variables and are never printed. Commands that need no database never create one to read settings.
+Not stored: bootstrap values needed before the database opens (`database`, `log`). Secrets (TMDB token, Transmission password, Jellyfin API key) are `Secret` fields: any layer gives them as a value or as `{ file = "..." }` (`APP__…__FILE`), read when the configuration loads, and they serialize as `"<redacted>"`, so no command prints them. Commands that need no database never create one to read settings.
 
 ---
 

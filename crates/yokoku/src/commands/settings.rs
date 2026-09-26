@@ -8,12 +8,10 @@ use clap::{Parser, Subcommand};
 use serde_json::Value;
 use yokoku_db::Database;
 
-use crate::config::{self, Config};
-
-/// Needed before the database is open, so they stay in the config file and environment.
-const BOOTSTRAP: [&str; 2] = ["database", "log"];
-/// Read only from `APP__*` variables.
-const SECRETS: [&str; 3] = ["metadata.tmdb_token", "transmission.password", "jellyfin.api_key"];
+use crate::{
+    config::{self, Config},
+    secret::REDACTED,
+};
 
 #[derive(Parser)]
 pub struct Args {
@@ -56,18 +54,12 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
                 writeln!(out, "No stored settings.")?;
             }
             for (key, value) in &stored {
-                writeln!(out, "{key} = {value}")?;
+                writeln!(out, "{key} = {}", shown(key, value))?;
             }
         },
         Command::Get { key } => {
             let effective: Config = config::load(config_path, &stored).context("Failed to load configuration")?;
-            let effective = serde_json::to_value(&effective)?;
-            let value = setting(&effective, &key)?;
-            match SECRETS.contains(&key.as_str()) {
-                true if value.is_null() => writeln!(out, "not set")?,
-                true => writeln!(out, "<redacted>")?,
-                false => writeln!(out, "{value}")?,
-            }
+            writeln!(out, "{}", setting(&serde_json::to_value(&effective)?, &key)?)?;
         },
         Command::Set { key, value } => {
             editable(&key)?;
@@ -79,7 +71,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
             effective.validate().with_context(|| format!("{key} cannot be {value}"))?;
 
             db.set_setting(&key, &value).await.context("Failed to store the setting")?;
-            writeln!(out, "Set {key} = {value}")?;
+            writeln!(out, "Set {key} = {}", shown(&key, &value))?;
             let variable = format!("APP__{}", key.to_uppercase().replace('.', "__"));
             if std::env::var_os(&variable).is_some() {
                 writeln!(out, "{variable} is set and takes precedence")?;
@@ -102,13 +94,22 @@ fn setting<'a>(config: &'a Value, key: &str) -> Result<&'a Value> {
     }
 }
 
-fn editable(key: &str) -> Result<()> {
-    setting(&serde_json::to_value(Config::default())?, key)?;
-    if BOOTSTRAP.iter().any(|section| key.split('.').next() == Some(section)) {
-        bail!("{key} is needed before the database opens; set it in the config file or environment");
+/// `value` as `setting` shows it once loaded, so a secret reads `"<redacted>"`; a value that does
+/// not load is shown as stored.
+fn shown(key: &str, value: &Value) -> Value {
+    let loaded = config::load::<Config>(None, &[(key.to_owned(), value.clone())])
+        .and_then(|config| Ok(setting(&serde_json::to_value(config)?, key)?.clone()));
+    match loaded {
+        Ok(loaded) if loaded == REDACTED => loaded,
+        _ => value.clone(),
     }
-    if SECRETS.contains(&key) {
-        bail!("{key} is a secret; set it through APP__{}", key.to_uppercase().replace('.', "__"));
+}
+
+fn editable(key: &str) -> Result<()> {
+    const READONLY: [&str; 2] = ["database", "log"];
+    setting(&serde_json::to_value(Config::default())?, key)?;
+    if READONLY.iter().any(|section| key.split('.').next() == Some(section)) {
+        bail!("{key} is needed before the database opens; set it in the config file or environment");
     }
     Ok(())
 }

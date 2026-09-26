@@ -300,6 +300,52 @@ async fn changing_library_files_asks_jellyfin_to_rescan() {
 }
 
 #[tokio::test]
+async fn the_jellyfin_api_key_can_be_read_from_a_file() {
+    let setup = Setup::new().await;
+    let jellyfin = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::path("/System/Info"))
+        .and(wiremock::matchers::header("Authorization", "MediaBrowser Token=\"key\""))
+        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({ "Version": "10.10.7" })))
+        .expect(2)
+        .mount(&jellyfin)
+        .await;
+    let key_file = setup.path("jellyfin.key");
+    fs::write(&key_file, "key\n").unwrap();
+    let config_file = setup.path("app.toml");
+    fs::write(&config_file, format!("[jellyfin]\napi_key = {{ file = {:?} }}\n", key_file.display().to_string()))
+        .unwrap();
+
+    setup
+        .command()
+        .arg("--config")
+        .arg(&config_file)
+        .args(["jellyfin", "test"])
+        .env("APP__JELLYFIN__URL", jellyfin.uri())
+        .assert()
+        .success();
+    setup
+        .command()
+        .args(["jellyfin", "test"])
+        .env("APP__JELLYFIN__URL", jellyfin.uri())
+        .env("APP__JELLYFIN__API_KEY__FILE", &key_file)
+        .assert()
+        .success();
+}
+
+#[test]
+fn a_missing_secret_file_is_reported() {
+    let dir = tempfile::tempdir().unwrap();
+
+    Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
+        .args(["settings", "list"])
+        .env("APP__DATABASE__PATH", dir.path().join("yokoku.db"))
+        .env("APP__JELLYFIN__API_KEY__FILE", dir.path().join("missing.key"))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("failed to read secret file"));
+}
+
+#[tokio::test]
 async fn an_unreachable_jellyfin_does_not_fail_the_change() {
     let setup = Setup::new().await;
     setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");

@@ -1,29 +1,17 @@
-use std::{
-    fmt,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 
-use crate::{app::App, config::Config};
+use crate::{app::App, config::Config, secret::Secret};
 
-#[derive(Clone, Deserialize, Serialize, PartialEq, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct JellyfinConfig {
     /// Server address, e.g. `http://localhost:8096`; rescans are off while unset.
     pub url: Option<String>,
-    /// An administrator's API key; set it through `APP__JELLYFIN__API_KEY`.
-    pub api_key: Option<String>,
-}
-
-impl fmt::Debug for JellyfinConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("JellyfinConfig")
-            .field("url", &self.url)
-            .field("api_key", &self.api_key.as_ref().map(|_| "<redacted>"))
-            .finish()
-    }
+    /// An administrator's API key.
+    pub api_key: Option<Secret>,
 }
 
 #[derive(Parser)]

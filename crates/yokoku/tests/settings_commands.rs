@@ -56,7 +56,6 @@ fn settings_are_stored_listed_read_and_unset() {
 #[case::unknown_key("import.speed", "fast", "import.speed is not a setting")]
 #[case::section("naming", "x", "naming is not a setting")]
 #[case::bootstrap("database.path", "/tmp/other.db", "needed before the database opens")]
-#[case::secret("metadata.tmdb_token", "abc", "is a secret; set it through APP__METADATA__TMDB_TOKEN")]
 fn bad_settings_are_refused_and_not_stored(#[case] key: &str, #[case] value: &str, #[case] reason: &str) {
     let setup = setup();
 
@@ -102,8 +101,27 @@ fn secrets_are_never_shown() {
         .output()
         .unwrap();
 
-    assert_eq!(String::from_utf8(unset.stdout).unwrap(), "not set\n");
-    assert_eq!(String::from_utf8(set.stdout).unwrap(), "<redacted>\n");
+    assert_eq!(String::from_utf8(unset.stdout).unwrap(), "null\n");
+    assert_eq!(String::from_utf8(set.stdout).unwrap(), "\"<redacted>\"\n");
+}
+
+#[test]
+fn secrets_can_be_stored_but_are_never_shown() {
+    let setup = setup();
+
+    let run = |args: &[&str]| {
+        let output = setup.command().args(args).env_remove("APP__METADATA__TMDB_TOKEN").output().unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+        String::from_utf8(output.stdout).unwrap()
+    };
+
+    let stored = run(&["settings", "set", "metadata.tmdb_token", "very-secret"]);
+    let listed = run(&["settings", "list"]);
+    let effective = run(&["settings", "get", "metadata.tmdb_token"]);
+
+    assert_eq!(stored, "Set metadata.tmdb_token = \"<redacted>\"\n");
+    assert_eq!(listed, "metadata.tmdb_token = \"<redacted>\"\n");
+    assert_eq!(effective, "\"<redacted>\"\n");
 }
 
 #[test]

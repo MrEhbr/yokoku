@@ -1,4 +1,4 @@
-use std::{fmt, path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use jiff::{SignedDuration, tz::TimeZone};
@@ -21,7 +21,7 @@ use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_system::{FfProbe, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
-use crate::{config::Config, subscriptions};
+use crate::{config::Config, secret::Secret, subscriptions};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DatabaseConfig {
@@ -49,10 +49,10 @@ impl ClockConfig {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetadataConfig {
-    /// TMDB API read access token; set it through `APP__METADATA__TMDB_TOKEN`.
-    pub tmdb_token: Option<String>,
+    /// TMDB API read access token.
+    pub tmdb_token: Option<Secret>,
     pub tmdb_url: String,
     pub language: String,
     /// Country whose movie release dates are used.
@@ -101,23 +101,11 @@ impl Default for MetadataConfig {
     }
 }
 
-impl fmt::Debug for MetadataConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MetadataConfig")
-            .field("tmdb_token", &self.tmdb_token.as_ref().map(|_| "<redacted>"))
-            .field("tmdb_url", &self.tmdb_url)
-            .field("language", &self.language)
-            .field("region", &self.region)
-            .finish()
-    }
-}
-
-#[derive(Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TransmissionConfig {
     pub url: String,
     pub username: Option<String>,
-    /// Set it through `APP__TRANSMISSION__PASSWORD`.
-    pub password: Option<String>,
+    pub password: Option<Secret>,
     /// Removes imported torrents, with their data, once Transmission finished seeding them.
     pub remove_after_seeding: bool,
     /// Torrents added outside Yokoku with any of these labels are taken on.
@@ -145,19 +133,6 @@ impl TransmissionConfig {
         let pick_up = (!self.pick_up_labels.is_empty() || self.pick_up_folder.is_some())
             .then(|| PickUp { labels: self.pick_up_labels.clone(), folder: self.pick_up_folder.clone() });
         DownloadOptions { remove_after_seeding: self.remove_after_seeding, pick_up }
-    }
-}
-
-impl fmt::Debug for TransmissionConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TransmissionConfig")
-            .field("url", &self.url)
-            .field("username", &self.username)
-            .field("password", &self.password.as_ref().map(|_| "<redacted>"))
-            .field("remove_after_seeding", &self.remove_after_seeding)
-            .field("pick_up_labels", &self.pick_up_labels)
-            .field("pick_up_folder", &self.pick_up_folder)
-            .finish()
     }
 }
 
@@ -190,7 +165,8 @@ impl App {
         let naming = config.naming.naming()?;
         let metadata = &config.metadata;
         let sync = metadata.tmdb_token.as_ref().map(|token| {
-            let tmdb = TmdbClient::new(token, &metadata.language, &metadata.region).with_base_url(&metadata.tmdb_url);
+            let tmdb =
+                TmdbClient::new(token.expose(), &metadata.language, &metadata.region).with_base_url(&metadata.tmdb_url);
             let folders = Arc::new(NamedFolders(naming.clone()));
             Arc::new(MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), folders, clock.clone()))
         });
@@ -201,13 +177,14 @@ impl App {
         let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone()));
         let jellyfin = &config.jellyfin;
         let rescans = jellyfin.url.as_ref().map(|url| {
-            let server = JellyfinClient::new(url, jellyfin.api_key.clone().unwrap_or_default());
+            let server = JellyfinClient::new(url, jellyfin.api_key.as_ref().map_or("", |key| key.expose()));
             Arc::new(Rescans::new(db.clone(), Arc::new(server), clock.clone()))
         });
         let transmission = &config.transmission;
         let mut client = TransmissionClient::new(&transmission.url);
         if let Some(username) = &transmission.username {
-            client = client.with_credentials(username, transmission.password.clone().unwrap_or_default());
+            let password = transmission.password.as_ref().map_or("", |password| password.expose());
+            client = client.with_credentials(username, password);
         }
         let downloads = Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone(), transmission.options()));
         let scanner = Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone()));

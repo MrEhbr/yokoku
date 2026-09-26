@@ -39,6 +39,7 @@ jiff-cron = "0.3"
 regex = "1.13"
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls"] }
 serde = { version = "1.0", features = ["derive"] }
+secrecy = { version = "0.10", features = ["serde"] }
 serde_json = "1.0"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros", "json"] }
 strsim = "0.11"
@@ -58,6 +59,7 @@ predicates = "3.1"
 proptest = "1.11"
 rstest = "0.27"
 tempfile = "3.14"
+toml = "1.1"
 wiremock = "0.6"
 
 [workspace.lints.rust]
