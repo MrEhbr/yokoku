@@ -1,4 +1,7 @@
-use std::{sync::Mutex, time::Instant};
+use std::{
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 use async_trait::async_trait;
 use base64::{Engine, engine::general_purpose::STANDARD};
@@ -14,6 +17,8 @@ use yokoku_downloads::{
 use crate::wire;
 
 const SESSION_HEADER: &str = "X-Transmission-Session-Id";
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Talks to Transmission's RPC endpoint, e.g. `http://localhost:9091/transmission/rpc`.
 pub struct TransmissionClient {
@@ -25,7 +30,16 @@ pub struct TransmissionClient {
 
 impl TransmissionClient {
     pub fn new(url: impl Into<String>) -> Self {
-        Self { http: reqwest::Client::new(), url: url.into(), credentials: None, session: Mutex::new(None) }
+        Self::with_timeout(url, TIMEOUT)
+    }
+
+    fn with_timeout(url: impl Into<String>, timeout: Duration) -> Self {
+        let http = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(timeout)
+            .build()
+            .expect("TLS backend initializes");
+        Self { http, url: url.into(), credentials: None, session: Mutex::new(None) }
     }
 
     pub fn with_credentials(mut self, username: impl Into<String>, password: impl Into<String>) -> Self {
@@ -151,4 +165,27 @@ impl From<wire::Torrent> for Torrent {
 
 fn unavailable(error: reqwest::Error) -> ClientError {
     ClientError::Unavailable(Box::new(error))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::any};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn a_stalled_server_times_out() {
+        let server = MockServer::start().await;
+        let stalled = ResponseTemplate::new(200).set_delay(Duration::from_secs(5));
+        Mock::given(any()).respond_with(stalled).mount(&server).await;
+        let client = TransmissionClient::with_timeout(server.uri(), Duration::from_millis(50));
+
+        let started = Instant::now();
+        let error = client.version().await.unwrap_err();
+
+        assert!(matches!(error, ClientError::Unavailable(_)), "{error}");
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
 }

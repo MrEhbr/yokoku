@@ -179,7 +179,7 @@ Owns the downloads Yokoku knows about and the Transmission connection settings.
 
 Transmission runs on the same host as Yokoku. The paths it reports are used as-is; no path mapping.
 
-`yokoku-transmission` speaks Transmission's RPC: it repeats a call once with the session id a 409 answer carries, sends basic auth when configured, and labels added torrents `yokoku`. A torrent counts as complete when its metadata is known, its selected size is above zero, nothing is left and it is not being checked. Tests replay recorded answers with wiremock; an ignored live test starts `transmission-daemon`, adds a torrent made from local data and syncs it to completion.
+`yokoku-transmission` speaks Transmission's RPC: it repeats a call once with the session id a 409 answer carries, sends basic auth when configured, labels added torrents `yokoku`, and gives up on a request after 30 s (5 s to connect). A torrent counts as complete when its metadata is known, its selected size is above zero, nothing is left and it is not being checked. Tests replay recorded answers with wiremock; an ignored live test starts `transmission-daemon`, adds a torrent made from local data and syncs it to completion.
 
 ### 5.3 `media`
 
@@ -204,7 +204,7 @@ Owns library files, root folders, naming settings and imports.
 ### 5.4 `integrations`
 
 - Rescans Jellyfin after `FilesImported`, `FileRenamed` and `FileDeleted` (FR-10.4). The `Rescans` subscriber only records that a rescan is due (the latest request time, one row); `run_due(quiet)` rescans once no request arrived for the quiet period and clears the request only if it was not renewed meanwhile, so a burst leads to one rescan, a request made during a rescan is kept, and a failed rescan stays pending. `serve` checks every 10 s with a 30 s quiet period; the CLI rescans right after delivering events and only warns when Jellyfin cannot be reached. Off unless `[jellyfin] url` is set; `api_key` is a secret.
-- **Ports:** `MediaServer` (`JellyfinClient` in `system`: `POST /Library/Refresh`, `GET /System/Info`, `Authorization: MediaBrowser Token`), `RescanStore`.
+- **Ports:** `MediaServer` (`JellyfinClient` in `system`: `POST /Library/Refresh`, `GET /System/Info`, `Authorization: MediaBrowser Token`, 30 s per request, 5 s to connect), `RescanStore`.
 - Future notifications (REQUIREMENTS §6) go here.
 
 ### 5.5 Settings

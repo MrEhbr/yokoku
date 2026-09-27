@@ -1,10 +1,13 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use reqwest::{RequestBuilder, StatusCode};
 use serde::Deserialize;
 use tracing::debug;
 use yokoku_integrations::ports::{MediaServer, MediaServerError};
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Jellyfin's HTTP API, authenticated with an administrator's API key.
 pub struct JellyfinClient {
@@ -22,7 +25,16 @@ struct SystemInfo {
 impl JellyfinClient {
     /// `url` is the server's address, e.g. `http://localhost:8096`.
     pub fn new(url: impl Into<String>, api_key: impl Into<String>) -> Self {
-        Self { http: reqwest::Client::new(), url: url.into().trim_end_matches('/').to_owned(), api_key: api_key.into() }
+        Self::with_timeout(url, api_key, TIMEOUT)
+    }
+
+    fn with_timeout(url: impl Into<String>, api_key: impl Into<String>, timeout: Duration) -> Self {
+        let http = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(timeout)
+            .build()
+            .expect("TLS backend initializes");
+        Self { http, url: url.into().trim_end_matches('/').to_owned(), api_key: api_key.into() }
     }
 
     fn authorized(&self, request: RequestBuilder) -> RequestBuilder {
@@ -61,4 +73,27 @@ impl MediaServer for JellyfinClient {
 
 fn unavailable(error: reqwest::Error) -> MediaServerError {
     MediaServerError::Unavailable(Box::new(error))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::any};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn a_stalled_server_times_out() {
+        let server = MockServer::start().await;
+        let stalled = ResponseTemplate::new(204).set_delay(Duration::from_secs(5));
+        Mock::given(any()).respond_with(stalled).mount(&server).await;
+        let client = JellyfinClient::with_timeout(server.uri(), "secret", Duration::from_millis(50));
+
+        let started = Instant::now();
+        let error = client.refresh_library().await.unwrap_err();
+
+        assert!(matches!(error, MediaServerError::Unavailable(_)), "{error}");
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
 }
