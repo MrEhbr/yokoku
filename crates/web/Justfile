@@ -2,6 +2,10 @@
 help:
     @just --list
 
+# Run the app (web UI, events, jobs) at http://127.0.0.1:3000 from the repo root, rebuilding on changes
+dev:
+    @cd ../.. && topcoat dev -p yokoku
+
 # Serve the component gallery at http://127.0.0.1:3000, rebuilding on changes
 gallery:
     @topcoat dev -p yokoku-web --bin gallery
