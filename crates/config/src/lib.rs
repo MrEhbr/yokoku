@@ -75,30 +75,34 @@ impl Config {
         Ok(())
     }
 
-    /// The value of a known setting, e.g. `import.mode`.
-    pub fn setting(&self, key: &str) -> Result<Value> {
-        let config = serde_json::to_value(self)?;
-        match key.split('.').try_fold(&config, |value, part| value.get(part)) {
-            Some(value) if !value.is_object() => Ok(value.clone()),
-            _ => bail!("{key} is not a setting"),
-        }
+    /// The value of a known setting, e.g. `import.mode`, as JSON: `"copy"`, `14`.
+    pub fn setting(&self, key: &str) -> Result<String> {
+        Ok(self.value(key)?.to_string())
     }
 
     /// `value` as `setting` shows it once loaded, so a secret reads `"<redacted>"`; a value that does
     /// not load is shown as stored.
-    pub fn shown(key: &str, value: &Value) -> Value {
-        match Self::load(None, &[(key.to_owned(), value.clone())]).and_then(|config| config.setting(key)) {
-            Ok(loaded) if loaded == REDACTED => loaded,
-            _ => value.clone(),
+    pub fn shown(key: &str, value: &Value) -> String {
+        match Self::load(None, &[(key.to_owned(), value.clone())]).and_then(|config| config.value(key)) {
+            Ok(loaded) if loaded == REDACTED => loaded.to_string(),
+            _ => value.to_string(),
         }
     }
 
     /// Fails unless `key` is a setting the database can store.
     pub fn editable(key: &str) -> Result<()> {
-        Self::default().setting(key)?;
+        Self::default().value(key)?;
         if ["database", "log"].contains(&key.split('.').next().unwrap_or_default()) {
             bail!("{key} is needed before the database opens; set it in the config file or environment");
         }
         Ok(())
+    }
+
+    fn value(&self, key: &str) -> Result<Value> {
+        let config = serde_json::to_value(self)?;
+        match key.split('.').try_fold(&config, |value, part| value.get(part)) {
+            Some(value) if !value.is_object() => Ok(value.clone()),
+            _ => bail!("{key} is not a setting"),
+        }
     }
 }
