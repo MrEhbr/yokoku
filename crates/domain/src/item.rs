@@ -8,6 +8,11 @@ pub enum MediaKind {
     Movie,
 }
 
+crate::string_enum!(MediaKind, "media kind" {
+    Series => "series",
+    Movie => "movie",
+});
+
 /// A series or movie in the library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ItemId {

@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt};
 
 use jiff::{Timestamp, civil::Date};
 use yokoku_domain::{ExternalId, ItemId, MediaKind, Movie, MovieStatus, Series, SeriesStatus};
@@ -7,6 +7,15 @@ use yokoku_domain::{ExternalId, ItemId, MediaKind, Movie, MovieStatus, Series, S
 pub enum LibraryStatus {
     Series(SeriesStatus),
     Movie(MovieStatus),
+}
+
+impl fmt::Display for LibraryStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Series(status) => status.fmt(f),
+            Self::Movie(status) => status.fmt(f),
+        }
+    }
 }
 
 /// One row of the library list (FR-1.2).

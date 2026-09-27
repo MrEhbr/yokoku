@@ -4,3 +4,9 @@ pub enum FileStatus {
     Missing,
     Upcoming,
 }
+
+crate::string_enum!(FileStatus, "file status" {
+    Downloaded => "downloaded",
+    Missing => "missing",
+    Upcoming => "upcoming",
+});

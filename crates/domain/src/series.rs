@@ -36,6 +36,12 @@ pub enum SeriesStatus {
     Ended,
 }
 
+crate::string_enum!(SeriesStatus, "series status" {
+    Continuing => "continuing",
+    OnBreak => "on_break",
+    Ended => "ended",
+});
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Numbering {
     #[default]

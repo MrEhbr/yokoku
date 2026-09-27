@@ -16,6 +16,12 @@ pub enum ReleaseKind {
     Physical,
 }
 
+crate::string_enum!(ReleaseKind, "release kind" {
+    Cinema => "cinema",
+    Digital => "digital",
+    Physical => "physical",
+});
+
 impl Releases {
     /// Known release dates, in kind order.
     pub fn dates(&self) -> impl Iterator<Item = (ReleaseKind, Date)> {
@@ -35,6 +41,12 @@ pub enum MovieStatus {
     InCinemas,
     Released,
 }
+
+crate::string_enum!(MovieStatus, "movie status" {
+    Announced => "announced",
+    InCinemas => "in_cinemas",
+    Released => "released",
+});
 
 /// A movie as its metadata source describes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
