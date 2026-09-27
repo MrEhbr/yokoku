@@ -69,8 +69,8 @@ docs/                 # Requirements and architecture
 
 ## Adding a Command
 
-`crates/yokoku/src/commands/greet.rs` is a worked example. Paths below are
-relative to `crates/yokoku/`. To add your own:
+`crates/yokoku/src/commands/calendar.rs` is a small worked example. Paths
+below are relative to `crates/yokoku/`. To add your own:
 
 1. Copy it to `src/commands/<name>.rs` and adjust its `Args` and `run`.
 2. Register the module in `src/commands/mod.rs`.
@@ -86,14 +86,14 @@ A command owns its own config section next to its code, the way
 the loaded values in `apply_overrides`:
 
 ```rust
-#[arg(long, short = 'n')]
-pub count: Option<u8>,
+#[arg(long, short = 'd')]
+pub days: Option<u16>,
 
-fn apply_overrides(&self, config: &GreetConfig) -> GreetConfig {
+fn apply_overrides(&self, config: &CalendarConfig) -> CalendarConfig {
     let mut resolved = config.clone();
 
-    if let Some(count) = self.count {
-        resolved.count = count;
+    if let Some(days) = self.days {
+        resolved.days = Some(days);
     }
 
     resolved

@@ -96,22 +96,6 @@ async fn calendar_marks_downloaded_episodes() {
 }
 
 #[tokio::test]
-async fn upcoming_starts_today() {
-    let app = populated().await;
-
-    let entries = app.schedule.upcoming(7).await.unwrap();
-
-    assert_eq!(
-        summary(&entries),
-        [
-            row(0, "Frieren", "S01E03", FileStatus::Upcoming),
-            row(5, "Dune", "Physical", FileStatus::Missing),
-            row(7, "Frieren", "S01E04", FileStatus::Upcoming),
-        ]
-    );
-}
-
-#[tokio::test]
 async fn missing_groups_aired_monitored_episodes_by_series() {
     let app = populated().await;
 

@@ -35,14 +35,14 @@ fn settings_are_stored_listed_read_and_unset() {
     let setup = setup();
 
     let set_mode = setup.stdout(&["settings", "set", "import.mode", "copy"]);
-    let set_days = setup.stdout(&["settings", "set", "upcoming.days", "14"]);
+    let set_days = setup.stdout(&["settings", "set", "calendar.days", "14"]);
     let listed = setup.stdout(&["settings", "list"]);
     let mode = setup.stdout(&["settings", "get", "import.mode"]);
     let unset = setup.stdout(&["settings", "unset", "import.mode"]);
 
     assert_eq!(set_mode, "Set import.mode = \"copy\"\n");
-    assert_eq!(set_days, "Set upcoming.days = 14\n");
-    assert_eq!(listed, "import.mode = \"copy\"\nupcoming.days = 14\n");
+    assert_eq!(set_days, "Set calendar.days = 14\n");
+    assert_eq!(listed, "calendar.days = 14\nimport.mode = \"copy\"\n");
     assert_eq!(mode, "\"copy\"\n");
     assert_eq!(unset, "Unset import.mode\n");
     assert_eq!(setup.stdout(&["settings", "get", "import.mode"]), "\"hardlink\"\n");
@@ -125,10 +125,16 @@ fn secrets_can_be_stored_but_are_never_shown() {
 }
 
 #[test]
-fn commands_without_a_database_do_not_create_one() {
+fn loading_the_configuration_does_not_create_the_database() {
     let setup = setup();
 
-    setup.command().args(["greet", "World"]).assert().success();
+    setup
+        .command()
+        .arg("serve")
+        .env("APP__SERVE__SCAN_LIBRARY", "not a schedule")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Invalid schedule"));
 
     assert!(!setup.database.exists());
 }

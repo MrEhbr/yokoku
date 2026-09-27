@@ -8,8 +8,8 @@ use serde_json::{Map, Value};
 use crate::{
     app::{ClockConfig, DatabaseConfig, MetadataConfig, NamingConfig, TransmissionConfig},
     commands::{
-        add::AddConfig, files::FilesConfig, greet::GreetConfig, import::ImportConfig, jellyfin::JellyfinConfig,
-        list::ListConfig, serve::ServeConfig, upcoming::UpcomingConfig,
+        add::AddConfig, calendar::CalendarConfig, files::FilesConfig, import::ImportConfig, jellyfin::JellyfinConfig,
+        list::ListConfig, serve::ServeConfig,
     },
     logging::LogConfig,
 };
@@ -29,13 +29,11 @@ pub struct Config {
     #[serde(default)]
     pub transmission: TransmissionConfig,
     #[serde(default)]
-    pub greet: GreetConfig,
-    #[serde(default)]
     pub add: AddConfig,
     #[serde(default)]
     pub list: ListConfig,
     #[serde(default)]
-    pub upcoming: UpcomingConfig,
+    pub calendar: CalendarConfig,
     #[serde(default)]
     pub serve: ServeConfig,
     #[serde(default)]

@@ -152,7 +152,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
 - **Use cases**, split by what they depend on:
   - `Library` (repositories + clock): list with filter and sort, series and movie details, set monitoring, set numbering, remove.
   - `MetadataSync` (+ metadata source): search, add (applying a monitor preset, into a root folder of the item's kind, which the caller takes from `media`), refresh one item or all.
-  - `Schedule` (repositories + clock): calendar for a date range, upcoming, missing grouped by series. Only monitored items appear (FR-2.3).
+  - `Schedule` (repositories + clock): calendar for a date range, missing grouped by series. Only monitored items appear (FR-2.3).
 - **Later:** iCal feed (served by `web`).
 - **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates), `Publisher` (events, appended after the save), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
 - **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
@@ -332,7 +332,7 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 
 One binary.
 - `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM. Each subscriber gets its own `Delivery` loop; on a signal the monitor stops first, then the deliveries are cancelled and awaited.
-- Other subcommands (`search`, `add`, `refresh`, `upcoming`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `files`, `jellyfin`, `settings`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
+- Other subcommands (`search`, `add`, `refresh`, `calendar`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `files`, `jellyfin`, `settings`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
 - `delete` and `remove --delete-files` list the files and ask on stdin before deleting (FR-8.5); no answer counts as no, and `--yes` skips the question.
 
 ### Storage
@@ -413,7 +413,7 @@ Follows REQUIREMENTS §5, with the foundation first.
 
 0. **Workspace skeleton:** crates, dependency rules, lints, `db` with migrations, `events` delivery loop.
 1. **Library + metadata:** `domain`, `library`, `metadata` (TMDB), CLI `search` / `add` / `refresh` / `show`.
-2. **Next episode + calendar:** `library` queries, CLI `upcoming` / `missing`.
+2. **Next episode + calendar:** `library` queries, CLI `calendar` / `missing`.
 3. **Root folders + scan + manual match:** `media` scan, `detect` basics, `system`.
 4. **Renaming:** `naming`, rename preview.
 5. **Transmission:** `downloads`, `transmission`, `jobs` (`SyncDownloads`).

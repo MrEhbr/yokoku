@@ -9,7 +9,7 @@ use crate::{
     ports::{MovieRepo, SeriesRepo},
 };
 
-/// Release tracking over monitored items: calendar, upcoming and missing.
+/// Release tracking over monitored items: calendar and missing.
 pub struct Schedule {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
@@ -106,12 +106,6 @@ impl Schedule {
 
         entries.sort_by_cached_key(|entry| (entry.date, entry.title.to_lowercase(), release_order(&entry.release)));
         Ok(entries)
-    }
-
-    /// The calendar from today through `days` days ahead.
-    pub async fn upcoming(&self, days: u16) -> Result<Vec<CalendarEntry>, LibraryError> {
-        let today = self.today();
-        self.calendar(today, today + i64::from(days).days()).await
     }
 
     /// Monitored episodes that aired without a file, grouped by series, and released monitored movies without one.

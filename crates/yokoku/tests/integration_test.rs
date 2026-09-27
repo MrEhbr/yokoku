@@ -20,60 +20,27 @@ fn test_version_flag() {
 }
 
 #[test]
-fn test_greet_command() {
-    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
-    cmd.args(["greet", "Ada"]);
-
-    cmd.assert().success().stdout(predicate::str::contains("Hello, Ada!"));
-}
-
-#[test]
-fn test_greet_repeats() {
-    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
-    cmd.args(["greet", "Ada", "--count", "3"]);
-
-    cmd.assert().success().stdout(predicate::str::contains("Hello, Ada!").count(3));
-}
-
-#[test]
-fn test_greet_uses_config_file_values() {
+fn test_config_file_values_are_loaded() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("app.toml");
-    std::fs::write(&path, "[greet]\ngreeting = \"Howdy\"\ncount = 2\n").unwrap();
+    let path = config_file(&dir, "[calendar]\ndays = 30\n");
 
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
-    cmd.args(["greet", "Ada", "-c"]).arg(&path);
+    cmd.args(["settings", "get", "calendar.days", "-c"]).arg(&path);
 
-    cmd.assert().success().stdout(predicate::str::contains("Howdy, Ada!").count(2));
-}
-
-#[test]
-fn test_greet_flags_override_config_file() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("app.toml");
-    std::fs::write(&path, "[greet]\ngreeting = \"Howdy\"\ncount = 2\n").unwrap();
-
-    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
-    cmd.args(["greet", "Ada", "-c"]).arg(&path).args(["--greeting", "Hi", "--count", "1"]);
-
-    cmd.assert().success().stdout(predicate::str::contains("Hi, Ada!").count(1));
-}
-
-#[test]
-fn test_greet_rejects_empty_name() {
-    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
-    cmd.args(["greet", "   "]);
-
-    cmd.assert().failure().stderr(predicate::str::contains("name must not be empty"));
+    cmd.assert().success().stdout("30\n");
 }
 
 #[test]
 fn test_global_flags_accepted_either_side() {
-    for args in [["-v", "greet", "Ada"], ["greet", "Ada", "-v"]] {
+    let dir = tempfile::tempdir().unwrap();
+    let path = config_file(&dir, "");
+    let path = path.to_str().unwrap();
+
+    for args in [["-v", "-c", path, "settings", "list"], ["settings", "list", "-v", "-c", path]] {
         let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
         cmd.args(args);
 
-        cmd.assert().success().stdout(predicate::str::contains("Hello, Ada!"));
+        cmd.assert().success().stdout("No stored settings.\n");
     }
 }
 
@@ -83,4 +50,12 @@ fn test_invalid_command() {
     cmd.arg("nonexistent");
 
     cmd.assert().failure().stderr(predicate::str::contains("unrecognized subcommand"));
+}
+
+/// A config file in `dir` with `contents` and a database beside it.
+fn config_file(dir: &tempfile::TempDir, contents: &str) -> std::path::PathBuf {
+    let path = dir.path().join("app.toml");
+    let database = dir.path().join("yokoku.db");
+    std::fs::write(&path, format!("[database]\npath = {:?}\n\n{contents}", database.display().to_string())).unwrap();
+    path
 }

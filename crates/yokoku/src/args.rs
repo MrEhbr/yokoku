@@ -27,8 +27,6 @@ pub struct Args {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Greet someone
-    Greet(commands::greet::Args),
     /// Search the metadata source for series and movies
     Search(commands::search::Args),
     /// Add a series or movie to the library
@@ -45,9 +43,7 @@ pub enum Command {
     Numbering(commands::numbering::Args),
     /// Remove a series or movie from the library
     Remove(commands::remove::Args),
-    /// List monitored releases coming up
-    Upcoming(commands::upcoming::Args),
-    /// Show monitored releases for a week or month
+    /// Show monitored releases for a week, a month or the days ahead
     Calendar(commands::calendar::Args),
     /// List monitored episodes and movies that are out but have no file
     Missing(commands::missing::Args),
@@ -119,7 +115,6 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
     use Command::*;
 
     match args.command {
-        Greet(cmd_args) => commands::greet::run(config, cmd_args),
         Search(cmd_args) => commands::search::run(config, cmd_args).await,
         Add(cmd_args) => commands::add::run(config, cmd_args).await,
         Refresh(cmd_args) => commands::refresh::run(config, cmd_args).await,
@@ -128,7 +123,6 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
         Monitor(cmd_args) => commands::monitor::run(config, cmd_args).await,
         Numbering(cmd_args) => commands::numbering::run(config, cmd_args).await,
         Remove(cmd_args) => commands::remove::run(config, cmd_args).await,
-        Upcoming(cmd_args) => commands::upcoming::run(config, cmd_args).await,
         Calendar(cmd_args) => commands::calendar::run(config, cmd_args).await,
         Missing(cmd_args) => commands::missing::run(config, cmd_args).await,
         Root(cmd_args) => commands::root::run(config, cmd_args).await,

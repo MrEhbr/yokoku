@@ -219,16 +219,17 @@ async fn show_prints_next_and_last_aired_episodes() {
 }
 
 #[tokio::test]
-async fn upcoming_lists_releases_within_the_window() {
+async fn calendar_lists_the_days_ahead() {
     let library = seeded_library().await;
 
-    let stdout = library.stdout(&["upcoming"]);
+    let stdout = library.stdout(&["calendar", "--days", "14"]);
 
     assert!(stdout.contains(&(today() + 7.days()).to_string()));
     assert!(
         stdout.lines().any(|line| line.contains("Frieren") && line.contains("S01E02") && line.contains("upcoming"))
     );
-    library.command().args(["upcoming", "--days", "3"]).assert().success().stdout("Nothing scheduled.\n");
+    let soon = library.stdout(&["calendar", "--days", "3"]);
+    assert_eq!(soon, format!("{} to {}\nNothing scheduled.\n", today(), today() + 3.days()));
 }
 
 #[tokio::test]
