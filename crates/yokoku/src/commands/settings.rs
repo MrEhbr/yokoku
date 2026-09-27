@@ -1,4 +1,4 @@
-use std::{io::Write, path::Path};
+use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -43,20 +43,19 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
     let path = &config.database.path;
     let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
     let stored = db.settings().await.context("Failed to read the stored settings")?;
-    let mut out = anstream::stdout();
 
     match args.command {
         Command::List => {
             if stored.is_empty() {
-                writeln!(out, "No stored settings.")?;
+                hint!("No stored settings.")?;
             }
             for (key, value) in &stored {
-                writeln!(out, "{key} = {}", shown(key, value))?;
+                say!("{key} = {}", shown(key, value))?;
             }
         },
         Command::Get { key } => {
             let effective: Config = config::load(config_path, &stored).context("Failed to load configuration")?;
-            writeln!(out, "{}", setting(&serde_json::to_value(&effective)?, &key)?)?;
+            say!("{}", setting(&serde_json::to_value(&effective)?, &key)?)?;
         },
         Command::Set { key, value } => {
             editable(&key)?;
@@ -68,15 +67,15 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
             effective.validate().with_context(|| format!("{key} cannot be {value}"))?;
 
             db.set_setting(&key, &value).await.context("Failed to store the setting")?;
-            writeln!(out, "Set {key} = {}", shown(&key, &value))?;
+            success!("Set {key} = {}", shown(&key, &value))?;
             let variable = format!("APP__{}", key.to_uppercase().replace('.', "__"));
             if std::env::var_os(&variable).is_some() {
-                writeln!(out, "{variable} is set and takes precedence")?;
+                say!("{variable} is set and takes precedence")?;
             }
         },
         Command::Unset { key } => match db.remove_setting(&key).await.context("Failed to remove the setting")? {
-            true => writeln!(out, "Unset {key}")?,
-            false => writeln!(out, "{key} is not stored")?,
+            true => success!("Unset {key}")?,
+            false => say!("{key} is not stored")?,
         },
     }
     Ok(())

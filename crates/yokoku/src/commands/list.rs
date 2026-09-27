@@ -1,8 +1,5 @@
-use std::io::Write;
-
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 use yokoku_domain::{MovieStatus, SeriesStatus};
@@ -10,8 +7,9 @@ use yokoku_library::{LibraryFilter, LibrarySort, LibraryStatus};
 
 use crate::{
     app::App,
-    commands::{Kind, label::Label, title_with_year},
+    commands::{Kind, title_with_year},
     config::Config,
+    output::Paint,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
@@ -71,20 +69,18 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
-    let mut out = anstream::stdout();
     let filter = LibraryFilter { kind: args.kind.map(Into::into), status: args.status.map(Into::into) };
     let entries = app.library.list(filter, settings.sort.into()).await?;
 
     if entries.is_empty() {
-        writeln!(out, "No items.")?;
+        hint!("No items.")?;
     }
     for entry in entries {
-        writeln!(
-            out,
+        say!(
             "{:<40} {:<6} {:<10} {:<5} {:<10} {}",
             title_with_year(&entry.title, entry.year).bold(),
-            entry.id.kind().label(),
-            entry.status.label(),
+            entry.id.kind(),
+            entry.status.tone(),
             if entry.has_files { "files" } else { "-" },
             entry.next_release.map_or_else(|| "-".to_owned(), |date| date.to_string()),
             entry.source,

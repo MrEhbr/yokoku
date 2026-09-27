@@ -1,4 +1,4 @@
-use std::{fs, io::Write, path::PathBuf};
+use std::fs;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -7,8 +7,9 @@ use yokoku_downloads::{Download, DownloadState, ports::TorrentSource};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, import::run_imports, item_title, label::Label},
+    commands::{ItemArgs, Kind, import::run_imports, item_title},
     config::Config,
+    output::Paint,
 };
 
 #[derive(Parser)]
@@ -45,63 +46,61 @@ pub struct AddArgs {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = anstream::stdout();
 
     match args.command {
         Command::Test => {
             let version = app.downloads.test_connection().await?;
-            writeln!(out, "Connected to {version}")?;
+            success!("Connected to {version}")?;
         },
         Command::Add(args) => {
             let item = match ItemArgs::optional(args.kind, args.source) {
                 Some(item) => Some(item.resolve(&app.library).await?),
                 None => None,
             };
-            let download = app.downloads.add(&torrent_source(&args.torrent)?, item).await?;
+            let download = app.downloads.add(&args.torrent()?, item).await?;
             app.deliver_events().await?;
             match download.completed_at {
-                Some(_) => writeln!(out, "Added {}; it is already complete", download.name)?,
-                None => writeln!(out, "Added {}", download.name)?,
+                Some(_) => success!("Added {}; it is already complete", download.name)?,
+                None => success!("Added {}", download.name)?,
             }
-            run_imports(&app, &mut out).await?;
+            run_imports(&app).await?;
         },
         Command::List => {
             let downloads = app.downloads.list().await?;
             if downloads.is_empty() {
-                writeln!(out, "No downloads.")?;
+                hint!("No downloads.")?;
             }
             for download in &downloads {
                 let item = match download.item {
                     Some(item) => item_title(&app.library, item).await,
                     None => "-".into(),
                 };
-                writeln!(
-                    out,
-                    "{:<50} {:>3}%  {:<11}  {:<24}  {item}",
+                let (state, progress) = status(download);
+                say!(
+                    "{:<50} {:>3}%  {:<11}  {progress:<24}  {item}",
                     download.name,
                     download.percent_done(),
-                    download.label(),
-                    progress_label(download)
+                    state.tone()
                 )?;
             }
         },
         Command::Sync => {
             let report = app.downloads.sync().await?;
             app.deliver_events().await?;
-            writeln!(out, "Synced {} downloads; {} finished", report.synced, report.completed.len())?;
+            success!("Synced {} downloads; {} finished", report.synced, report.completed.len())?;
             if report.removed > 0 {
-                writeln!(out, "{} are no longer in Transmission", report.removed)?;
+                say!("{} are no longer in Transmission", report.removed)?;
             }
             if report.picked_up > 0 {
-                writeln!(out, "Picked up {} torrents added in Transmission", report.picked_up)?;
+                say!("Picked up {} torrents added in Transmission", report.picked_up)?;
             }
             if report.cleaned_up > 0 {
-                writeln!(out, "{} removed from Transmission after seeding", report.cleaned_up)?;
+                say!("{} removed from Transmission after seeding", report.cleaned_up)?;
             }
-            run_imports(&app, &mut out).await?;
+            run_imports(&app).await?;
             let waiting = app.review.pending().await?.len();
             if waiting > 0 {
-                writeln!(out, "{waiting} imports wait for review; see `yokoku review list`")?;
+                caution!("{waiting} imports wait for review; see `yokoku review list`")?;
             }
         },
     }
@@ -109,26 +108,28 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     Ok(())
 }
 
-fn torrent_source(torrent: &str) -> Result<TorrentSource> {
-    if torrent.starts_with("magnet:") {
-        return Ok(TorrentSource::Magnet(torrent.to_owned()));
+impl AddArgs {
+    fn torrent(&self) -> Result<TorrentSource> {
+        if self.torrent.starts_with("magnet:") {
+            return Ok(TorrentSource::Magnet(self.torrent.clone()));
+        }
+        let bytes = fs::read(&self.torrent).with_context(|| format!("Failed to read {}", self.torrent))?;
+        Ok(TorrentSource::File(bytes))
     }
-    let path = PathBuf::from(torrent);
-    let bytes = fs::read(&path).with_context(|| format!("Failed to read {}", path.display()))?;
-    Ok(TorrentSource::File(bytes))
 }
 
-/// Rate and time left while downloading; the error otherwise, if any.
-fn progress_label(download: &Download) -> String {
-    match (&download.status.error, download.status.state) {
-        (Some(error), _) => error.clone(),
+/// The state, with the rate and time left while downloading, or the error if any.
+fn status(download: &Download) -> (&'static str, String) {
+    let status = &download.status;
+    match (&status.error, status.state) {
+        (Some(error), _) => ("error", error.clone()),
         (None, DownloadState::Downloading) => {
-            let rate = format!("{:.1} MB/s", download.status.download_rate as f64 / 1_000_000.0);
-            match download.status.eta {
-                Some(seconds) => format!("{rate}, {}h {:02}m left", seconds / 3600, seconds % 3600 / 60),
-                None => rate,
-            }
+            let rate = format!("{:.1} MB/s", status.download_rate as f64 / 1_000_000.0);
+            let left = status.eta.map(|seconds| format!(", {}h {:02}m left", seconds / 3600, seconds % 3600 / 60));
+            ("downloading", rate + &left.unwrap_or_default())
         },
-        (None, _) => String::new(),
+        (None, DownloadState::Stopped) if download.completed_at.is_some() => ("finished", String::new()),
+        (None, DownloadState::Stopped) => ("paused", String::new()),
+        (None, state) => (state.as_str(), String::new()),
     }
 }

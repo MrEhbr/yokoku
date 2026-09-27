@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use anyhow::Result;
 use clap::Parser;
 use yokoku_domain::EpisodeSpan;
@@ -28,9 +26,8 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     confirm_deletion(&app.deleter.files_of(target).await?, args.yes)?;
     let deleted = app.deleter.delete(target).await?;
     app.deliver_events().await?;
-    let mut out = anstream::stdout();
     for file in deleted {
-        writeln!(out, "Deleted {}", file.path.display())?;
+        success!("Deleted {}", file.path.display())?;
     }
     Ok(())
 }

@@ -30,7 +30,6 @@ yokoku-naming.workspace = true
 yokoku-system.workspace = true
 yokoku-transmission.workspace = true
 
-anstream.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap-verbosity-flag.workspace = true

@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+#[macro_use]
+mod output;
+
 mod app;
 mod args;
 mod commands;
@@ -12,7 +15,7 @@ use std::io;
 
 use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::args::Args;
 
@@ -29,7 +32,8 @@ async fn main() {
         if is_broken_pipe(&error) {
             return;
         }
-        anstream::eprintln!("{} {:?}", "Error:".red().bold(), error);
+        let label = "Error:".if_supports_color(Stream::Stderr, |label| label.style(Style::new().red().bold()));
+        eprintln!("{label} {error:?}");
         std::process::exit(1);
     }
 }

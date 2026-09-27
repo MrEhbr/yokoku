@@ -1,17 +1,12 @@
-use std::{
-    io::{self, Write},
-    path::PathBuf,
-    time::Duration,
-};
+use std::{io, path::PathBuf, time::Duration};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use yokoku_domain::SubtitleTags;
 use yokoku_media::{FileDetails, MediaError, MediaInfo, ports::ProbeError};
 
-use crate::{app::App, commands::ItemArgs, config::Config};
+use crate::{app::App, commands::ItemArgs, config::Config, output::Paint};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct FilesConfig {
@@ -41,17 +36,16 @@ pub enum Command {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = anstream::stdout();
 
     match args.command {
         Command::Show(item) => {
             let item = item.resolve(&app.library).await?;
             let details = app.prober.details(item).await?;
             if details.is_empty() {
-                writeln!(out, "No files.")?;
+                hint!("No files.")?;
             }
             for file in &details {
-                write_details(&mut out, file)?;
+                write_details(file)?;
             }
         },
         Command::Probe => {
@@ -62,26 +56,26 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 },
                 result => result.context("Failed to probe files")?,
             };
-            writeln!(out, "Probed {} files", report.probed)?;
+            success!("Probed {} files", report.probed)?;
             for (path, reason) in &report.failed {
-                writeln!(out, "{}", format!("Could not probe {}: {reason}", path.display()).red())?;
+                failure!("Could not probe {}: {reason}", path.display())?;
             }
         },
     }
     Ok(())
 }
 
-fn write_details(out: &mut impl Write, details: &FileDetails) -> io::Result<()> {
-    writeln!(out, "{}", details.file.path.display().bold())?;
+fn write_details(details: &FileDetails) -> io::Result<()> {
+    say!("{}", details.file.path.display().bold())?;
     let size = format!("{:.1} GB", details.file.size as f64 / 1_000_000_000.0);
     let Some(info) = &details.info else {
-        writeln!(out, "  {size}, not probed yet; run `yokoku files probe`")?;
-        return write_subtitles(out, None, &details.subtitle_files);
+        say!("  {size}, not probed yet; run `yokoku files probe`")?;
+        return write_subtitles(None, &details.subtitle_files);
     };
     let mut summary = vec![size];
     summary.extend(info.duration.map(duration));
     summary.extend(info.video.as_ref().map(|video| format!("{}x{} {}", video.width, video.height, video.codec)));
-    writeln!(out, "  {}", summary.join(", "))?;
+    say!("  {}", summary.join(", "))?;
     if !info.audio.is_empty() {
         let audio: Vec<String> = info
             .audio
@@ -90,12 +84,12 @@ fn write_details(out: &mut impl Write, details: &FileDetails) -> io::Result<()> 
                 format!("{} {} {}", language(audio.language.as_deref()), audio.codec, channels(audio.channels))
             })
             .collect();
-        writeln!(out, "  Audio      {}", audio.join(", "))?;
+        say!("  Audio      {}", audio.join(", "))?;
     }
-    write_subtitles(out, Some(info), &details.subtitle_files)
+    write_subtitles(Some(info), &details.subtitle_files)
 }
 
-fn write_subtitles(out: &mut impl Write, info: Option<&MediaInfo>, files: &[SubtitleTags]) -> io::Result<()> {
+fn write_subtitles(info: Option<&MediaInfo>, files: &[SubtitleTags]) -> io::Result<()> {
     let inside: Vec<String> = info
         .into_iter()
         .flat_map(|info| &info.subtitles)
@@ -111,7 +105,7 @@ fn write_subtitles(out: &mut impl Write, info: Option<&MediaInfo>, files: &[Subt
         .map(|(languages, place)| format!("{} {place}", languages.join(", ")))
         .collect();
     if !parts.is_empty() {
-        writeln!(out, "  Subtitles  {}", parts.join("; "))?;
+        say!("  Subtitles  {}", parts.join("; "))?;
     }
     Ok(())
 }

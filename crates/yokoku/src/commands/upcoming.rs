@@ -41,7 +41,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
-    print_calendar(&mut anstream::stdout(), &app.schedule.upcoming(settings.days).await?)?;
+    print_calendar(&app.schedule.upcoming(settings.days).await?)?;
 
     Ok(())
 }

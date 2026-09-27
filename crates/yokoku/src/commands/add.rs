@@ -1,7 +1,4 @@
-use std::{
-    io::Write,
-    path::{self, PathBuf},
-};
+use std::path::{self, PathBuf};
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
@@ -14,6 +11,7 @@ use crate::{
     app::App,
     commands::{ItemArgs, Kind, title_with_year},
     config::Config,
+    output::Paint,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
@@ -71,7 +69,6 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
-    let mut out = anstream::stdout();
     let sync = app.sync()?;
     let root_kind = match args.item.kind {
         Kind::Series => RootKind::Series,
@@ -81,12 +78,11 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     match args.item.kind {
         Kind::Series => {
             let series = sync.add_series(args.item.source, settings.monitor.into(), root, args.folder).await?;
-            writeln!(
-                out,
+            success!(
                 "Added series {} {} in {}",
-                title_with_year(&series.title, series.year),
+                title_with_year(&series.title, series.year).bold(),
                 series.source,
-                series.folder.path().display()
+                series.folder.path().display().italic()
             )?;
         },
         Kind::Movie => {
@@ -96,12 +92,11 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 Monitor::Future | Monitor::LatestSeason => bail!("movies can only be monitored with `all` or `none`"),
             };
             let movie = sync.add_movie(args.item.source, monitored, root, args.folder).await?;
-            writeln!(
-                out,
+            success!(
                 "Added movie {} {} in {}",
-                title_with_year(&movie.title, movie.year),
+                title_with_year(&movie.title, movie.year).bold(),
                 movie.source,
-                movie.folder.path().display()
+                movie.folder.path().display().italic()
             )?;
         },
     }

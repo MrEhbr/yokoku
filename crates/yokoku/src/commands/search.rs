@@ -1,14 +1,7 @@
-use std::io::Write;
-
 use anyhow::Result;
 use clap::Parser;
-use owo_colors::OwoColorize;
 
-use crate::{
-    app::App,
-    commands::{label::Label, title_with_year},
-    config::Config,
-};
+use crate::{app::App, commands::title_with_year, config::Config, output::Paint};
 
 #[derive(Parser)]
 pub struct Args {
@@ -19,18 +12,16 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = anstream::stdout();
     let hits = app.sync()?.search(&args.query.join(" ")).await?;
 
     if hits.is_empty() {
-        writeln!(out, "No results.")?;
+        hint!("No results.")?;
     }
     for hit in hits {
         let result = hit.result;
-        writeln!(
-            out,
+        say!(
             "{:<6} {:<50} {:<14} {}",
-            result.kind.label(),
+            result.kind,
             title_with_year(&result.title, result.year).bold(),
             result.source,
             if hit.in_library { "in library" } else { "" }.green(),

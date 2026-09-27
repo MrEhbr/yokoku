@@ -1,12 +1,10 @@
-use std::io::Write;
-
 use anyhow::Result;
 use clap::Parser;
 use yokoku_domain::{ItemId, MediaKind};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, confirm_deletion, label::Label},
+    commands::{ItemArgs, confirm_deletion},
     config::Config,
 };
 
@@ -26,7 +24,6 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = anstream::stdout();
 
     let item = args.item.resolve(&app.library).await?;
     if args.delete_files {
@@ -38,6 +35,6 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     }
     app.deliver_events().await?;
 
-    writeln!(out, "Removed {} {}", MediaKind::from(args.item.kind).label(), args.item.source)?;
+    success!("Removed {} {}", MediaKind::from(args.item.kind), args.item.source)?;
     Ok(())
 }

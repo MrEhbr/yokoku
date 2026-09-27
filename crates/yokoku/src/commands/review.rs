@@ -1,8 +1,5 @@
-use std::io::Write;
-
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use owo_colors::OwoColorize;
 use yokoku_detect::Conflict;
 use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
 use yokoku_library::Library;
@@ -10,8 +7,9 @@ use yokoku_media::{Approval, ReviewRow};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, import::run_imports, item_title, label::Label},
+    commands::{ItemArgs, import::run_imports, item_title},
     config::Config,
+    output::Paint,
 };
 
 #[derive(Parser)]
@@ -49,46 +47,45 @@ pub struct MatchArgs {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = anstream::stdout();
 
     match args.command {
         Command::List => {
             let pending = app.review.pending().await?;
             if pending.is_empty() {
-                writeln!(out, "Nothing to review.")?;
+                hint!("Nothing to review.")?;
             }
             for import in pending {
-                writeln!(out, "{}  {:>3} files  {}", import.id, import.rows.len(), import.source.display())?;
+                say!("{}  {:>3} files  {}", import.id, import.rows.len(), import.source.display())?;
             }
         },
         Command::Show { import } => {
             let review = app.review.get(import).await?;
-            writeln!(out, "{}", review.source.display())?;
+            say!("{}", review.source.display())?;
             for (number, row) in (1..).zip(&review.rows) {
                 let file = row.row.path.strip_prefix(&review.source).unwrap_or(&row.row.path);
                 let target = target_label(&app.library, row).await;
-                writeln!(out, "{number:>3}  {:<50}  {target:<40}  {}", file.display(), details(row))?;
+                say!("{number:>3}  {:<50}  {target:<40}  {}", file.display(), details(row))?;
             }
         },
         Command::Match(args) => {
             let target = args.item.file_target(&app.library, args.episodes).await?;
             app.review.match_row(args.import, args.row, target).await?;
-            writeln!(out, "Matched row {}", args.row)?;
+            success!("Matched row {}", args.row)?;
         },
         Command::Skip { import, row } => {
             app.review.skip_row(import, row).await?;
-            writeln!(out, "Skipped row {row}")?;
+            say!("Skipped row {row}")?;
         },
         Command::Replace { import, row } => {
             app.review.replace_row(import, row).await?;
-            writeln!(out, "Row {row} replaces the library file")?;
+            say!("Row {row} replaces the library file")?;
         },
         Command::Approve { import } => match app.review.approve(import).await? {
             Approval::Linked(files) => {
                 app.deliver_events().await?;
-                writeln!(out, "Linked {} files", files.len())?;
+                success!("Linked {} files", files.len())?;
             },
-            Approval::Queued => run_imports(&app, &mut out).await?,
+            Approval::Queued => run_imports(&app).await?,
         },
     }
 
@@ -117,5 +114,5 @@ fn details(row: &ReviewRow) -> String {
         Conflict::AlreadyHasFile => "already has a file".yellow().to_string(),
     });
     let replaces = row.row.replace.then(|| "replaces the library file".to_owned());
-    [row.row.confidence.label().to_string()].into_iter().chain(replaces).chain(conflicts).collect::<Vec<_>>().join(", ")
+    [row.row.confidence.tone().to_string()].into_iter().chain(replaces).chain(conflicts).collect::<Vec<_>>().join(", ")
 }

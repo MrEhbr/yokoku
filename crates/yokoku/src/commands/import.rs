@@ -1,13 +1,10 @@
-use std::io::Write;
-
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use yokoku_domain::ImportId;
 use yokoku_media::ImportMode;
 
-use crate::{app::App, commands::label::Label, config::Config};
+use crate::{app::App, config::Config, output::Paint};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct ImportConfig {
@@ -45,43 +42,41 @@ pub enum Command {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = anstream::stdout();
 
     match args.command {
         Command::List => {
             let imports = app.importer.list().await?;
             if imports.is_empty() {
-                writeln!(out, "No imports waiting.")?;
+                hint!("No imports waiting.")?;
             }
             for import in imports {
-                writeln!(
-                    out,
+                say!(
                     "{}  {:<9}  {:>3} files  {}",
                     import.id,
-                    import.status.label(),
+                    import.status.tone(),
                     import.rows.len(),
                     import.source.display()
                 )?;
                 if let Some(error) = &import.error {
-                    writeln!(out, "      {}", error.red())?;
+                    say!("      {}", error.red())?;
                 }
             }
         },
-        Command::Run => run_imports(&app, &mut out).await?,
+        Command::Run => run_imports(&app).await?,
         Command::Retry { import } => {
             app.importer.retry(import).await?;
-            run_imports(&app, &mut out).await?;
+            run_imports(&app).await?;
         },
     }
     Ok(())
 }
 
 /// Carries out approved imports, delivers their events and reports each one.
-pub async fn run_imports(app: &App, out: &mut impl Write) -> Result<()> {
+pub async fn run_imports(app: &App) -> Result<()> {
     for import in app.importer.run_pending().await? {
         match &import.error {
-            None => writeln!(out, "Imported {}", import.source.display())?,
-            Some(error) => writeln!(out, "{}", format!("Import of {} failed: {error}", import.source.display()).red())?,
+            None => success!("Imported {}", import.source.display())?,
+            Some(error) => failure!("Import of {} failed: {error}", import.source.display())?,
         }
     }
     app.deliver_events().await

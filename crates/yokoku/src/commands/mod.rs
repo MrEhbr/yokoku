@@ -7,7 +7,6 @@ pub mod greet;
 pub mod history;
 pub mod import;
 pub mod jellyfin;
-pub mod label;
 pub mod list;
 pub mod missing;
 pub mod monitor;
@@ -31,8 +30,6 @@ use clap::ValueEnum;
 use yokoku_domain::{EpisodeSpan, ExternalId, FileTarget, ItemId, MediaKind};
 use yokoku_library::Library;
 use yokoku_media::MediaFile;
-
-use crate::commands::label::Label;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Kind {
@@ -61,7 +58,7 @@ impl ItemArgs {
             Kind::Series => library.find_series(self.source).await?.map(|series| ItemId::Series(series.id)),
             Kind::Movie => library.find_movie(self.source).await?.map(|movie| ItemId::Movie(movie.id)),
         };
-        id.with_context(|| format!("{} {} is not in the library", MediaKind::from(self.kind).label(), self.source))
+        id.with_context(|| format!("{} {} is not in the library", MediaKind::from(self.kind), self.source))
     }
 
     /// `episodes` of a series, or a movie; fails when `episodes` does not fit the item type.
@@ -89,11 +86,11 @@ pub fn confirm_deletion(files: &[MediaFile], yes: bool) -> Result<()> {
     if yes || files.is_empty() {
         return Ok(());
     }
-    let mut out = anstream::stdout();
     for file in files {
-        writeln!(out, "  {}", file.path.display())?;
+        say!("  {}", file.path.display())?;
     }
     let noun = if files.len() == 1 { "file" } else { "files" };
+    let mut out = io::stdout();
     write!(out, "Delete {} {noun}? [y/N] ", files.len())?;
     out.flush()?;
     let mut answer = String::new();
@@ -113,14 +110,9 @@ pub fn title_with_year(title: &str, year: Option<i16>) -> String {
 
 /// The item's title with its year; `removed series` or `removed movie` once it left the library.
 pub async fn item_title(library: &Library, item: ItemId) -> String {
-    match item {
-        ItemId::Series(id) => library
-            .series(id)
-            .await
-            .map_or_else(|_| "removed series".into(), |series| title_with_year(&series.title, series.year)),
-        ItemId::Movie(id) => library
-            .movie(id)
-            .await
-            .map_or_else(|_| "removed movie".into(), |movie| title_with_year(&movie.title, movie.year)),
-    }
+    let found = match item {
+        ItemId::Series(id) => library.series(id).await.map(|series| (series.title, series.year)),
+        ItemId::Movie(id) => library.movie(id).await.map(|movie| (movie.title, movie.year)),
+    };
+    found.map_or_else(|_| format!("removed {}", item.kind()), |(title, year)| title_with_year(&title, year))
 }
