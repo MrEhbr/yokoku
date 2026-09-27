@@ -12,7 +12,7 @@ use yokoku_events::{
 
 use crate::{
     Download, DownloadError, DownloadState, DownloadStatus,
-    ports::{DownloadClient, DownloadRepo, Torrent, TorrentSource},
+    ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource},
 };
 
 /// Torrents added through Yokoku and their state in the download client (FR-3).
@@ -97,21 +97,15 @@ impl Downloads {
     /// Records each download's progress and state; a download that finished emits
     /// `DownloadCompleted` once, however often and however many syncs run. A download another
     /// sync saved in the meantime is left to that sync. With `remove_after_seeding`, an imported
-    /// download whose seeding finished is removed from the client, emitting `TorrentRemoved`. With
-    /// `pick_up`, unknown torrents that qualify become unlinked downloads, emitting `TorrentAdded`.
+    /// download whose seeding finished is removed from the client, emitting `TorrentRemoved`. Unknown
+    /// torrents labelled `LABEL`, which Yokoku added but never saved, and with `pick_up` those that
+    /// qualify, become unlinked downloads, emitting `TorrentAdded`.
     pub async fn sync(&self) -> Result<SyncReport, DownloadError> {
         let known = self.repo.list().await?;
         let active: Vec<Download> =
             known.iter().filter(|download| download.status.state != DownloadState::Removed).cloned().collect();
-        let torrents = match &self.options.pick_up {
-            Some(_) => self.client.all_torrents().await?,
-            None => {
-                let hashes: Vec<String> = active.iter().map(|download| download.hash.clone()).collect();
-                self.client.torrents(&hashes).await?
-            },
-        };
         let mut torrents: HashMap<String, Torrent> =
-            torrents.into_iter().map(|torrent| (torrent.hash.clone(), torrent)).collect();
+            self.client.all_torrents().await?.into_iter().map(|torrent| (torrent.hash.clone(), torrent)).collect();
 
         let mut report = SyncReport::default();
         for mut download in active {
@@ -141,28 +135,31 @@ impl Downloads {
             }
         }
 
-        if let Some(pick_up) = &self.options.pick_up {
-            let known: HashSet<&str> = known.iter().map(|download| download.hash.as_str()).collect();
-            let mut new: Vec<Torrent> = torrents
-                .into_values()
-                .filter(|torrent| !known.contains(torrent.hash.as_str()) && pick_up.matches(torrent))
-                .collect();
-            new.sort_by(|a, b| a.hash.cmp(&b.hash));
-            for torrent in new {
-                let (mut download, events) =
-                    self.take_on(torrent.hash.clone(), torrent.name.clone(), None, Some(torrent));
-                match self.repo.save(&mut download).await {
-                    Err(StorageError::Conflict) => continue,
-                    result => result?,
-                }
-                self.events.publish_all(events).await;
-                report.picked_up += 1;
-                if download.completed_at.is_some() {
-                    report.completed.push(download.id);
-                }
+        let known: HashSet<&str> = known.iter().map(|download| download.hash.as_str()).collect();
+        let mut new: Vec<Torrent> = torrents
+            .into_values()
+            .filter(|torrent| !known.contains(torrent.hash.as_str()) && self.qualifies(torrent))
+            .collect();
+        new.sort_by(|a, b| a.hash.cmp(&b.hash));
+        for torrent in new {
+            let (mut download, events) = self.take_on(torrent.hash.clone(), torrent.name.clone(), None, Some(torrent));
+            match self.repo.save(&mut download).await {
+                Err(StorageError::Conflict) => continue,
+                result => result?,
+            }
+            self.events.publish_all(events).await;
+            report.picked_up += 1;
+            if download.completed_at.is_some() {
+                report.completed.push(download.id);
             }
         }
         Ok(report)
+    }
+
+    /// Labelled `LABEL`, or qualifying for `pick_up`.
+    fn qualifies(&self, torrent: &Torrent) -> bool {
+        torrent.labels.iter().any(|label| label == LABEL)
+            || self.options.pick_up.as_ref().is_some_and(|pick_up| pick_up.matches(torrent))
     }
 
     /// A new download and its `TorrentAdded`, with `DownloadCompleted` when the torrent is complete.

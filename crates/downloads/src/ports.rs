@@ -5,11 +5,15 @@ use yokoku_domain::{DownloadId, StorageError};
 
 use crate::{Download, DownloadStatus};
 
+/// The label `DownloadClient::add` puts on every torrent it adds.
+pub const LABEL: &str = "yokoku";
+
 #[async_trait]
 pub trait DownloadClient: Send + Sync {
     /// The client's name and version; fails when it cannot be reached.
     async fn version(&self) -> Result<String, ClientError>;
 
+    /// Adds the torrent labelled `LABEL`.
     async fn add(&self, torrent: &TorrentSource) -> Result<AddedTorrent, ClientError>;
 
     /// The torrents with these info hashes; ones the client no longer has are left out.

@@ -15,7 +15,7 @@ use yokoku_db::Database;
 use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, MovieId};
 use yokoku_downloads::{
     Download, DownloadError, DownloadOptions, DownloadState, DownloadStatus, Downloads, PickUp,
-    ports::{AddedTorrent, ClientError, DownloadClient, Torrent, TorrentSource},
+    ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
 use yokoku_events::{
     DownloadCompleted, Event, EventLog, FilesImported, Handler, Publisher, TorrentAdded, TorrentRemoved,
@@ -429,4 +429,16 @@ async fn a_download_that_was_removed_is_not_taken_on_again() {
 
     assert_eq!(report.picked_up, 0);
     assert_eq!(setup.only_download().await.status.state, DownloadState::Removed);
+}
+
+#[tokio::test]
+async fn a_torrent_yokoku_added_but_never_saved_is_taken_on_without_asking() {
+    let setup = setup().await;
+    setup.client.put(outside("aa", &[LABEL], "/downloads"));
+
+    let report = setup.downloads.sync().await.unwrap();
+
+    assert_eq!(report.picked_up, 1);
+    let download = setup.only_download().await;
+    assert_eq!((download.hash.as_str(), download.item), ("aa", None));
 }

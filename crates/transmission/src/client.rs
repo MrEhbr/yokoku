@@ -7,13 +7,12 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use yokoku_downloads::{
     DownloadState, DownloadStatus,
-    ports::{AddedTorrent, ClientError, DownloadClient, Torrent, TorrentSource},
+    ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
 
 use crate::wire;
 
 const SESSION_HEADER: &str = "X-Transmission-Session-Id";
-const LABEL: &str = "yokoku";
 
 /// Talks to Transmission's RPC endpoint, e.g. `http://localhost:9091/transmission/rpc`.
 pub struct TransmissionClient {
