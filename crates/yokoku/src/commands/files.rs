@@ -4,17 +4,13 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
-use yokoku_domain::{ExternalId, SubtitleTags};
+use yokoku_domain::SubtitleTags;
 use yokoku_media::{FileDetails, MediaError, MediaInfo, ports::ProbeError};
 
-use crate::{
-    app::App,
-    commands::{ItemArgs, Kind},
-    config::Config,
-};
+use crate::{app::App, commands::ItemArgs, config::Config};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct FilesConfig {
@@ -37,11 +33,7 @@ pub struct Args {
 #[derive(Subcommand)]
 pub enum Command {
     /// Show the files of a series or movie with their resolution and languages
-    Show {
-        kind: Kind,
-        /// Source id, e.g. `tmdb:1396`
-        source: ExternalId,
-    },
+    Show(ItemArgs),
     /// Read the details of every file not read yet, with ffprobe
     Probe,
 }
@@ -51,8 +43,8 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let mut out = io::stdout();
 
     match args.command {
-        Command::Show { kind, source } => {
-            let item = ItemArgs { kind, source }.resolve(&app.library).await?;
+        Command::Show(item) => {
+            let item = item.resolve(&app.library).await?;
             let details = app.prober.details(item).await?;
             if details.is_empty() {
                 writeln!(out, "No files.")?;
@@ -65,7 +57,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             let report = match app.prober.probe_missing().await {
                 Err(MediaError::Probe(ProbeError::Missing)) => {
                     let program = config.files.ffprobe.display();
-                    return Err(anyhow::anyhow!("{program} is not installed; set [files] ffprobe to its path"));
+                    bail!("{program} is not installed; set [files] ffprobe to its path");
                 },
                 result => result.context("Failed to probe files")?,
             };

@@ -1,15 +1,15 @@
 use std::io::{self, Write};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use yokoku_detect::Conflict;
-use yokoku_domain::{Confidence, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemId};
+use yokoku_domain::{Confidence, EpisodeSpan, FileTarget, ImportId};
 use yokoku_library::Library;
 use yokoku_media::{Approval, ReviewRow};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, import::run_imports, title_with_year},
+    commands::{ItemArgs, import::run_imports, title_with_year},
     config::Config,
 };
 
@@ -40,9 +40,8 @@ pub struct MatchArgs {
     pub import: ImportId,
     /// Row number, as shown by `review show`
     pub row: usize,
-    pub kind: Kind,
-    /// Source id, e.g. `tmdb:1396`
-    pub source: ExternalId,
+    #[command(flatten)]
+    pub item: ItemArgs,
     /// Episodes the file holds, e.g. `S01E02` or `S01E01-E03`; series only
     pub episodes: Option<EpisodeSpan>,
 }
@@ -71,7 +70,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             }
         },
         Command::Match(args) => {
-            let target = resolve(&app.library, &args).await?;
+            let target = args.item.file_target(&app.library, args.episodes).await?;
             app.review.match_row(args.import, args.row, target).await?;
             writeln!(out, "Matched row {}", args.row)?;
         },
@@ -93,16 +92,6 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     }
 
     Ok(())
-}
-
-async fn resolve(library: &Library, args: &MatchArgs) -> Result<FileTarget> {
-    let item = ItemArgs { kind: args.kind, source: args.source }.resolve(library).await?;
-    match (item, args.episodes) {
-        (ItemId::Series(series), Some(span)) => Ok(FileTarget::Episodes { series, span }),
-        (ItemId::Series(_), None) => bail!("A series match needs episodes, e.g. S01E02"),
-        (ItemId::Movie(movie), None) => Ok(FileTarget::Movie(movie)),
-        (ItemId::Movie(_), Some(_)) => bail!("A movie match takes no episodes"),
-    }
 }
 
 async fn target_label(library: &Library, row: &ReviewRow) -> String {

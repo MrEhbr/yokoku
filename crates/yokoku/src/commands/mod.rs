@@ -27,7 +27,9 @@ use std::io::{self, Write};
 
 use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
-use yokoku_domain::{ExternalId, FileStatus, ItemId, MediaKind, MovieStatus, ReleaseKind, SeriesStatus};
+use yokoku_domain::{
+    EpisodeSpan, ExternalId, FileStatus, FileTarget, ItemId, MediaKind, MovieStatus, ReleaseKind, SeriesStatus,
+};
 use yokoku_library::{Library, LibraryStatus};
 use yokoku_media::MediaFile;
 
@@ -59,6 +61,16 @@ impl ItemArgs {
             Kind::Movie => library.find_movie(self.source).await?.map(|movie| ItemId::Movie(movie.id)),
         };
         id.with_context(|| format!("{} {} is not in the library", kind_label(self.kind.into()), self.source))
+    }
+
+    /// `episodes` of a series, or a movie; fails when `episodes` does not fit the item type.
+    pub async fn file_target(&self, library: &Library, episodes: Option<EpisodeSpan>) -> Result<FileTarget> {
+        match (self.resolve(library).await?, episodes) {
+            (ItemId::Series(series), Some(span)) => Ok(FileTarget::Episodes { series, span }),
+            (ItemId::Series(_), None) => bail!("A series needs episodes, e.g. S01E02"),
+            (ItemId::Movie(movie), None) => Ok(FileTarget::Movie(movie)),
+            (ItemId::Movie(_), Some(_)) => bail!("A movie takes no episodes"),
+        }
     }
 }
 

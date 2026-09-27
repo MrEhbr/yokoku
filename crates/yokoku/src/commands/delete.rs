@@ -1,20 +1,19 @@
 use std::io::{self, Write};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use clap::Parser;
-use yokoku_domain::{EpisodeSpan, ExternalId, FileTarget, ItemId};
+use yokoku_domain::EpisodeSpan;
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, confirm_deletion},
+    commands::{ItemArgs, confirm_deletion},
     config::Config,
 };
 
 #[derive(Parser)]
 pub struct Args {
-    pub kind: Kind,
-    /// Source id, e.g. `tmdb:1396`
-    pub source: ExternalId,
+    #[command(flatten)]
+    pub item: ItemArgs,
     /// Episodes whose file to delete, e.g. `S01E02`; series only
     pub episodes: Option<EpisodeSpan>,
     /// Delete without asking
@@ -24,12 +23,7 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let target = match (ItemArgs { kind: args.kind, source: args.source }.resolve(&app.library).await?, args.episodes) {
-        (ItemId::Series(series), Some(span)) => FileTarget::Episodes { series, span },
-        (ItemId::Series(_), None) => bail!("Name the episodes whose file to delete, e.g. S01E02"),
-        (ItemId::Movie(movie), None) => FileTarget::Movie(movie),
-        (ItemId::Movie(_), Some(_)) => bail!("A movie takes no episodes"),
-    };
+    let target = args.item.file_target(&app.library, args.episodes).await?;
 
     confirm_deletion(&app.deleter.files_of(target).await?, args.yes)?;
     let deleted = app.deleter.delete(target).await?;

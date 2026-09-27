@@ -166,7 +166,7 @@ async fn a_series_match_needs_episodes() {
         .args(["review", "match", import, "1", "series", "tmdb:1"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("A series match needs episodes"));
+        .stderr(predicate::str::contains("A series needs episodes"));
 }
 
 #[tokio::test]
