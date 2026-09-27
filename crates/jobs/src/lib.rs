@@ -6,11 +6,10 @@ use apalis::prelude::{BoxDynError, Data, Monitor, WorkerBuilder, WorkerBuilderEx
 use apalis_cron::{CronScheduler, Tick};
 use jiff::SignedDuration;
 use jiff_cron::{Schedule, jiff::tz::TimeZone};
-use tracing::{Instrument, debug, error, info, info_span, warn};
+use tracing::{Instrument, debug, error, info_span};
 use yokoku_downloads::Downloads;
 use yokoku_events::{CorrelationId, correlation::correlate};
 use yokoku_integrations::Rescans;
-use yokoku_library::MetadataSync;
 use yokoku_media::{Importer, Scanner};
 
 /// Changes must stop arriving for this long before the media server rescans.
@@ -22,8 +21,6 @@ pub struct Jobs {
     pub downloads: Arc<Downloads>,
     pub importer: Arc<Importer>,
     pub scanner: Arc<Scanner>,
-    /// `None` while no metadata source is configured.
-    pub metadata: Option<Arc<MetadataSync>>,
     /// `None` while no media server is configured.
     pub rescans: Option<Arc<Rescans>>,
 }
@@ -34,7 +31,6 @@ pub struct Schedules {
     pub sync_downloads: Schedule,
     pub execute_imports: Schedule,
     pub rescan_media_server: Schedule,
-    pub refresh_metadata: Schedule,
     pub scan_library: Schedule,
 }
 
@@ -44,9 +40,6 @@ pub fn monitor(jobs: Jobs, schedules: Schedules) -> Monitor {
     monitor = register(monitor, "sync-downloads", schedules.sync_downloads, jobs.downloads, sync_downloads);
     monitor = register(monitor, "execute-imports", schedules.execute_imports, jobs.importer, execute_imports);
     monitor = register(monitor, "scan-library", schedules.scan_library, jobs.scanner, scan_library);
-    if let Some(metadata) = jobs.metadata {
-        monitor = register(monitor, "refresh-metadata", schedules.refresh_metadata, metadata, refresh_metadata);
-    }
     if let Some(rescans) = jobs.rescans {
         monitor = register(monitor, "rescan-media-server", schedules.rescan_media_server, rescans, rescan_media_server);
     }
@@ -99,15 +92,6 @@ async fn execute_imports(_tick: Tick<TimeZone>, importer: Data<Arc<Importer>>) -
 
 async fn scan_library(_tick: Tick<TimeZone>, scanner: Data<Arc<Scanner>>) -> Result<(), BoxDynError> {
     scanner.scan().await?;
-    Ok(())
-}
-
-async fn refresh_metadata(_tick: Tick<TimeZone>, metadata: Data<Arc<MetadataSync>>) -> Result<(), BoxDynError> {
-    let report = metadata.refresh_all().await?;
-    for failure in &report.failures {
-        warn!(item = ?failure.item, error = %failure.error, "metadata refresh failed");
-    }
-    info!(refreshed = report.refreshed, failed = report.failures.len(), "metadata refreshed");
     Ok(())
 }
 

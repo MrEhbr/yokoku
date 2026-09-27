@@ -40,7 +40,6 @@ sort = "title"
 sync_downloads = "*/30 * * * * *"
 execute_imports = "*/5 * * * * *"
 rescan_media_server = "*/10 * * * * *"
-refresh_metadata = "0 0 */6 * * *"
 scan_library = "0 0 5 * * *"
 
 # How finished downloads reach the library: hardlink, copy or move.

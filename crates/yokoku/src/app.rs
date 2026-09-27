@@ -286,11 +286,6 @@ impl App {
         self.sync.as_deref().context("No TMDB token configured; set APP__METADATA__TMDB_TOKEN")
     }
 
-    /// `None` while no TMDB token is configured.
-    pub fn metadata(&self) -> Option<Arc<MetadataSync>> {
-        self.sync.clone()
-    }
-
     /// The item's title with its year; `removed series` or `removed movie` once it left the library.
     pub async fn title(&self, item: ItemId) -> String {
         let found = match item {
