@@ -3,7 +3,7 @@ use std::io;
 use anyhow::Result;
 use clap::Parser;
 use jiff::civil::Date;
-use yokoku_domain::{ItemId, Movie, Series};
+use yokoku_domain::{ItemId, Series};
 use yokoku_library::LibraryStatus;
 
 use crate::{
@@ -25,9 +25,24 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
 
     match args.item.resolve(&app.library).await? {
         ItemId::Series(id) => print_series(&app.library.series(id).await?, today)?,
-        ItemId::Movie(id) => print_movie(&app.library.movie(id).await?, today)?,
+        ItemId::Movie(id) => {
+            let movie = app.library.movie(id).await?;
+            say!(
+                "{}  {}  {}  {}",
+                title_with_year(&movie.title, movie.year).bold(),
+                movie.source,
+                LibraryStatus::Movie(movie.status(today)).tone(),
+                monitored(movie.monitored),
+            )?;
+            let releases = &movie.releases;
+            for (kind, date) in
+                [("Cinema", releases.cinema), ("Digital", releases.digital), ("Physical", releases.physical)]
+            {
+                say!("{kind:<10}{}", date.map_or("-".into(), |date| date.to_string()))?;
+            }
+            say!("File      {}", movie.file_status(today).tone())?;
+        },
     }
-
     Ok(())
 }
 
@@ -41,15 +56,19 @@ fn print_series(series: &Series, today: Date) -> io::Result<()> {
         series.numbering,
     )?;
     match series.next_episode(today) {
-        Some((reference, episode)) => {
-            say!("Next      {reference}  {}  {}", date_label(episode.air_date), episode.title)?
-        },
+        Some((reference, episode)) => say!(
+            "Next      {reference}  {}  {}",
+            episode.air_date.map_or("-".into(), |date| date.to_string()),
+            episode.title
+        )?,
         None => say!("Next      -")?,
     }
     match series.last_aired(today) {
-        Some((reference, episode)) => {
-            say!("Last      {reference}  {}  {}", date_label(episode.air_date), episode.file_status(today).tone())?
-        },
+        Some((reference, episode)) => say!(
+            "Last      {reference}  {}  {}",
+            episode.air_date.map_or("-".into(), |date| date.to_string()),
+            episode.file_status(today).tone()
+        )?,
         None => say!("Last      -")?,
     }
 
@@ -60,7 +79,7 @@ fn print_series(series: &Series, today: Date) -> io::Result<()> {
                 "  S{:02}E{:02}  {:<10}  {:<10}  {:<11}  {}",
                 season.number,
                 episode.number,
-                date_label(episode.air_date),
+                episode.air_date.map_or("-".into(), |date| date.to_string()),
                 episode.file_status(today).tone(),
                 monitored(episode.monitored),
                 episode.title,
@@ -68,24 +87,6 @@ fn print_series(series: &Series, today: Date) -> io::Result<()> {
         }
     }
     Ok(())
-}
-
-fn print_movie(movie: &Movie, today: Date) -> io::Result<()> {
-    say!(
-        "{}  {}  {}  {}",
-        title_with_year(&movie.title, movie.year).bold(),
-        movie.source,
-        LibraryStatus::Movie(movie.status(today)).tone(),
-        monitored(movie.monitored),
-    )?;
-    say!("Cinema    {}", date_label(movie.releases.cinema))?;
-    say!("Digital   {}", date_label(movie.releases.digital))?;
-    say!("Physical  {}", date_label(movie.releases.physical))?;
-    say!("File      {}", movie.file_status(today).tone())
-}
-
-fn date_label(date: Option<Date>) -> String {
-    date.map_or_else(|| "-".to_owned(), |date| date.to_string())
 }
 
 fn monitored(monitored: bool) -> Painted<&'static str> {

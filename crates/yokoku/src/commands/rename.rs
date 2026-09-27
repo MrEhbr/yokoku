@@ -1,9 +1,9 @@
-use std::{io, path::Path};
+use std::path::Path;
 
 use anyhow::{Result, bail};
 use clap::Parser;
 use yokoku_domain::{ExternalId, ItemId};
-use yokoku_media::{Rename, RenameScope, SkipReason, Skipped};
+use yokoku_media::RenameScope;
 
 use crate::{
     app::App,
@@ -43,9 +43,15 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             hint!("Nothing to rename.")?;
         }
         for rename in &plan.renames {
-            print_rename(rename)?;
+            let relative = |path: &Path| path.strip_prefix(&rename.root).unwrap_or(path).display().to_string();
+            let moves = std::iter::once(&rename.video).chain(&rename.subtitles).filter(|step| step.from != step.to);
+            for step in moves {
+                say!("{}\n  {} {}", relative(&step.from), "->".dimmed(), relative(&step.to).green())?;
+            }
         }
-        print_skipped(&plan.skipped)?;
+        for skipped in &plan.skipped {
+            caution!("Skipped {}: {}", skipped.path.display(), skipped.reason)?;
+        }
         if !plan.renames.is_empty() {
             say!("Run with --apply to rename {} files.", plan.renames.len())?;
         }
@@ -55,33 +61,14 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let report = app.renamer.apply(scope).await?;
     app.deliver_events().await?;
     success!("Renamed {} files", report.renamed.len())?;
-    print_skipped(&report.skipped)?;
+    for skipped in &report.skipped {
+        caution!("Skipped {}: {}", skipped.path.display(), skipped.reason)?;
+    }
     for failure in &report.failed {
         failure!("Failed {}: {}", failure.path.display(), failure.error)?;
     }
     if !report.failed.is_empty() {
         bail!("{} files could not be renamed", report.failed.len());
-    }
-    Ok(())
-}
-
-fn print_rename(rename: &Rename) -> io::Result<()> {
-    let relative = |path: &Path| path.strip_prefix(&rename.root).unwrap_or(path).display().to_string();
-    let moves = std::iter::once(&rename.video).chain(&rename.subtitles).filter(|step| step.from != step.to);
-    for step in moves {
-        say!("{}\n  {} {}", relative(&step.from), "->".dimmed(), relative(&step.to).green())?;
-    }
-    Ok(())
-}
-
-fn print_skipped(skipped: &[Skipped]) -> io::Result<()> {
-    for skipped in skipped {
-        let reason = match skipped.reason {
-            SkipReason::OutsideRoots => "not in a root folder",
-            SkipReason::NotInLibrary => "its item is no longer in the library",
-            SkipReason::SharedTarget => "another file would get the same name",
-        };
-        caution!("Skipped {}: {reason}", skipped.path.display())?;
     }
     Ok(())
 }

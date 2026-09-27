@@ -1,8 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use yokoku_detect::Conflict;
 use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
-use yokoku_media::{Approval, ReviewRow};
+use yokoku_media::Approval;
 
 use crate::{
     app::App,
@@ -62,8 +61,22 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             say!("{}", review.source.display())?;
             for (number, row) in (1..).zip(&review.rows) {
                 let file = row.row.path.strip_prefix(&review.source).unwrap_or(&row.row.path);
-                let target = target_label(&app, row).await;
-                say!("{number:>3}  {:<50}  {target:<40}  {}", file.display(), details(row))?;
+                if row.row.skipped {
+                    say!("{number:>3}  {:<50}  skipped", file.display())?;
+                    continue;
+                }
+                let target = match row.row.target {
+                    None => "-".into(),
+                    Some(FileTarget::Episodes { series, span }) => {
+                        format!("{} {span}", app.title(ItemId::Series(series)).await)
+                    },
+                    Some(FileTarget::Movie(movie)) => app.title(ItemId::Movie(movie)).await,
+                };
+                let replaces = row.row.replace.then(|| "replaces the library file".to_owned());
+                let conflicts = row.conflicts.iter().map(|conflict| conflict.yellow().to_string());
+                let details: Vec<String> =
+                    [row.row.confidence.tone().to_string()].into_iter().chain(replaces).chain(conflicts).collect();
+                say!("{number:>3}  {:<50}  {target:<40}  {}", file.display(), details.join(", "))?;
             }
         },
         Command::Match(args) => {
@@ -89,29 +102,4 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     }
 
     Ok(())
-}
-
-async fn target_label(app: &App, row: &ReviewRow) -> String {
-    if row.row.skipped {
-        return "skipped".into();
-    }
-    match row.row.target {
-        None => "-".into(),
-        Some(FileTarget::Episodes { series, span }) => {
-            format!("{} {span}", app.title(ItemId::Series(series)).await)
-        },
-        Some(FileTarget::Movie(movie)) => app.title(ItemId::Movie(movie)).await,
-    }
-}
-
-fn details(row: &ReviewRow) -> String {
-    if row.row.skipped {
-        return String::new();
-    }
-    let conflicts = row.conflicts.iter().map(|conflict| match conflict {
-        Conflict::SharedTarget => "same as another row".yellow().to_string(),
-        Conflict::AlreadyHasFile => "already has a file".yellow().to_string(),
-    });
-    let replaces = row.row.replace.then(|| "replaces the library file".to_owned());
-    [row.row.confidence.tone().to_string()].into_iter().chain(replaces).chain(conflicts).collect::<Vec<_>>().join(", ")
 }

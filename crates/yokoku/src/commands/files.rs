@@ -3,8 +3,7 @@ use std::{io, path::PathBuf};
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
-use yokoku_domain::SubtitleTags;
-use yokoku_media::{FileDetails, MediaError, MediaInfo, ports::ProbeError};
+use yokoku_media::{FileDetails, MediaError, ports::ProbeError};
 
 use crate::{app::App, commands::ItemArgs, config::Config, output::Paint};
 
@@ -68,25 +67,22 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
 fn write_details(details: &FileDetails) -> io::Result<()> {
     say!("{}", details.file.path.display().bold())?;
     let size = format!("{:.1} GB", details.file.size as f64 / 1_000_000_000.0);
-    let Some(info) = &details.info else {
-        say!("  {size}, not probed yet; run `yokoku files probe`")?;
-        return write_subtitles(None, &details.subtitle_files);
-    };
-    let minutes = info.duration.map(|duration| duration.as_secs() / 60);
-    let duration = minutes.map(|minutes| format!("{}h {:02}m", minutes / 60, minutes % 60));
-    let summary: Vec<String> =
-        [Some(size), duration, info.video.as_ref().map(ToString::to_string)].into_iter().flatten().collect();
-    say!("  {}", summary.join(", "))?;
-    if !info.audio.is_empty() {
-        let audio: Vec<String> = info.audio.iter().map(ToString::to_string).collect();
-        say!("  Audio      {}", audio.join(", "))?;
+    match &details.info {
+        None => say!("  {size}, not probed yet; run `yokoku files probe`")?,
+        Some(info) => {
+            let minutes = info.duration.map(|duration| duration.as_secs() / 60);
+            let duration = minutes.map(|minutes| format!("{}h {:02}m", minutes / 60, minutes % 60));
+            let summary: Vec<String> =
+                [Some(size), duration, info.video.as_ref().map(ToString::to_string)].into_iter().flatten().collect();
+            say!("  {}", summary.join(", "))?;
+            if !info.audio.is_empty() {
+                let audio: Vec<String> = info.audio.iter().map(ToString::to_string).collect();
+                say!("  Audio      {}", audio.join(", "))?;
+            }
+        },
     }
-    write_subtitles(Some(info), &details.subtitle_files)
-}
-
-fn write_subtitles(info: Option<&MediaInfo>, files: &[SubtitleTags]) -> io::Result<()> {
-    let inside: Vec<String> = info.into_iter().flat_map(|info| &info.subtitles).map(ToString::to_string).collect();
-    let beside: Vec<String> = files.iter().map(ToString::to_string).collect();
+    let inside: Vec<String> = details.info.iter().flat_map(|info| &info.subtitles).map(ToString::to_string).collect();
+    let beside: Vec<String> = details.subtitle_files.iter().map(ToString::to_string).collect();
     let parts: Vec<String> = [(inside, "in the file"), (beside, "beside it")]
         .into_iter()
         .filter(|(languages, _)| !languages.is_empty())
