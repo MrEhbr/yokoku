@@ -21,6 +21,7 @@
 @import "tailwindcss";
 
 @source "./src/**/*.rs";
+@source "./gallery/**/*.rs";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -109,7 +110,7 @@
 
 @utility yk-page-title { @apply font-display text-page font-normal tracking-tight; }
 @utility yk-kicker { @apply font-mono text-caption tracking-widest text-muted uppercase; }
-@utility yk-code { @apply font-mono text-caption break-words; }
+@utility yk-code { @apply font-mono text-caption wrap-break-word; }
 @utility yk-highlight { @apply bg-accent px-1 text-accent-ink; }
 
 @media (max-width: 39.999rem) {

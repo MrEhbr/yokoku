@@ -7,6 +7,7 @@ use topcoat::{
     Result,
     asset::{AssetBundle, RouterBuilderAssetExt},
     context::Cx,
+    cookie::RouterBuilderCookieExt,
     router::{
         Router, RouterBuilderDiscoverExt, Slot, StatusCode, error::NotFoundError, href, layout, module_router,
         not_found, page,
@@ -14,15 +15,18 @@ use topcoat::{
     view::{View, class, component, error_boundary, view},
 };
 
-use crate::components::{
-    attribution::attribution, document_head::document_head, empty_state::empty_state, page_header::page_header,
+use crate::{
+    components::{
+        attribution::attribution, document_head::document_head, empty_state::empty_state, page_header::page_header,
+    },
+    theme,
 };
 
 not_found!();
 
 /// The web application. `assets` is the bundle built for the running binary.
 pub fn router(assets: AssetBundle) -> Router {
-    module_router!().discover().assets(assets).build()
+    module_router!().discover().assets(assets).cookies().build()
 }
 
 #[layout]
@@ -35,7 +39,7 @@ async fn layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
 
     Ok(view! {
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" data-theme=(theme::current(cx).attribute())>
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">

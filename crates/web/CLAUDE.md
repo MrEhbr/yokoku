@@ -12,7 +12,7 @@ src/app.rs              module_router!() root: #[layout] (document, nav, error b
 src/app/<page>.rs       one module per URL segment; path params via path_param! in their own module
 src/components/         Yokoku components (media_card, rename_row, selection_bar, ...)
 src/components/ui/      topcoat-ui primitives, tracked by components.toml
-src/gallery.rs          dev-only bin: serves router() plus showcase pages at /gallery/*, collected by .discover()
+gallery/                dev-only bin: one page per component (stories), iframe frames for overlays; own router, not the app
 styles.css              Tailwind input: Paper tokens, @source, base layer
 build.rs                stages lucide icons, renders Tailwind
 ```
@@ -36,7 +36,7 @@ build.rs                stages lucide icons, renders Tailwind
 - Components are presentational: plain strings, numbers, and local enums (`Tone`). Pages map domain enums to props. The status taxonomy is separate per category; never merge categories into one badge.
 - `class!` concatenates; it neither merges nor dedupes Tailwind classes. Never append a conflicting utility (e.g. `text-caption` over `text-body`); drop it from the base. An `attrs` `class` replaces the element's class unless the component merges it through `class!(BASE, attrs.remove("class"))`.
 - Colors only through Paper tokens (`bg-canvas`, `text-ink`, `border-control`, `text-warning`, ...). Pink (`accent`) means the primary action only. Focus styling is global; don't add `outline-none` or rings.
-- Keep class names statically visible in `.rs` files under `src/`. Tailwind scans only this crate, honors `.gitignore` (the root `bin/` rule hides any `src/bin/`), and misses dynamically built names.
+- Keep class names statically visible in `.rs` files under `src/` or `gallery/` (the `@source` globs). Tailwind scans only this crate, honors `.gitignore` (the root `bin/` rule hides any `src/bin/`), and misses dynamically built names.
 - `components/ui/*` is vendored upstream code restyled to Paper. `topcoat ui add --overwrite` discards the restyle; `ui list` can't see local edits.
 
 ## View gotchas
@@ -58,7 +58,7 @@ build.rs                stages lucide icons, renders Tailwind
 
 - `signal(cx, || v)` + `$(...)` for client-only state (dialogs, toggles). The `$()` vocabulary is small: no iterators, no `Vec::contains`/`push`.
 - `$()` captures are sent to the browser; never capture secrets. Unsuffixed integers are `usize`, and overflow panics.
-- No built-in browser storage. `raw!("js ${binding}", rust_fallback)` reaches JS such as `localStorage` from an event handler, but the server can't read it at render time, so the first paint uses the server value. Prefer, in order: server settings (theme), query params (view mode, sort, filters), then `localStorage` for client-only memory.
+- No built-in browser storage. `raw!("js ${binding}", rust_fallback)` reaches JS such as `localStorage` from an event handler, but the server can't read it at render time, so the first paint uses the server value. Prefer, in order: cookies read on the server (theme), query params (view mode, sort, filters), then `localStorage` for client-only memory.
 - `#[shard]`: server re-render on argument change (filters, search, an import-review row). A tracked `.get()` in a page body re-renders the whole page; keep tracked reads inside shards.
 - `#[procedure]`: typed RPC from an event handler. Return `Ok(Result<T, String>)` when the page must handle the failure.
 - Shard and procedure paths change between builds unless set explicitly. Their args are user input; authorize and validate inside.
@@ -73,11 +73,11 @@ build.rs                stages lucide icons, renders Tailwind
 - An asset ID hashes crate, source file, and path. `tailwind::stylesheet!()`'s path is the absolute `OUT_DIR`, which contains the target triple, so a bundle from a plain build doesn't serve a `--target` build ("failed to resolve asset"). goreleaser always passes `--target`. Don't use `stylesheet!()`: render Tailwind to a fixed, gitignored `src/tailwind.css` (`.output("src/tailwind.css")`) and link it with `asset!("../tailwind.css")` from `components/document_head.rs`, as done here. One host bundle then serves every target (the pattern in denis's releases).
 - Release: a goreleaser `before` hook runs `topcoat asset bundle -p yokoku --release -o target/yokoku-assets`; archives and the Dockerfile ship it as `assets/` next to the binary. CI installs `topcoat-cli` at the `topcoat-asset` version in `Cargo.lock`.
 - The build downloads Tailwind (4.3.2), lucide, and fonts.
-- Gallery: `just gallery` (`topcoat dev -p yokoku-web --bin gallery`) serves the app with the showcase at http://127.0.0.1:3000/gallery. Without the dev server: `topcoat asset bundle -p yokoku-web --bin gallery && ./target/debug/gallery`. The theme follows the OS until Settings stores it.
+- Gallery: `just web gallery` (`topcoat dev -p yokoku-web --bin gallery`) at http://127.0.0.1:3000. Add a story page in `gallery/ui.rs` or `gallery/components.rs` and its entry in `NAV` (`gallery/main.rs`) with every new component. Its theme switch uses the app's cookie.
 - `topcoat dev` starts the binary with no arguments and sets `HOST`/`PORT`/`TOPCOAT_DEV_URL`. `dev::script()` renders nothing outside it.
 - Serving inside `yokoku serve`: `topcoat::serve_until(listener, router, token.cancelled_owned())`. Never `topcoat::start`, which installs its own signal handling.
 - Topcoat CLI must match the crate: `cargo install topcoat-cli --version 0.9.0 --locked`.
-- Format view macros with `topcoat fmt crates/web/src`; never run it without paths (it ignores `.gitignore` and walks `target/`). It has no check mode.
+- Format view macros with `just web fmt` (`topcoat fmt src` in the crate); never run it without paths (it ignores `.gitignore` and walks `target/`). It has no check mode.
 
 ## Tests
 
@@ -85,6 +85,8 @@ build.rs                stages lucide icons, renders Tailwind
 - A component alone: `view.single().await?.render(cx)` renders non-live HTML.
 - POST tests: send same-origin headers or none, or the origin policy returns 403.
 
-## Sessions
+## Cookies and sessions
 
-- Topcoat sessions use `__Host-`/`Secure` cookies and don't work over plain-HTTP LAN. For preferences like the theme, use a plain cookie.
+- Per-browser preferences are plain cookies, so the server renders them on first paint. Routers that read cookies need `.cookies()`.
+- Theme: `theme::current(cx).attribute()` sets `data-theme` on `<html>`. `theme_switch(action)` posts a `ThemeChange` form to a route owned by each router; the route calls `theme::remember(cx, change.theme)` and returns `see_other(change.back())`. `back()` only accepts local paths.
+- Topcoat sessions use `__Host-`/`Secure` cookies and don't work over plain-HTTP LAN.

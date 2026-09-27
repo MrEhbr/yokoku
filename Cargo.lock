@@ -5103,6 +5103,8 @@ dependencies = [
 name = "yokoku-web"
 version = "0.0.1"
 dependencies = [
+ "rstest",
+ "serde",
  "tokio",
  "topcoat",
 ]

@@ -7,14 +7,18 @@ license.workspace = true
 
 [[bin]]
 name = "gallery"
-path = "src/gallery.rs"
+path = "gallery/main.rs"
 
 [lints]
 workspace = true
 
 [dependencies]
+serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 topcoat = { workspace = true, features = ["default", "font-fontsource", "icon-iconify", "tailwind"] }
 
 [build-dependencies]
 topcoat = { workspace = true, features = ["icon-iconify", "tailwind"] }
+
+[dev-dependencies]
+rstest.workspace = true
