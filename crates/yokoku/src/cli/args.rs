@@ -82,8 +82,7 @@ impl Args {
     /// The configuration from the config file and the environment; the stored settings are read
     /// once the database opens.
     fn resolve_config(&self) -> Result<Config> {
-        let mut config: Config =
-            yokoku_config::load(self.config.as_deref(), &[]).context("Failed to load configuration")?;
+        let mut config = Config::load(self.config.as_deref(), &[]).context("Failed to load configuration")?;
 
         // `tracing_level()` yields the default level even when no flag was
         // passed, so only consult it when the user actually supplied one.

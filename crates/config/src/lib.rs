@@ -9,7 +9,7 @@ use std::path::Path;
 
 use anyhow::{Result, bail};
 use config::{Environment, File, FileFormat};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use yokoku_domain::REDACTED;
 use yokoku_downloads::DownloadOptions;
@@ -29,57 +29,23 @@ pub use crate::{
 const ENV_PREFIX: &str = "APP";
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[serde(default)]
 pub struct Config {
-    #[serde(default)]
     pub log: LogConfig,
-    #[serde(default)]
     pub database: DatabaseConfig,
-    #[serde(default)]
     pub clock: ClockSettings,
-    #[serde(default)]
     pub metadata: MetadataSettings,
-    #[serde(default)]
     pub transmission: TransmissionSettings,
-    #[serde(default)]
     pub downloads: DownloadOptions,
-    #[serde(default)]
     pub add: AddConfig,
-    #[serde(default)]
     pub list: ListConfig,
-    #[serde(default)]
     pub calendar: CalendarConfig,
-    #[serde(default)]
     pub serve: ScheduleSettings,
-    #[serde(default)]
     pub web: WebConfig,
-    #[serde(default)]
     pub import: ImportSettings,
-    #[serde(default)]
     pub jellyfin: JellyfinSettings,
-    #[serde(default)]
     pub files: ProbeSettings,
-    #[serde(default)]
     pub naming: Naming,
-}
-
-/// Load configuration with precedence: env vars (APP__*) > stored settings > config file > defaults.
-/// `stored` holds values by dotted key, such as `import.mode`.
-pub fn load<T>(config_path: Option<&Path>, stored: &[(String, Value)]) -> Result<T>
-where
-    T: DeserializeOwned + Serialize + Default,
-{
-    let mut builder = config::Config::builder().add_source(config::Config::try_from(&T::default())?);
-
-    if let Some(path) = config_path {
-        builder = builder.add_source(File::from(path).format(FileFormat::Toml).required(false));
-    }
-    if !stored.is_empty() {
-        builder = builder.add_source(File::from_str(&nested(stored).to_string(), FileFormat::Json));
-    }
-
-    let config = builder.add_source(Environment::with_prefix(ENV_PREFIX).separator("__")).build()?;
-
-    Ok(config.try_deserialize()?)
 }
 
 /// `a.b = 1` becomes `{ "a": { "b": 1 } }`.
@@ -110,6 +76,23 @@ fn insert(table: &mut Map<String, Value>, path: &[&str], value: Value) {
 }
 
 impl Config {
+    /// Loads with precedence: env vars (APP__*) > stored settings > config file > defaults.
+    /// `stored` holds values by dotted key, such as `import.mode`.
+    pub fn load(config_path: Option<&Path>, stored: &[(String, Value)]) -> Result<Self> {
+        let mut builder = config::Config::builder().add_source(config::Config::try_from(&Self::default())?);
+
+        if let Some(path) = config_path {
+            builder = builder.add_source(File::from(path).format(FileFormat::Toml).required(false));
+        }
+        if !stored.is_empty() {
+            builder = builder.add_source(File::from_str(&nested(stored).to_string(), FileFormat::Json));
+        }
+
+        let config = builder.add_source(Environment::with_prefix(ENV_PREFIX).separator("__")).build()?;
+
+        Ok(config.try_deserialize()?)
+    }
+
     /// Fails on a setting that would only fail later, when used.
     pub fn validate(&self) -> Result<()> {
         self.metadata.tvdb_language()?;
@@ -129,7 +112,7 @@ impl Config {
     /// `value` as `setting` shows it once loaded, so a secret reads `"<redacted>"`; a value that does
     /// not load is shown as stored.
     pub fn shown(key: &str, value: &Value) -> Value {
-        match load::<Self>(None, &[(key.to_owned(), value.clone())]).and_then(|config| config.setting(key)) {
+        match Self::load(None, &[(key.to_owned(), value.clone())]).and_then(|config| config.setting(key)) {
             Ok(loaded) if loaded == REDACTED => loaded,
             _ => value.clone(),
         }

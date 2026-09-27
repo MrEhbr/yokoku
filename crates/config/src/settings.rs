@@ -9,7 +9,7 @@ use tracing::info;
 use yokoku_domain::{Live, SettingsStore};
 use yokoku_events::{Handler, HandlerError, SettingsChanged};
 
-use crate::{Config, load};
+use crate::Config;
 
 /// The configuration in effect: the config file, then the stored settings, then the environment.
 #[derive(Clone)]
@@ -49,7 +49,7 @@ impl Settings {
 }
 
 async fn read(path: Option<&PathBuf>, store: &dyn SettingsStore) -> Result<Config> {
-    let config: Config = load(path.map(PathBuf::as_path), &store.settings().await?)?;
+    let config = Config::load(path.map(PathBuf::as_path), &store.settings().await?)?;
     config.validate()?;
     Ok(config)
 }

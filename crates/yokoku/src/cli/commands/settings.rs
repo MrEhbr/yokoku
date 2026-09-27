@@ -45,8 +45,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
             }
         },
         Command::Get { key } => {
-            let effective: Config =
-                yokoku_config::load(config_path, &stored).context("Failed to load configuration")?;
+            let effective = Config::load(config_path, &stored).context("Failed to load configuration")?;
             say!("{}", effective.setting(&key)?)?;
         },
         Command::Set { key, value } => {
@@ -54,8 +53,8 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
             let value = serde_json::from_str(&value).unwrap_or(Value::String(value));
             let mut candidate: Vec<(String, Value)> = stored.into_iter().filter(|(stored, _)| *stored != key).collect();
             candidate.push((key.clone(), value.clone()));
-            let effective: Config =
-                yokoku_config::load(config_path, &candidate).with_context(|| format!("{key} cannot be {value}"))?;
+            let effective =
+                Config::load(config_path, &candidate).with_context(|| format!("{key} cannot be {value}"))?;
             effective.validate().with_context(|| format!("{key} cannot be {value}"))?;
 
             db.set_setting(&key, &value).await.context("Failed to store the setting")?;
