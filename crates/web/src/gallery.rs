@@ -57,6 +57,16 @@ use yokoku_web::{
         tooltip::{tooltip, tooltip_content},
     },
     head::head,
+    widgets::{
+        app_shell::{Destination, app_shell},
+        bulk_bar::bulk_bar,
+        empty_state::empty_state,
+        file_row::file_row,
+        job_progress::job_progress,
+        media_card::media_card,
+        page_header::page_header,
+        status::{Tone, status},
+    },
 };
 
 #[tokio::main]
@@ -77,33 +87,21 @@ fn theme(cx: &Cx) -> Option<&'static str> {
 }
 
 #[component]
-async fn shell(cx: &Cx, title: &str, child: Child<'_>) -> Result<impl View> {
+async fn shell(cx: &Cx, title: &str, #[default] current: Option<Destination>, child: Child<'_>) -> Result<impl View> {
     Ok(view! {
-        <!DOCTYPE html>
-        <html lang="en" data-theme=(theme(cx))>
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>(title)</title>
-                topcoat::dev::script()
-                head()
-            </head>
-            <body>
-                <header class="border-b border-ink">
-                    <nav class="mx-auto flex max-w-content flex-wrap items-center gap-4 px-5 py-4 sm:px-8">
-                        <a href="/" class="font-mono text-xl tracking-tight">"yokoku"</a>
-                        <span class="yk-kicker">"Paper components"</span>
-                        <span class="ml-auto flex gap-3 text-caption">
-                            <a href="?" class="underline">"System"</a>
-                            <a href="?theme=light" class="underline">"Light"</a>
-                            <a href="?theme=dark" class="underline">"Dark"</a>
-                        </span>
-                    </nav>
-                </header>
-                <main class="mx-auto max-w-content px-5 pb-16 sm:px-8">(child)</main>
-                <script>"for (const box of document.querySelectorAll('[data-indeterminate]')) box.indeterminate = true;"</script>
-            </body>
-        </html>
+        app_shell(
+            title: title,
+            current: current,
+            theme: theme(cx),
+            <p class="flex gap-3 pt-4 text-caption">
+                "Appearance:"
+                <a href="?" class="underline">"System"</a>
+                <a href="?theme=light" class="underline">"Light"</a>
+                <a href="?theme=dark" class="underline">"Dark"</a>
+            </p>
+            (child)
+            <script>"for (const box of document.querySelectorAll('[data-indeterminate]')) box.indeterminate = true;"</script>
+        )
     })
 }
 
@@ -129,6 +127,7 @@ async fn index() -> Result<impl View> {
                     <a class="underline" href="/alert-dialog">"Alert dialog"</a>
                     <a class="underline" href="/sheet">"Sheet"</a>
                     <a class="underline" href="/sidebar">"Sidebar"</a>
+                    <a class="underline" href="/widgets">"Yokoku widgets"</a>
                 </p>
             </div>
 
@@ -581,5 +580,140 @@ async fn sidebar_page(cx: &Cx) -> Result<impl View> {
                 )
             </body>
         </html>
+    })
+}
+
+const POSTER: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2 3'%3E%3Cdefs%3E%3ClinearGradient id='g' x2='0' y2='1'%3E%3Cstop stop-color='%23355e82'/%3E%3Cstop offset='1' stop-color='%23e99db4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='2' height='3' fill='url(%23g)'/%3E%3C/svg%3E";
+
+#[page("/widgets")]
+async fn widgets_page() -> Result<impl View> {
+    Ok(view! {
+        shell(title: "Library", current: Some(Destination::Library),
+            page_header(
+                title: "Library",
+                button("Rename files")
+                button(variant: ButtonVariant::Primary, "Add a movie or series")
+            )
+
+            section(title: "Media cards",
+                <div class="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-5 gap-y-8">
+                    media_card(
+                        title: "The Expanse", href: "#", meta: "2015 · Series", poster: POSTER,
+                        status(tone: Tone::Muted, label: "Ended")
+                        status(tone: Tone::Success, label: "All files present")
+                    )
+                    media_card(
+                        title: "Orbital", href: "#", meta: "2024 · Series",
+                        status(tone: Tone::Info, label: "Continuing")
+                        status(tone: Tone::Warning, label: "2 missing")
+                        <span class="font-mono text-caption text-muted">"Next: S02E04 · Oct 4"</span>
+                    )
+                    media_card(
+                        title: "Night Train to a Very Long Title That Wraps", href: "#", meta: "2026 · Movie",
+                        status(tone: Tone::Info, label: "In cinemas")
+                        <span class="font-mono text-caption text-muted">"Digital: Nov 12"</span>
+                    )
+                </div>
+            )
+
+            section(title: "Status taxonomy",
+                <div class="flex flex-wrap gap-x-6 gap-y-3">
+                    status(tone: Tone::Success, label: "Downloaded")
+                    status(tone: Tone::Warning, label: "Missing")
+                    status(tone: Tone::Info, label: "Not yet aired")
+                    status(tone: Tone::Muted, label: "Not monitored")
+                    status(tone: Tone::Success, label: "Certain")
+                    status(tone: Tone::Warning, label: "Guess")
+                    status(tone: Tone::Danger, label: "Import failed")
+                </div>
+            )
+
+            section(title: "Rename preview",
+                bulk_bar(summary: "2 of 3 files selected")
+                <div>
+                    file_row(
+                        old: "The.Expanse.S01E01.1080p.WEB.mkv",
+                        checkbox_attrs: attributes! { name="file" value="1" checked="" },
+                        <span class="yk-code break-all">"The Expanse (2015) - S01E01 - Dulcinea.mkv"</span>
+                    )
+                    file_row(
+                        old: "The.Expanse.S01E02.1080p.WEB.mkv",
+                        checkbox_attrs: attributes! { name="file" value="2" checked="" },
+                        <span class="yk-code break-all">"The Expanse (2015) - S01E02 - The Big Empty.mkv"</span>
+                    )
+                    file_row(
+                        old: "The.Expanse.S01E03.1080p.WEB.en.srt",
+                        checkbox_attrs: attributes! { name="file" value="3" },
+                        <span class="yk-code break-all">"The Expanse (2015) - S01E03 - Remember the Cant.en.srt"</span>
+                    )
+                </div>
+            )
+
+            section(title: "Import review",
+                bulk_bar(
+                    summary: "2 files selected",
+                    <div class="grid gap-1.5">
+                        label(attrs: attributes! { for="bulk-season" class="text-caption" }, "Season")
+                        select(attrs: attributes! { id="bulk-season" class="w-auto" }, <option>"Mixed"</option> <option>"Season 1"</option> <option>"Season 2"</option>)
+                    </div>
+                    button("Detect again")
+                    button("Assign episodes in order")
+                )
+                <div>
+                    file_row(
+                        old: "orbital.ep1.mkv",
+                        checkbox_attrs: attributes! { name="file" value="1" checked="" },
+                        select(
+                            attrs: attributes! { aria-label="New name for orbital.ep1.mkv" class="font-mono text-caption" },
+                            <option selected="">"Orbital (2024) - S01E01 - Launch.mkv"</option>
+                            <option>"Orbital (2024) - S01E02 - Drift.mkv"</option>
+                        )
+                    )
+                    file_row(
+                        old: "orbital.bonus.mkv",
+                        checkbox_attrs: attributes! { name="file" value="2" checked="" },
+                        select(
+                            attrs: attributes! { aria-label="New name for orbital.bonus.mkv" aria-invalid="true" class="font-mono text-caption" },
+                            <option value="" selected="">"Choose the correct name…"</option>
+                            <option>"Orbital (2024) - S00E01 - Behind the Launch.mkv"</option>
+                        )
+                    )
+                </div>
+                alert(variant: AlertVariant::Warning, alert_title("1 file needs an episode match before import."))
+                <div class="flex justify-end gap-2">
+                    button("Cancel")
+                    button(variant: ButtonVariant::Primary, attrs: attributes! { disabled="" }, "Import 2 files")
+                </div>
+            )
+
+            section(title: "Operations",
+                <div class="grid max-w-xl gap-6">
+                    job_progress(title: "Orbital · Season 1", detail: "64% · 4.1 MB/s · 2 min left", value: 64.0)
+                    job_progress(title: "Scanning library", detail: "1,204 files checked")
+                    job_progress(
+                        title: "Night Train (2026)",
+                        detail: "Stopped at 12%",
+                        value: 12.0,
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            status(tone: Tone::Danger, label: "Tracker unreachable")
+                            button(size: ButtonSize::Sm, "Retry")
+                        </div>
+                    )
+                </div>
+            )
+
+            section(title: "Empty states",
+                empty_state(
+                    title: "Your library is empty.",
+                    description: "Add a movie or series to start tracking releases.",
+                    button(variant: ButtonVariant::Primary, "Add a movie or series")
+                )
+                empty_state(
+                    title: "No results match these filters.",
+                    button("Clear filters")
+                )
+                empty_state(title: "No files need review.")
+            )
+        )
     })
 }
