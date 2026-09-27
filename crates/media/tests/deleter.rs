@@ -2,8 +2,10 @@ mod common;
 
 use std::{fs, os::unix::fs::PermissionsExt};
 
-use common::App;
-use yokoku_events::{DeleteReason, Event, FileDeleted, Handler, SeriesRemoved};
+use common::{App, TODAY, frieren_metadata, now};
+use yokoku_domain::{ItemFolder, ItemId, MonitorPreset, Series};
+use yokoku_events::{DeleteReason, Event, FileDeleted, Handler, SeriesAdded, SeriesRemoved};
+use yokoku_library::ports::SeriesRepo;
 use yokoku_media::MediaError;
 
 const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
@@ -63,14 +65,35 @@ async fn removing_a_series_with_its_files_deletes_them_all() {
     let removed = |delete_files| SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files };
     let deleter = app.deleter();
 
-    deleter.handle(&removed(false)).await.unwrap();
-    assert_eq!(app.db_files().await.len(), 3);
     deleter.handle(&removed(true)).await.unwrap();
     deleter.handle(&removed(true)).await.unwrap();
 
     assert!(!app.path(E01).exists() && !app.path(E02).exists());
     assert_eq!(app.db_files().await.len(), 1);
     assert_eq!(deleted_events(&app.events().await), [DeleteReason::ItemRemoved; 2]);
+}
+
+#[tokio::test]
+async fn files_kept_when_removing_a_series_return_when_it_is_added_again() {
+    let app = App::new().await;
+    linked(&app, &[E01, E02, "movies/Dune (2021)/Dune (2021).mkv"]).await;
+    SeriesRepo::remove(&app.db, app.frieren.id).await.unwrap();
+
+    app.deleter()
+        .handle(&SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files: false })
+        .await
+        .unwrap();
+    let folder = ItemFolder::new(app.path("tv"), "Frieren (2023)".into()).unwrap();
+    let mut readded = Series::add(frieren_metadata(), folder, MonitorPreset::All, TODAY, now());
+    SeriesRepo::save(&app.db, &mut readded).await.unwrap();
+    app.scanner.handle(&SeriesAdded { series: readded.id, title: "Frieren".into() }).await.unwrap();
+
+    assert!(app.path(E01).exists() && app.path(E02).exists());
+    let series_files: Vec<_> =
+        app.db_files().await.into_iter().filter(|file| file.target.item() != ItemId::Movie(app.dune.id)).collect();
+    assert_eq!(series_files.len(), 2);
+    assert!(series_files.iter().all(|file| file.target.item() == ItemId::Series(readded.id)));
+    assert!(deleted_events(&app.events().await).is_empty());
 }
 
 #[tokio::test]

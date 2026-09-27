@@ -156,7 +156,7 @@ pub fn episode(season: u16, episode: u16) -> EpisodeRef {
     EpisodeRef { season, episode }
 }
 
-fn frieren_metadata() -> SeriesMetadata {
+pub fn frieren_metadata() -> SeriesMetadata {
     let season = |number: u16| SeasonMetadata {
         number,
         episodes: (1..=3)

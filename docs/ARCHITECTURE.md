@@ -199,7 +199,7 @@ Owns library files, root folders, naming settings and imports.
 - **Library lock:** scan, import, rename and delete change files on disk before they commit, so each holds the `LibraryLock` from its first read of library files until its last commit; a scan never sees a file that is placed but not yet stored. `LockFile` in `system` takes an exclusive `flock` on `<database>.lock`, so the CLI and `serve` wait for each other as well. An import holds it per import, from its claim to its commit.
 - **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes)` so a use case commits its state in one transaction), `Publisher` (events, appended after the save), `Catalog` (read-only view of `library` data), `FileSystem`, `LibraryLock`, `MediaProbe` (`FfProbe` in `system`), `Clock`; later `ImportQueue`.
 - **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`, `FileRenamed`; later `ImportFailed`.
-- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesAdded`, `MovieAdded` (scan the item's folder), `SeriesRemoved`, `MovieRemoved` (delete files when asked).
+- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesAdded`, `MovieAdded` (scan the item's folder), `SeriesRemoved`, `MovieRemoved` (delete the item's files when asked, otherwise drop their records and keep them on disk).
 
 ### 5.4 `integrations`
 

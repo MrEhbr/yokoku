@@ -77,11 +77,20 @@ impl Deleter {
         Ok(files)
     }
 
-    async fn remove_item(&self, item: ItemId) -> Result<(), MediaError> {
+    /// Kept files leave the library but stay on disk.
+    async fn remove_item(&self, item: ItemId, delete_files: bool) -> Result<(), MediaError> {
         let _lock = self.lock.acquire().await?;
         let files = self.files_of_item(item).await?;
-        if !files.is_empty() {
+        if files.is_empty() {
+            return Ok(());
+        }
+        if delete_files {
             self.remove(files, DeleteReason::ItemRemoved).await?;
+        } else {
+            self.repo
+                .save(&Changes { removed_files: files.iter().map(|file| file.id).collect(), ..Changes::default() })
+                .await?;
+            info!(kept = files.len(), "files of a removed item left the library");
         }
         Ok(())
     }
@@ -90,9 +99,7 @@ impl Deleter {
 #[async_trait]
 impl Handler<SeriesRemoved> for Deleter {
     async fn handle(&self, event: &SeriesRemoved) -> Result<(), HandlerError> {
-        if event.delete_files {
-            self.remove_item(ItemId::Series(event.series)).await?;
-        }
+        self.remove_item(ItemId::Series(event.series), event.delete_files).await?;
         Ok(())
     }
 }
@@ -100,9 +107,7 @@ impl Handler<SeriesRemoved> for Deleter {
 #[async_trait]
 impl Handler<MovieRemoved> for Deleter {
     async fn handle(&self, event: &MovieRemoved) -> Result<(), HandlerError> {
-        if event.delete_files {
-            self.remove_item(ItemId::Movie(event.movie)).await?;
-        }
+        self.remove_item(ItemId::Movie(event.movie), event.delete_files).await?;
         Ok(())
     }
 }
