@@ -6,7 +6,7 @@ use common::{App, relative};
 use yokoku_domain::{DownloadId, ImportId, ItemId};
 use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, LinkedFile};
 use yokoku_library::ports::SeriesRepo;
-use yokoku_media::{Approval, ImportMode, ImportStatus, MediaError, ports::MediaRepo};
+use yokoku_media::{Approval, ImportMode, ImportStatus, MediaError, MediaFile, ports::MediaRepo};
 
 const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv";
 const SOURCE: &str = "downloads/Frieren.S01E01.1080p/Frieren.S01E01.1080p.mkv";
@@ -218,10 +218,9 @@ async fn a_failed_import_keeps_the_files_it_placed_and_completes_on_retry() {
     assert_eq!(files[0].id, placed[0].id);
 }
 
-#[tokio::test]
-async fn a_failed_replacement_records_the_file_it_removed() {
-    let app = App::new().await;
-    let old = app.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.720p.mkv", 5);
+/// A library file of `size` bytes at `old` replaced by an approved download of S01E01.
+async fn approved_replacement(app: &App, old: &str, size: usize) -> MediaFile {
+    app.write(old, size);
     app.scanner.scan().await.unwrap();
     let old_file = app.db_files().await.remove(0);
     app.write(SOURCE, 10);
@@ -232,17 +231,63 @@ async fn a_failed_replacement_records_the_file_it_removed() {
         .unwrap()
         .unwrap();
     app.reviewer.replace_row(import.id, 1).await.unwrap();
-    app.reviewer.approve(import.id).await.unwrap();
+    assert_eq!(app.reviewer.approve(import.id).await.unwrap(), Approval::Queued);
+    old_file
+}
+
+fn folder_names(path: &Path) -> Vec<String> {
+    let mut names: Vec<_> = fs::read_dir(path.parent().unwrap())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    names
+}
+
+async fn replaced(app: &App) -> Vec<FileDeleted> {
+    app.events().await.iter().filter_map(Event::get::<FileDeleted>).cloned().collect()
+}
+
+#[tokio::test]
+async fn a_failed_replacement_keeps_the_old_file() {
+    let app = App::new().await;
+    let old_file = approved_replacement(&app, "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.720p.mkv", 5).await;
     app.write(E01, 99);
 
     let failed = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
 
     assert_eq!(failed[0].status, ImportStatus::Failed);
-    assert!(!old.exists());
-    assert!(app.db_files().await.is_empty());
-    let deleted =
-        FileDeleted { file: old_file.id, path: old, target: old_file.target, reason: DeleteReason::Replaced }.into();
-    assert!(app.events().await.contains(&deleted));
+    assert_eq!(fs::read(&old_file.path).unwrap().len(), 5);
+    assert_eq!(app.db_files().await.iter().map(|file| file.id).collect::<Vec<_>>(), [old_file.id]);
+    assert!(replaced(&app).await.is_empty());
+}
+
+#[tokio::test]
+async fn replaces_a_file_at_the_same_path() {
+    let app = App::new().await;
+    let old_file = approved_replacement(&app, E01, 5).await;
+
+    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+
+    assert_eq!(finished[0].status, ImportStatus::Done);
+    assert_eq!(inode(&app.path(E01)), inode(&app.path(SOURCE)));
+    assert_eq!(folder_names(&app.path(E01)), [E01.rsplit('/').next().unwrap()]);
+    assert_eq!(replaced(&app).await.iter().map(|deleted| deleted.file).collect::<Vec<_>>(), [old_file.id]);
+}
+
+#[tokio::test]
+async fn a_failed_replacement_at_the_same_path_restores_the_old_file() {
+    let app = App::new().await;
+    let old_file = approved_replacement(&app, E01, 5).await;
+    fs::remove_file(app.path(SOURCE)).unwrap();
+
+    let failed = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+
+    assert_eq!(failed[0].status, ImportStatus::Failed);
+    assert_eq!(fs::read(app.path(E01)).unwrap().len(), 5);
+    assert_eq!(folder_names(&app.path(E01)), [E01.rsplit('/').next().unwrap()]);
+    assert_eq!(app.db_files().await.iter().map(|file| file.id).collect::<Vec<_>>(), [old_file.id]);
+    assert!(replaced(&app).await.is_empty());
 }
 
 #[tokio::test]

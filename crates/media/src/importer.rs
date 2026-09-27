@@ -172,17 +172,29 @@ impl Importer {
                 continue;
             }
 
-            if row.replace {
-                for old in library.iter().filter(|file| file.target.overlaps(&target)) {
-                    let placed_over = old.path == destination && self.already_placed(&row.path, &destination).await?;
-                    if !placed_over {
-                        self.fs.remove_file(&old.path).await?;
-                        debug!(path = %old.path.display(), "removed the file being replaced");
-                    }
-                    placed.replaced.push(old.clone());
+            let olds: Vec<&MediaFile> =
+                library.iter().filter(|file| row.replace && file.target.overlaps(&target)).collect();
+            let occupied =
+                olds.iter().any(|old| old.path == destination) && self.fs.stat(&destination).await?.is_some();
+            let aside = if occupied && !self.already_placed(&row.path, &destination).await? {
+                Some(self.set_aside(&destination).await?)
+            } else {
+                None
+            };
+            if let Err(error) = self.place(&row.path, &destination).await {
+                if let Some(aside) = &aside {
+                    self.fs.rename(aside, &destination).await?;
                 }
+                return Err(error);
             }
-            self.place(&row.path, &destination).await?;
+            for old in olds {
+                let path = if old.path == destination { aside.as_ref() } else { Some(&old.path) };
+                if let Some(path) = path {
+                    self.fs.remove_file(path).await?;
+                    debug!(path = %old.path.display(), "removed the file being replaced");
+                }
+                placed.replaced.push(old.clone());
+            }
             for (subtitle, tags) in subtitles.get(&row.path).into_iter().flatten() {
                 let extension = subtitle.extension().unwrap_or_default().to_string_lossy();
                 self.place(subtitle, &subtitle_path(&destination, tags, &extension)).await?;
@@ -230,6 +242,14 @@ impl Importer {
                 (video.path, video.subtitles.into_iter().map(|subtitle| (subtitle.path, subtitle.tags)).collect())
             })
             .collect())
+    }
+
+    /// Moves the file at `path` to a hidden `.<name>.replaced` beside it and returns that path.
+    async fn set_aside(&self, path: &Path) -> Result<PathBuf, MediaError> {
+        let aside =
+            path.with_file_name(format!(".{}.replaced", path.file_name().unwrap_or_default().to_string_lossy()));
+        self.fs.rename(path, &aside).await?;
+        Ok(aside)
     }
 
     /// The destination already holds the source: the same data or bytes, or the moved file itself.
