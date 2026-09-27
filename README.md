@@ -64,14 +64,15 @@ crates/
   yokoku/             # Binary: composition root, service and CLI
     src/
       app.rs          # Wires the adapters into use cases
-      config.rs       # Config type and layered loading
       service.rs      # The service: web server, events, scheduled jobs
+      subscriptions.rs  # Every event subscription
       logging.rs      # tracing setup
       cli/
         args.rs       # CLI root, global flags, command dispatch
         commands/     # One module per subcommand
     benches/          # Criterion benchmarks
     tests/            # Integration tests
+  config/             # Configuration crate: layered settings
   web/                # Web UI on Topcoat, see crates/web/CLAUDE.md
   <name>/             # Library crates, see docs/ARCHITECTURE.md §3
 config/               # Configuration files
@@ -88,7 +89,7 @@ own config section and two subcommands. Paths below are relative to
 1. Copy it to `src/cli/commands/<name>.rs` and adjust its `Args` and `run`.
 2. Register the module in `src/cli/commands/mod.rs`.
 3. Add a variant to `Command` in `src/cli/args.rs` and dispatch it in `dispatch`.
-4. Add its config section to `Config` in `src/config.rs`.
+4. Add its config section to `Config` in `crates/config/src/lib.rs` (binary-only sections go in `crates/config/src/sections.rs`).
 
 Configuration and logging are resolved once in `route`, so a command only
 receives `&Config` and its own parsed `Args`. `--config` and `--verbosity`
