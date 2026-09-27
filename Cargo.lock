@@ -4013,11 +4013,13 @@ dependencies = [
  "async-trait",
  "jiff",
  "rstest",
+ "tempfile",
  "thiserror",
  "tokio",
  "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-system",
 ]
 
 [[package]]
@@ -4071,11 +4073,13 @@ dependencies = [
  "async-trait",
  "jiff",
  "rstest",
+ "tempfile",
  "thiserror",
  "tokio",
  "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-system",
 ]
 
 [[package]]
@@ -4141,6 +4145,7 @@ dependencies = [
  "wiremock",
  "yokoku-detect",
  "yokoku-domain",
+ "yokoku-events",
  "yokoku-integrations",
  "yokoku-media",
 ]
@@ -4163,6 +4168,7 @@ dependencies = [
  "yokoku-domain",
  "yokoku-downloads",
  "yokoku-events",
+ "yokoku-system",
 ]
 
 [[package]]

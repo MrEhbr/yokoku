@@ -10,6 +10,7 @@ use jiff::{
     tz::TimeZone,
 };
 use rstest::rstest;
+use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, MovieId};
 use yokoku_downloads::{
@@ -19,6 +20,7 @@ use yokoku_downloads::{
 use yokoku_events::{
     DownloadCompleted, Event, EventLog, FilesImported, Handler, Publisher, TorrentAdded, TorrentRemoved,
 };
+use yokoku_system::FileSpool;
 
 const TODAY: Date = date(2026, 9, 26);
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
@@ -121,6 +123,7 @@ fn torrent(done: u64, size: u64) -> Torrent {
 }
 
 struct Setup {
+    _dir: TempDir,
     db: Database,
     client: Arc<ScriptedClient>,
     downloads: Downloads,
@@ -131,6 +134,7 @@ async fn setup() -> Setup {
 }
 
 async fn setup_with(options: DownloadOptions) -> Setup {
+    let dir = TempDir::new().unwrap();
     let db = Database::open_in_memory().await.unwrap();
     let client = Arc::new(ScriptedClient::default());
     let downloads = Downloads::new(
@@ -138,9 +142,9 @@ async fn setup_with(options: DownloadOptions) -> Setup {
         client.clone(),
         Arc::new(FixedClock),
         options,
-        Publisher::new(Arc::new(db.event_log())),
+        Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool")))),
     );
-    Setup { db, client, downloads }
+    Setup { _dir: dir, db, client, downloads }
 }
 
 impl Setup {

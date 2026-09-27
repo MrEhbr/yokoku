@@ -1,46 +1,41 @@
-use std::sync::Arc;
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use async_trait::async_trait;
-use yokoku_db::Database;
 use yokoku_domain::{MovieId, SeriesId, StorageError};
-use yokoku_events::{Event, EventId, EventLog, Failure, MovieAdded, Publisher, Recorded, SeriesAdded};
+use yokoku_events::{Event, EventId, EventLog, EventSpool, Failure, MovieAdded, Publisher, Recorded, SeriesAdded};
 
-fn series_added() -> SeriesAdded {
-    SeriesAdded { series: SeriesId::generate(), title: "Frieren".into() }
+/// Keeps appended events; refuses them while `failing`.
+#[derive(Default)]
+struct MemoryLog {
+    events: Mutex<Vec<Event>>,
+    failing: AtomicBool,
 }
 
-async fn logged(db: &Database) -> Vec<Event> {
-    db.event_log().read_after(None, 10).await.unwrap().into_iter().map(|recorded| recorded.event).collect()
+impl MemoryLog {
+    fn failing() -> Self {
+        Self { failing: AtomicBool::new(true), ..Self::default() }
+    }
+
+    fn recover(&self) {
+        self.failing.store(false, Ordering::SeqCst);
+    }
+
+    fn events(&self) -> Vec<Event> {
+        self.events.lock().unwrap().clone()
+    }
 }
-
-#[tokio::test]
-async fn published_events_are_appended_in_order() {
-    let db = Database::open_in_memory().await.unwrap();
-    let publisher = Publisher::new(Arc::new(db.event_log()));
-    let added = series_added();
-    let movie = MovieAdded { movie: MovieId::generate(), title: "Dune".into() };
-
-    publisher.publish(added.clone()).await;
-    publisher.publish_all(vec![movie.clone().into()]).await;
-
-    assert_eq!(logged(&db).await, [added.into(), movie.into()]);
-}
-
-#[tokio::test]
-async fn publishing_nothing_appends_nothing() {
-    let db = Database::open_in_memory().await.unwrap();
-
-    Publisher::new(Arc::new(db.event_log())).publish_all(Vec::new()).await;
-
-    assert!(logged(&db).await.is_empty());
-}
-
-struct Unavailable;
 
 #[async_trait]
-impl EventLog for Unavailable {
-    async fn append(&self, _: &[Event]) -> Result<(), StorageError> {
-        Err(StorageError::new(std::io::Error::other("disk full")))
+impl EventLog for MemoryLog {
+    async fn append(&self, events: &[Event]) -> Result<(), StorageError> {
+        if self.failing.load(Ordering::SeqCst) {
+            return Err(StorageError::new(std::io::Error::other("database is locked")));
+        }
+        self.events.lock().unwrap().extend_from_slice(events);
+        Ok(())
     }
 
     async fn last_delivered(&self, _: &str) -> Result<Option<EventId>, StorageError> {
@@ -76,7 +71,116 @@ impl EventLog for Unavailable {
     }
 }
 
+/// Keeps spooled events in memory; refuses them while `failing`.
+#[derive(Default)]
+struct MemorySpool {
+    events: Mutex<Vec<Event>>,
+    failing: bool,
+}
+
+impl MemorySpool {
+    fn events(&self) -> Vec<Event> {
+        self.events.lock().unwrap().clone()
+    }
+}
+
+#[async_trait]
+impl EventSpool for MemorySpool {
+    async fn push(&self, events: &[Event]) -> Result<(), StorageError> {
+        if self.failing {
+            return Err(StorageError::new(std::io::Error::other("disk full")));
+        }
+        self.events.lock().unwrap().extend_from_slice(events);
+        Ok(())
+    }
+
+    async fn replay(&self, log: &dyn EventLog) -> Result<usize, StorageError> {
+        let spooled = self.events();
+        if spooled.is_empty() {
+            return Ok(0);
+        }
+        log.append(&spooled).await?;
+        self.events.lock().unwrap().clear();
+        Ok(spooled.len())
+    }
+}
+
+fn series_added(title: &str) -> Event {
+    SeriesAdded { series: SeriesId::generate(), title: title.into() }.into()
+}
+
+fn publisher(log: &Arc<MemoryLog>, spool: &Arc<MemorySpool>) -> Publisher {
+    Publisher::new(log.clone(), spool.clone())
+}
+
 #[tokio::test]
-async fn a_log_that_cannot_append_loses_the_events_without_failing() {
-    Publisher::new(Arc::new(Unavailable)).publish(series_added()).await;
+async fn published_events_are_appended_in_order() {
+    let (log, spool) = (Arc::new(MemoryLog::default()), Arc::new(MemorySpool::default()));
+    let added = series_added("Frieren");
+    let movie: Event = MovieAdded { movie: MovieId::generate(), title: "Dune".into() }.into();
+
+    publisher(&log, &spool).publish(added.clone()).await;
+    publisher(&log, &spool).publish_all(vec![movie.clone()]).await;
+
+    assert_eq!(log.events(), [added, movie]);
+    assert!(spool.events().is_empty());
+}
+
+#[tokio::test]
+async fn publishing_nothing_appends_nothing() {
+    let (log, spool) = (Arc::new(MemoryLog::default()), Arc::new(MemorySpool::default()));
+
+    publisher(&log, &spool).publish_all(Vec::new()).await;
+
+    assert!(log.events().is_empty());
+}
+
+#[tokio::test]
+async fn events_the_log_refuses_are_spooled_and_appended_first_once_it_recovers() {
+    let (log, spool) = (Arc::new(MemoryLog::failing()), Arc::new(MemorySpool::default()));
+    let (first, second) = (series_added("first"), series_added("second"));
+
+    publisher(&log, &spool).publish(first.clone()).await;
+    assert_eq!(spool.events(), std::slice::from_ref(&first));
+    log.recover();
+    publisher(&log, &spool).publish(second.clone()).await;
+
+    assert_eq!(log.events(), [first, second]);
+    assert!(spool.events().is_empty());
+}
+
+#[tokio::test]
+async fn new_events_wait_behind_spooled_ones_while_the_log_is_down() {
+    let (log, spool) = (Arc::new(MemoryLog::failing()), Arc::new(MemorySpool::default()));
+    let (first, second) = (series_added("first"), series_added("second"));
+
+    publisher(&log, &spool).publish(first.clone()).await;
+    publisher(&log, &spool).publish(second.clone()).await;
+
+    assert!(log.events().is_empty());
+    assert_eq!(spool.events(), [first, second]);
+}
+
+#[tokio::test]
+async fn replaying_appends_spooled_events_without_a_new_publish() {
+    let (log, spool) = (Arc::new(MemoryLog::failing()), Arc::new(MemorySpool::default()));
+    let first = series_added("first");
+    publisher(&log, &spool).publish(first.clone()).await;
+
+    log.recover();
+    let caught_up = publisher(&log, &spool).replay().await;
+
+    assert!(caught_up);
+    assert_eq!(log.events(), [first]);
+    assert!(spool.events().is_empty());
+}
+
+#[tokio::test]
+async fn events_are_lost_without_failing_when_neither_log_nor_spool_takes_them() {
+    let log = Arc::new(MemoryLog::failing());
+    let spool = Arc::new(MemorySpool { failing: true, ..MemorySpool::default() });
+
+    publisher(&log, &spool).publish(series_added("Frieren")).await;
+
+    assert!(log.events().is_empty() && spool.events().is_empty());
 }

@@ -18,7 +18,9 @@ thiserror.workspace = true
 
 [dev-dependencies]
 yokoku-db.workspace = true
+yokoku-system.workspace = true
 
 rstest.workspace = true
+tempfile.workspace = true
 
 tokio = { workspace = true, features = ["rt", "macros"] }

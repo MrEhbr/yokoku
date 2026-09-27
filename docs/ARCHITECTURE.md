@@ -267,7 +267,7 @@ failed_deliveries    (subscriber, event_id, error, attempts, failed_at)
 
 The payload carries the event's `type` tag, so no separate kind column is needed; `json_extract(payload, '$.type')` filters by type.
 
-- **Append after save.** A use case saves its state, then publishes the command's events through `Publisher`, which appends them in a transaction of their own. A failed append is logged with the lost events and does not fail the command. A crash between the save and the append loses the events, so their handlers never run.
+- **Append after save.** A use case saves its state, then publishes the command's events through `Publisher`, which appends them in a transaction of their own. A failed append never fails the command: the events go to a spool file next to the database (`yokoku.spool`, JSON lines under an `flock`) and are appended, before any newer ones, by the next publish, every CLI catch-up and once a minute in `serve`; a crash between replaying and emptying the spool appends them twice, which idempotent handlers accept. Events neither the log nor the spool takes are logged and lost, and so are events of a crash between the save and the append.
 - **Ordered delivery.** Each subscriber runs as one task that reads events after its saved position, in id order, and advances its position after each success.
 - **Order is safe.** SQLite allows one writer at a time, so ids are always committed in id order. A reader can never skip an event whose transaction commits late.
 - **At-least-once.** Handlers are idempotent.

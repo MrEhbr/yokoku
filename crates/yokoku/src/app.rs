@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 use anyhow::{Context, Result};
 use jiff::{SignedDuration, tz::TimeZone};
 use serde::{Deserialize, Serialize};
-use tokio::task::JoinHandle;
+use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_db::Database;
@@ -18,7 +18,7 @@ use yokoku_media::{
 };
 use yokoku_metadata::TmdbClient;
 use yokoku_naming::{Naming, NamingTemplates};
-use yokoku_system::{FfProbe, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
+use yokoku_system::{FfProbe, FileSpool, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
 use crate::{config::Config, secret::Secret, subscriptions};
@@ -153,6 +153,7 @@ pub struct App {
     pub rescans: Option<Arc<Rescans>>,
     sync: Option<Arc<MetadataSync>>,
     db: Arc<Database>,
+    events: Publisher,
     subscribers: Vec<Arc<dyn Subscriber>>,
 }
 
@@ -162,7 +163,7 @@ impl App {
         let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
         let db = Arc::new(db);
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()?));
-        let events = Publisher::new(Arc::new(db.event_log()));
+        let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
         let naming = config.naming.naming()?;
         let metadata = &config.metadata;
         let sync = metadata.tmdb_token.as_ref().map(|token| {
@@ -216,6 +217,7 @@ impl App {
                 events.clone(),
             )),
             history: History::new(Arc::new(db.event_log())),
+            events: events.clone(),
             subscribers: subscriptions::subscribers(
                 &db,
                 &Arc::new(ImportPlanner::new(db.clone(), db.clone(), fs.clone(), clock.clone(), events.clone())),
@@ -233,9 +235,10 @@ impl App {
         })
     }
 
-    /// Delivers pending events to every subscriber, then asks Jellyfin to rescan if they changed
-    /// library files; a Jellyfin that cannot be reached is only reported.
+    /// Appends spooled events, delivers pending events to every subscriber, then asks Jellyfin to
+    /// rescan if they changed library files; a Jellyfin that cannot be reached is only reported.
     pub async fn deliver_events(&self) -> Result<()> {
+        self.events.replay().await;
         for subscriber in &self.subscribers {
             let log = Arc::new(self.db.event_log());
             let delivery = Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), quick_delivery());
@@ -249,7 +252,8 @@ impl App {
         Ok(())
     }
 
-    /// Starts one delivery loop per subscriber; each stops when `shutdown` is cancelled.
+    /// Starts one delivery loop per subscriber and one that appends spooled events every
+    /// `REPLAY_INTERVAL`; each stops when `shutdown` is cancelled.
     pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
         self.subscribers
             .iter()
@@ -259,7 +263,22 @@ impl App {
                     Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), DeliveryConfig::default());
                 tokio::spawn(delivery.run(shutdown.clone()))
             })
+            .chain([self.spawn_replay(shutdown)])
             .collect()
+    }
+
+    fn spawn_replay(&self, shutdown: &CancellationToken) -> JoinHandle<()> {
+        let (events, shutdown) = (self.events.clone(), shutdown.clone());
+        tokio::spawn(async move {
+            shutdown
+                .run_until_cancelled(async {
+                    loop {
+                        events.replay().await;
+                        sleep(REPLAY_INTERVAL).await;
+                    }
+                })
+                .await;
+        })
     }
 
     /// Use cases that need the metadata source.
@@ -285,6 +304,8 @@ impl FolderNames for NamedFolders {
         self.0.movie_folder(&metadata.title, metadata.year)
     }
 }
+
+const REPLAY_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Gives up after three quick attempts; the event is tried again on the next catch-up or by `serve`.
 fn quick_delivery() -> DeliveryConfig {

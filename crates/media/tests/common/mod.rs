@@ -21,12 +21,15 @@ use yokoku_events::{Event, EventLog, Publisher};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{ImportPlanner, Renamer, Review, RootFolders, RootKind, Scanner};
 use yokoku_naming::Naming;
-use yokoku_system::{LocalFileSystem, LockFile};
+use yokoku_system::{FileSpool, LocalFileSystem, LockFile};
 
 pub const TODAY: Date = date(2026, 9, 26);
 
 /// The library lock file, in the test folder.
 pub const LOCK: &str = "library.lock";
+
+/// The event spool, in the test folder.
+pub const SPOOL: &str = "yokoku.spool";
 
 pub struct FixedClock;
 
@@ -62,7 +65,7 @@ impl App {
 
         let db = Database::open_in_memory().await.unwrap();
         let repo = Arc::new(db.clone());
-        let events = Publisher::new(Arc::new(db.event_log()));
+        let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join(SPOOL))));
         let fs = Arc::new(LocalFileSystem);
         let clock = Arc::new(FixedClock);
         let roots = RootFolders::new(repo.clone(), repo.clone(), fs.clone());
@@ -141,7 +144,7 @@ impl App {
     }
 
     pub fn publisher(&self) -> Publisher {
-        Publisher::new(Arc::new(self.db.event_log()))
+        Publisher::new(Arc::new(self.db.event_log()), Arc::new(FileSpool::new(self.path(SPOOL))))
     }
 
     pub fn lock(&self) -> Arc<LockFile> {

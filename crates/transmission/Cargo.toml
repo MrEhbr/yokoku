@@ -21,6 +21,7 @@ serde_json.workspace = true
 yokoku-db.workspace = true
 yokoku-domain.workspace = true
 yokoku-events.workspace = true
+yokoku-system.workspace = true
 
 jiff.workspace = true
 rstest.workspace = true

@@ -11,6 +11,7 @@ workspace = true
 [dependencies]
 yokoku-detect.workspace = true
 yokoku-domain.workspace = true
+yokoku-events.workspace = true
 yokoku-integrations.workspace = true
 yokoku-media.workspace = true
 
