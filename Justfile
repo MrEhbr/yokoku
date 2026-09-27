@@ -2,6 +2,9 @@ APP := `basename $(pwd)`
 profile := env_var_or_default('PROFILE', 'debug')
 features := env_var_or_default('FEATURES', '')
 
+# Web UI: `just web gallery`, `just web fmt`
+mod web 'crates/web'
+
 # Show available targets
 help:
     @just --list
@@ -16,22 +19,23 @@ setup:
     @cargo install --locked cargo-deny
     @cargo install --locked cargo-shear
     @cargo install --locked typos-cli
+    @cargo install --locked topcoat-cli --version "$(grep -A1 '^name = "topcoat-asset"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')"
     @echo "✓ Development tools installed"
 
 # Rust
 # Build application binary
 build *opts="":
-    @echo "Building {{APP}} ({{profile}} profile{{ if features != "" { ", features=" + features } else { "" } }})"
-    @cargo build {{ if profile == "release" { "--release" } else { "" } }} {{ if features != "" { "--features " + features } else { "" } }} {{opts}}
+    @echo "Building {{ APP }} ({{ profile }} profile{{ if features != "" { ", features=" + features } else { "" } }})"
+    @cargo build {{ if profile == "release" { "--release" } else { "" } }} {{ if features != "" { "--features " + features } else { "" } }} {{ opts }}
 
 # Install application into ~/.cargo/bin
 install *opts="":
-    @echo "Installing {{APP}}"
-    @cargo install --path crates/yokoku {{opts}}
+    @echo "Installing {{ APP }}"
+    @cargo install --path crates/yokoku {{ opts }}
 
 # Run tests
 test *opts="--workspace":
-    @cargo nextest run {{opts}}
+    @cargo nextest run {{ opts }}
 
 # Run integration tests
 test-integration filter="":
@@ -39,15 +43,15 @@ test-integration filter="":
 
 # Generate code coverage report (requires: cargo install cargo-llvm-cov)
 test-coverage *opts="--workspace":
-    @cargo llvm-cov nextest {{opts}}
+    @cargo llvm-cov nextest {{ opts }}
 
 # Run documentation tests
 test-doc *opts="--workspace":
-    @cargo test --doc {{opts}}
+    @cargo test --doc {{ opts }}
 
 # Lint code
 lint *opts="":
-    cargo clippy --workspace --fix --allow-dirty --allow-staged --no-deps --all-targets --all-features {{opts}} -- -D warnings
+    cargo clippy --workspace --fix --allow-dirty --allow-staged --no-deps --all-targets --all-features {{ opts }} -- -D warnings
     @cargo fmt --all -- --check
 
 # Format code
@@ -75,7 +79,7 @@ deps:
 #   <regex>                run only matching benchmark ids, e.g. `just bench fibonacci`
 # Run benchmarks.
 bench *opts="":
-    @cargo bench -- {{opts}}
+    @cargo bench -- {{ opts }}
 
 # Run application.
 [positional-arguments]

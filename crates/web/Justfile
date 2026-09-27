@@ -1,0 +1,11 @@
+# Show available recipes
+help:
+    @just --list
+
+# Serve the component gallery at http://127.0.0.1:3000, rebuilding on changes
+gallery:
+    @topcoat dev -p yokoku-web --bin gallery
+
+# Format topcoat macro bodies (view!, class!, attributes!)
+fmt:
+    @topcoat fmt src
