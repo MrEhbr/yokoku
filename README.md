@@ -81,8 +81,9 @@ docs/                 # Requirements and architecture
 ## Adding a Command
 
 The CLI is for setup and operations; features belong in the web UI.
-`crates/yokoku/src/cli/commands/calendar.rs` is a small worked example. Paths
-below are relative to `crates/yokoku/`. To add your own:
+`crates/yokoku/src/cli/commands/jellyfin.rs` is a small worked example: its
+own config section and two subcommands. Paths below are relative to
+`crates/yokoku/`. To add your own:
 
 1. Copy it to `src/cli/commands/<name>.rs` and adjust its `Args` and `run`.
 2. Register the module in `src/cli/commands/mod.rs`.
@@ -98,14 +99,15 @@ A command owns its own config section next to its code, the way
 the loaded values in `apply_overrides`:
 
 ```rust
-#[arg(long, short = 'd')]
-pub days: Option<u16>,
+/// Most items to show, overriding `example.limit`
+#[arg(long)]
+pub limit: Option<u16>,
 
-fn apply_overrides(&self, config: &CalendarConfig) -> CalendarConfig {
+fn apply_overrides(&self, config: &ExampleConfig) -> ExampleConfig {
     let mut resolved = config.clone();
 
-    if let Some(days) = self.days {
-        resolved.days = Some(days);
+    if let Some(limit) = self.limit {
+        resolved.limit = limit;
     }
 
     resolved
