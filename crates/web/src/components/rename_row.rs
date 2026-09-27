@@ -4,19 +4,19 @@ use topcoat::{
     view::{Attributes, Child, View, class, component, view},
 };
 
-use crate::components::checkbox::checkbox;
+use crate::components::ui::checkbox::checkbox;
 
 /// One file in an import review or rename preview: a checkbox with the current name,
 /// an arrow, and the new name.
 ///
 /// Pass the new side as children: a `yk-code` span for a fixed destination, or a
-/// [`select`](crate::components::select::select) of episode identities during import
+/// [`select`](crate::components::ui::select::select) of episode identities during import
 /// review. `checkbox_attrs` go on the selection checkbox; give it `name`, `value`,
 /// and `checked`. Below `sm` the old name takes its own line.
 ///
 /// ```ignore
 /// view! {
-///     file_row(
+///     rename_row(
 ///         old: "Orbital.S01E01.mkv",
 ///         checkbox_attrs: attributes! { name="file" value=(id) checked="" },
 ///         <span class="yk-code break-all">"Orbital (2024) - S01E01 - Launch.mkv"</span>
@@ -24,7 +24,7 @@ use crate::components::checkbox::checkbox;
 /// }
 /// ```
 #[component]
-pub async fn file_row(
+pub async fn rename_row(
     cx: &Cx,
     /// The file's current name.
     old: &str,

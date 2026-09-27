@@ -10,8 +10,17 @@ use topcoat::{
     router::{Router, RouterBuilderDiscoverExt, page, request::uri},
     view::{Child, View, attributes, component, view},
 };
-use yokoku_web::{
-    components::{
+use yokoku_web::components::{
+    app_shell::{Destination, app_shell},
+    document_head::document_head,
+    empty_state::empty_state,
+    job_progress::job_progress,
+    media_card::media_card,
+    page_header::page_header,
+    rename_row::rename_row,
+    selection_bar::selection_bar,
+    status::{Tone, status},
+    ui::{
         accordion::{accordion, accordion_content, accordion_item, accordion_trigger},
         alert::{AlertVariant, alert, alert_description, alert_title},
         alert_dialog::alert_dialog,
@@ -55,17 +64,6 @@ use yokoku_web::{
         textarea::textarea,
         toggle::{ToggleKind, ToggleSize, toggle, toggle_group},
         tooltip::{tooltip, tooltip_content},
-    },
-    head::head,
-    widgets::{
-        app_shell::{Destination, app_shell},
-        bulk_bar::bulk_bar,
-        empty_state::empty_state,
-        file_row::file_row,
-        job_progress::job_progress,
-        media_card::media_card,
-        page_header::page_header,
-        status::{Tone, status},
     },
 };
 
@@ -538,7 +536,7 @@ async fn sidebar_page(cx: &Cx) -> Result<impl View> {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>"Sidebar"</title>
                 topcoat::dev::script()
-                head()
+                document_head()
             </head>
             <body>
                 sidebar_provider(
@@ -629,19 +627,19 @@ async fn widgets_page() -> Result<impl View> {
             )
 
             section(title: "Rename preview",
-                bulk_bar(summary: "2 of 3 files selected")
+                selection_bar(summary: "2 of 3 files selected")
                 <div>
-                    file_row(
+                    rename_row(
                         old: "The.Expanse.S01E01.1080p.WEB.mkv",
                         checkbox_attrs: attributes! { name="file" value="1" checked="" },
                         <span class="yk-code break-all">"The Expanse (2015) - S01E01 - Dulcinea.mkv"</span>
                     )
-                    file_row(
+                    rename_row(
                         old: "The.Expanse.S01E02.1080p.WEB.mkv",
                         checkbox_attrs: attributes! { name="file" value="2" checked="" },
                         <span class="yk-code break-all">"The Expanse (2015) - S01E02 - The Big Empty.mkv"</span>
                     )
-                    file_row(
+                    rename_row(
                         old: "The.Expanse.S01E03.1080p.WEB.en.srt",
                         checkbox_attrs: attributes! { name="file" value="3" },
                         <span class="yk-code break-all">"The Expanse (2015) - S01E03 - Remember the Cant.en.srt"</span>
@@ -650,7 +648,7 @@ async fn widgets_page() -> Result<impl View> {
             )
 
             section(title: "Import review",
-                bulk_bar(
+                selection_bar(
                     summary: "2 files selected",
                     <div class="grid gap-1.5">
                         label(attrs: attributes! { for="bulk-season" class="text-caption" }, "Season")
@@ -660,7 +658,7 @@ async fn widgets_page() -> Result<impl View> {
                     button("Assign episodes in order")
                 )
                 <div>
-                    file_row(
+                    rename_row(
                         old: "orbital.ep1.mkv",
                         checkbox_attrs: attributes! { name="file" value="1" checked="" },
                         select(
@@ -669,7 +667,7 @@ async fn widgets_page() -> Result<impl View> {
                             <option>"Orbital (2024) - S01E02 - Drift.mkv"</option>
                         )
                     )
-                    file_row(
+                    rename_row(
                         old: "orbital.bonus.mkv",
                         checkbox_attrs: attributes! { name="file" value="2" checked="" },
                         select(

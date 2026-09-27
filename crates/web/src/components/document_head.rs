@@ -15,7 +15,7 @@ pub const MONO: Font = fontsource_font!(IBM_PLEX_MONO, weight: [400, 500], style
 ///
 /// The router must serve assets for the self-hosted fonts.
 #[component]
-pub async fn head() -> Result<impl View> {
+pub async fn document_head() -> Result<impl View> {
     Ok(view! {
         topcoat::font::link(font: SANS)
         topcoat::font::link(font: MONO)

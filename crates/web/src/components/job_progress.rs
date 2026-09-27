@@ -3,7 +3,7 @@ use topcoat::{
     view::{Attributes, Child, View, attributes, class, component, view},
 };
 
-use crate::components::progress::progress;
+use crate::components::ui::progress::progress;
 
 /// A long operation: its name, the numbers so far, and a progress bar.
 ///

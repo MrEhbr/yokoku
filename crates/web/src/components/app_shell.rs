@@ -3,7 +3,7 @@ use topcoat::{
     view::{Child, View, class, component, view},
 };
 
-use crate::head::head;
+use super::document_head::document_head;
 
 /// A primary destination in the top navigation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -66,7 +66,7 @@ pub async fn app_shell(
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>(title) " · Yokoku"</title>
                 topcoat::dev::script()
-                head()
+                document_head()
             </head>
             <body class="flex min-h-svh flex-col">
                 <a href="#main" class="sr-only focus:not-sr-only focus:block focus:p-3">"Skip to content"</a>

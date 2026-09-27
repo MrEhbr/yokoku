@@ -12,14 +12,14 @@ use topcoat::{
 ///
 /// ```ignore
 /// view! {
-///     bulk_bar(
+///     selection_bar(
 ///         summary: "3 files selected",
 ///         button("Detect again")
 ///     )
 /// }
 /// ```
 #[component]
-pub async fn bulk_bar(
+pub async fn selection_bar(
     summary: &str,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
