@@ -2,7 +2,6 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use yokoku_domain::{DownloadId, StorageError};
-use yokoku_events::Event;
 
 use crate::{Download, DownloadStatus};
 
@@ -58,15 +57,14 @@ pub enum ClientError {
     Refused(String),
 }
 
-/// Writes store the download and `events` in one transaction. A save inserts a download at
-/// revision 0 and otherwise updates it only when the stored revision matches, then bumps
-/// `revision`; a save made from an older revision, or a new download whose hash is already stored,
-/// fails with `StorageError::Conflict`.
+/// A save inserts a download at revision 0 and otherwise updates it only when the stored revision
+/// matches, then bumps `revision`; a save made from an older revision, or a new download whose hash
+/// is already stored, fails with `StorageError::Conflict`.
 #[async_trait]
 pub trait DownloadRepo: Send + Sync {
     async fn get(&self, id: DownloadId) -> Result<Option<Download>, StorageError>;
     async fn find_by_hash(&self, hash: &str) -> Result<Option<Download>, StorageError>;
     /// Newest first.
     async fn list(&self) -> Result<Vec<Download>, StorageError>;
-    async fn save(&self, download: &mut Download, events: &[Event]) -> Result<(), StorageError>;
+    async fn save(&self, download: &mut Download) -> Result<(), StorageError>;
 }

@@ -6,7 +6,9 @@ use std::{
 
 use async_trait::async_trait;
 use yokoku_domain::{Clock, DownloadId, ItemId, StorageError};
-use yokoku_events::{DownloadCompleted, Event, FilesImported, Handler, HandlerError, TorrentAdded, TorrentRemoved};
+use yokoku_events::{
+    DownloadCompleted, Event, FilesImported, Handler, HandlerError, Publisher, TorrentAdded, TorrentRemoved,
+};
 
 use crate::{
     Download, DownloadError, DownloadState, DownloadStatus,
@@ -19,6 +21,7 @@ pub struct Downloads {
     client: Arc<dyn DownloadClient>,
     clock: Arc<dyn Clock>,
     options: DownloadOptions,
+    events: Publisher,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -62,8 +65,9 @@ impl Downloads {
         client: Arc<dyn DownloadClient>,
         clock: Arc<dyn Clock>,
         options: DownloadOptions,
+        events: Publisher,
     ) -> Self {
-        Self { repo, client, clock, options }
+        Self { repo, client, clock, options, events }
     }
 
     /// The client's name and version (FR-3.1).
@@ -85,7 +89,8 @@ impl Downloads {
 
         let torrent = self.client.torrents(std::slice::from_ref(&added.hash)).await?.pop();
         let (mut download, events) = self.take_on(added.hash, added.name, item, torrent);
-        self.repo.save(&mut download, &events).await?;
+        self.repo.save(&mut download).await?;
+        self.events.publish_all(events).await;
         Ok(download)
     }
 
@@ -123,10 +128,11 @@ impl Downloads {
                     TorrentRemoved { download: download.id, name: download.name.clone(), item: download.item }.into(),
                 );
             }
-            match self.repo.save(&mut download, &events).await {
+            match self.repo.save(&mut download).await {
                 Err(StorageError::Conflict) => continue,
                 result => result?,
             }
+            self.events.publish_all(events).await;
             report.synced += 1;
             report.removed += usize::from(removed);
             report.cleaned_up += usize::from(clean_up);
@@ -145,10 +151,11 @@ impl Downloads {
             for torrent in new {
                 let (mut download, events) =
                     self.take_on(torrent.hash.clone(), torrent.name.clone(), None, Some(torrent));
-                match self.repo.save(&mut download, &events).await {
+                match self.repo.save(&mut download).await {
                     Err(StorageError::Conflict) => continue,
                     result => result?,
                 }
+                self.events.publish_all(events).await;
                 report.picked_up += 1;
                 if download.completed_at.is_some() {
                     report.completed.push(download.id);
@@ -187,7 +194,7 @@ impl Downloads {
         let Some(mut download) = self.repo.get(id).await? else { return Ok(()) };
         if download.imported_at.is_none() {
             download.imported_at = Some(self.clock.now().timestamp());
-            self.repo.save(&mut download, &[]).await?;
+            self.repo.save(&mut download).await?;
         }
         Ok(())
     }

@@ -71,7 +71,7 @@ proptest! {
     fn stored_downloads_read_back_unchanged(mut download in any_download()) {
         let (by_id, by_hash, listed) = block_on(async {
             let db = Database::open_in_memory().await.unwrap();
-            db.save(&mut download, &[]).await.unwrap();
+            db.save(&mut download).await.unwrap();
             (db.get(download.id).await.unwrap(), db.find_by_hash(&download.hash).await.unwrap(), db.list().await.unwrap())
         });
 
@@ -100,8 +100,8 @@ async fn downloads_are_listed_newest_first() {
     let db = Database::open_in_memory().await.unwrap();
     let mut older = download("a", "2026-09-25T12:00:00Z");
     let mut newer = download("b", "2026-09-26T12:00:00Z");
-    db.save(&mut older, &[]).await.unwrap();
-    db.save(&mut newer, &[]).await.unwrap();
+    db.save(&mut older).await.unwrap();
+    db.save(&mut newer).await.unwrap();
 
     assert_eq!(db.list().await.unwrap(), [newer, older]);
 }
@@ -109,9 +109,9 @@ async fn downloads_are_listed_newest_first() {
 #[tokio::test]
 async fn a_second_download_with_a_stored_hash_conflicts() {
     let db = Database::open_in_memory().await.unwrap();
-    db.save(&mut download("a", "2026-09-25T12:00:00Z"), &[]).await.unwrap();
+    db.save(&mut download("a", "2026-09-25T12:00:00Z")).await.unwrap();
 
-    let error = db.save(&mut download("a", "2026-09-26T12:00:00Z"), &[]).await.unwrap_err();
+    let error = db.save(&mut download("a", "2026-09-26T12:00:00Z")).await.unwrap_err();
 
     assert!(matches!(error, StorageError::Conflict), "{error}");
 }

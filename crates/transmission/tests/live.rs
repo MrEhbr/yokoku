@@ -15,7 +15,7 @@ use yokoku_downloads::{
     DownloadOptions, DownloadState, Downloads,
     ports::{DownloadClient, TorrentSource},
 };
-use yokoku_events::{DownloadCompleted, Event, EventLog};
+use yokoku_events::{DownloadCompleted, Event, EventLog, Publisher};
 use yokoku_transmission::TransmissionClient;
 
 const WAIT: Duration = Duration::from_secs(20);
@@ -74,8 +74,13 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
     assert!(version.starts_with("Transmission 4"), "{version}");
 
     let db = Database::open_in_memory().await.unwrap();
-    let use_case =
-        Downloads::new(Arc::new(db.clone()), client.clone(), Arc::new(SystemTime), DownloadOptions::default());
+    let use_case = Downloads::new(
+        Arc::new(db.clone()),
+        client.clone(),
+        Arc::new(SystemTime),
+        DownloadOptions::default(),
+        Publisher::new(Arc::new(db.event_log())),
+    );
     let added = use_case.add(&TorrentSource::File(fs::read(&torrent_file).unwrap()), None).await.unwrap();
     assert_eq!(added.name, "Dune.2021.1080p.mkv");
 

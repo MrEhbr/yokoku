@@ -16,7 +16,9 @@ use yokoku_downloads::{
     Download, DownloadError, DownloadOptions, DownloadState, DownloadStatus, Downloads, PickUp,
     ports::{AddedTorrent, ClientError, DownloadClient, Torrent, TorrentSource},
 };
-use yokoku_events::{DownloadCompleted, Event, EventLog, FilesImported, Handler, TorrentAdded, TorrentRemoved};
+use yokoku_events::{
+    DownloadCompleted, Event, EventLog, FilesImported, Handler, Publisher, TorrentAdded, TorrentRemoved,
+};
 
 const TODAY: Date = date(2026, 9, 26);
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
@@ -131,7 +133,13 @@ async fn setup() -> Setup {
 async fn setup_with(options: DownloadOptions) -> Setup {
     let db = Database::open_in_memory().await.unwrap();
     let client = Arc::new(ScriptedClient::default());
-    let downloads = Downloads::new(Arc::new(db.clone()), client.clone(), Arc::new(FixedClock), options);
+    let downloads = Downloads::new(
+        Arc::new(db.clone()),
+        client.clone(),
+        Arc::new(FixedClock),
+        options,
+        Publisher::new(Arc::new(db.event_log())),
+    );
     Setup { db, client, downloads }
 }
 

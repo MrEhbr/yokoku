@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use jiff::Timestamp;
 use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId, StorageError};
 use yokoku_downloads::{Download, DownloadState, DownloadStatus, ports::DownloadRepo};
-use yokoku_events::Event;
 
 use crate::{
     Database, DbError,
@@ -71,13 +70,13 @@ impl DownloadRepo for Database {
         Ok(rows.into_iter().map(Download::try_from).collect::<Result<_, _>>()?)
     }
 
-    async fn save(&self, download: &mut Download, events: &[Event]) -> Result<(), StorageError> {
-        Ok(self.save_download(download, events).await?)
+    async fn save(&self, download: &mut Download) -> Result<(), StorageError> {
+        Ok(self.save_download(download).await?)
     }
 }
 
 impl Database {
-    async fn save_download(&self, download: &mut Download, events: &[Event]) -> Result<(), DbError> {
+    async fn save_download(&self, download: &mut Download) -> Result<(), DbError> {
         let status = &download.status;
         let (series_id, movie_id) = match download.item {
             Some(ItemId::Series(id)) => (Some(id.to_string()), None),
@@ -117,7 +116,7 @@ impl Database {
             Some(database) if database.is_unique_violation() => DbError::Conflict,
             _ => DbError::from(error),
         })?;
-        self.commit(tx, events).await?;
+        self.commit(tx, &[]).await?;
         download.revision += 1;
         Ok(())
     }

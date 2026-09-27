@@ -187,7 +187,13 @@ impl App {
             let password = transmission.password.as_ref().map_or("", |password| password.expose());
             client = client.with_credentials(username, password);
         }
-        let downloads = Arc::new(Downloads::new(db.clone(), Arc::new(client), clock.clone(), transmission.options()));
+        let downloads = Arc::new(Downloads::new(
+            db.clone(),
+            Arc::new(client),
+            clock.clone(),
+            transmission.options(),
+            events.clone(),
+        ));
         let scanner = Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone()));
 
         Ok(Self {

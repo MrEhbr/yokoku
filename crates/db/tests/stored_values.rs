@@ -94,7 +94,7 @@ async fn saving_a_download_size_beyond_i64_fails() {
         revision: 0,
     };
 
-    assert!(DownloadRepo::save(&db, &mut download, &[]).await.is_err());
+    assert!(DownloadRepo::save(&db, &mut download).await.is_err());
     assert_eq!(DownloadRepo::get(&db, download.id).await.unwrap(), None);
 }
 
