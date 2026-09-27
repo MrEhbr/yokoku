@@ -51,6 +51,8 @@ pub trait SeriesRepo: Send + Sync {
     async fn find_by_source(&self, source: ExternalId) -> Result<Option<Series>, StorageError>;
     async fn find_by_folder(&self, folder: &ItemFolder) -> Result<Option<SeriesId>, StorageError>;
     async fn ids(&self) -> Result<Vec<SeriesId>, StorageError>;
+    /// Every series, in the order of `ids`.
+    async fn all(&self) -> Result<Vec<Series>, StorageError>;
     /// Saves the series with all its seasons and episodes.
     async fn save(&self, series: &mut Series) -> Result<(), StorageError>;
     async fn remove(&self, id: SeriesId) -> Result<(), StorageError>;
@@ -72,6 +74,8 @@ pub trait MovieRepo: Send + Sync {
     async fn find_by_source(&self, source: ExternalId) -> Result<Option<Movie>, StorageError>;
     async fn find_by_folder(&self, folder: &ItemFolder) -> Result<Option<MovieId>, StorageError>;
     async fn ids(&self) -> Result<Vec<MovieId>, StorageError>;
+    /// Every movie, in the order of `ids`.
+    async fn all(&self) -> Result<Vec<Movie>, StorageError>;
     async fn save(&self, movie: &mut Movie) -> Result<(), StorageError>;
     async fn remove(&self, id: MovieId) -> Result<(), StorageError>;
 }

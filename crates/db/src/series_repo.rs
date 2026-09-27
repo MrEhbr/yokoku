@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 
 use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
@@ -36,6 +39,7 @@ struct SeriesRow {
 
 #[derive(sqlx::FromRow)]
 struct SeasonRow {
+    series_id: String,
     number: u16,
     monitored: bool,
 }
@@ -43,6 +47,7 @@ struct SeasonRow {
 #[derive(sqlx::FromRow)]
 struct EpisodeRow {
     id: Text<EpisodeId>,
+    series_id: String,
     season_number: u16,
     source_id: u64,
     number: u16,
@@ -88,6 +93,10 @@ impl SeriesRepo for Database {
         Ok(self.series_ids().await?)
     }
 
+    async fn all(&self) -> Result<Vec<Series>, StorageError> {
+        Ok(self.load_all_series().await?)
+    }
+
     async fn save(&self, series: &mut Series) -> Result<(), StorageError> {
         Ok(self.save_series(series).await?)
     }
@@ -125,12 +134,12 @@ impl Database {
         };
 
         let seasons: Vec<SeasonRow> =
-            sqlx::query_as("SELECT number, monitored FROM seasons WHERE series_id = ? ORDER BY number")
+            sqlx::query_as("SELECT series_id, number, monitored FROM seasons WHERE series_id = ? ORDER BY number")
                 .bind(&id)
                 .fetch_all(self.pool())
                 .await?;
         let episodes: Vec<EpisodeRow> = sqlx::query_as(
-            "SELECT id, season_number, source_id, number, title, air_date, monitored, file_id
+            "SELECT id, series_id, season_number, source_id, number, title, air_date, monitored, file_id
              FROM episodes WHERE series_id = ? ORDER BY season_number, number",
         )
         .bind(&id)
@@ -138,6 +147,44 @@ impl Database {
         .await?;
 
         Ok(Some(row.into_series(seasons, episodes)?))
+    }
+
+    /// Every series in three queries, ordered by id.
+    pub(crate) async fn load_all_series(&self) -> Result<Vec<Series>, DbError> {
+        let rows: Vec<SeriesRow> = sqlx::query_as(
+            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path, source_status,
+                    numbering, root, folder, monitored, added_at, refreshed_at, revision
+             FROM series ORDER BY id",
+        )
+        .fetch_all(self.pool())
+        .await?;
+        let seasons: Vec<SeasonRow> =
+            sqlx::query_as("SELECT series_id, number, monitored FROM seasons ORDER BY series_id, number")
+                .fetch_all(self.pool())
+                .await?;
+        let episodes: Vec<EpisodeRow> = sqlx::query_as(
+            "SELECT id, series_id, season_number, source_id, number, title, air_date, monitored, file_id
+             FROM episodes ORDER BY series_id, season_number, number",
+        )
+        .fetch_all(self.pool())
+        .await?;
+
+        let mut seasons_of: HashMap<String, Vec<SeasonRow>> = HashMap::new();
+        for season in seasons {
+            seasons_of.entry(season.series_id.clone()).or_default().push(season);
+        }
+        let mut episodes_of: HashMap<String, Vec<EpisodeRow>> = HashMap::new();
+        for episode in episodes {
+            episodes_of.entry(episode.series_id.clone()).or_default().push(episode);
+        }
+        rows.into_iter()
+            .map(|row| {
+                let id = row.id.0.to_string();
+                let (seasons, episodes) =
+                    (seasons_of.remove(&id).unwrap_or_default(), episodes_of.remove(&id).unwrap_or_default());
+                row.into_series(seasons, episodes)
+            })
+            .collect()
     }
 
     async fn save_series(&self, series: &mut Series) -> Result<(), DbError> {

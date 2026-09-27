@@ -96,6 +96,39 @@ async fn saved_series_loads_back_equal(#[future(awt)] db: Database) {
 
 #[rstest]
 #[tokio::test]
+async fn all_items_load_as_each_one_does(#[future(awt)] db: Database) {
+    let metadata = [
+        series_metadata(1, &[(0, &[None]), (1, &[Some(TODAY), None])]),
+        series_metadata(2, &[]),
+        series_metadata(3, &[(1, &[None]), (2, &[None, None, None])]),
+    ];
+    for (number, metadata) in (1..).zip(metadata) {
+        let mut series = Series::add(metadata, folder(&format!("{number}")), MonitorPreset::All, TODAY, now());
+        if let Some(season) = series.seasons.last_mut() {
+            season.episodes[0].file = Some(MediaFileId::generate());
+        }
+        SeriesRepo::save(&db, &mut series).await.unwrap();
+    }
+    for source in [10, 11] {
+        let mut movie = Movie::add(movie_metadata(source), folder(&format!("{source}")), true, now());
+        MovieRepo::save(&db, &mut movie).await.unwrap();
+    }
+
+    let mut each_series = Vec::new();
+    for id in SeriesRepo::ids(&db).await.unwrap() {
+        each_series.extend(SeriesRepo::get(&db, id).await.unwrap());
+    }
+    let mut each_movie = Vec::new();
+    for id in MovieRepo::ids(&db).await.unwrap() {
+        each_movie.extend(MovieRepo::get(&db, id).await.unwrap());
+    }
+    assert_eq!(each_series.len(), 3);
+    assert_eq!(SeriesRepo::all(&db).await.unwrap(), each_series);
+    assert_eq!(MovieRepo::all(&db).await.unwrap(), each_movie);
+}
+
+#[rstest]
+#[tokio::test]
 async fn saving_a_refreshed_series_replaces_its_seasons_and_episodes(#[future(awt)] db: Database) {
     let mut series = Series::add(
         series_metadata(1, &[(1, &[None, None]), (2, &[None])]),

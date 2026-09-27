@@ -214,19 +214,11 @@ impl MediaRepo for Database {
 #[async_trait]
 impl Catalog for Database {
     async fn all_series(&self) -> Result<Vec<Series>, StorageError> {
-        let mut series = Vec::new();
-        for id in self.series_ids().await? {
-            series.extend(self.load_series(id).await?);
-        }
-        Ok(series)
+        Ok(self.load_all_series().await?)
     }
 
     async fn all_movies(&self) -> Result<Vec<Movie>, StorageError> {
-        let mut movies = Vec::new();
-        for id in self.movie_ids().await? {
-            movies.extend(self.load_movie(id).await?);
-        }
-        Ok(movies)
+        Ok(self.load_all_movies().await?)
     }
 
     async fn series(&self, id: SeriesId) -> Result<Option<Series>, StorageError> {

@@ -69,6 +69,10 @@ impl MovieRepo for Database {
         Ok(self.movie_ids().await?)
     }
 
+    async fn all(&self) -> Result<Vec<Movie>, StorageError> {
+        Ok(self.load_all_movies().await?)
+    }
+
     async fn save(&self, movie: &mut Movie) -> Result<(), StorageError> {
         Ok(self.save_movie(movie).await?)
     }
@@ -140,6 +144,19 @@ impl Database {
         .await?;
 
         row.map(Movie::try_from).transpose()
+    }
+
+    /// Every movie in one query, ordered by id.
+    pub(crate) async fn load_all_movies(&self) -> Result<Vec<Movie>, DbError> {
+        let rows: Vec<MovieRow> = sqlx::query_as(
+            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,
+                    cinema_date, digital_date, physical_date, root, folder, monitored, file_id, added_at, refreshed_at,
+                    revision
+             FROM movies ORDER BY id",
+        )
+        .fetch_all(self.pool())
+        .await?;
+        rows.into_iter().map(Movie::try_from).collect()
     }
 
     pub(crate) async fn movie_ids(&self) -> Result<Vec<MovieId>, DbError> {
