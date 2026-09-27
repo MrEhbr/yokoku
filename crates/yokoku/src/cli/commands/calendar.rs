@@ -1,17 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
 use jiff::{ToSpan, civil::Date};
-use serde::{Deserialize, Serialize};
 use tracing::debug;
+use yokoku_config::{CalendarConfig, Config};
 use yokoku_library::{CalendarRelease, month_of, week_of};
 
-use crate::{app::App, cli::output::Paint, config::Config};
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct CalendarConfig {
-    /// Days ahead to show instead of the week; the week while unset.
-    pub days: Option<u16>,
-}
+use crate::{app::App, cli::output::Paint};
 
 #[derive(Parser)]
 pub struct Args {

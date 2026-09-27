@@ -1,5 +1,6 @@
 use std::{fmt, path::PathBuf};
 
+use serde::{Deserialize, Serialize};
 use yokoku_domain::{EpisodeRef, EpisodeSpan, Movie, Series};
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
 
 /// User-editable patterns, one per path component. Tokens: `{title}`, `{year}`, `{season}` (two digits),
 /// `{episodes}` (`S01E01` or `S01E01-E02`), `{episode_title}`; `[...]` is dropped when a token inside has no value.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct NamingTemplates {
     pub movie_folder: String,
     pub movie_file: String,
@@ -66,8 +67,10 @@ pub enum NamingError {
 }
 
 /// Validated patterns that name an item's folder and the paths of its files inside that folder.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(try_from = "NamingTemplates", into = "NamingTemplates")]
 pub struct Naming {
+    templates: NamingTemplates,
     movie_folder: Template,
     movie_file: Template,
     series_folder: Template,
@@ -83,6 +86,7 @@ impl Naming {
             Template::parse(source, allowed, required).map_err(|message| TemplateError { pattern, message })
         };
         Ok(Self {
+            templates: templates.clone(),
             movie_folder: parse(PatternKind::MovieFolder, &templates.movie_folder, &[Title, Year], &[])?,
             movie_file: parse(PatternKind::MovieFile, &templates.movie_file, &[Title, Year], &[])?,
             series_folder: parse(PatternKind::SeriesFolder, &templates.series_folder, &[Title, Year], &[])?,
@@ -132,6 +136,20 @@ impl Naming {
         Ok([sanitize(&self.season_folder.render(&value)), file_name(&self.episode_file.render(&value), extension)]
             .iter()
             .collect())
+    }
+}
+
+impl TryFrom<NamingTemplates> for Naming {
+    type Error = TemplateError;
+
+    fn try_from(templates: NamingTemplates) -> Result<Self, Self::Error> {
+        Self::new(&templates)
+    }
+}
+
+impl From<Naming> for NamingTemplates {
+    fn from(naming: Naming) -> Self {
+        naming.templates
     }
 }
 

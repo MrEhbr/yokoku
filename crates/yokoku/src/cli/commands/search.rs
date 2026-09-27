@@ -1,8 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
+use yokoku_config::Config;
 use yokoku_domain::title_with_year;
 
-use crate::{app::App, cli::output::Paint, config::Config};
+use crate::{app::App, cli::output::Paint};
 
 #[derive(Parser)]
 pub struct Args {

@@ -64,6 +64,8 @@ crates/
   system/         yokoku-system        FileSystem, Clock, MediaProbe (ffprobe), MediaServer (Jellyfin HTTP)
   web/            yokoku-web           Web UI on Topcoat: pages, components, component gallery
 
+  config/         yokoku-config        Configuration: composes every crate's settings section, layers and validates them
+
   yokoku/         yokoku (bin)         Composition root, service, subscription registry, CLI
 ```
 
@@ -78,17 +80,20 @@ crates/
                           ▲
    db · metadata · transmission · jobs · system · web    (adapters)
                           ▲
+                        config
+                          ▲
                        yokoku (bin)
 ```
 
 | Crate kind | May depend on | Must not depend on |
 |---|---|---|
-| `domain` | std, `serde`, `jiff`, `thiserror` | anything else in the workspace |
+| `domain` | std, `serde`, `serde_json`, `jiff`, `thiserror`, `async-trait`, `secrecy` | anything else in the workspace |
 | `detect`, `naming` | `domain` | IO, async, any module |
 | `events` | `domain` | any module or adapter |
 | Feature module | `domain`, `events`, pure crates it needs | other modules, any adapter, sqlx/reqwest/apalis/topcoat |
 | Adapter | modules whose ports it implements | other adapters |
 | `web` (driving adapter) | modules whose use cases it calls | other adapters, sqlx/reqwest/apalis |
+| `config` | modules and adapters whose settings it composes | `db`, `web` |
 | `yokoku` | everything | — |
 
 `web` is the one adapter that drives the core instead of serving it: it calls use cases the way the CLI does, and receives them from `yokoku`, which wires the concrete adapters.
@@ -173,8 +178,8 @@ Owns the downloads Yokoku knows about and the Transmission connection settings.
   - Test the connection.
   - Add a torrent (magnet link or .torrent file), linked to a movie or series or left unlinked.
   - Sync with the client: progress, state, completion, and optionally torrents picked up by label or folder.
-  - Pick up torrents added directly in the client (FR-3.3, `[transmission] pick_up_labels`, `pick_up_folder`; off unless set): the sync lists every torrent and takes on each one it has never stored that carries one of the labels or downloads at or under the folder, as an unlinked download with `TorrentAdded`, so detection works out what it is. A download that was removed is never taken on again; two syncs taking on the same torrent conflict on its hash and one of them skips it. Torrents labelled `yokoku` (`ports::LABEL`, which `DownloadClient::add` puts on every torrent Yokoku adds) are taken on the same way even when pick up is off, so a torrent added whose save then failed is not left behind; it comes back unlinked from its series or movie.
-  - Remove a torrent once seeding is finished (FR-3.7, `[transmission] remove_after_seeding`, off by default): a sync removes a download with its data from the client when it was imported (`imported_at`, set by the `FilesImported` that names it) and the client reports seeding finished (Transmission `isFinished`: the ratio or idle limit was reached), then marks it `Removed` and emits `TorrentRemoved`. The library keeps its own hard link or copy; a download never imported, or still in review, stays.
+  - Pick up torrents added directly in the client (FR-3.3, `[downloads] pick_up_labels`, `pick_up_folder`; off unless set): the sync lists every torrent and takes on each one it has never stored that carries one of the labels or downloads at or under the folder, as an unlinked download with `TorrentAdded`, so detection works out what it is. A download that was removed is never taken on again; two syncs taking on the same torrent conflict on its hash and one of them skips it. Torrents labelled `yokoku` (`ports::LABEL`, which `DownloadClient::add` puts on every torrent Yokoku adds) are taken on the same way even when pick up is off, so a torrent added whose save then failed is not left behind; it comes back unlinked from its series or movie.
+  - Remove a torrent once seeding is finished (FR-3.7, `[downloads] remove_after_seeding`, off by default): a sync removes a download with its data from the client when it was imported (`imported_at`, set by the `FilesImported` that names it) and the client reports seeding finished (Transmission `isFinished`: the ratio or idle limit was reached), then marks it `Removed` and emits `TorrentRemoved`. The library keeps its own hard link or copy; a download never imported, or still in review, stays.
 - **Ports:** `DownloadRepo`, `DownloadClient` (version, add, torrents by info hash, all torrents, remove), `Clock`, `Publisher` (events, appended after the save).
 - **Sync:** every download not yet `Removed` takes the client's status (state, bytes done, rate, ETA, folder). The first sync that sees it complete sets `completed_at` and, once that is saved, publishes `DownloadCompleted`; a torrent missing from the client becomes `Removed` and is no longer synced. Adding a torrent syncs it at once, so a torrent that is already complete emits both events.
 - **Emits:** `TorrentAdded`, `DownloadCompleted` (once per download; the sync is idempotent), `TorrentRemoved`.
@@ -212,7 +217,7 @@ Owns library files, root folders, naming settings and imports.
 
 ### 5.5 Settings
 
-Each module owns its settings section: metadata provider in `library`, Transmission in `downloads`, root folders, naming and import mode in `media`, Jellyfin in `integrations`. The binary maps each section to its module's types.
+Each crate owns the settings its code reads, as a serde type next to that code: `MetadataSettings` in `metadata`, `TransmissionSettings` in `transmission`, `DownloadOptions` (`[downloads]`) in `downloads`, `ImportSettings` in `media`, `Naming` (parsed from `[naming]`, so a bad pattern fails when the configuration loads) in `naming`, `ClockSettings`, `JellyfinSettings` and `ProbeSettings` (`[files]`) in `system`, `ScheduleSettings` (`[serve]`) in `jobs`. `yokoku-config` composes them into `Config`, next to the sections only the binary reads (`database`, `log`, `web`, and the CLI defaults `add`, `list`, `calendar`). Stored settings are reached through the `SettingsStore` port in `domain`, which `db` implements, so `config` does not depend on `db`.
 
 Settings are layered, later over earlier: defaults, the TOML file, values stored in the database (FR-10.3), then `APP__*` environment variables. Stored values live in `settings (key, value)` by dotted key (`import.mode`) as JSON; `yokoku settings set|unset|list|get` edits them, and the settings screen will too. `set` loads the whole configuration with the new value and validates it (types, naming patterns, schedules, time zone) before storing, so a stored value cannot stop the app. Stored values are read once at start, so `serve` picks up a change when restarted; a stored value that no longer loads fails every command except `settings`, which can unset it.
 

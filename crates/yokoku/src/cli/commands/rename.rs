@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::{Result, bail};
 use clap::Parser;
+use yokoku_config::Config;
 use yokoku_domain::{ExternalId, ItemId};
 use yokoku_media::RenameScope;
 
@@ -11,7 +12,6 @@ use crate::{
         commands::{ItemArgs, Kind},
         output::Paint,
     },
-    config::Config,
 };
 
 #[derive(Parser)]

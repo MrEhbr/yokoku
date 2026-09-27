@@ -2,9 +2,9 @@ use std::path::{self, PathBuf};
 
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
-use serde::{Deserialize, Serialize};
 use tracing::debug;
-use yokoku_domain::title_with_year;
+use yokoku_config::{AddConfig, Config};
+use yokoku_domain::{self as domain, title_with_year};
 use yokoku_media::RootKind;
 
 use crate::{
@@ -13,19 +13,11 @@ use crate::{
         commands::{ItemArgs, Kind},
         output::Paint,
     },
-    config::Config,
 };
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct AddConfig {
-    pub monitor: MonitorPreset,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize, ValueEnum)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum MonitorPreset {
     /// Every episode, or the movie
-    #[default]
     All,
     /// Episodes that have not aired yet
     Future,
@@ -59,7 +51,7 @@ impl Args {
         let mut resolved = config.clone();
 
         if let Some(monitor) = self.monitor {
-            resolved.monitor = monitor;
+            resolved.monitor = monitor.into();
         }
 
         resolved
@@ -79,7 +71,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let root = app.roots.get(root_kind, &path::absolute(&args.root)?).await?.path;
     match args.item.kind {
         Kind::Series => {
-            let series = metadata.add_series(args.item.source, settings.monitor.into(), root, args.folder).await?;
+            let series = metadata.add_series(args.item.source, settings.monitor, root, args.folder).await?;
             success!(
                 "Added series {} {} in {}",
                 title_with_year(&series.title, series.year).bold(),
@@ -89,9 +81,9 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         },
         Kind::Movie => {
             let monitored = match settings.monitor {
-                MonitorPreset::All => true,
-                MonitorPreset::None => false,
-                MonitorPreset::Future | MonitorPreset::LatestSeason => {
+                domain::MonitorPreset::All => true,
+                domain::MonitorPreset::None => false,
+                domain::MonitorPreset::Future | domain::MonitorPreset::LatestSeason => {
                     bail!("movies can only be monitored with `all` or `none`")
                 },
             };
@@ -108,7 +100,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     app.deliver_events().await
 }
 
-impl From<MonitorPreset> for yokoku_domain::MonitorPreset {
+impl From<MonitorPreset> for domain::MonitorPreset {
     fn from(monitor: MonitorPreset) -> Self {
         match monitor {
             MonitorPreset::All => Self::All,

@@ -4840,26 +4840,21 @@ dependencies = [
  "assert_cmd",
  "clap",
  "clap-verbosity-flag",
- "config",
  "console-subscriber",
  "criterion",
- "isolang",
  "jiff",
- "jiff-cron",
  "owo-colors",
  "predicates",
  "rstest",
- "secrecy",
- "serde",
  "serde_json",
  "tempfile",
  "tokio",
  "tokio-util",
- "toml",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
  "wiremock",
+ "yokoku-config",
  "yokoku-db",
  "yokoku-domain",
  "yokoku-downloads",
@@ -4873,6 +4868,26 @@ dependencies = [
  "yokoku-system",
  "yokoku-transmission",
  "yokoku-web",
+]
+
+[[package]]
+name = "yokoku-config"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "config",
+ "serde",
+ "serde_json",
+ "tracing",
+ "yokoku-domain",
+ "yokoku-downloads",
+ "yokoku-jobs",
+ "yokoku-library",
+ "yokoku-media",
+ "yokoku-metadata",
+ "yokoku-naming",
+ "yokoku-system",
+ "yokoku-transmission",
 ]
 
 [[package]]
@@ -4917,12 +4932,16 @@ dependencies = [
 name = "yokoku-domain"
 version = "0.0.1"
 dependencies = [
+ "async-trait",
  "jiff",
  "proptest",
  "rstest",
+ "secrecy",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
+ "toml",
  "uuid",
 ]
 
@@ -4933,6 +4952,7 @@ dependencies = [
  "async-trait",
  "jiff",
  "rstest",
+ "serde",
  "tempfile",
  "thiserror",
  "tokio",
@@ -4981,6 +5001,8 @@ dependencies = [
  "apalis-cron",
  "jiff",
  "jiff-cron",
+ "serde",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -4998,6 +5020,7 @@ dependencies = [
  "async-trait",
  "jiff",
  "rstest",
+ "serde",
  "tempfile",
  "thiserror",
  "tokio",
@@ -5015,6 +5038,7 @@ dependencies = [
  "async-trait",
  "jiff",
  "rstest",
+ "serde",
  "tempfile",
  "thiserror",
  "tokio",
@@ -5034,11 +5058,13 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "governor",
+ "isolang",
  "jiff",
  "reqwest",
  "rstest",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tracing",
  "wiremock",
@@ -5053,6 +5079,7 @@ dependencies = [
  "jiff",
  "proptest",
  "rstest",
+ "serde",
  "thiserror",
  "yokoku-domain",
 ]

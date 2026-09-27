@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use yokoku_config::Config;
 use yokoku_domain::{ItemId, title_with_year};
 use yokoku_library::LibraryStatus;
 
@@ -9,7 +10,6 @@ use crate::{
         commands::ItemArgs,
         output::{Paint, Painted},
     },
-    config::Config,
 };
 
 #[derive(Parser)]

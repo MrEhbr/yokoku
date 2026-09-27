@@ -5,6 +5,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
 use yokoku_domain::{Clock, DownloadId, ItemId, StorageError};
 use yokoku_events::{
@@ -25,25 +26,21 @@ pub struct Downloads {
     events: Publisher,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DownloadOptions {
     /// Removes a torrent with its data once it is imported and the client finished seeding it (FR-3.7).
     pub remove_after_seeding: bool,
-    /// Torrents added to the client outside Yokoku that sync takes on (FR-3.3).
-    pub pick_up: Option<PickUp>,
+    /// Torrents added to the client outside Yokoku with any of these labels are taken on (FR-3.3).
+    #[serde(default)]
+    pub pick_up_labels: Vec<String>,
+    /// Torrents added to the client outside Yokoku that download at or under this folder are taken on (FR-3.3).
+    pub pick_up_folder: Option<PathBuf>,
 }
 
-/// A torrent qualifies with any of `labels`, or a download folder at or under `folder`.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct PickUp {
-    pub labels: Vec<String>,
-    pub folder: Option<PathBuf>,
-}
-
-impl PickUp {
-    fn matches(&self, torrent: &Torrent) -> bool {
-        self.labels.iter().any(|label| torrent.labels.contains(label))
-            || self.folder.as_ref().is_some_and(|folder| torrent.status.download_dir.starts_with(folder))
+impl DownloadOptions {
+    fn picks_up(&self, torrent: &Torrent) -> bool {
+        self.pick_up_labels.iter().any(|label| torrent.labels.contains(label))
+            || self.pick_up_folder.as_ref().is_some_and(|folder| torrent.status.download_dir.starts_with(folder))
     }
 }
 
@@ -178,10 +175,9 @@ impl Downloads {
         Ok(report)
     }
 
-    /// Labelled `LABEL`, or qualifying for `pick_up`.
+    /// Labelled `LABEL`, or picked up by the options.
     fn qualifies(&self, torrent: &Torrent) -> bool {
-        torrent.labels.iter().any(|label| label == LABEL)
-            || self.options.pick_up.as_ref().is_some_and(|pick_up| pick_up.matches(torrent))
+        torrent.labels.iter().any(|label| label == LABEL) || self.options.picks_up(torrent)
     }
 
     /// A new download and its `TorrentAdded`, with `DownloadCompleted` when the torrent is complete.

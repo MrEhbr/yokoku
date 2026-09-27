@@ -16,6 +16,7 @@ yokoku-naming.workspace = true
 
 async-trait.workspace = true
 jiff.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 

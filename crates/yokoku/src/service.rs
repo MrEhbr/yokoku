@@ -1,66 +1,17 @@
-use std::{env, io, path::PathBuf, str::FromStr};
+use std::{env, io};
 
 use anyhow::{Context, Result};
-use jiff_cron::Schedule;
-use serde::{Deserialize, Serialize};
 use tokio::{
     net::TcpListener,
     signal::unix::{SignalKind, signal},
 };
 use tokio_util::sync::CancellationToken;
 use tracing::info;
-use yokoku_jobs::{Jobs, Schedules};
+use yokoku_config::Config;
+use yokoku_jobs::Jobs;
 use yokoku_web::Server;
 
-use crate::{app::App, config::Config};
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct ServeConfig {
-    /// Cron schedule with seconds for syncing downloads.
-    pub sync_downloads: String,
-    /// Cron schedule with seconds for carrying out approved imports.
-    pub execute_imports: String,
-    /// Cron schedule with seconds for checking whether Jellyfin should rescan.
-    pub rescan_media_server: String,
-    /// Cron schedule with seconds for refreshing the items due for it.
-    pub refresh_metadata: String,
-    /// Cron schedule with seconds for scanning root folders for outside changes.
-    pub scan_library: String,
-}
-
-impl Default for ServeConfig {
-    fn default() -> Self {
-        Self {
-            sync_downloads: "*/30 * * * * *".into(),
-            execute_imports: "*/5 * * * * *".into(),
-            rescan_media_server: "*/10 * * * * *".into(),
-            refresh_metadata: "0 0 */12 * * *".into(),
-            scan_library: "0 0 5 * * *".into(),
-        }
-    }
-}
-
-impl ServeConfig {
-    pub fn schedules(&self) -> Result<Schedules> {
-        Ok(Schedules {
-            sync_downloads: Self::schedule(&self.sync_downloads)?,
-            execute_imports: Self::schedule(&self.execute_imports)?,
-            rescan_media_server: Self::schedule(&self.rescan_media_server)?,
-            refresh_metadata: Self::schedule(&self.refresh_metadata)?,
-            scan_library: Self::schedule(&self.scan_library)?,
-        })
-    }
-
-    fn schedule(expression: &str) -> Result<Schedule> {
-        Schedule::from_str(expression).with_context(|| format!("Invalid schedule: {expression}"))
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct WebConfig {
-    /// Asset bundle directory; `assets/` beside the executable when unset.
-    pub assets: Option<PathBuf>,
-}
+use crate::app::App;
 
 /// Serves the web interface, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(config: &Config) -> Result<()> {

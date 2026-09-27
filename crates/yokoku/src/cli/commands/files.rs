@@ -1,27 +1,12 @@
-use std::path::PathBuf;
-
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
+use yokoku_config::Config;
 use yokoku_media::{MediaError, ports::ProbeError};
 
 use crate::{
     app::App,
     cli::{commands::ItemArgs, output::Paint},
-    config::Config,
 };
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct FilesConfig {
-    /// `ffprobe` on the `PATH`, or a path to it.
-    pub ffprobe: PathBuf,
-}
-
-impl Default for FilesConfig {
-    fn default() -> Self {
-        Self { ffprobe: PathBuf::from("ffprobe") }
-    }
-}
 
 #[derive(Parser)]
 pub struct Args {

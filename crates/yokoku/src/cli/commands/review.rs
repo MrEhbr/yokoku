@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use yokoku_config::Config;
 use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
 use yokoku_media::Approval;
 
@@ -9,7 +10,6 @@ use crate::{
         commands::{ItemArgs, import::run_imports},
         output::Paint,
     },
-    config::Config,
 };
 
 #[derive(Parser)]

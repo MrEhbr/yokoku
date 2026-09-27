@@ -2,12 +2,21 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use reqwest::{RequestBuilder, StatusCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::debug;
+use yokoku_domain::Secret;
 use yokoku_integrations::ports::{MediaServer, MediaServerError};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const TIMEOUT: Duration = Duration::from_secs(30);
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct JellyfinSettings {
+    /// Server address, e.g. `http://localhost:8096`; rescans are off while unset.
+    pub url: Option<String>,
+    /// An administrator's API key.
+    pub api_key: Option<Secret>,
+}
 
 /// Jellyfin's HTTP API, authenticated with an administrator's API key.
 pub struct JellyfinClient {

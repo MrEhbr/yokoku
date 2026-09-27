@@ -1,0 +1,26 @@
+[package]
+name = "yokoku-config"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+yokoku-domain.workspace = true
+yokoku-downloads.workspace = true
+yokoku-jobs.workspace = true
+yokoku-library.workspace = true
+yokoku-media.workspace = true
+yokoku-metadata.workspace = true
+yokoku-naming.workspace = true
+yokoku-system.workspace = true
+yokoku-transmission.workspace = true
+
+anyhow.workspace = true
+config.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true

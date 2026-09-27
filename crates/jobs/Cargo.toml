@@ -19,6 +19,8 @@ apalis.workspace = true
 apalis-cron.workspace = true
 jiff.workspace = true
 jiff-cron.workspace = true
+serde.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]

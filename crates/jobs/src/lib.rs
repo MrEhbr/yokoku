@@ -1,11 +1,12 @@
 //! apalis workers and schedules.
 
-use std::{error::Error, sync::Arc, time::Instant};
+use std::{error::Error, str::FromStr, sync::Arc, time::Instant};
 
 use apalis::prelude::{BoxDynError, Data, Monitor, WorkerBuilder, WorkerBuilderExt};
 use apalis_cron::{CronScheduler, Tick};
 use jiff::SignedDuration;
 use jiff_cron::{Schedule, jiff::tz::TimeZone};
+use serde::{Deserialize, Serialize};
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_downloads::Downloads;
 use yokoku_events::{CorrelationId, correlation::correlate};
@@ -36,6 +37,56 @@ pub struct Schedules {
     pub rescan_media_server: Schedule,
     pub refresh_metadata: Schedule,
     pub scan_library: Schedule,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct ScheduleSettings {
+    /// Cron schedule with seconds for syncing downloads.
+    pub sync_downloads: String,
+    /// Cron schedule with seconds for carrying out approved imports.
+    pub execute_imports: String,
+    /// Cron schedule with seconds for checking whether Jellyfin should rescan.
+    pub rescan_media_server: String,
+    /// Cron schedule with seconds for refreshing the items due for it.
+    pub refresh_metadata: String,
+    /// Cron schedule with seconds for scanning root folders for outside changes.
+    pub scan_library: String,
+}
+
+impl Default for ScheduleSettings {
+    fn default() -> Self {
+        Self {
+            sync_downloads: "*/30 * * * * *".into(),
+            execute_imports: "*/5 * * * * *".into(),
+            rescan_media_server: "*/10 * * * * *".into(),
+            refresh_metadata: "0 0 */12 * * *".into(),
+            scan_library: "0 0 5 * * *".into(),
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid schedule: {expression}")]
+pub struct InvalidSchedule {
+    expression: String,
+    #[source]
+    source: jiff_cron::error::Error,
+}
+
+impl ScheduleSettings {
+    pub fn schedules(&self) -> Result<Schedules, InvalidSchedule> {
+        Ok(Schedules {
+            sync_downloads: schedule(&self.sync_downloads)?,
+            execute_imports: schedule(&self.execute_imports)?,
+            rescan_media_server: schedule(&self.rescan_media_server)?,
+            refresh_metadata: schedule(&self.refresh_metadata)?,
+            scan_library: schedule(&self.scan_library)?,
+        })
+    }
+}
+
+fn schedule(expression: &str) -> Result<Schedule, InvalidSchedule> {
+    Schedule::from_str(expression).map_err(|source| InvalidSchedule { expression: expression.to_owned(), source })
 }
 
 /// Registers every job, each running one tick at a time; run it with `Monitor::run_with_signal`.

@@ -3,4 +3,4 @@
 mod client;
 mod wire;
 
-pub use client::TransmissionClient;
+pub use client::{TransmissionClient, TransmissionSettings};

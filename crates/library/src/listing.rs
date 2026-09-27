@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, fmt};
 
 use jiff::{Timestamp, civil::Date};
+use serde::{Deserialize, Serialize};
 use yokoku_domain::{ExternalId, ItemId, MediaKind, Movie, MovieStatus, Series, SeriesStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,7 +39,8 @@ pub struct LibraryFilter {
     pub status: Option<LibraryStatus>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum LibrarySort {
     #[default]
     Title,

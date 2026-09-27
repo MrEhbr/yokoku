@@ -10,7 +10,9 @@ mod folder;
 mod id;
 mod item;
 mod movie;
+mod secret;
 mod series;
+mod settings;
 mod storage_error;
 mod string_enum;
 mod subtitle;
@@ -24,10 +26,12 @@ pub use folder::{InvalidFolderName, ItemFolder};
 pub use id::{CorrelationId, DownloadId, EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
 pub use item::{ItemId, MediaKind, title_with_year};
 pub use movie::{Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
+pub use secret::{REDACTED, Secret};
 pub use series::{
     Episode, EpisodeMetadata, EpisodeRef, EpisodeSpan, MonitorPreset, Numbering, ParseEpisodeSpanError, Season,
     SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus,
 };
+pub use settings::SettingsStore;
 pub use storage_error::StorageError;
 pub use string_enum::ParseEnumError;
 pub use subtitle::SubtitleTags;

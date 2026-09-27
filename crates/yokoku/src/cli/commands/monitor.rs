@@ -1,8 +1,9 @@
 use anyhow::{Result, bail};
 use clap::Parser;
+use yokoku_config::Config;
 use yokoku_domain::{EpisodeRef, ItemId};
 
-use crate::{app::App, cli::commands::ItemArgs, config::Config};
+use crate::{app::App, cli::commands::ItemArgs};
 
 #[derive(Parser)]
 pub struct Args {

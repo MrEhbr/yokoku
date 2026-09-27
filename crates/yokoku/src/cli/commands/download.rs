@@ -2,6 +2,7 @@ use std::fs;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use yokoku_config::Config;
 use yokoku_domain::ExternalId;
 use yokoku_downloads::{DownloadState, ports::TorrentSource};
 
@@ -11,7 +12,6 @@ use crate::{
         commands::{ItemArgs, Kind, import::run_imports},
         output::Paint,
     },
-    config::Config,
 };
 
 #[derive(Parser)]

@@ -1,14 +1,14 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
-use jiff::{SignedDuration, tz::TimeZone};
-use serde::{Deserialize, Serialize};
+use jiff::SignedDuration;
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
+use yokoku_config::Config;
 use yokoku_db::Database;
 use yokoku_domain::{Clock, ItemId, MovieMetadata, SeriesMetadata, title_with_year};
-use yokoku_downloads::{DownloadOptions, Downloads, PickUp};
+use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
 use yokoku_integrations::Rescans;
 use yokoku_library::{
@@ -20,151 +20,11 @@ use yokoku_media::{
     ports::{FileSystem, LibraryLock},
 };
 use yokoku_metadata::{Sources, TmdbClient, TvdbClient};
-use yokoku_naming::{Naming, NamingTemplates};
+use yokoku_naming::Naming;
 use yokoku_system::{FfProbe, FileSpool, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
-use crate::{config::Config, secret::Secret, subscriptions};
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct DatabaseConfig {
-    pub path: PathBuf,
-}
-
-impl Default for DatabaseConfig {
-    fn default() -> Self {
-        Self { path: PathBuf::from("yokoku.db") }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct ClockConfig {
-    /// IANA time zone name, e.g. `Europe/Berlin`; the system zone when unset.
-    pub timezone: Option<String>,
-}
-
-impl ClockConfig {
-    pub fn time_zone(&self) -> Result<TimeZone> {
-        match &self.timezone {
-            Some(name) => TimeZone::get(name).with_context(|| format!("Unknown time zone: {name}")),
-            None => Ok(TimeZone::system()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MetadataConfig {
-    /// Like `en-US`.
-    pub language: String,
-    /// Country whose movie release dates are used.
-    pub region: String,
-    pub tmdb: TmdbConfig,
-    pub tvdb: TvdbConfig,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct TmdbConfig {
-    /// API read access token.
-    pub token: Option<Secret>,
-    pub url: String,
-}
-
-/// Series come from TVDB while `api_key` is set.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct TvdbConfig {
-    /// Project API key.
-    pub api_key: Option<Secret>,
-    /// Subscriber PIN, needed with a user-supported API key.
-    pub pin: Option<Secret>,
-    pub url: String,
-}
-
-impl MetadataConfig {
-    /// `language` as the three-letter code TVDB takes, e.g. `eng` for `en-US`.
-    pub fn tvdb_language(&self) -> Result<&'static str> {
-        let code = self.language.split('-').next().unwrap_or_default();
-        isolang::Language::from_639_1(code)
-            .map(|language| language.to_639_3())
-            .with_context(|| format!("Unknown metadata language: {}", self.language))
-    }
-}
-
-/// Path patterns for library files, one per path component; see `NamingTemplates` for the tokens.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct NamingConfig {
-    pub movie_folder: String,
-    pub movie_file: String,
-    pub series_folder: String,
-    pub season_folder: String,
-    pub episode_file: String,
-}
-
-impl Default for NamingConfig {
-    fn default() -> Self {
-        let NamingTemplates { movie_folder, movie_file, series_folder, season_folder, episode_file } =
-            NamingTemplates::default();
-        Self { movie_folder, movie_file, series_folder, season_folder, episode_file }
-    }
-}
-
-impl NamingConfig {
-    pub fn naming(&self) -> Result<Naming> {
-        let templates = NamingTemplates {
-            movie_folder: self.movie_folder.clone(),
-            movie_file: self.movie_file.clone(),
-            series_folder: self.series_folder.clone(),
-            season_folder: self.season_folder.clone(),
-            episode_file: self.episode_file.clone(),
-        };
-        Naming::new(&templates).context("Invalid [naming] setting")
-    }
-}
-
-impl Default for MetadataConfig {
-    fn default() -> Self {
-        Self {
-            language: "en-US".into(),
-            region: "US".into(),
-            tmdb: TmdbConfig { token: None, url: "https://api.themoviedb.org/3".into() },
-            tvdb: TvdbConfig { api_key: None, pin: None, url: "https://api4.thetvdb.com/v4".into() },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct TransmissionConfig {
-    pub url: String,
-    pub username: Option<String>,
-    pub password: Option<Secret>,
-    /// Removes imported torrents, with their data, once Transmission finished seeding them.
-    pub remove_after_seeding: bool,
-    /// Torrents added outside Yokoku with any of these labels are taken on.
-    #[serde(default)]
-    pub pick_up_labels: Vec<String>,
-    /// Torrents added outside Yokoku that download at or under this folder are taken on.
-    pub pick_up_folder: Option<PathBuf>,
-}
-
-impl Default for TransmissionConfig {
-    fn default() -> Self {
-        Self {
-            url: "http://localhost:9091/transmission/rpc".into(),
-            username: None,
-            password: None,
-            remove_after_seeding: false,
-            pick_up_labels: Vec::new(),
-            pick_up_folder: None,
-        }
-    }
-}
-
-impl TransmissionConfig {
-    fn options(&self) -> DownloadOptions {
-        let pick_up = (!self.pick_up_labels.is_empty() || self.pick_up_folder.is_some())
-            .then(|| PickUp { labels: self.pick_up_labels.clone(), folder: self.pick_up_folder.clone() });
-        DownloadOptions { remove_after_seeding: self.remove_after_seeding, pick_up }
-    }
-}
+use crate::subscriptions;
 
 /// Use cases wired to their adapters.
 pub struct App {
@@ -192,9 +52,9 @@ impl App {
         let path = &config.database.path;
         let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
         let db = Arc::new(db);
-        let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()?));
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()));
         let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
-        let naming = config.naming.naming()?;
+        let naming = config.naming.clone();
         let settings = &config.metadata;
         let tvdb_language = settings.tvdb_language()?;
         let metadata = settings.tmdb.token.as_ref().map(|token| {
@@ -235,7 +95,7 @@ impl App {
             db.clone(),
             Arc::new(client),
             clock.clone(),
-            transmission.options(),
+            config.downloads.clone(),
             events.clone(),
         ));
         let scanner =
@@ -256,7 +116,7 @@ impl App {
                 lock,
                 clock.clone(),
                 naming,
-                config.import.mode.into(),
+                config.import.mode,
                 events.clone(),
             )),
             history: History::new(Arc::new(db.event_log())),

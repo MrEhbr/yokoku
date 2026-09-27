@@ -1,25 +1,17 @@
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use serde::{Deserialize, Serialize};
 use tracing::debug;
+use yokoku_config::{Config, ListConfig};
 use yokoku_domain::{MovieStatus, SeriesStatus, title_with_year};
 use yokoku_library::{LibraryFilter, LibrarySort, LibraryStatus};
 
 use crate::{
     app::App,
     cli::{commands::Kind, output::Paint},
-    config::Config,
 };
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct ListConfig {
-    pub sort: Sort,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize, ValueEnum)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Sort {
-    #[default]
     Title,
     Added,
     NextRelease,
@@ -56,7 +48,7 @@ impl Args {
         let mut resolved = config.clone();
 
         if let Some(sort) = self.sort {
-            resolved.sort = sort;
+            resolved.sort = sort.into();
         }
 
         resolved
@@ -69,7 +61,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
 
     let app = App::open(config).await?;
     let filter = LibraryFilter { kind: args.kind.map(Into::into), status: args.status.map(Into::into) };
-    let entries = app.library.list(filter, settings.sort.into()).await?;
+    let entries = app.library.list(filter, settings.sort).await?;
 
     if entries.is_empty() {
         hint!("No items.")?;

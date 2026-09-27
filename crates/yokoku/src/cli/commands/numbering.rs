@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
+use yokoku_config::Config;
 use yokoku_domain::{ExternalId, Numbering as SeriesNumbering};
 
-use crate::{app::App, config::Config};
+use crate::app::App;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Numbering {

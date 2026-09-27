@@ -6,9 +6,10 @@ use std::{
 use async_trait::async_trait;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use reqwest::{StatusCode, header::HeaderValue};
-use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use tracing::debug;
+use yokoku_domain::Secret;
 use yokoku_downloads::{
     DownloadState, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
@@ -19,6 +20,19 @@ use crate::wire;
 const SESSION_HEADER: &str = "X-Transmission-Session-Id";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const TIMEOUT: Duration = Duration::from_secs(30);
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TransmissionSettings {
+    pub url: String,
+    pub username: Option<String>,
+    pub password: Option<Secret>,
+}
+
+impl Default for TransmissionSettings {
+    fn default() -> Self {
+        Self { url: "http://localhost:9091/transmission/rpc".into(), username: None, password: None }
+    }
+}
 
 /// Talks to Transmission's RPC endpoint, e.g. `http://localhost:9091/transmission/rpc`.
 pub struct TransmissionClient {

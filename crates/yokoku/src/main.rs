@@ -4,9 +4,7 @@
 mod cli;
 
 mod app;
-mod config;
 mod logging;
-mod secret;
 mod service;
 mod subscriptions;
 

@@ -1,11 +1,11 @@
 use anyhow::{Result, bail};
 use clap::Parser;
+use yokoku_config::Config;
 use yokoku_domain::{ExternalId, ItemId};
 
 use crate::{
     app::App,
     cli::commands::{ItemArgs, Kind},
-    config::Config,
 };
 
 #[derive(Parser)]

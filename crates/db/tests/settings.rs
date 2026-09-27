@@ -1,5 +1,6 @@
 use serde_json::json;
 use yokoku_db::Database;
+use yokoku_domain::SettingsStore;
 
 #[tokio::test]
 async fn settings_are_stored_replaced_and_removed_by_key() {

@@ -7,9 +7,9 @@ mod lock;
 mod probe;
 mod spool;
 
-pub use clock::SystemClock;
+pub use clock::{ClockSettings, SystemClock};
 pub use fs::LocalFileSystem;
-pub use jellyfin::JellyfinClient;
+pub use jellyfin::{JellyfinClient, JellyfinSettings};
 pub use lock::LockFile;
-pub use probe::FfProbe;
+pub use probe::{FfProbe, ProbeSettings};
 pub use spool::FileSpool;

@@ -14,7 +14,7 @@ use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, MovieId};
 use yokoku_downloads::{
-    Download, DownloadError, DownloadOptions, DownloadState, Downloads, PickUp, TorrentStatus,
+    Download, DownloadError, DownloadOptions, DownloadState, Downloads, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
 use yokoku_events::{
@@ -308,7 +308,8 @@ async fn imports_of_scanned_files_or_unknown_downloads_change_nothing() {
     assert_eq!(setup.only_download().await, added);
 }
 
-const CLEAN_UP: DownloadOptions = DownloadOptions { remove_after_seeding: true, pick_up: None };
+const CLEAN_UP: DownloadOptions =
+    DownloadOptions { remove_after_seeding: true, pick_up_labels: Vec::new(), pick_up_folder: None };
 
 #[tokio::test]
 async fn an_imported_download_is_removed_with_its_data_once_seeded() {
@@ -368,8 +369,11 @@ fn outside(hash: &str, labels: &[&str], folder: &str) -> Torrent {
 }
 
 fn picking_up(labels: &[&str], folder: Option<&str>) -> DownloadOptions {
-    let labels = labels.iter().map(|label| (*label).to_owned()).collect();
-    DownloadOptions { pick_up: Some(PickUp { labels, folder: folder.map(Into::into) }), ..DownloadOptions::default() }
+    DownloadOptions {
+        pick_up_labels: labels.iter().map(|label| (*label).to_owned()).collect(),
+        pick_up_folder: folder.map(Into::into),
+        ..DownloadOptions::default()
+    }
 }
 
 #[rstest]

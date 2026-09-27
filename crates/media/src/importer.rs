@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 use yokoku_detect::{Classified, ListedFile};
 use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
@@ -17,13 +18,20 @@ use crate::{
 };
 
 /// How files reach the library (FR-3.6).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ImportMode {
     /// The torrent keeps seeding; falls back to a copy across file systems.
     #[default]
+    #[serde(rename = "hardlink")]
     HardLink,
     Copy,
     Move,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
+pub struct ImportSettings {
+    pub mode: ImportMode,
 }
 
 /// Places the files of approved imports in the library (FR-5).

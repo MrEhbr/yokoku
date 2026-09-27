@@ -1,7 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
+use yokoku_config::Config;
 
-use crate::{app::App, config::Config};
+use crate::app::App;
 
 #[derive(Parser)]
 pub struct Args {}

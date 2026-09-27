@@ -1,14 +1,11 @@
 use std::path::Path;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde_json::Value;
+use yokoku_config::Config;
 use yokoku_db::Database;
-
-use crate::{
-    config::{self, Config},
-    secret::REDACTED,
-};
+use yokoku_domain::SettingsStore;
 
 #[derive(Parser)]
 pub struct Args {
@@ -54,7 +51,8 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
             }
         },
         Command::Get { key } => {
-            let effective: Config = config::load(config_path, &stored).context("Failed to load configuration")?;
+            let effective: Config =
+                yokoku_config::load(config_path, &stored).context("Failed to load configuration")?;
             say!("{}", effective.setting(&key)?)?;
         },
         Command::Set { key, value } => {
@@ -63,7 +61,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
             let mut candidate: Vec<(String, Value)> = stored.into_iter().filter(|(stored, _)| *stored != key).collect();
             candidate.push((key.clone(), value.clone()));
             let effective: Config =
-                config::load(config_path, &candidate).with_context(|| format!("{key} cannot be {value}"))?;
+                yokoku_config::load(config_path, &candidate).with_context(|| format!("{key} cannot be {value}"))?;
             effective.validate().with_context(|| format!("{key} cannot be {value}"))?;
 
             db.set_setting(&key, &value).await.context("Failed to store the setting")?;
@@ -79,33 +77,4 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
         },
     }
     Ok(())
-}
-
-impl Config {
-    /// The value of a known setting, e.g. `import.mode`.
-    fn setting(&self, key: &str) -> Result<Value> {
-        let config = serde_json::to_value(self)?;
-        match key.split('.').try_fold(&config, |value, part| value.get(part)) {
-            Some(value) if !value.is_object() => Ok(value.clone()),
-            _ => bail!("{key} is not a setting"),
-        }
-    }
-
-    /// `value` as `setting` shows it once loaded, so a secret reads `"<redacted>"`; a value that does
-    /// not load is shown as stored.
-    fn shown(key: &str, value: &Value) -> Value {
-        match config::load::<Self>(None, &[(key.to_owned(), value.clone())]).and_then(|config| config.setting(key)) {
-            Ok(loaded) if loaded == REDACTED => loaded,
-            _ => value.clone(),
-        }
-    }
-
-    /// Fails unless `key` is a setting the database can store.
-    fn editable(key: &str) -> Result<()> {
-        Self::default().setting(key)?;
-        if ["database", "log"].contains(&key.split('.').next().unwrap_or_default()) {
-            bail!("{key} is needed before the database opens; set it in the config file or environment");
-        }
-        Ok(())
-    }
 }

@@ -9,6 +9,7 @@ repository = "https://github.com/mrehbr/yokoku"
 license = "MIT"
 
 [workspace.dependencies]
+yokoku-config = { path = "crates/config" }
 yokoku-db = { path = "crates/db" }
 yokoku-detect = { path = "crates/detect" }
 yokoku-domain = { path = "crates/domain" }

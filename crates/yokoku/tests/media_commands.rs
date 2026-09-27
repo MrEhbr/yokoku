@@ -12,7 +12,7 @@ use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
     Confidence, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MonitorPreset,
-    SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
 };
 use yokoku_library::ports::SeriesRepo;
 use yokoku_media::{
@@ -438,7 +438,7 @@ async fn an_invalid_pattern_is_refused_with_its_reason() {
     let setup = Setup::new().await;
 
     setup.command().arg("rename").env("APP__NAMING__EPISODE_FILE", "{title}").assert().failure().stderr(
-        predicate::str::contains("Invalid [naming] setting").and(predicate::str::contains("episode file pattern")),
+        predicate::str::contains("Failed to load configuration").and(predicate::str::contains("episode file pattern")),
     );
 }
 

@@ -68,8 +68,10 @@ crate::string_enum!(Numbering, "numbering" {
     Absolute => "absolute",
 });
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum MonitorPreset {
+    #[default]
     All,
     Future,
     LatestSeason,

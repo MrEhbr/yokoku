@@ -263,7 +263,7 @@ async fn imported_downloads_leave_transmission_with_their_data_once_seeded() {
     let output = setup
         .command()
         .args(["download", "sync"])
-        .env("APP__TRANSMISSION__REMOVE_AFTER_SEEDING", "true")
+        .env("APP__DOWNLOADS__REMOVE_AFTER_SEEDING", "true")
         .output()
         .unwrap();
 
@@ -288,7 +288,7 @@ async fn torrents_added_in_transmission_under_the_pick_up_folder_are_imported() 
     let folder = setup.dir.path().join("downloads");
 
     let synced =
-        setup.command().args(["download", "sync"]).env("APP__TRANSMISSION__PICK_UP_FOLDER", &folder).output().unwrap();
+        setup.command().args(["download", "sync"]).env("APP__DOWNLOADS__PICK_UP_FOLDER", &folder).output().unwrap();
 
     let stdout = String::from_utf8(synced.stdout).unwrap();
     let content = folder.join("Dune.2021.1080p");

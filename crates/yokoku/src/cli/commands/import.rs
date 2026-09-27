@@ -1,28 +1,9 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand, ValueEnum};
-use serde::{Deserialize, Serialize};
+use clap::{Parser, Subcommand};
+use yokoku_config::Config;
 use yokoku_domain::ImportId;
-use yokoku_media::ImportMode;
 
-use crate::{app::App, cli::output::Paint, config::Config};
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct ImportConfig {
-    pub mode: Mode,
-}
-
-/// How finished downloads reach the library.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize, ValueEnum)]
-#[serde(rename_all = "kebab-case")]
-pub enum Mode {
-    /// Keep seeding; copy when the library is on another file system
-    #[default]
-    Hardlink,
-    /// Keep seeding from a separate copy
-    Copy,
-    /// Take the files out of the download
-    Move,
-}
+use crate::{app::App, cli::output::Paint};
 
 #[derive(Parser)]
 pub struct Args {
@@ -80,14 +61,4 @@ pub async fn run_imports(app: &App) -> Result<()> {
         }
     }
     app.deliver_events().await
-}
-
-impl From<Mode> for ImportMode {
-    fn from(mode: Mode) -> Self {
-        match mode {
-            Mode::Hardlink => Self::HardLink,
-            Mode::Copy => Self::Copy,
-            Mode::Move => Self::Move,
-        }
-    }
 }

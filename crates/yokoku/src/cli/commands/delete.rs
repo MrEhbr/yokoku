@@ -1,11 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
+use yokoku_config::Config;
 use yokoku_domain::EpisodeSpan;
 
 use crate::{
     app::App,
     cli::commands::{ItemArgs, confirm_deletion},
-    config::Config,
 };
 
 #[derive(Parser)]

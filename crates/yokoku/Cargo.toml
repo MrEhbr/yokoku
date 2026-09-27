@@ -16,6 +16,7 @@ default = []
 tokio-console = ["dep:console-subscriber"]
 
 [dependencies]
+yokoku-config.workspace = true
 yokoku-db.workspace = true
 yokoku-domain.workspace = true
 yokoku-downloads.workspace = true
@@ -33,14 +34,9 @@ yokoku-web.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap-verbosity-flag.workspace = true
-config.workspace = true
 console-subscriber = { workspace = true, optional = true }
-isolang.workspace = true
 jiff.workspace = true
-jiff-cron.workspace = true
 owo-colors.workspace = true
-secrecy.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "signal"] }
 tokio-util.workspace = true
@@ -54,7 +50,6 @@ criterion.workspace = true
 predicates.workspace = true
 rstest.workspace = true
 tempfile.workspace = true
-toml.workspace = true
 wiremock.workspace = true
 
 [[bench]]

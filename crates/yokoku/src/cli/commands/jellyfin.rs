@@ -1,16 +1,8 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
+use yokoku_config::Config;
 
-use crate::{app::App, config::Config, secret::Secret};
-
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct JellyfinConfig {
-    /// Server address, e.g. `http://localhost:8096`; rescans are off while unset.
-    pub url: Option<String>,
-    /// An administrator's API key.
-    pub api_key: Option<Secret>,
-}
+use crate::app::App;
 
 #[derive(Parser)]
 pub struct Args {

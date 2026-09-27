@@ -4,13 +4,10 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use tracing::{Instrument, error, info_span};
+use yokoku_config::{Config, LogOutput};
 use yokoku_events::{CorrelationId, correlation::correlate};
 
-use crate::{
-    cli::commands,
-    config::Config,
-    logging::{self, LogOutput},
-};
+use crate::{cli::commands, logging};
 
 /// Attribution TMDB and TheTVDB require.
 const DATA_SOURCES: &str = "This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise \
@@ -84,11 +81,11 @@ pub enum Command {
 impl Args {
     async fn resolve_config(&self) -> Result<Config> {
         let path = self.config.as_deref();
-        let mut config: Config = crate::config::load(path, &[]).context("Failed to load configuration")?;
+        let mut config: Config = yokoku_config::load(path, &[]).context("Failed to load configuration")?;
         if !matches!(self.command, Some(Command::Settings(_))) {
             let stored = commands::settings::stored_settings(&config.database.path).await?;
             if !stored.is_empty() {
-                config = crate::config::load(path, &stored)
+                config = yokoku_config::load(path, &stored)
                     .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
             }
         }

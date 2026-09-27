@@ -14,10 +14,12 @@ yokoku-library.workspace = true
 
 async-trait.workspace = true
 governor.workspace = true
+isolang.workspace = true
 jiff.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "time"] }
 tracing.workspace = true
 

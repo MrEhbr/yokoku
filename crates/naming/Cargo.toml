@@ -11,6 +11,7 @@ workspace = true
 [dependencies]
 yokoku-domain.workspace = true
 
+serde.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

@@ -26,6 +26,8 @@ region = "US"
 [transmission]
 url = "http://localhost:9091/transmission/rpc"
 # username = "yokoku"
+
+[downloads]
 # Removes imported torrents with their data once Transmission finished seeding them.
 remove_after_seeding = false
 # Takes on torrents added directly in Transmission that carry one of these labels or download under the folder.
