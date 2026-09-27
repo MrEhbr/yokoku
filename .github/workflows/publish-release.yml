@@ -46,6 +46,14 @@ jobs:
         with:
           tool: cargo-zigbuild
 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install topcoat CLI
+        run: |
+          VERSION=$(grep -A1 '^name = "topcoat-asset"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
+          cargo binstall --no-confirm "topcoat-cli@=$VERSION"
+
       - name: Generate release changelog
         uses: orhun/git-cliff-action@v4
         with:

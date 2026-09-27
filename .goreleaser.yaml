@@ -8,12 +8,15 @@
 
 version: 2
 
+project_name: yokoku
+
 env:
   - DOCKER_REGISTRY={{ if index .Env "DOCKER_REGISTRY" }}{{ .Env.DOCKER_REGISTRY }}{{ else }}ghcr.io{{ end }}
   - DOCKER_USERNAME={{ if index .Env "DOCKER_USERNAME" }}{{ .Env.DOCKER_USERNAME }}{{ else }}mrehbr{{ end }}
 
 before:
-  hooks: []
+  hooks:
+    - topcoat asset bundle -p yokoku --bin yokoku --release -o target/yokoku-assets
 
 builds:
   - builder: rust
@@ -34,6 +37,9 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - src: target/yokoku-assets/*
+        dst: assets
     # use zip for windows archives
     format_overrides:
       - goos: windows
@@ -54,8 +60,6 @@ dockers_v2:
     platforms:
       - linux/amd64
       - linux/arm64
-    build_args:
-      BINARY_NAME: "{{ .ProjectName }}"
     images:
       - "{{ .Env.DOCKER_REGISTRY }}/{{ tolower .Env.DOCKER_USERNAME }}/{{ .ProjectName }}"
     tags:
@@ -69,4 +73,5 @@ dockers_v2:
       org.opencontainers.image.revision: "{{.FullCommit}}"
       org.opencontainers.image.version: "{{.Version}}"
       org.opencontainers.image.source: "{{.GitURL}}"
-    extra_files: []
+    extra_files:
+      - target/yokoku-assets

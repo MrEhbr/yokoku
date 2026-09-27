@@ -1,13 +1,15 @@
-# Dockerfile for GoReleaser builds
-# Uses distroless for minimal, secure images with glibc support
+# Image for GoReleaser builds: the binary with its web asset bundle beside it.
 
 FROM gcr.io/distroless/cc-debian12:latest
 
-# Copy the pre-built binary from goreleaser's build context
-# GoReleaser organizes binaries by TARGETPLATFORM (e.g., linux/amd64, linux/arm64)
 ARG TARGETPLATFORM
-ARG BINARY_NAME
-COPY ${TARGETPLATFORM}/${BINARY_NAME} /usr/local/bin/app
+COPY ${TARGETPLATFORM}/yokoku /app/yokoku
+COPY target/yokoku-assets /app/assets
 
-# Set the entrypoint
-ENTRYPOINT ["/usr/local/bin/app"]
+ENV HOST=0.0.0.0 \
+    PORT=3000 \
+    APP__DATABASE__PATH=/data/yokoku.db
+
+VOLUME ["/data"]
+EXPOSE 3000
+ENTRYPOINT ["/app/yokoku"]
