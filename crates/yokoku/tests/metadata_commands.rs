@@ -65,7 +65,8 @@ impl Tmdb {
             .env("APP__DATABASE__PATH", &self.database)
             .env("APP__CLOCK__TIMEZONE", "UTC")
             .env("APP__METADATA__TMDB__TOKEN", "test-token")
-            .env("APP__METADATA__TMDB__URL", self.server.uri());
+            .env("APP__METADATA__TMDB__URL", self.server.uri())
+            .env_remove("APP__METADATA__TVDB__API_KEY");
         command
     }
 }
