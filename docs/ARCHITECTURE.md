@@ -375,7 +375,7 @@ Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modu
 | Decision | Rejected alternative | Reason |
 |---|---|---|
 | Ports owned by modules; adapters depend on modules | Modules depend on `db`, `metadata`, `transmission` | Business logic would change with infrastructure. |
-| Event log in SQLite, one position per subscriber, own code (~200 lines) | evento, cqrs-es/sqlite-es, hexeract-outbox, cratestack-outbox, eventsdb | Each fails at least one requirement: works with SQLite, joins our sqlx transaction, keeps a position per subscriber, no event sourcing, sqlx 0.9. |
+| Event log in SQLite, one position per subscriber, own code (~200 lines) | evento, cqrs-es/sqlite-es, hexeract-outbox, cratestack-outbox, eventsdb | Each fails at least one requirement: works with SQLite, keeps a position per subscriber, no event sourcing, sqlx 0.9. |
 | State tables are the source of truth | Event sourcing | TMDB is the real source of metadata. Rebuilding from events adds no value, and stored event schemas are costly to migrate. |
 | In-process delivery | External broker (NATS, Redis, Kafka) | Adds deployment weight for a single-user, self-hosted app. |
 | Import state machine in our tables | `apalis-workflow` | Review can pause for days, and the UI must query import state. |
