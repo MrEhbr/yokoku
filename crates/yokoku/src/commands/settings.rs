@@ -50,15 +50,15 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
                 hint!("No stored settings.")?;
             }
             for (key, value) in &stored {
-                say!("{key} = {}", shown(key, value))?;
+                say!("{key} = {}", Config::shown(key, value))?;
             }
         },
         Command::Get { key } => {
             let effective: Config = config::load(config_path, &stored).context("Failed to load configuration")?;
-            say!("{}", setting(&serde_json::to_value(&effective)?, &key)?)?;
+            say!("{}", effective.setting(&key)?)?;
         },
         Command::Set { key, value } => {
-            editable(&key)?;
+            Config::editable(&key)?;
             let value = serde_json::from_str(&value).unwrap_or(Value::String(value));
             let mut candidate: Vec<(String, Value)> = stored.into_iter().filter(|(stored, _)| *stored != key).collect();
             candidate.push((key.clone(), value.clone()));
@@ -67,7 +67,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
             effective.validate().with_context(|| format!("{key} cannot be {value}"))?;
 
             db.set_setting(&key, &value).await.context("Failed to store the setting")?;
-            success!("Set {key} = {}", shown(&key, &value))?;
+            success!("Set {key} = {}", Config::shown(&key, &value))?;
             let variable = format!("APP__{}", key.to_uppercase().replace('.', "__"));
             if std::env::var_os(&variable).is_some() {
                 say!("{variable} is set and takes precedence")?;
@@ -81,31 +81,31 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
     Ok(())
 }
 
-/// The value of a known setting.
-fn setting<'a>(config: &'a Value, key: &str) -> Result<&'a Value> {
-    let value = key.split('.').try_fold(config, |value, part| value.get(part));
-    match value {
-        Some(value) if !value.is_object() => Ok(value),
-        _ => bail!("{key} is not a setting"),
+impl Config {
+    /// The value of a known setting, e.g. `import.mode`.
+    fn setting(&self, key: &str) -> Result<Value> {
+        let config = serde_json::to_value(self)?;
+        match key.split('.').try_fold(&config, |value, part| value.get(part)) {
+            Some(value) if !value.is_object() => Ok(value.clone()),
+            _ => bail!("{key} is not a setting"),
+        }
     }
-}
 
-/// `value` as `setting` shows it once loaded, so a secret reads `"<redacted>"`; a value that does
-/// not load is shown as stored.
-fn shown(key: &str, value: &Value) -> Value {
-    let loaded = config::load::<Config>(None, &[(key.to_owned(), value.clone())])
-        .and_then(|config| Ok(setting(&serde_json::to_value(config)?, key)?.clone()));
-    match loaded {
-        Ok(loaded) if loaded == REDACTED => loaded,
-        _ => value.clone(),
+    /// `value` as `setting` shows it once loaded, so a secret reads `"<redacted>"`; a value that does
+    /// not load is shown as stored.
+    fn shown(key: &str, value: &Value) -> Value {
+        match config::load::<Self>(None, &[(key.to_owned(), value.clone())]).and_then(|config| config.setting(key)) {
+            Ok(loaded) if loaded == REDACTED => loaded,
+            _ => value.clone(),
+        }
     }
-}
 
-fn editable(key: &str) -> Result<()> {
-    const READONLY: [&str; 2] = ["database", "log"];
-    setting(&serde_json::to_value(Config::default())?, key)?;
-    if READONLY.iter().any(|section| key.split('.').next() == Some(section)) {
-        bail!("{key} is needed before the database opens; set it in the config file or environment");
+    /// Fails unless `key` is a setting the database can store.
+    fn editable(key: &str) -> Result<()> {
+        Self::default().setting(key)?;
+        if ["database", "log"].contains(&key.split('.').next().unwrap_or_default()) {
+            bail!("{key} is needed before the database opens; set it in the config file or environment");
+        }
+        Ok(())
     }
-    Ok(())
 }

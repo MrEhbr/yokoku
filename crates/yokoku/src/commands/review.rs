@@ -2,12 +2,11 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use yokoku_detect::Conflict;
 use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
-use yokoku_library::Library;
 use yokoku_media::{Approval, ReviewRow};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, import::run_imports, item_title},
+    commands::{ItemArgs, import::run_imports},
     config::Config,
     output::Paint,
 };
@@ -63,7 +62,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             say!("{}", review.source.display())?;
             for (number, row) in (1..).zip(&review.rows) {
                 let file = row.row.path.strip_prefix(&review.source).unwrap_or(&row.row.path);
-                let target = target_label(&app.library, row).await;
+                let target = target_label(&app, row).await;
                 say!("{number:>3}  {:<50}  {target:<40}  {}", file.display(), details(row))?;
             }
         },
@@ -92,16 +91,16 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     Ok(())
 }
 
-async fn target_label(library: &Library, row: &ReviewRow) -> String {
+async fn target_label(app: &App, row: &ReviewRow) -> String {
     if row.row.skipped {
         return "skipped".into();
     }
     match row.row.target {
         None => "-".into(),
         Some(FileTarget::Episodes { series, span }) => {
-            format!("{} {span}", item_title(library, ItemId::Series(series)).await)
+            format!("{} {span}", app.title(ItemId::Series(series)).await)
         },
-        Some(FileTarget::Movie(movie)) => item_title(library, ItemId::Movie(movie)).await,
+        Some(FileTarget::Movie(movie)) => app.title(ItemId::Movie(movie)).await,
     }
 }
 

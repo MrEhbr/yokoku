@@ -7,7 +7,7 @@ use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_db::Database;
-use yokoku_domain::{Clock, MovieMetadata, SeriesMetadata};
+use yokoku_domain::{Clock, ItemId, MovieMetadata, SeriesMetadata};
 use yokoku_downloads::{DownloadOptions, Downloads, PickUp};
 use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
 use yokoku_integrations::Rescans;
@@ -21,7 +21,7 @@ use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_system::{FfProbe, FileSpool, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
-use crate::{config::Config, secret::Secret, subscriptions};
+use crate::{commands::title_with_year, config::Config, secret::Secret, subscriptions};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DatabaseConfig {
@@ -289,6 +289,15 @@ impl App {
     /// `None` while no TMDB token is configured.
     pub fn metadata(&self) -> Option<Arc<MetadataSync>> {
         self.sync.clone()
+    }
+
+    /// The item's title with its year; `removed series` or `removed movie` once it left the library.
+    pub async fn title(&self, item: ItemId) -> String {
+        let found = match item {
+            ItemId::Series(id) => self.library.series(id).await.map(|series| (series.title, series.year)),
+            ItemId::Movie(id) => self.library.movie(id).await.map(|movie| (movie.title, movie.year)),
+        };
+        found.map_or_else(|_| format!("removed {}", item.kind()), |(title, year)| title_with_year(&title, year))
     }
 }
 

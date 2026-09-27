@@ -107,12 +107,3 @@ pub fn title_with_year(title: &str, year: Option<i16>) -> String {
         None => title.to_owned(),
     }
 }
-
-/// The item's title with its year; `removed series` or `removed movie` once it left the library.
-pub async fn item_title(library: &Library, item: ItemId) -> String {
-    let found = match item {
-        ItemId::Series(id) => library.series(id).await.map(|series| (series.title, series.year)),
-        ItemId::Movie(id) => library.movie(id).await.map(|movie| (movie.title, movie.year)),
-    };
-    found.map_or_else(|_| format!("removed {}", item.kind()), |(title, year)| title_with_year(&title, year))
-}

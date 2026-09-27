@@ -1,4 +1,4 @@
-use std::{io, path::PathBuf, time::Duration};
+use std::{io, path::PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -72,33 +72,21 @@ fn write_details(details: &FileDetails) -> io::Result<()> {
         say!("  {size}, not probed yet; run `yokoku files probe`")?;
         return write_subtitles(None, &details.subtitle_files);
     };
-    let mut summary = vec![size];
-    summary.extend(info.duration.map(duration));
-    summary.extend(info.video.as_ref().map(|video| format!("{}x{} {}", video.width, video.height, video.codec)));
+    let minutes = info.duration.map(|duration| duration.as_secs() / 60);
+    let duration = minutes.map(|minutes| format!("{}h {:02}m", minutes / 60, minutes % 60));
+    let summary: Vec<String> =
+        [Some(size), duration, info.video.as_ref().map(ToString::to_string)].into_iter().flatten().collect();
     say!("  {}", summary.join(", "))?;
     if !info.audio.is_empty() {
-        let audio: Vec<String> = info
-            .audio
-            .iter()
-            .map(|audio| {
-                format!("{} {} {}", language(audio.language.as_deref()), audio.codec, channels(audio.channels))
-            })
-            .collect();
+        let audio: Vec<String> = info.audio.iter().map(ToString::to_string).collect();
         say!("  Audio      {}", audio.join(", "))?;
     }
     write_subtitles(Some(info), &details.subtitle_files)
 }
 
 fn write_subtitles(info: Option<&MediaInfo>, files: &[SubtitleTags]) -> io::Result<()> {
-    let inside: Vec<String> = info
-        .into_iter()
-        .flat_map(|info| &info.subtitles)
-        .map(|subtitle| tagged(language(subtitle.language.as_deref()), false, subtitle.forced))
-        .collect();
-    let beside: Vec<String> = files
-        .iter()
-        .map(|tags| tagged(tags.language.as_deref().unwrap_or("unknown").to_owned(), tags.sdh, tags.forced))
-        .collect();
+    let inside: Vec<String> = info.into_iter().flat_map(|info| &info.subtitles).map(ToString::to_string).collect();
+    let beside: Vec<String> = files.iter().map(ToString::to_string).collect();
     let parts: Vec<String> = [(inside, "in the file"), (beside, "beside it")]
         .into_iter()
         .filter(|(languages, _)| !languages.is_empty())
@@ -108,32 +96,4 @@ fn write_subtitles(info: Option<&MediaInfo>, files: &[SubtitleTags]) -> io::Resu
         say!("  Subtitles  {}", parts.join("; "))?;
     }
     Ok(())
-}
-
-fn language(code: Option<&str>) -> String {
-    code.unwrap_or("unknown").to_owned()
-}
-
-fn tagged(language: String, sdh: bool, forced: bool) -> String {
-    match (sdh, forced) {
-        (false, false) => language,
-        (true, false) => format!("{language} (SDH)"),
-        (false, true) => format!("{language} (forced)"),
-        (true, true) => format!("{language} (SDH, forced)"),
-    }
-}
-
-fn channels(count: u16) -> String {
-    match count {
-        1 => "mono".into(),
-        2 => "stereo".into(),
-        6 => "5.1".into(),
-        8 => "7.1".into(),
-        count => format!("{count} channels"),
-    }
-}
-
-fn duration(duration: Duration) -> String {
-    let minutes = duration.as_secs() / 60;
-    format!("{}h {:02}m", minutes / 60, minutes % 60)
 }

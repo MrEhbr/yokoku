@@ -7,7 +7,7 @@ use yokoku_downloads::{Download, DownloadState, ports::TorrentSource};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, import::run_imports, item_title},
+    commands::{ItemArgs, Kind, import::run_imports},
     config::Config,
     output::Paint,
 };
@@ -72,7 +72,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             }
             for download in &downloads {
                 let item = match download.item {
-                    Some(item) => item_title(&app.library, item).await,
+                    Some(item) => app.title(item).await,
                     None => "-".into(),
                 };
                 let (state, progress) = status(download);

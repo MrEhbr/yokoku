@@ -40,12 +40,16 @@ impl Default for ServeConfig {
 impl ServeConfig {
     pub fn schedules(&self) -> Result<Schedules> {
         Ok(Schedules {
-            sync_downloads: schedule(&self.sync_downloads)?,
-            execute_imports: schedule(&self.execute_imports)?,
-            rescan_media_server: schedule(&self.rescan_media_server)?,
-            refresh_metadata: schedule(&self.refresh_metadata)?,
-            scan_library: schedule(&self.scan_library)?,
+            sync_downloads: Self::schedule(&self.sync_downloads)?,
+            execute_imports: Self::schedule(&self.execute_imports)?,
+            rescan_media_server: Self::schedule(&self.rescan_media_server)?,
+            refresh_metadata: Self::schedule(&self.refresh_metadata)?,
+            scan_library: Self::schedule(&self.scan_library)?,
         })
+    }
+
+    fn schedule(expression: &str) -> Result<Schedule> {
+        Schedule::from_str(expression).with_context(|| format!("Invalid schedule: {expression}"))
     }
 }
 
@@ -78,10 +82,6 @@ pub async fn run(config: &Config, _args: Args) -> Result<()> {
     }
     info!("stopped");
     result.context("Jobs failed")
-}
-
-fn schedule(expression: &str) -> Result<Schedule> {
-    Schedule::from_str(expression).with_context(|| format!("Invalid schedule: {expression}"))
 }
 
 async fn stop_signal() -> io::Result<()> {

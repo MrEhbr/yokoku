@@ -4,7 +4,7 @@ use yokoku_domain::{ExternalId, ItemId};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, item_title},
+    commands::{ItemArgs, Kind},
     config::Config,
 };
 
@@ -28,7 +28,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         let report = sync.refresh_all().await?;
         success!("Refreshed {} items", report.refreshed)?;
         for failure in &report.failures {
-            let name = item_title(&app.library, failure.item).await;
+            let name = app.title(failure.item).await;
             failure!("Failed {name}: {}", failure.error)?;
         }
         if !report.failures.is_empty() {
