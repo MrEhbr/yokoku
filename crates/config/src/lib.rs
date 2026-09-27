@@ -80,13 +80,10 @@ impl Config {
         Ok(self.value(key)?.to_string())
     }
 
-    /// `value` as `setting` shows it once loaded, so a secret reads `"<redacted>"`; a value that does
-    /// not load is shown as stored.
-    pub fn shown(key: &str, value: &Value) -> String {
-        match Self::load(None, &[(key.to_owned(), value.clone())]).and_then(|config| config.value(key)) {
-            Ok(loaded) if loaded == REDACTED => loaded.to_string(),
-            _ => value.to_string(),
-        }
+    /// Whether `key` holds a `Secret`, which `setting` shows as `"<redacted>"`.
+    pub fn is_secret(key: &str) -> bool {
+        let probe = [(key.to_owned(), Value::from("probe"))];
+        Self::load(None, &probe).and_then(|config| config.value(key)).is_ok_and(|value| value == REDACTED)
     }
 
     /// Fails unless `key` is a setting the database can store.
