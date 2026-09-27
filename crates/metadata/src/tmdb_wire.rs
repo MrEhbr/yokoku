@@ -2,9 +2,10 @@
 
 use std::collections::HashMap;
 
-use jiff::civil::Date;
 use serde::Deserialize;
 use yokoku_domain::{Releases, SourceStatus};
+
+use crate::http::date;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct SearchPage {
@@ -148,15 +149,6 @@ pub(crate) struct ReleaseDate {
     /// 1 premiere, 2 limited theatrical, 3 theatrical, 4 digital, 5 physical, 6 TV.
     #[serde(rename = "type")]
     pub kind: u8,
-}
-
-/// `2021-10-22` or `2021-10-22T00:00:00.000Z`; empty strings are missing dates.
-pub(crate) fn date(value: Option<&str>) -> Option<Date> {
-    value?.get(..10)?.parse().ok()
-}
-
-pub(crate) fn year(value: Option<&str>) -> Option<i16> {
-    value?.get(..4)?.parse().ok()
 }
 
 pub(crate) fn source_status(value: Option<&str>) -> SourceStatus {

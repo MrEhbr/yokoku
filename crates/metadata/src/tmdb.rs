@@ -53,7 +53,7 @@ impl MetadataProvider for TmdbClient {
                 SearchItem::Movie(movie) => Some(SearchResult {
                     kind: MediaKind::Movie,
                     source: ExternalId::Tmdb(movie.id),
-                    year: tmdb_wire::year(movie.release_date.as_deref()),
+                    year: http::year(movie.release_date.as_deref()),
                     title: movie.title,
                     original_title: movie.original_title,
                     poster_path: movie.poster_path,
@@ -61,7 +61,7 @@ impl MetadataProvider for TmdbClient {
                 SearchItem::Tv(tv) => Some(SearchResult {
                     kind: MediaKind::Series,
                     source: ExternalId::Tmdb(tv.id),
-                    year: tmdb_wire::year(tv.first_air_date.as_deref()),
+                    year: http::year(tv.first_air_date.as_deref()),
                     title: tv.name,
                     original_title: tv.original_name,
                     poster_path: tv.poster_path,
@@ -94,7 +94,7 @@ impl MetadataProvider for TmdbClient {
                             source_id: episode.id,
                             number: episode.episode_number,
                             title: episode.name,
-                            air_date: tmdb_wire::date(episode.air_date.as_deref()),
+                            air_date: http::date(episode.air_date.as_deref()),
                         })
                         .collect(),
                 });
@@ -104,7 +104,7 @@ impl MetadataProvider for TmdbClient {
         Ok(SeriesMetadata {
             source,
             alternate_titles: details.alternative_titles.into_distinct(&details.name, &details.original_name),
-            year: tmdb_wire::year(details.first_air_date.as_deref()),
+            year: http::year(details.first_air_date.as_deref()),
             status: tmdb_wire::source_status(details.status.as_deref()),
             title: details.name,
             original_title: details.original_name,
@@ -120,7 +120,7 @@ impl MetadataProvider for TmdbClient {
 
         Ok(MovieMetadata {
             source,
-            year: tmdb_wire::year(details.release_date.as_deref()),
+            year: http::year(details.release_date.as_deref()),
             releases: details.releases(&self.settings.current().region),
             alternate_titles: details.alternative_titles.into_distinct(&details.title, &details.original_title),
             title: details.title,

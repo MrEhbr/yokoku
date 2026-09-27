@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
+use jiff::civil::Date;
 use reqwest::{Client, IntoUrl, RequestBuilder, Response, StatusCode, header::RETRY_AFTER};
 use serde::{Deserialize, de::DeserializeOwned};
 use tokio::time::{Instant, sleep};
@@ -124,6 +125,15 @@ pub(crate) fn unavailable(error: impl std::error::Error + Send + Sync + 'static)
 
 pub(crate) fn invalid(error: impl std::error::Error + Send + Sync + 'static) -> MetadataError {
     MetadataError::Invalid(Box::new(error))
+}
+
+/// `2021-10-22` or `2021-10-22T00:00:00.000Z`; empty strings are missing dates.
+pub(crate) fn date(value: Option<&str>) -> Option<Date> {
+    value?.get(..10)?.parse().ok()
+}
+
+pub(crate) fn year(value: Option<&str>) -> Option<i16> {
+    value?.get(..4)?.parse().ok()
 }
 
 fn temporary(status: StatusCode) -> bool {
