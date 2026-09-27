@@ -72,9 +72,12 @@ pub(crate) struct Translations {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct Translation {
     pub language: String,
     pub name: Option<String>,
+    /// `true` for other names in the language; the translated title has `null`.
+    pub is_alias: Option<bool>,
 }
 
 impl SeriesDetails {
@@ -82,7 +85,7 @@ impl SeriesDetails {
         self.translations
             .name_translations
             .iter()
-            .find(|translation| translation.language == language)
+            .find(|translation| translation.language == language && translation.is_alias != Some(true))
             .and_then(|translation| translation.name.as_deref())
             .filter(|name| !name.is_empty())
     }

@@ -48,8 +48,9 @@ async fn mount_frieren(server: &MockServer) {
                 { "language": "eng", "name": "Frieren: Beyond Journey's End" },
             ],
             "translations": { "nameTranslations": [
-                { "language": "jpn", "name": "葬送のフリーレン", "isPrimary": true },
-                { "language": "eng", "name": "Frieren: Beyond Journey's End" },
+                { "language": "jpn", "name": "葬送のフリーレン", "isPrimary": true, "isAlias": null },
+                { "language": "eng", "name": "Frieren of the Funeral", "isPrimary": null, "isAlias": true },
+                { "language": "eng", "name": "Frieren: Beyond Journey's End", "isPrimary": null, "isAlias": null },
             ]},
         })))
         .mount(server)
