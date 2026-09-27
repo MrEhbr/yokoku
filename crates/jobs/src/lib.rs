@@ -1,6 +1,6 @@
 //! apalis workers and schedules.
 
-use std::{sync::Arc, time::Instant};
+use std::{error::Error, sync::Arc, time::Instant};
 
 use apalis::prelude::{BoxDynError, Data, Monitor, WorkerBuilder, WorkerBuilderExt};
 use apalis_cron::{CronScheduler, Tick};
@@ -71,7 +71,7 @@ where
     })
 }
 
-/// Runs one tick in a `job` span under a new correlation id, logging its duration and any failure.
+/// Runs one tick in a root `job` span under a new correlation id, logging its duration and any failure.
 async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynError>>) -> Result<(), BoxDynError> {
     let correlation = CorrelationId::generate();
     let work = async {
@@ -80,11 +80,11 @@ async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynErro
         let elapsed_ms = started.elapsed().as_millis();
         match &result {
             Ok(()) => debug!(elapsed_ms, "job finished"),
-            Err(error) => error!(%error, elapsed_ms, "job failed"),
+            Err(error) => error!(error = error.as_ref() as &(dyn Error + 'static), elapsed_ms, "job failed"),
         }
         result
     };
-    correlate(correlation, work.instrument(info_span!("job", name, %correlation))).await
+    correlate(correlation, work.instrument(info_span!(parent: None, "job", name, %correlation))).await
 }
 
 async fn sync_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) -> Result<(), BoxDynError> {
@@ -119,11 +119,30 @@ async fn rescan_media_server(_tick: Tick<TimeZone>, rescans: Data<Arc<Rescans>>)
 #[cfg(test)]
 mod tests {
     use std::{
-        io,
+        error::Error,
+        fmt, io,
         sync::{Arc, Mutex},
     };
 
+    use tracing::{Instrument, info_span};
+
     use super::run;
+
+    /// Fails because of `source`.
+    #[derive(Debug)]
+    struct Unavailable(io::Error);
+
+    impl fmt::Display for Unavailable {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("download client unavailable")
+        }
+    }
+
+    impl Error for Unavailable {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            Some(&self.0)
+        }
+    }
 
     #[derive(Clone, Default)]
     struct Captured(Arc<Mutex<Vec<u8>>>);
@@ -140,17 +159,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_failed_job_is_logged_in_its_span() {
+    async fn a_failed_job_is_logged_with_its_cause_in_a_root_span() {
         let captured = Captured::default();
         let writer = captured.clone();
         let subscriber = tracing_subscriber::fmt().with_writer(move || writer.clone()).with_ansi(false).finish();
         let _default = tracing::subscriber::set_default(subscriber);
 
-        let result = run("sync-downloads", async { Err("transmission is unreachable".into()) }).await;
+        let refused = Unavailable(io::Error::new(io::ErrorKind::ConnectionRefused, "connection refused"));
+        let result = run("sync-downloads", async { Err(refused.into()) }).instrument(info_span!("command")).await;
 
         assert!(result.is_err());
         let logs = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
         assert!(logs.contains("ERROR job{name=\"sync-downloads\" correlation="), "{logs}");
-        assert!(logs.contains("job failed error=transmission is unreachable"), "{logs}");
+        assert!(logs.contains("error=download client unavailable error.sources=[connection refused]"), "{logs}");
     }
 }

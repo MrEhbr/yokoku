@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{error::Error, sync::Arc, time::Duration};
 
 use tokio::time::{Instant, sleep};
 use tokio_util::sync::CancellationToken;
@@ -114,7 +114,11 @@ impl Delivery {
                         Ok(true)
                     },
                     Err(error) => {
-                        warn!(attempt = failure.attempts + 1, %error, "event handler failed again");
+                        warn!(
+                            attempt = failure.attempts + 1,
+                            error = error.as_ref() as &(dyn Error + 'static),
+                            "event handler failed again"
+                        );
                         let failure = Failure { error: error.to_string(), attempts: failure.attempts + 1, ..failure };
                         self.log.record_failure(subscriber, &failure).await?;
                         Ok::<_, StorageError>(false)
@@ -152,12 +156,12 @@ impl Delivery {
                     return self.log.mark_delivered(subscriber, recorded.id).await;
                 },
                 Err(error) if attempt >= self.config.max_attempts => {
-                    error!(attempt, %error, "giving up on event");
+                    error!(attempt, error = error.as_ref() as &(dyn Error + 'static), "giving up on event");
                     let failure = Failure { event: recorded.id, error: error.to_string(), attempts: attempt };
                     return self.log.give_up(subscriber, &failure).await;
                 },
                 Err(error) => {
-                    warn!(attempt, %error, "event handler failed");
+                    warn!(attempt, error = error.as_ref() as &(dyn Error + 'static), "event handler failed");
                     sleep(self.config.backoff(attempt)).await;
                     attempt += 1;
                 },
@@ -165,10 +169,11 @@ impl Delivery {
         }
     }
 
-    /// Runs `work` in a `deliver` span for `recorded`, under its correlation id or a new one.
+    /// Runs `work` in a root `deliver` span for `recorded`, under its correlation id or a new one.
     async fn scoped<T>(&self, recorded: &Recorded, work: impl Future<Output = T>) -> T {
         let correlation = recorded.correlation.unwrap_or_else(CorrelationId::generate);
         let span = info_span!(
+            parent: None,
             "deliver",
             subscriber = self.subscriber.name(),
             event_id = %recorded.id,
