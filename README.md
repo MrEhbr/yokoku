@@ -12,7 +12,10 @@ TBD
 # Build
 just build
 
-# Run
+# Run the app: web UI at http://127.0.0.1:3000, events, scheduled jobs
+just web dev
+
+# Command-line interface
 just run --help
 
 # Test
@@ -35,8 +38,12 @@ just build      # Build the project
 just test       # Run tests
 just lint       # Run linters
 just fmt        # Format code
-just run [ARGS] # Run the application
+just run [ARGS] # Run a CLI command
+just web dev     # Run the app, rebuilding on changes
+just web gallery # Browse the UI components
 ```
+
+`just setup` also installs `topcoat-cli` at the locked version; `just web …` needs it.
 
 
 
@@ -54,14 +61,18 @@ direnv allow # Auto-load with direnv
 
 ```
 crates/
-  yokoku/             # Binary: composition root and CLI
+  yokoku/             # Binary: composition root, service and CLI
     src/
-      args.rs         # CLI root, global flags, command dispatch
+      app.rs          # Wires the adapters into use cases
       config.rs       # Config type and layered loading
+      service.rs      # The service: web server, events, scheduled jobs
       logging.rs      # tracing setup
-      commands/       # One module per subcommand
+      cli/
+        args.rs       # CLI root, global flags, command dispatch
+        commands/     # One module per subcommand
     benches/          # Criterion benchmarks
     tests/            # Integration tests
+  web/                # Web UI on Topcoat, see crates/web/CLAUDE.md
   <name>/             # Library crates, see docs/ARCHITECTURE.md §3
 config/               # Configuration files
 docs/                 # Requirements and architecture
@@ -69,12 +80,13 @@ docs/                 # Requirements and architecture
 
 ## Adding a Command
 
-`crates/yokoku/src/commands/calendar.rs` is a small worked example. Paths
+The CLI is for setup and operations; features belong in the web UI.
+`crates/yokoku/src/cli/commands/calendar.rs` is a small worked example. Paths
 below are relative to `crates/yokoku/`. To add your own:
 
-1. Copy it to `src/commands/<name>.rs` and adjust its `Args` and `run`.
-2. Register the module in `src/commands/mod.rs`.
-3. Add a variant to `Command` in `src/args.rs` and dispatch it in `route`.
+1. Copy it to `src/cli/commands/<name>.rs` and adjust its `Args` and `run`.
+2. Register the module in `src/cli/commands/mod.rs`.
+3. Add a variant to `Command` in `src/cli/args.rs` and dispatch it in `dispatch`.
 4. Add its config section to `Config` in `src/config.rs`.
 
 Configuration and logging are resolved once in `route`, so a command only

@@ -21,7 +21,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 |---|---|---|
 | Language | Rust, edition 2024 | |
 | Async runtime | `tokio` | |
-| Web / UI | `topcoat` | Experimental ("expect breaking changes"). Kept in a thin adapter crate. Added after the core works. |
+| Web / UI | `topcoat` | Experimental ("expect breaking changes"). Full-stack: pages render on the server and call use cases directly; there is no JSON API. Kept in one adapter crate. |
 | Database | SQLite through `sqlx` (0.9) | Version set by `apalis-sqlite`. WAL mode, `foreign_keys=ON`, `busy_timeout`. |
 | Migrations | `sqlx::migrate!` | One ordered set, owned by `db`. |
 | Background jobs, cron | `apalis`, `apalis-sqlite`, `apalis-cron` | Jobs share the app's SQLite database. `apalis-workflow` is not used (see §10). |
@@ -62,9 +62,9 @@ crates/
   transmission/   yokoku-transmission  DownloadClient impl
   jobs/           yokoku-jobs          apalis workers and cron; queue port impls
   system/         yokoku-system        FileSystem, Clock, MediaProbe (ffprobe), MediaServer (Jellyfin HTTP)
-  web/            yokoku-web           Topcoat pages (later)
+  web/            yokoku-web           Web UI on Topcoat: pages, components, component gallery
 
-  yokoku/         yokoku (bin)         Composition root, subscription registry, CLI
+  yokoku/         yokoku (bin)         Composition root, service, subscription registry, CLI
 ```
 
 ### Dependency rules
@@ -88,7 +88,10 @@ crates/
 | `events` | `domain` | any module or adapter |
 | Feature module | `domain`, `events`, pure crates it needs | other modules, any adapter, sqlx/reqwest/apalis/topcoat |
 | Adapter | modules whose ports it implements | other adapters |
+| `web` (driving adapter) | modules whose use cases it calls | other adapters, sqlx/reqwest/apalis |
 | `yokoku` | everything | — |
+
+`web` is the one adapter that drives the core instead of serving it: it calls use cases the way the CLI does, and receives them from `yokoku`, which wires the concrete adapters.
 
 When a module needs another module's data, it declares its own narrow **read port**, and `db` implements it. Example: `media` needs a series' episode list for detection, so it declares `media::ports::Catalog`.
 
@@ -251,7 +254,7 @@ scan: unknown file ┘                                                  │
 - **Planning** (`ImportPlanner`, on `DownloadCompleted`): the download's files are read relative to the download's parent folder, so the torrent's folder name counts as a title, and matched against the linked item, or the whole library when there is none or it was removed. One import per download (a unique index); a redelivered event changes nothing. The import is `Approved` when every row is `Certain`, conflict-free and takes no episode or movie that already has a file, `NeedsReview` otherwise, and `Failed` (with `ImportFailed`) when the download holds no video.
 - **Execution** (`Importer`) places each row that is not skipped, with its subtitles, at the naming path in the item's `root/folder`. `[import] mode` is `hardlink` (default; keeps seeding), `copy` or `move`. It is idempotent per file: a destination holding the same data or the same size, or the moved file itself, counts as placed, so re-running after a crash is safe. The import commits the files it placed and replaced so far together with its outcome in one transaction: `Done`, or on any failure `Failed` with the reason; it then publishes `FileDeleted { reason: Replaced }`, `FilesImported` and, on failure, `ImportFailed`; `retry` queues it again and skips rows already in the library.
 - **Replace** (FR-4.12): a review row of a download can replace the library file holding its target; the old file is deleted before the new one is placed. Keeping both is not offered, since an episode holds one file.
-- **One at a time:** `claim_next_approved` moves the oldest `Approved` import to `Importing` in one statement, so the CLI and `serve` never run the same import, and the job runs one tick at a time. Imports run only under the library lock, so each runner, once it holds the lock, moves imports still `Importing` (left by a stopped process) back to `Approved` before it claims.
+- **One at a time:** `claim_next_approved` moves the oldest `Approved` import to `Importing` in one statement, so the CLI and the service never run the same import, and the job runs one tick at a time. Imports run only under the library lock, so each runner, once it holds the lock, moves imports still `Importing` (left by a stopped process) back to `Approved` before it claims.
 - **Hard links** that fail across filesystems fall back to copy, with a warning; moves across filesystems copy and then delete.
 - **Unlinked torrents** are matched only against items already in the library. Anything unmatched goes to review.
 
@@ -327,7 +330,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` | `Scanner::scan` (FR-8.7) |
 | `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
 
-Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and `serve` runs them with `Monitor::run_with_signal`. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
+Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and the service runs them with `Monitor::run_with_signal`. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
 
 ---
 
@@ -335,9 +338,10 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 
 ### Runtime
 
-One binary.
-- `yokoku serve` runs the event subscribers, the apalis `Monitor` and, later, the web server. All of them shut down gracefully on SIGINT/SIGTERM. Each subscriber gets its own `Delivery` loop; on a signal the monitor stops first, then the deliveries are cancelled and awaited.
-- Other subcommands (`search`, `add`, `refresh`, `calendar`, `missing`, `scan`, `review`, `rename`, `download`, `import`, `history`, `delete`, `files`, `jellyfin`, `settings`) call the same use cases against the same database. They let every feature be used and tested before the UI exists. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits, so the CLI needs no background process.
+One binary; the service is the application, and the CLI is a second interface to it.
+- `yokoku` without a command runs the service: the web interface, the event subscribers and the apalis `Monitor`. The web server listens on `HOST`/`PORT` (127.0.0.1:3000 by default) and serves the asset bundle beside the binary, or from `web.assets`. Each subscriber gets its own `Delivery` loop. A signal, or the web server failing, stops the monitor and the web server first; then the deliveries are cancelled and awaited.
+- Subcommands are the command-line interface for setup and operations: `settings`, `root`, `scan`, `refresh`, `files`, `jellyfin`. They call the same use cases against the same database, so they need no running service. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits.
+- The feature commands (`search`, `add`, `list`, `show`, `monitor`, `numbering`, `remove`, `calendar`, `missing`, `review`, `rename`, `download`, `import`, `history`, `delete`) predate the web interface. Each is removed in the change that ships its page, together with its CLI tests.
 - `delete` and `remove --delete-files` list the files and ask on stdin before deleting (FR-8.5); no answer counts as no, and `--yes` skips the question.
 
 ### Storage

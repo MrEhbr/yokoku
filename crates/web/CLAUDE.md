@@ -7,7 +7,8 @@ Spec: `docs/design-system/DESIGN-SYSTEM.md` (Paper). Topcoat reference: the pinn
 ## Layout
 
 ```
-src/lib.rs              re-exports app::router(assets); `yokoku serve` will mount it
+src/lib.rs              exports Server (what the `yokoku` service runs) and router(assets)
+src/server.rs           Server::new(assets dir) loads the bundle; run(listener, shutdown) serves; keeps Topcoat out of `yokoku`
 src/app.rs              module_router!() root: #[layout] (document, nav, error boundary, attribution), Library #[page], not_found!()
 src/app/<page>.rs       one module per URL segment; path params via path_param! in their own module
 src/components/         Yokoku components (media_card, rename_row, selection_bar, ...)
@@ -74,9 +75,9 @@ build.rs                stages lucide icons, renders Tailwind
 - Release: a goreleaser `before` hook runs `topcoat asset bundle -p yokoku --release -o target/yokoku-assets`; archives and the Dockerfile ship it as `assets/` next to the binary. CI installs `topcoat-cli` at the `topcoat-asset` version in `Cargo.lock`.
 - The build downloads Tailwind (4.3.2), lucide, and fonts.
 - Gallery: `just web gallery` (`topcoat dev -p yokoku-web --bin gallery`) at http://127.0.0.1:3000. Add a story page in `gallery/ui.rs` or `gallery/components.rs` and its entry in `NAV` (`gallery/main.rs`) with every new component. Its theme switch uses the app's cookie.
-- `topcoat dev` starts the binary with no arguments and sets `HOST`/`PORT`/`TOPCOAT_DEV_URL`. `dev::script()` renders nothing outside it.
-- Serving inside `yokoku serve`: `topcoat::serve_until(listener, router, token.cancelled_owned())`. Never `topcoat::start`, which installs its own signal handling.
-- Topcoat CLI must match the crate: `cargo install topcoat-cli --version 0.9.0 --locked`.
+- The app: `just web dev` (`topcoat dev -p yokoku`, from the repo root) runs the whole service with live reload. `topcoat dev` starts the binary with no arguments and sets `HOST`/`PORT`/`TOPCOAT_DEV_URL`. `dev::script()` renders nothing outside it.
+- The service binds `HOST`/`PORT` itself and calls `Server::run`, which wraps `topcoat::serve_until` with the service's stop token. Never `topcoat::start`, which installs its own signal handling.
+- Topcoat CLI must match the crate: `just setup` installs it at the `topcoat-asset` version in `Cargo.lock`.
 - Format view macros with `just web fmt` (`topcoat fmt src` in the crate); never run it without paths (it ignores `.gitignore` and walks `target/`). It has no check mode.
 
 ## Tests
