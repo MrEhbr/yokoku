@@ -1,6 +1,6 @@
 use yokoku_db::Database;
 use yokoku_domain::{ItemId, MovieId, SeriesId};
-use yokoku_events::{Event, EventId, History, MovieAdded, Recorded, SeriesAdded};
+use yokoku_events::{Event, EventId, EventLog, History, MovieAdded, Recorded, SeriesAdded};
 
 fn ids(entries: &[Recorded]) -> Vec<i64> {
     entries.iter().map(|recorded| recorded.id.0).collect()
@@ -14,8 +14,7 @@ async fn logged(db: &Database, series: SeriesId, count: usize) {
             _ => MovieAdded { movie: MovieId::generate(), title: format!("Movie {n}") }.into(),
         })
         .collect();
-    let tx = db.begin().await.unwrap();
-    db.commit(tx, &events).await.unwrap();
+    db.event_log().append(&events).await.unwrap();
 }
 
 #[tokio::test]

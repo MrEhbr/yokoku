@@ -116,7 +116,7 @@ impl Database {
             Some(database) if database.is_unique_violation() => DbError::Conflict,
             _ => DbError::from(error),
         })?;
-        self.commit(tx, &[]).await?;
+        tx.commit().await?;
         download.revision += 1;
         Ok(())
     }

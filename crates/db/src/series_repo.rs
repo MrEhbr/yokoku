@@ -99,7 +99,7 @@ impl SeriesRepo for Database {
             .execute(&mut *tx)
             .await
             .map_err(DbError::from)?;
-        Ok(self.commit(tx, &[]).await?)
+        Ok(tx.commit().await.map_err(DbError::from)?)
     }
 }
 
@@ -223,7 +223,7 @@ impl Database {
             .execute(&mut *tx)
             .await?;
 
-        self.commit(tx, &[]).await?;
+        tx.commit().await?;
         series.revision += 1;
         Ok(())
     }

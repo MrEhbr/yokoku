@@ -109,8 +109,7 @@ async fn append(db: &Database, count: i64) {
     let events: Vec<_> = (1..=count)
         .map(|id| SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }.into())
         .collect();
-    let tx = db.begin().await.unwrap();
-    db.commit(tx, &events).await.unwrap();
+    db.event_log().append(&events).await.unwrap();
 }
 
 #[fixture]

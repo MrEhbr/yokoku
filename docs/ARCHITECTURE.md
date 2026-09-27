@@ -9,7 +9,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 1. **MVP limits features, not architecture.** Boundaries are right from the first commit.
 2. **The core knows nothing about infrastructure.** Business logic never imports sqlx, reqwest, apalis or the web framework. It talks to the outside world through ports (traits) it owns.
 3. **Modules are independent.** Feature modules never depend on each other. They share only value types and the event contract (`domain`) and event delivery (`events`). The compiler enforces this through crate boundaries.
-4. **Consistency where it matters, decoupling everywhere else.** A command inside a module is synchronous and transactional. Reactions across modules happen through a durable event log.
+4. **Consistency where it matters, decoupling everywhere else.** A command inside a module is synchronous and transactional. Reactions across modules happen through a durable event log, appended after the command's change is saved.
 5. **Pure logic is isolated.** Filename detection and naming are pure functions with no IO and no async, tested with plain input/output tables.
 6. **No speculative generality.** Every abstraction sits on a real boundary: IO, time, or a third-party library.
 
@@ -169,7 +169,7 @@ Owns the downloads Yokoku knows about and the Transmission connection settings.
   - Pick up torrents added directly in the client (FR-3.3, `[transmission] pick_up_labels`, `pick_up_folder`; off unless set): the sync lists every torrent and takes on each one it has never stored that carries one of the labels or downloads at or under the folder, as an unlinked download with `TorrentAdded`, so detection works out what it is. A download that was removed is never taken on again; two syncs taking on the same torrent conflict on its hash and one of them skips it.
   - Remove a torrent once seeding is finished (FR-3.7, `[transmission] remove_after_seeding`, off by default): a sync removes a download with its data from the client when it was imported (`imported_at`, set by the `FilesImported` that names it) and the client reports seeding finished (Transmission `isFinished`: the ratio or idle limit was reached), then marks it `Removed` and emits `TorrentRemoved`. The library keeps its own hard link or copy; a download never imported, or still in review, stays.
 - **Ports:** `DownloadRepo`, `DownloadClient` (version, add, torrents by info hash, all torrents, remove), `Clock`, `Publisher` (events, appended after the save).
-- **Sync:** every download not yet `Removed` takes the client's status (state, bytes done, rate, ETA, folder). The first sync that sees it complete sets `completed_at` and emits `DownloadCompleted` in the same transaction; a torrent missing from the client becomes `Removed` and is no longer synced. Adding a torrent syncs it at once, so a torrent that is already complete emits both events.
+- **Sync:** every download not yet `Removed` takes the client's status (state, bytes done, rate, ETA, folder). The first sync that sees it complete sets `completed_at` and, once that is saved, publishes `DownloadCompleted`; a torrent missing from the client becomes `Removed` and is no longer synced. Adding a torrent syncs it at once, so a torrent that is already complete emits both events.
 - **Emits:** `TorrentAdded`, `DownloadCompleted` (once per download; the sync is idempotent), `TorrentRemoved`.
 - **Subscribes to:** `FilesImported` (marks the download imported so it can be removed after seeding).
 
@@ -267,12 +267,12 @@ failed_deliveries    (subscriber, event_id, error, attempts, failed_at)
 
 The payload carries the event's `type` tag, so no separate kind column is needed; `json_extract(payload, '$.type')` filters by type.
 
-- **Atomic append.** A module passes the events of a command to its repository, for example `ImportRepo::complete(&import, &events)`. The `db` adapter writes the state and the events in **one transaction**. Modules never see transactions.
+- **Append after save.** A use case saves its state, then publishes the command's events through `Publisher`, which appends them in a transaction of their own. A failed append is logged with the lost events and does not fail the command. A crash between the save and the append loses the events, so their handlers never run.
 - **Ordered delivery.** Each subscriber runs as one task that reads events after its saved position, in id order, and advances its position after each success.
 - **Order is safe.** SQLite allows one writer at a time, so ids are always committed in id order. A reader can never skip an event whose transaction commits late.
 - **At-least-once.** Handlers are idempotent.
 - **Failures.** Retried with exponential backoff. After N attempts the failure is recorded in `failed_deliveries` and the subscriber moves on. Recorded failures are tried again later: every `retry_interval` (10 min) in `serve`, and at the start of every CLI catch-up; each further attempt updates the record, success removes it, and the position never moves back. Handlers are idempotent, so an event retried after newer ones is safe. The CLI gives up after 3 quick attempts, since the retry comes later anyway.
-- **Wake-up.** `Database::commit` signals a `tokio::sync::watch` channel after each commit that wrote events. A signal sent while a subscriber is busy is not lost. A slow periodic poll is the fallback, and it also picks up events written by CLI commands running in another process.
+- **Wake-up.** `EventLog::append` signals a `tokio::sync::watch` channel after each append. A signal sent while a subscriber is busy is not lost. A slow periodic poll is the fallback, and it also picks up events written by CLI commands running in another process.
 - **Shutdown.** Delivery stops at the next await point. An event interrupted mid-handler is delivered again on the next run.
 - **Rebuild.** A projection is rebuilt by deleting its row in `subscriber_positions`.
 - **History (FR-9.1)** is a query over the event log (`events::History`): newest first via `EventLog::read_before`, filtered by `Event::items()` when one series or movie is asked for. There is no separate history table. Failed imports show their reason and can be retried (FR-9.2, `import list` / `import retry`).

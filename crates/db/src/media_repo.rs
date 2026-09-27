@@ -305,7 +305,7 @@ impl Database {
                 bind_target(query, row.target.into()).execute(&mut *tx).await?;
             }
         }
-        self.commit(tx, &[]).await
+        Ok(tx.commit().await?)
     }
 }
 

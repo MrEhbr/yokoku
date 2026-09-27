@@ -5,9 +5,9 @@ use sqlx::{
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
-use yokoku_events::{Event, NewEvents};
+use yokoku_events::NewEvents;
 
-use crate::{DbError, SqliteEventLog, codec::Int, event_log};
+use crate::{DbError, SqliteEventLog, codec::Int};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
@@ -76,15 +76,5 @@ impl Database {
             }
         }
         Ok(tx)
-    }
-
-    /// Appends `events` inside `tx`, commits, then wakes event deliveries.
-    pub async fn commit(&self, mut tx: Transaction<'static, Sqlite>, events: &[Event]) -> Result<(), DbError> {
-        event_log::append(&mut tx, events).await?;
-        tx.commit().await?;
-        if !events.is_empty() {
-            self.new_events.notify();
-        }
-        Ok(())
     }
 }

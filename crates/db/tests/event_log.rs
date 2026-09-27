@@ -17,17 +17,16 @@ async fn db() -> Database {
     Database::open_in_memory().await.unwrap()
 }
 
-async fn commit(db: &Database, events: &[Event]) {
-    let tx = db.begin().await.unwrap();
-    db.commit(tx, events).await.unwrap();
+async fn append(db: &Database, events: &[Event]) {
+    db.event_log().append(events).await.unwrap();
 }
 
 #[rstest]
 #[tokio::test]
-async fn commit_appends_events_in_order(#[future(awt)] db: Database) {
+async fn appended_events_are_read_in_order(#[future(awt)] db: Database) {
     let events = [series_added(1), MovieAdded { movie: MovieId::generate(), title: "Dune".into() }.into()];
 
-    commit(&db, &events).await;
+    append(&db, &events).await;
 
     let recorded = db.event_log().read_after(None, 10).await.unwrap();
     assert_eq!(ids(&recorded), [1, 2]);
@@ -37,7 +36,7 @@ async fn commit_appends_events_in_order(#[future(awt)] db: Database) {
 #[rstest]
 #[tokio::test]
 async fn records_when_events_occurred(#[future(awt)] db: Database) {
-    commit(&db, &[series_added(1)]).await;
+    append(&db, &[series_added(1)]).await;
 
     let recorded = db.event_log().read_after(None, 1).await.unwrap();
     let age = Timestamp::now().duration_since(recorded[0].occurred_at);
@@ -56,7 +55,7 @@ async fn read_after_returns_later_events_up_to_the_limit(
     #[case] limit: u32,
     #[case] expected: Vec<i64>,
 ) {
-    commit(&db, &[series_added(1), series_added(2), series_added(3), series_added(4)]).await;
+    append(&db, &[series_added(1), series_added(2), series_added(3), series_added(4)]).await;
 
     let recorded = db.event_log().read_after(after.map(EventId), limit).await.unwrap();
 
@@ -66,7 +65,7 @@ async fn read_after_returns_later_events_up_to_the_limit(
 #[rstest]
 #[tokio::test]
 async fn keeps_a_position_per_subscriber(#[future(awt)] db: Database) {
-    commit(&db, &[series_added(1), series_added(2)]).await;
+    append(&db, &[series_added(1), series_added(2)]).await;
     let log = db.event_log();
 
     assert_eq!(log.last_delivered("a").await.unwrap(), None);
@@ -81,7 +80,7 @@ async fn keeps_a_position_per_subscriber(#[future(awt)] db: Database) {
 #[rstest]
 #[tokio::test]
 async fn give_up_records_the_failure_and_advances(#[future(awt)] db: Database) {
-    commit(&db, &[series_added(1)]).await;
+    append(&db, &[series_added(1)]).await;
     let log = db.event_log();
     let failure = Failure { event: EventId(1), error: "boom".into(), attempts: 5 };
 
@@ -104,7 +103,7 @@ async fn events_and_positions_survive_reopening() {
     let path = dir.path().join("yokoku.db");
 
     let db = Database::open(&path).await.unwrap();
-    commit(&db, &[series_added(1)]).await;
+    append(&db, &[series_added(1)]).await;
     db.event_log().mark_delivered("a", EventId(1)).await.unwrap();
     drop(db);
 
@@ -117,7 +116,7 @@ async fn events_and_positions_survive_reopening() {
 #[rstest]
 #[tokio::test]
 async fn failed_events_are_listed_updated_and_resolved_without_moving_the_position(#[future(awt)] db: Database) {
-    commit(&db, &[series_added(1), series_added(2)]).await;
+    append(&db, &[series_added(1), series_added(2)]).await;
     let log = db.event_log();
     log.give_up("files", &Failure { event: EventId(1), error: "disk full".into(), attempts: 3 }).await.unwrap();
     log.mark_delivered("files", EventId(2)).await.unwrap();
@@ -139,7 +138,7 @@ async fn failed_events_are_listed_updated_and_resolved_without_moving_the_positi
 #[rstest]
 #[tokio::test]
 async fn append_adds_events_in_order_after_those_already_logged(#[future(awt)] db: Database) {
-    commit(&db, &[series_added(1)]).await;
+    append(&db, &[series_added(1)]).await;
     let appended = [series_added(2), MovieAdded { movie: MovieId::generate(), title: "Dune".into() }.into()];
 
     db.event_log().append(&appended).await.unwrap();
