@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use tracing::warn;
+use tracing::{info, instrument, warn};
 use yokoku_domain::{FileTarget, MediaFileId, MovieId, Series, SeriesId};
 use yokoku_events::{FileRenamed, Publisher};
 use yokoku_naming::{Naming, subtitle_path};
@@ -135,6 +135,7 @@ impl Renamer {
 
     /// Carries out the plan file by file; a file that cannot be moved is reported and left alone,
     /// and an old folder that cannot be removed is only logged.
+    #[instrument(skip_all, fields(?scope))]
     pub async fn apply(&self, scope: RenameScope) -> Result<RenameReport, MediaError> {
         let _lock = self.lock.acquire().await?;
         let plan = self.preview(scope).await?;
@@ -161,6 +162,7 @@ impl Renamer {
                     return Err(error.into());
                 }
                 self.events.publish(event).await;
+                info!(from = %video.from.display(), to = %video.to.display(), "file renamed");
             }
             for subtitle in rename.subtitles.iter().filter(|subtitle| subtitle.from != subtitle.to) {
                 if let Err(error) = self.fs.rename(&subtitle.from, &subtitle.to).await {
@@ -170,7 +172,7 @@ impl Renamer {
             if let Some(old_folder) = video.from.parent()
                 && let Err(error) = self.fs.remove_empty_folders(old_folder, &rename.root).await
             {
-                warn!(%error, "could not remove the old folder of a renamed file");
+                warn!(%error, folder = %old_folder.display(), "could not remove the old folder of a renamed file");
             }
             report.renamed.push(rename);
         }

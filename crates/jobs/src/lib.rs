@@ -88,30 +88,17 @@ async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynErro
 }
 
 async fn sync_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) -> Result<(), BoxDynError> {
-    let report = downloads.sync().await?;
-    if !report.completed.is_empty() {
-        info!(completed = report.completed.len(), "downloads finished");
-    }
+    downloads.sync().await?;
     Ok(())
 }
 
 async fn execute_imports(_tick: Tick<TimeZone>, importer: Data<Arc<Importer>>) -> Result<(), BoxDynError> {
-    for import in importer.run_pending().await? {
-        info!(import = %import.id, status = ?import.status, "import finished");
-    }
+    importer.run_pending().await?;
     Ok(())
 }
 
 async fn scan_library(_tick: Tick<TimeZone>, scanner: Data<Arc<Scanner>>) -> Result<(), BoxDynError> {
-    let report = scanner.scan().await?;
-    if report.found > 0 || report.vanished > 0 || !report.needs_review.is_empty() {
-        info!(
-            found = report.found,
-            vanished = report.vanished,
-            needs_review = report.needs_review.len(),
-            "library files changed outside the app"
-        );
-    }
+    scanner.scan().await?;
     Ok(())
 }
 
@@ -125,9 +112,7 @@ async fn refresh_metadata(_tick: Tick<TimeZone>, metadata: Data<Arc<MetadataSync
 }
 
 async fn rescan_media_server(_tick: Tick<TimeZone>, rescans: Data<Arc<Rescans>>) -> Result<(), BoxDynError> {
-    if rescans.run_due(RESCAN_QUIET).await? {
-        info!("media server rescanning");
-    }
+    rescans.run_due(RESCAN_QUIET).await?;
     Ok(())
 }
 

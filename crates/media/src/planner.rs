@@ -1,6 +1,7 @@
 use std::{path::Path, sync::Arc};
 
 use async_trait::async_trait;
+use tracing::{debug, info, instrument};
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series};
 use yokoku_events::{DownloadCompleted, Event, Handler, HandlerError, ImportFailed, ImportNeedsReview, Publisher};
@@ -33,6 +34,7 @@ impl ImportPlanner {
     /// Detects what the download holds. The import is `Approved` when every file is certain and
     /// free of conflicts, `NeedsReview` otherwise, and `Failed` without any video. A download that
     /// already has an import is left alone.
+    #[instrument(skip_all, fields(%download, content = %content.display()))]
     pub async fn plan(
         &self,
         download: DownloadId,
@@ -40,6 +42,7 @@ impl ImportPlanner {
         item: Option<ItemId>,
     ) -> Result<Option<Import>, MediaError> {
         if self.repo.import_for_download(download).await?.is_some() {
+            debug!("the download already has an import");
             return Ok(None);
         }
         let base = content.parent().unwrap_or(content);
@@ -103,6 +106,7 @@ impl ImportPlanner {
             _ => None,
         };
         self.repo.save(&Changes { imports: vec![import.clone()], ..Changes::default() }).await?;
+        info!(import = %import.id, status = ?import.status, rows = import.rows.len(), "import planned");
         self.events.publish_all(event.into_iter().collect()).await;
         Ok(Some(import))
     }

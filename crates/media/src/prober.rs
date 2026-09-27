@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
-use tracing::warn;
+use tracing::{debug, warn};
 use yokoku_domain::{ItemId, SubtitleTags};
 use yokoku_events::{FilesFound, FilesImported, Handler, HandlerError, LinkedFile};
 
@@ -71,12 +71,15 @@ impl Prober {
     async fn probe_new(&self, files: &[LinkedFile]) -> Result<(), MediaError> {
         for file in files {
             match self.probe.probe(&file.path).await {
-                Ok(info) => self.repo.save_media_info(file.file, &info).await?,
+                Ok(info) => {
+                    self.repo.save_media_info(file.file, &info).await?;
+                    debug!(path = %file.path.display(), "probed");
+                },
                 Err(ProbeError::Missing) => {
                     warn!("ffprobe is not installed; file details stay unknown");
                     return Ok(());
                 },
-                Err(error) => warn!(%error, "could not read the streams of a new file"),
+                Err(error) => warn!(%error, path = %file.path.display(), "could not read the streams of a new file"),
             }
         }
         Ok(())

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use jiff::SignedDuration;
+use tracing::{debug, info, instrument};
 use yokoku_domain::{Clock, StorageError};
 use yokoku_events::{FileDeleted, FileRenamed, FilesImported, Handler, HandlerError};
 
@@ -34,20 +35,24 @@ impl Rescans {
 
     /// Rescans when a request is pending and nothing newer arrived for `quiet`; returns whether it
     /// did. A request made while the rescan runs stays pending.
+    #[instrument(skip_all)]
     pub async fn run_due(&self, quiet: SignedDuration) -> Result<bool, RescanError> {
         let Some(requested_at) = self.store.requested_at().await? else { return Ok(false) };
         if self.clock.now().timestamp().duration_since(requested_at) < quiet {
             return Ok(false);
         }
         self.server.refresh_library().await?;
+        info!("media server rescanning");
         self.store.clear(requested_at).await?;
         Ok(true)
     }
 
     /// Rescans now, pending request or not.
+    #[instrument(skip_all)]
     pub async fn run_now(&self) -> Result<(), RescanError> {
         let requested_at = self.store.requested_at().await?;
         self.server.refresh_library().await?;
+        info!("media server rescanning");
         if let Some(requested_at) = requested_at {
             self.store.clear(requested_at).await?;
         }
@@ -57,7 +62,9 @@ impl Rescans {
 
 impl Rescans {
     async fn request(&self) -> Result<(), HandlerError> {
-        Ok(self.store.request(self.clock.now().timestamp()).await?)
+        self.store.request(self.clock.now().timestamp()).await?;
+        debug!("media server rescan requested");
+        Ok(())
     }
 }
 

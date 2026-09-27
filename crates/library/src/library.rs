@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use jiff::civil::Date;
+use tracing::{info, instrument};
 use yokoku_domain::{Clock, EpisodeRef, ExternalId, Movie, MovieId, Numbering, Series, SeriesId};
 use yokoku_events::{MovieRemoved, Publisher, SeriesRemoved};
 
@@ -107,16 +108,20 @@ impl Library {
         .await
     }
 
+    #[instrument(skip_all, fields(series = %id, delete_files))]
     pub async fn remove_series(&self, id: SeriesId, delete_files: bool) -> Result<(), LibraryError> {
         let series = self.series(id).await?;
         self.series.remove(id).await?;
+        info!(title = %series.title, "series removed");
         self.events.publish(SeriesRemoved { series: id, title: series.title, delete_files }).await;
         Ok(())
     }
 
+    #[instrument(skip_all, fields(movie = %id, delete_files))]
     pub async fn remove_movie(&self, id: MovieId, delete_files: bool) -> Result<(), LibraryError> {
         let movie = self.movie(id).await?;
         self.movies.remove(id).await?;
+        info!(title = %movie.title, "movie removed");
         self.events.publish(MovieRemoved { movie: id, title: movie.title, delete_files }).await;
         Ok(())
     }

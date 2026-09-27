@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use tracing::{info, warn};
+use tracing::{debug, info, instrument, warn};
 use yokoku_detect::{Classified, DownloadFile};
 use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
 use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, Publisher};
@@ -90,6 +90,7 @@ impl Importer {
     }
 
     /// Queues a failed import again.
+    #[instrument(skip_all, fields(import = %id))]
     pub async fn retry(&self, id: ImportId) -> Result<(), MediaError> {
         let mut import = self.repo.import(id).await?.ok_or(MediaError::ImportNotFound(id))?;
         if import.status != ImportStatus::Failed {
@@ -97,10 +98,13 @@ impl Importer {
         }
         import.status = ImportStatus::Approved;
         import.error = None;
-        Ok(self.repo.save(&Changes { imports: vec![import], ..Changes::default() }).await?)
+        self.repo.save(&Changes { imports: vec![import], ..Changes::default() }).await?;
+        info!("import queued again");
+        Ok(())
     }
 
     /// Stores what the import changed on disk, whether it finished or failed part way.
+    #[instrument(skip_all, fields(import = %import.id, source = %import.source.display()))]
     async fn execute(&self, mut import: Import) -> Result<Import, MediaError> {
         let mut placed = Placed::default();
         let outcome = self.place_all(&import, &mut placed).await;
@@ -129,9 +133,12 @@ impl Importer {
             );
         }
         match outcome {
-            Ok(()) => import.status = ImportStatus::Done,
+            Ok(()) => {
+                import.status = ImportStatus::Done;
+                info!(placed = placed.added.len(), replaced = placed.replaced.len(), "import done");
+            },
             Err(error) => {
-                warn!(import = %import.id, %error, "import failed");
+                warn!(%error, placed = placed.added.len(), replaced = placed.replaced.len(), "import failed");
                 let reason = error.to_string();
                 import.status = ImportStatus::Failed;
                 import.error = Some(reason.clone());
@@ -161,6 +168,7 @@ impl Importer {
             let destination = self.destination(target, &row.path).await?;
             let linked = library.iter().any(|file| file.path == destination && file.target == target);
             if linked && self.already_placed(&row.path, &destination).await? {
+                debug!(path = %destination.display(), "already in the library");
                 continue;
             }
 
@@ -169,6 +177,7 @@ impl Importer {
                     let placed_over = old.path == destination && self.already_placed(&row.path, &destination).await?;
                     if !placed_over {
                         self.fs.remove_file(&old.path).await?;
+                        debug!(path = %old.path.display(), "removed the file being replaced");
                     }
                     placed.replaced.push(old.clone());
                 }
@@ -257,6 +266,8 @@ impl Importer {
             ImportMode::Copy => self.fs.copy(source, destination).await,
             ImportMode::Move => files::move_file(self.fs.as_ref(), source, destination).await,
         };
-        Ok(result?)
+        result?;
+        debug!(from = %source.display(), to = %destination.display(), mode = ?self.mode, "placed");
+        Ok(())
     }
 }

@@ -15,6 +15,7 @@ yokoku-events.workspace = true
 async-trait.workspace = true
 jiff.workspace = true
 thiserror.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 yokoku-db.workspace = true

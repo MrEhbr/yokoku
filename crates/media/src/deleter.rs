@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tracing::warn;
+use tracing::{info, instrument, warn};
 use yokoku_domain::{FileTarget, ItemId};
 use yokoku_events::{DeleteReason, FileDeleted, Handler, HandlerError, MovieRemoved, Publisher, SeriesRemoved};
 
@@ -50,6 +50,7 @@ impl Deleter {
 
     /// Each video is removed and committed on its own, so storage matches the disk if one fails.
     /// Subtitles and emptied folders go afterwards; a failure there is only logged.
+    #[instrument(skip_all, fields(?reason))]
     async fn remove(&self, files: Vec<MediaFile>, reason: DeleteReason) -> Result<Vec<MediaFile>, MediaError> {
         let roots = self.repo.root_folders().await?;
         for file in &files {
@@ -59,17 +60,18 @@ impl Deleter {
             self.events
                 .publish(FileDeleted { file: file.id, path: file.path.clone(), target: file.target, reason })
                 .await;
+            info!(path = %file.path.display(), "file deleted");
 
             for subtitle in subtitles {
                 if let Err(error) = self.fs.remove_file(&subtitle.path).await {
-                    warn!(%error, "could not delete a subtitle of a deleted file");
+                    warn!(%error, path = %subtitle.path.display(), "could not delete a subtitle of a deleted file");
                 }
             }
             let root = roots.iter().map(|root| root.path.as_path()).find(|root| file.path.starts_with(root));
             if let (Some(root), Some(folder)) = (root, file.path.parent())
                 && let Err(error) = self.fs.remove_empty_folders(folder, root).await
             {
-                warn!(%error, "could not remove the folder of a deleted file");
+                warn!(%error, folder = %folder.display(), "could not remove the folder of a deleted file");
             }
         }
         Ok(files)

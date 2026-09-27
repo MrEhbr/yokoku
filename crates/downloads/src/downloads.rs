@@ -5,6 +5,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+use tracing::{debug, info, instrument};
 use yokoku_domain::{Clock, DownloadId, ItemId, StorageError};
 use yokoku_events::{
     DownloadCompleted, Event, FilesImported, Handler, HandlerError, Publisher, TorrentAdded, TorrentRemoved,
@@ -81,6 +82,7 @@ impl Downloads {
     }
 
     /// Adds a torrent for `item`, or for detection to work out when `None` (FR-3.2).
+    #[instrument(skip_all, fields(item = ?item))]
     pub async fn add(&self, torrent: &TorrentSource, item: Option<ItemId>) -> Result<Download, DownloadError> {
         let added = self.client.add(torrent).await?;
         if self.repo.find_by_hash(&added.hash).await?.is_some() {
@@ -90,6 +92,7 @@ impl Downloads {
         let torrent = self.client.torrents(std::slice::from_ref(&added.hash)).await?.pop();
         let (mut download, events) = self.take_on(added.hash, added.name, item, torrent);
         self.repo.save(&mut download).await?;
+        info!(download = %download.id, name = %download.name, "torrent added");
         self.events.publish_all(events).await;
         Ok(download)
     }
@@ -100,6 +103,7 @@ impl Downloads {
     /// download whose seeding finished is removed from the client, emitting `TorrentRemoved`. Unknown
     /// torrents labelled `LABEL`, which Yokoku added but never saved, and with `pick_up` those that
     /// qualify, become unlinked downloads, emitting `TorrentAdded`.
+    #[instrument(skip_all)]
     pub async fn sync(&self) -> Result<SyncReport, DownloadError> {
         let known = self.repo.list().await?;
         let active: Vec<Download> =
@@ -123,10 +127,23 @@ impl Downloads {
                 );
             }
             match self.repo.save(&mut download).await {
-                Err(StorageError::Conflict) => continue,
+                Err(StorageError::Conflict) => {
+                    debug!(download = %download.id, "another sync saved the download first");
+                    continue;
+                },
                 result => result?,
             }
             self.events.publish_all(events).await;
+            let (id, name) = (&download.id, &download.name);
+            if completed.is_some() {
+                info!(download = %id, name, "download completed");
+            }
+            if removed {
+                info!(download = %id, name, "torrent is gone from the client");
+            }
+            if clean_up {
+                info!(download = %id, name, "torrent removed after seeding");
+            }
             report.synced += 1;
             report.removed += usize::from(removed);
             report.cleaned_up += usize::from(clean_up);
@@ -144,15 +161,20 @@ impl Downloads {
         for torrent in new {
             let (mut download, events) = self.take_on(torrent.hash.clone(), torrent.name.clone(), None, Some(torrent));
             match self.repo.save(&mut download).await {
-                Err(StorageError::Conflict) => continue,
+                Err(StorageError::Conflict) => {
+                    debug!(hash = %download.hash, "another sync took the torrent on first");
+                    continue;
+                },
                 result => result?,
             }
             self.events.publish_all(events).await;
+            info!(download = %download.id, name = %download.name, "torrent taken on");
             report.picked_up += 1;
             if download.completed_at.is_some() {
                 report.completed.push(download.id);
             }
         }
+        debug!(synced = report.synced, picked_up = report.picked_up, "downloads synced");
         Ok(report)
     }
 

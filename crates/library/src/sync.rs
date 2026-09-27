@@ -1,5 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
+use tracing::{debug, info, instrument};
 use yokoku_domain::{
     Clock, ExternalId, ItemFolder, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
 };
@@ -65,6 +66,7 @@ impl MetadataSync {
 
     /// Adds the series in `root`, in the folder `folder` or else the one its naming pattern gives.
     /// The caller checks that `root` is a series root folder.
+    #[instrument(skip_all, fields(%source))]
     pub async fn add_series(
         &self,
         source: ExternalId,
@@ -84,12 +86,14 @@ impl MetadataSync {
 
         let mut series = Series::add(metadata, folder, preset, now.date(), now.timestamp());
         self.series.save(&mut series).await?;
+        info!(series = %series.id, title = %series.title, "series added");
         self.events.publish(SeriesAdded { series: series.id, title: series.title.clone() }).await;
         Ok(series)
     }
 
     /// Adds the movie in `root`, in the folder `folder` or else the one its naming pattern gives.
     /// The caller checks that `root` is a movie root folder.
+    #[instrument(skip_all, fields(%source))]
     pub async fn add_movie(
         &self,
         source: ExternalId,
@@ -108,10 +112,12 @@ impl MetadataSync {
 
         let mut movie = Movie::add(metadata, folder, monitored, self.clock.now().timestamp());
         self.movies.save(&mut movie).await?;
+        info!(movie = %movie.id, title = %movie.title, "movie added");
         self.events.publish(MovieAdded { movie: movie.id, title: movie.title.clone() }).await;
         Ok(movie)
     }
 
+    #[instrument(skip_all, fields(series = %id))]
     pub async fn refresh_series(&self, id: SeriesId) -> Result<Series, LibraryError> {
         let source = self.series.get(id).await?.ok_or(LibraryError::SeriesNotFound(id))?.source;
         let metadata = self.metadata.series(source).await?;
@@ -121,11 +127,13 @@ impl MetadataSync {
             let mut series = self.series.get(id).await?.ok_or(LibraryError::SeriesNotFound(id))?;
             series.refresh(metadata.clone(), self.clock.now().timestamp());
             self.series.save(&mut series).await?;
+            debug!("series refreshed");
             Ok(series)
         })
         .await
     }
 
+    #[instrument(skip_all, fields(movie = %id))]
     pub async fn refresh_movie(&self, id: MovieId) -> Result<Movie, LibraryError> {
         let source = self.movies.get(id).await?.ok_or(LibraryError::MovieNotFound(id))?.source;
         let metadata = self.metadata.movie(source).await?;
@@ -135,12 +143,14 @@ impl MetadataSync {
             let mut movie = self.movies.get(id).await?.ok_or(LibraryError::MovieNotFound(id))?;
             movie.refresh(metadata.clone(), self.clock.now().timestamp());
             self.movies.save(&mut movie).await?;
+            debug!("movie refreshed");
             Ok(movie)
         })
         .await
     }
 
     /// Refreshes every item; one item's failure does not stop the others.
+    #[instrument(skip_all)]
     pub async fn refresh_all(&self) -> Result<RefreshReport, LibraryError> {
         let mut report = RefreshReport::default();
         for id in self.series.ids().await? {

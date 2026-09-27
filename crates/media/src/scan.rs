@@ -6,6 +6,7 @@ use std::{
 
 use async_trait::async_trait;
 use jiff::Timestamp;
+use tracing::{info, instrument};
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId};
 use yokoku_events::{
@@ -59,6 +60,7 @@ impl Scanner {
     /// linked files that are gone (FR-8.2, FR-8.3, FR-8.7). Nothing else in a root folder is read.
     /// Each item folder is committed on its own; a root folder that cannot be read stops the scan
     /// before anything in it changes.
+    #[instrument(skip_all)]
     pub async fn scan(&self) -> Result<ScanReport, MediaError> {
         let _lock = self.lock.acquire().await?;
         let series = self.catalog.all_series().await?;
@@ -78,6 +80,7 @@ impl Scanner {
 
     /// Scans the folder of one item, as `scan` does (FR-8.8); an item no longer in the library is
     /// left alone.
+    #[instrument(skip_all, fields(?item))]
     pub async fn scan_item(&self, item: ItemId) -> Result<ScanReport, MediaError> {
         let _lock = self.lock.acquire().await?;
         let known = self.known().await?;
@@ -115,6 +118,15 @@ impl Scanner {
 
         self.repo.save(&changes).await?;
         self.events.publish_all(events).await;
+        if !changes.added_files.is_empty() || !changes.removed_files.is_empty() || !changes.imports.is_empty() {
+            info!(
+                folder = %path.display(),
+                found = changes.added_files.len(),
+                vanished = changes.removed_files.len(),
+                needs_review = changes.imports.len(),
+                "item folder changed outside the app"
+            );
+        }
         report.found += changes.added_files.len();
         report.vanished += changes.removed_files.len();
         report.needs_review.extend(changes.imports.iter().map(|import| import.id));

@@ -1,3 +1,4 @@
+use tracing::debug;
 use yokoku_domain::StorageError;
 
 use crate::LibraryError;
@@ -13,7 +14,10 @@ where
     let mut left = ATTEMPTS;
     loop {
         match attempt().await {
-            Err(LibraryError::Storage(StorageError::Conflict)) if left > 1 => left -= 1,
+            Err(LibraryError::Storage(StorageError::Conflict)) if left > 1 => {
+                left -= 1;
+                debug!(attempts_left = left, "a concurrent save won; trying again");
+            },
             result => return result,
         }
     }
