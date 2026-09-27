@@ -38,8 +38,14 @@ async fn open(store: &Arc<MemoryStore>) -> Settings {
 async fn stored_settings_go_over_the_defaults() {
     let store = Arc::new(MemoryStore::default());
     store.set_setting("import.mode", &json!("copy")).await.unwrap();
+    store.set_setting("calendar.days", &json!(14)).await.unwrap();
+    store.set_setting("downloads.pick_up_labels", &json!(["tv", "anime"])).await.unwrap();
 
-    assert_eq!(open(&store).await.current().import.mode, ImportMode::Copy);
+    let config = open(&store).await.current();
+
+    assert_eq!(config.import.mode, ImportMode::Copy);
+    assert_eq!(config.calendar.days, Some(14));
+    assert_eq!(config.downloads.pick_up_labels, ["tv", "anime"]);
 }
 
 #[tokio::test]

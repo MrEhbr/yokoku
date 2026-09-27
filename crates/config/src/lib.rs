@@ -10,7 +10,7 @@ use std::path::Path;
 use anyhow::{Result, bail};
 use config::{Environment, File, FileFormat};
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use yokoku_domain::REDACTED;
 use yokoku_downloads::DownloadOptions;
 use yokoku_jobs::ScheduleSettings;
@@ -48,33 +48,6 @@ pub struct Config {
     pub naming: Naming,
 }
 
-/// `a.b = 1` becomes `{ "a": { "b": 1 } }`.
-fn nested(stored: &[(String, Value)]) -> Value {
-    let mut root = Map::new();
-    for (key, value) in stored {
-        insert(&mut root, &key.split('.').collect::<Vec<_>>(), value.clone());
-    }
-    Value::Object(root)
-}
-
-fn insert(table: &mut Map<String, Value>, path: &[&str], value: Value) {
-    match path {
-        [] => {},
-        [leaf] => {
-            table.insert((*leaf).to_owned(), value);
-        },
-        [part, rest @ ..] => {
-            let entry = table.entry(*part).or_insert_with(|| Value::Object(Map::new()));
-            if !entry.is_object() {
-                *entry = Value::Object(Map::new());
-            }
-            if let Value::Object(next) = entry {
-                insert(next, rest, value);
-            }
-        },
-    }
-}
-
 impl Config {
     /// Loads with precedence: env vars (APP__*) > stored settings > config file > defaults.
     /// `stored` holds values by dotted key, such as `import.mode`.
@@ -84,9 +57,11 @@ impl Config {
         if let Some(path) = config_path {
             builder = builder.add_source(File::from(path).format(FileFormat::Toml).required(false));
         }
-        if !stored.is_empty() {
-            builder = builder.add_source(File::from_str(&nested(stored).to_string(), FileFormat::Json));
+        let mut stored_layer = config::Config::builder();
+        for (key, value) in stored {
+            stored_layer = stored_layer.set_override(key, config::Value::deserialize(value)?)?;
         }
+        builder = builder.add_source(stored_layer.build()?);
 
         let config = builder.add_source(Environment::with_prefix(ENV_PREFIX).separator("__")).build()?;
 
