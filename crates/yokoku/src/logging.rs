@@ -61,7 +61,7 @@ impl Default for LogConfig {
 }
 /// Directives added to the configured level when `RUST_LOG` is unset.
 const QUIET_DEPENDENCIES: &str =
-    "hyper=warn,h2=warn,ureq=warn,rustls=warn,want=warn,mio=warn,tokio=warn,tokenizers=warn";
+    "hyper=warn,h2=warn,rustls=warn,want=warn,mio=warn,tokio=warn,reqwest=warn,sqlx=warn,apalis=warn";
 
 /// Filters by `RUST_LOG` when set, else by the configured level.
 ///
