@@ -1,0 +1,15 @@
+[package]
+name = "yokoku-web"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+topcoat = { workspace = true, features = ["default", "font-fontsource", "icon-iconify", "tailwind"] }
+
+[build-dependencies]
+topcoat = { workspace = true, features = ["icon-iconify", "tailwind"] }

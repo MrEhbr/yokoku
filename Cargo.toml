@@ -48,6 +48,7 @@ strsim = "0.11"
 thiserror = "2.0"
 tokio = "1"
 tokio-util = "0.7"
+topcoat = { version = "0.9", default-features = false }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
