@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fmt, path::PathBuf};
 
 use yokoku_domain::{Confidence, Episode, EpisodeSpan, FileTarget, Movie, Numbering, Series};
 
@@ -41,6 +41,15 @@ pub enum Conflict {
     SharedTarget,
     /// The episode or movie already has a file in the library.
     AlreadyHasFile,
+}
+
+impl fmt::Display for Conflict {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::SharedTarget => "same as another row",
+            Self::AlreadyHasFile => "already has a file",
+        })
+    }
 }
 
 impl ImportPlan {

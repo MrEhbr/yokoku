@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
+    fmt,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -68,6 +69,16 @@ pub enum SkipReason {
     NotInLibrary,
     /// Another file in the plan would get the same path.
     SharedTarget,
+}
+
+impl fmt::Display for SkipReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::OutsideRoots => "not in a root folder",
+            Self::NotInLibrary => "its item is no longer in the library",
+            Self::SharedTarget => "another file would get the same name",
+        })
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
