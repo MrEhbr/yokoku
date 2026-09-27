@@ -9,7 +9,7 @@ use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MediaFileId, MonitorPreset,
     Movie, MovieId, MovieMetadata, Releases, Series, SeriesId, SeriesMetadata, SourceStatus,
 };
-use yokoku_library::ports::{MovieRepo, SeriesRepo};
+use yokoku_library::ports::{MediaFiles, MovieRepo, SeriesRepo};
 use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind,
     ports::{Catalog, Changes, MediaRepo},
@@ -250,6 +250,19 @@ async fn renamed_files_keep_their_id_and_target(#[future] db: Database) {
     MediaRepo::save(&db, &changes).await.unwrap();
 
     assert_eq!(db.files().await.unwrap(), [MediaFile { path: "/tv/Frieren/a.mkv".into(), ..moved }]);
+}
+
+#[rstest]
+#[tokio::test]
+async fn the_library_reads_where_a_file_is_now(#[future] db: Database) {
+    let db = db.await;
+    let linked = file("/tv/a.mkv", episodes(1, 1));
+    MediaRepo::save(&db, &Changes { added_files: vec![linked.clone()], ..Changes::default() }).await.unwrap();
+    let changes = Changes { retargeted_files: vec![(linked.id, episodes(3, 4))], ..Changes::default() };
+    MediaRepo::save(&db, &changes).await.unwrap();
+
+    assert_eq!(MediaFiles::target(&db, linked.id).await.unwrap(), Some(episodes(3, 4)));
+    assert_eq!(MediaFiles::target(&db, MediaFileId::generate()).await.unwrap(), None);
 }
 
 #[rstest]

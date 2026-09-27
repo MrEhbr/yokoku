@@ -22,7 +22,7 @@ pub fn subscribers(
     scanner: &Arc<Scanner>,
     rescans: Option<&Arc<Rescans>>,
 ) -> Vec<Arc<dyn Subscriber>> {
-    let tracker = Arc::new(FileTracker::new(db.clone(), db.clone()));
+    let tracker = Arc::new(FileTracker::new(db.clone(), db.clone(), db.clone()));
     let mut subscriptions = vec![
         Subscription::new("media.scan_added").on::<SeriesAdded>(scanner.clone()).on::<MovieAdded>(scanner.clone()),
         Subscription::new("library.files")

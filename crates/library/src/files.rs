@@ -6,7 +6,7 @@ use yokoku_events::{FileDeleted, FilesFound, FilesImported, Handler, HandlerErro
 
 use crate::{
     LibraryError,
-    ports::{MovieRepo, SeriesRepo},
+    ports::{MediaFiles, MovieRepo, SeriesRepo},
     retry,
 };
 
@@ -14,16 +14,20 @@ use crate::{
 pub struct FileTracker {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
+    files: Arc<dyn MediaFiles>,
 }
 
 impl FileTracker {
-    pub fn new(series: Arc<dyn SeriesRepo>, movies: Arc<dyn MovieRepo>) -> Self {
-        Self { series, movies }
+    pub fn new(series: Arc<dyn SeriesRepo>, movies: Arc<dyn MovieRepo>, files: Arc<dyn MediaFiles>) -> Self {
+        Self { series, movies, files }
     }
 
+    /// Links each file where media holds it now; files no longer in the library are skipped.
     async fn link(&self, files: &[LinkedFile]) -> Result<(), LibraryError> {
         for linked in files {
-            self.update(linked.target, |file| *file = Some(linked.file)).await?;
+            if let Some(target) = self.files.target(linked.file).await? {
+                self.update(target, |file| *file = Some(linked.file)).await?;
+            }
         }
         Ok(())
     }

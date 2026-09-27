@@ -2,7 +2,8 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use yokoku_domain::{
-    ExternalId, ItemFolder, MediaKind, Movie, MovieId, MovieMetadata, Series, SeriesId, SeriesMetadata, StorageError,
+    ExternalId, FileTarget, ItemFolder, MediaFileId, MediaKind, Movie, MovieId, MovieMetadata, Series, SeriesId,
+    SeriesMetadata, StorageError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,6 +54,13 @@ pub trait SeriesRepo: Send + Sync {
     /// Saves the series with all its seasons and episodes.
     async fn save(&self, series: &mut Series) -> Result<(), StorageError>;
     async fn remove(&self, id: SeriesId) -> Result<(), StorageError>;
+}
+
+/// Read-only view of media's library files.
+#[async_trait]
+pub trait MediaFiles: Send + Sync {
+    /// `None` when the file is no longer in the library.
+    async fn target(&self, file: MediaFileId) -> Result<Option<FileTarget>, StorageError>;
 }
 
 /// A save inserts an aggregate at revision 0 and otherwise updates it only when the stored
