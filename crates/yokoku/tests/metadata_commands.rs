@@ -186,3 +186,34 @@ async fn metadata_commands_need_a_token() {
         .failure()
         .stderr(predicate::str::contains("No TMDB token configured; set APP__METADATA__TMDB__TOKEN"));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn add_takes_tvdb_series_from_tvdb_once_its_key_is_set() {
+    let tmdb = tmdb().await;
+    let ok = |data: Value| ResponseTemplate::new(200).set_body_json(serde_json::json!({ "data": data }));
+    Mock::given(path("/login"))
+        .respond_with(ok(serde_json::json!({ "token": "tvdb-token" })))
+        .mount(&tmdb.server)
+        .await;
+    Mock::given(path("/series/424536/extended"))
+        .respond_with(ok(serde_json::json!({ "name": "Frieren", "year": "2023", "status": { "name": "Continuing" } })))
+        .mount(&tmdb.server)
+        .await;
+    let episode = serde_json::json!({ "id": 1, "seasonNumber": 1, "number": 1, "name": "The Journey's End", "aired": "2023-09-29" });
+    Mock::given(path("/series/424536/episodes/default/eng"))
+        .respond_with(ok(serde_json::json!({ "episodes": [episode] })))
+        .mount(&tmdb.server)
+        .await;
+
+    let mut add = tmdb.add(&["series", "tvdb:424536", "--monitor", "none"]);
+    add.env("APP__METADATA__TVDB__API_KEY", "tvdb-key").env("APP__METADATA__TVDB__URL", tmdb.server.uri());
+
+    add.assert()
+        .success()
+        .stdout(format!("Added series Frieren (2023) tvdb:424536 in {}\n", tmdb.path("tv/Frieren (2023)").display()));
+    tmdb.command()
+        .args(["show", "series", "tvdb:424536"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("S01E01").and(predicate::str::contains("The Journey's End")));
+}

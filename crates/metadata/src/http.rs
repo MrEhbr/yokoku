@@ -51,6 +51,10 @@ impl Http {
         self.client.get(url)
     }
 
+    pub(crate) fn post(&self, url: impl IntoUrl) -> RequestBuilder {
+        self.client.post(url)
+    }
+
     /// Sends `request`, trying up to three times while the source is rate limited, overloaded or
     /// unreachable. A 404 for `item` is `NotFound`; 401 and 403 are `Refused`.
     pub(crate) async fn send(

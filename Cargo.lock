@@ -4005,6 +4005,7 @@ dependencies = [
  "config",
  "console-subscriber",
  "criterion",
+ "isolang",
  "jiff",
  "jiff-cron",
  "owo-colors",

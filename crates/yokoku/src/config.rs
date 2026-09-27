@@ -98,6 +98,7 @@ impl Config {
     pub fn validate(&self) -> Result<()> {
         self.naming.naming()?;
         self.clock.time_zone()?;
+        self.metadata.tvdb_language()?;
         self.serve.schedules()?;
         Ok(())
     }

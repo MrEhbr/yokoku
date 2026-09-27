@@ -34,6 +34,7 @@ clap.workspace = true
 clap-verbosity-flag.workspace = true
 config.workspace = true
 console-subscriber = { workspace = true, optional = true }
+isolang.workspace = true
 jiff.workspace = true
 jiff-cron.workspace = true
 owo-colors.workspace = true

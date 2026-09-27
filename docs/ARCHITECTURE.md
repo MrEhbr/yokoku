@@ -26,7 +26,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 | Migrations | `sqlx::migrate!` | One ordered set, owned by `db`. |
 | Background jobs, cron | `apalis`, `apalis-sqlite`, `apalis-cron` | Jobs share the app's SQLite database. `apalis-workflow` is not used (see §10). |
 | HTTP client | `reqwest` (rustls) | |
-| Metadata | Own TMDB client (TVDB later) | Needs only a handful of endpoints. |
+| Metadata | Own TMDB and TVDB v4 clients | Need only a handful of endpoints. |
 | Download client | `transmission-rpc` | Wrapped behind the `DownloadClient` port. |
 | Filename parsing | `hunch`, wrapped in our own `ParsedName` | Tested against a corpus of real filenames. Can be replaced without touching callers. |
 | Title matching | `strsim`, `unicode-normalization` | Case, punctuation and year ignored; works with Cyrillic. |
@@ -99,7 +99,7 @@ When a module needs another module's data, it declares its own narrow **read por
 Value types and rules shared by all modules. Examples:
 
 - Identifiers: `SeriesId`, `MovieId`, `EpisodeId`, and later `DownloadId`, `ImportId`, `MediaFileId`. UUIDv7 newtypes created by the domain, so an aggregate and its events are complete before they are saved. Users refer to items by source id (`tmdb:1396`).
-- `ExternalId { Tmdb(u64), Tvdb(u64) }`. An item stays bound to the provider it was added with.
+- `ExternalId { Tmdb(u64), Tvdb(u64) }`. An item stays bound to the provider it was added with: `metadata::Sources` looks it up there. Movies come from TMDB; series from TMDB, or from TVDB once a TVDB API key is set, which then also answers series searches.
 - `Series` → `Season` → `Episode` and `Movie`: aggregates with public fields. Seasons and episodes are kept ordered by number. Each carries its root folder path (`root`) and its folder name in that root (`folder`), both set when it is added and never changed.
 - `RootFolder { kind, path }` and `RootKind { Series, Movies }` (FR-8.1): `library` checks an item's root against its kind; `media` stores the root folders.
 - `SeriesMetadata`, `MovieMetadata`: an item as its source describes it. `library::MetadataProvider` returns these.
@@ -158,7 +158,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
 - **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
 - **Subscribes to:** `FilesFound`, `FilesImported`, `FileDeleted` (`FileTracker` updates the file projection). `FileRenamed` keeps the file id, so the projection needs no change.
 
-`yokoku-metadata` sends at most 40 requests a second to each source, gives up on a request after 30 s (5 s to connect), and tries a request up to three times on 429, 502, 503, 504, a timeout or a failed connection, waiting as `Retry-After` says (at most 30 s) or 1 s, then 2 s. A 404 for an item is `NotFound`; 401 and 403 are `Refused` and not retried; an answer of another shape is `Invalid`.
+`yokoku-metadata` sends at most 40 requests a second to each source, gives up on a request after 30 s (5 s to connect), and tries a request up to three times on 429, 502, 503, 504, a timeout or a failed connection, waiting as `Retry-After` says (at most 30 s) or 1 s, then 2 s. A 404 for an item is `NotFound`; 401 and 403 are `Refused` and not retried; an answer of another shape is `Invalid`. The TVDB client logs in once for all callers and logs in again once when its token is refused.
 
 ### 5.2 `downloads`
 
@@ -211,7 +211,7 @@ Each module owns its settings section: metadata provider in `library`, Transmiss
 
 Settings are layered, later over earlier: defaults, the TOML file, values stored in the database (FR-10.3), then `APP__*` environment variables. Stored values live in `settings (key, value)` by dotted key (`import.mode`) as JSON; `yokoku settings set|unset|list|get` edits them, and the settings screen will too. `set` loads the whole configuration with the new value and validates it (types, naming patterns, schedules, time zone) before storing, so a stored value cannot stop the app. Stored values are read once at start, so `serve` picks up a change when restarted; a stored value that no longer loads fails every command except `settings`, which can unset it.
 
-Not stored: bootstrap values needed before the database opens (`database`, `log`). Secrets (TMDB token, Transmission password, Jellyfin API key) are `Secret` fields: any layer gives them as a value or as `{ file = "..." }` (`APP__…__FILE`), read when the configuration loads, and they serialize as `"<redacted>"`, so no command prints them. Commands that need no database never create one to read settings.
+Not stored: bootstrap values needed before the database opens (`database`, `log`). Secrets (TMDB token, TVDB API key and PIN, Transmission password, Jellyfin API key) are `Secret` fields: any layer gives them as a value or as `{ file = "..." }` (`APP__…__FILE`), read when the configuration loads, and they serialize as `"<redacted>"`, so no command prints them. Commands that need no database never create one to read settings.
 
 ---
 

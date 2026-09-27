@@ -1,7 +1,7 @@
 use jiff::civil::date;
 use yokoku_domain::{ExternalId, MediaKind};
 use yokoku_library::ports::MetadataProvider;
-use yokoku_metadata::TmdbClient;
+use yokoku_metadata::{TmdbClient, TvdbClient};
 
 fn client() -> TmdbClient {
     let token = std::env::var("APP__METADATA__TMDB__TOKEN").expect("APP__METADATA__TMDB__TOKEN is set");
@@ -23,4 +23,18 @@ async fn real_tmdb_matches_the_recorded_shapes() {
     let dune = client.movie(ExternalId::Tmdb(438631)).await.unwrap();
     assert_eq!(dune.releases.cinema, Some(date(2021, 10, 22)));
     assert!(dune.alternate_titles.contains(&"Dune: Part One".to_owned()));
+}
+
+#[tokio::test]
+#[ignore = "calls the real TVDB API; run with APP__METADATA__TVDB__API_KEY and APP__METADATA__TVDB__PIN set"]
+async fn real_tvdb_matches_the_assumed_shapes() {
+    let api_key = std::env::var("APP__METADATA__TVDB__API_KEY").expect("APP__METADATA__TVDB__API_KEY is set");
+    let client = TvdbClient::new(api_key, std::env::var("APP__METADATA__TVDB__PIN").ok(), "eng");
+
+    let results = client.search("frieren").await.unwrap();
+    assert!(results.iter().any(|r| r.kind == MediaKind::Series && r.source == ExternalId::Tvdb(424536)));
+
+    let frieren = client.series(ExternalId::Tvdb(424536)).await.unwrap();
+    assert_eq!(frieren.title, "Frieren: Beyond Journey's End");
+    assert_eq!(frieren.seasons[1].episodes[0].air_date, Some(date(2023, 9, 29)));
 }

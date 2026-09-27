@@ -11,12 +11,15 @@ use yokoku_domain::{Clock, ItemId, MovieMetadata, SeriesMetadata};
 use yokoku_downloads::{DownloadOptions, Downloads, PickUp};
 use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
 use yokoku_integrations::Rescans;
-use yokoku_library::{Calendar, Library, MetadataService, ports::FolderNames};
+use yokoku_library::{
+    Calendar, Library, MetadataService,
+    ports::{FolderNames, MetadataProvider},
+};
 use yokoku_media::{
     Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
     ports::{FileSystem, LibraryLock},
 };
-use yokoku_metadata::TmdbClient;
+use yokoku_metadata::{Sources, TmdbClient, TvdbClient};
 use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_system::{FfProbe, FileSpool, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
@@ -56,6 +59,7 @@ pub struct MetadataConfig {
     /// Country whose movie release dates are used.
     pub region: String,
     pub tmdb: TmdbConfig,
+    pub tvdb: TvdbConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -63,6 +67,26 @@ pub struct TmdbConfig {
     /// API read access token.
     pub token: Option<Secret>,
     pub url: String,
+}
+
+/// Series come from TVDB while `api_key` is set.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TvdbConfig {
+    /// Project API key.
+    pub api_key: Option<Secret>,
+    /// Subscriber PIN, needed with a user-supported API key.
+    pub pin: Option<Secret>,
+    pub url: String,
+}
+
+impl MetadataConfig {
+    /// `language` as the three-letter code TVDB takes, e.g. `eng` for `en-US`.
+    pub fn tvdb_language(&self) -> Result<&'static str> {
+        let code = self.language.split('-').next().unwrap_or_default();
+        isolang::Language::from_639_1(code)
+            .map(|language| language.to_639_3())
+            .with_context(|| format!("Unknown metadata language: {}", self.language))
+    }
 }
 
 /// Path patterns for library files, one per path component; see `NamingTemplates` for the tokens.
@@ -102,6 +126,7 @@ impl Default for MetadataConfig {
             language: "en-US".into(),
             region: "US".into(),
             tmdb: TmdbConfig { token: None, url: "https://api.themoviedb.org/3".into() },
+            tvdb: TvdbConfig { api_key: None, pin: None, url: "https://api4.thetvdb.com/v4".into() },
         }
     }
 }
@@ -171,14 +196,20 @@ impl App {
         let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
         let naming = config.naming.naming()?;
         let settings = &config.metadata;
+        let tvdb_language = settings.tvdb_language()?;
         let metadata = settings.tmdb.token.as_ref().map(|token| {
             let tmdb =
                 TmdbClient::new(token.expose(), &settings.language, &settings.region).with_base_url(&settings.tmdb.url);
+            let tvdb = settings.tvdb.api_key.as_ref().map(|key| {
+                let pin = settings.tvdb.pin.as_ref().map(|pin| pin.expose().to_owned());
+                let client = TvdbClient::new(key.expose(), pin, tvdb_language);
+                Arc::new(client.with_base_url(&settings.tvdb.url)) as Arc<dyn MetadataProvider>
+            });
             let folders = Arc::new(NamedFolders(naming.clone()));
             Arc::new(MetadataService::new(
                 db.clone(),
                 db.clone(),
-                Arc::new(tmdb),
+                Arc::new(Sources::new(Arc::new(tmdb), tvdb)),
                 folders,
                 clock.clone(),
                 events.clone(),

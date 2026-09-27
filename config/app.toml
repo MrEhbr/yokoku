@@ -12,10 +12,15 @@ path = "yokoku.db"
 language = "en-US"
 region = "US"
 
-# Secrets (token, password, api_key) take a value or { file = "/run/secrets/name" };
+# Secrets (token, api_key, pin, password) take a value or { file = "/run/secrets/name" };
 # APP__METADATA__TMDB__TOKEN or APP__METADATA__TMDB__TOKEN__FILE set them from the environment.
 [metadata.tmdb]
 # token = { file = "/run/secrets/tmdb_token" }
+
+# Series come from TVDB once api_key is set; it must be the source Jellyfin uses.
+[metadata.tvdb]
+# api_key = { file = "/run/secrets/tvdb_api_key" }
+# pin = { file = "/run/secrets/tvdb_pin" }
 
 # The password is a secret, like the TMDB token.
 [transmission]
