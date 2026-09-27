@@ -3,9 +3,15 @@ mod common;
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use jiff::{SignedDuration, ToSpan};
 use rstest::{fixture, rstest};
-use yokoku_domain::{EpisodeRef, ExternalId, ItemFolder, ItemId, MonitorPreset, Releases, SourceStatus};
-use yokoku_events::{MovieAdded, SeriesAdded};
-use yokoku_library::{LibraryError, ports::MetadataError};
+use yokoku_domain::{
+    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ItemFolder, ItemId, MediaFileId, MonitorPreset, Releases,
+    SeasonMetadata, SourceStatus,
+};
+use yokoku_events::{EpisodesRenumbered, MovieAdded, RenumberedFile, SeriesAdded};
+use yokoku_library::{
+    LibraryError,
+    ports::{MetadataError, SeriesRepo},
+};
 
 #[fixture]
 async fn app() -> App {
@@ -154,6 +160,28 @@ async fn refresh_series_stores_new_episodes_and_keeps_changes(#[future(awt)] app
     let stored = app.library.series(series.id).await.unwrap();
     let monitored: Vec<_> = stored.monitored_episodes().map(|(reference, _)| reference).collect();
     assert_eq!(monitored, [EpisodeRef { season: 1, episode: 2 }]);
+    assert_eq!(app.events().await.len(), 1);
+}
+
+#[rstest]
+#[tokio::test]
+async fn refresh_series_records_files_whose_episodes_were_renumbered(#[future(awt)] app: App) {
+    let original = series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[None, None])]);
+    app.provider.put_series(original.clone());
+    let mut series = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    let file = MediaFileId::generate();
+    series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().file = Some(file);
+    SeriesRepo::save(&app.db, &mut series).await.unwrap();
+    let mut renumbered = original;
+    let episode = renumbered.seasons[0].episodes.pop().unwrap();
+    renumbered.seasons.push(SeasonMetadata { number: 2, episodes: vec![EpisodeMetadata { number: 1, ..episode }] });
+    app.provider.put_series(renumbered);
+
+    app.metadata.refresh_series(series.id).await.unwrap();
+
+    let renumbered =
+        EpisodesRenumbered { series: series.id, files: vec![RenumberedFile { file, span: EpisodeSpan::new(2, 1, 1) }] };
+    assert_eq!(app.events().await.last(), Some(&renumbered.into()));
 }
 
 #[rstest]

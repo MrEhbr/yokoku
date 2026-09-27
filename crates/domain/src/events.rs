@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DownloadId, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId};
+use crate::{DownloadId, EpisodeSpan, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId};
 
 macro_rules! events {
     ($($name:ident),* $(,)?) => {
@@ -60,6 +60,7 @@ events!(
     TorrentAdded,
     DownloadCompleted,
     TorrentRemoved,
+    EpisodesRenumbered,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -122,6 +123,21 @@ pub struct FileRenamed {
     pub target: Option<FileTarget>,
 }
 
+/// A metadata refresh gave episodes holding files new numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EpisodesRenumbered {
+    pub series: SeriesId,
+    pub files: Vec<RenumberedFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RenumberedFile {
+    pub file: MediaFileId,
+    /// The episodes now holding the file; `None` when they no longer form one span, and the
+    /// episodes no longer hold it.
+    pub span: Option<EpisodeSpan>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportNeedsReview {
     pub import: ImportId,
@@ -168,7 +184,9 @@ impl Event {
     /// The series and movies the event concerns, each once.
     pub fn items(&self) -> Vec<ItemId> {
         let mut items: Vec<ItemId> = match self {
-            Self::SeriesAdded(SeriesAdded { series, .. }) | Self::SeriesRemoved(SeriesRemoved { series, .. }) => {
+            Self::SeriesAdded(SeriesAdded { series, .. })
+            | Self::SeriesRemoved(SeriesRemoved { series, .. })
+            | Self::EpisodesRenumbered(EpisodesRenumbered { series, .. }) => {
                 vec![ItemId::Series(*series)]
             },
             Self::MovieAdded(MovieAdded { movie, .. }) | Self::MovieRemoved(MovieRemoved { movie, .. }) => {
@@ -223,6 +241,10 @@ impl fmt::Display for Event {
             },
             Self::FileRenamed(FileRenamed { from, to, .. }) => {
                 write!(f, "Renamed {}\n-> {}", from.display(), to.display())
+            },
+            Self::EpisodesRenumbered(EpisodesRenumbered { files, .. }) => match files.len() {
+                1 => write!(f, "Renumbered the episodes of 1 file"),
+                count => write!(f, "Renumbered the episodes of {count} files"),
             },
             Self::ImportNeedsReview(ImportNeedsReview { source, .. }) => {
                 write!(f, "Import of {} needs review", source.display())
@@ -362,6 +384,19 @@ mod tests {
             "to": "/tv/A (2023)/a.mkv",
             "target": { "Movie": "00000000-0000-0000-0000-000000000003" },
         }),
+    )]
+    #[case::episodes_renumbered(
+        EpisodesRenumbered {
+            series: SeriesId(Uuid::from_u128(7)),
+            files: vec![
+                RenumberedFile { file: MediaFileId(Uuid::from_u128(5)), span: EpisodeSpan::new(2, 1, 1) },
+                RenumberedFile { file: MediaFileId(Uuid::from_u128(6)), span: None },
+            ],
+        }.into(),
+        json!({ "type": "EpisodesRenumbered", "series": "00000000-0000-0000-0000-000000000007", "files": [
+            { "file": "00000000-0000-0000-0000-000000000005", "span": { "season": 2, "first": 1, "last": 1 } },
+            { "file": "00000000-0000-0000-0000-000000000006", "span": null },
+        ] }),
     )]
     #[case::import_needs_review(
         ImportNeedsReview { import: ImportId(Uuid::from_u128(9)), source: "/tv/Unknown".into() }.into(),

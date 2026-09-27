@@ -6,8 +6,8 @@ use std::sync::Arc;
 use yokoku_db::Database;
 use yokoku_downloads::Downloads;
 use yokoku_events::{
-    DownloadCompleted, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded, MovieRemoved, SeriesAdded,
-    SeriesRemoved, Subscriber, Subscription,
+    DownloadCompleted, EpisodesRenumbered, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded,
+    MovieRemoved, SeriesAdded, SeriesRemoved, Subscriber, Subscription,
 };
 use yokoku_integrations::Rescans;
 use yokoku_library::FileTracker;
@@ -31,6 +31,7 @@ pub fn subscribers(
             .on::<FileDeleted>(tracker),
         Subscription::new("media.imports").on::<DownloadCompleted>(planner.clone()),
         Subscription::new("media.removals").on::<SeriesRemoved>(deleter.clone()).on::<MovieRemoved>(deleter.clone()),
+        Subscription::new("media.renumbered").on::<EpisodesRenumbered>(scanner.clone()),
         Subscription::new("downloads.imports").on::<FilesImported>(downloads.clone()),
         Subscription::new("media.probe").on::<FilesFound>(prober.clone()).on::<FilesImported>(prober.clone()),
     ];

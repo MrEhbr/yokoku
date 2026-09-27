@@ -4,7 +4,7 @@ use tracing::{debug, info, instrument};
 use yokoku_domain::{
     Clock, ExternalId, ItemFolder, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
 };
-use yokoku_events::{MovieAdded, Publisher, SeriesAdded};
+use yokoku_events::{EpisodesRenumbered, MovieAdded, Publisher, SeriesAdded};
 
 use crate::{
     LibraryError,
@@ -123,14 +123,19 @@ impl MetadataService {
         let metadata = self.metadata.series(source).await?;
 
         let metadata = &metadata;
-        retry::on_conflict(|| async move {
+        let (series, files) = retry::on_conflict(|| async move {
             let mut series = self.series.get(id).await?.ok_or(LibraryError::SeriesNotFound(id))?;
-            series.refresh(metadata.clone(), self.clock.now().timestamp());
+            let files = series.refresh(metadata.clone(), self.clock.now().timestamp());
             self.series.save(&mut series).await?;
             debug!("series refreshed");
-            Ok(series)
+            Ok((series, files))
         })
-        .await
+        .await?;
+        if !files.is_empty() {
+            info!(files = files.len(), "episodes holding files were renumbered");
+            self.events.publish(EpisodesRenumbered { series: id, files }).await;
+        }
+        Ok(series)
     }
 
     #[instrument(skip_all, fields(movie = %id))]

@@ -272,6 +272,13 @@ impl Database {
                 .execute(&mut *tx)
                 .await?;
         }
+        for (id, target) in &changes.retargeted_files {
+            let query = sqlx::query(
+                "UPDATE media_files SET series_id = ?, season = ?, first_episode = ?, last_episode = ?, movie_id = ?
+                 WHERE id = ?",
+            );
+            bind_target(query, Some(*target).into()).bind(id.to_string()).execute(&mut *tx).await?;
+        }
         for import in &changes.imports {
             let id = import.id.to_string();
             sqlx::query(

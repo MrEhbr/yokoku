@@ -5,7 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use yokoku_detect::ListedFile;
-use yokoku_domain::{DownloadId, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError};
+use yokoku_domain::{DownloadId, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError};
 
 use crate::{Import, ImportStatus, MediaFile, MediaInfo, RootFolder};
 
@@ -139,6 +139,8 @@ pub struct Changes {
     pub removed_files: Vec<MediaFileId>,
     /// New paths of files that moved.
     pub renamed_files: Vec<(MediaFileId, PathBuf)>,
+    /// New targets of files whose episodes were renumbered.
+    pub retargeted_files: Vec<(MediaFileId, FileTarget)>,
     /// Inserted or replaced with all their rows.
     pub imports: Vec<Import>,
 }

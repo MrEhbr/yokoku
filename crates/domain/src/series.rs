@@ -1,11 +1,25 @@
-use std::{collections::HashMap, fmt, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+    str::FromStr,
+};
 
 use jiff::{SignedDuration, Timestamp, ToSpan, civil::Date};
 use serde::{Deserialize, Serialize};
 
-use crate::{EpisodeId, ExternalId, FileStatus, ItemFolder, MediaFileId, SeriesId};
+use crate::{EpisodeId, ExternalId, FileStatus, ItemFolder, MediaFileId, SeriesId, events::RenumberedFile};
 
 const SPECIALS: u16 = 0;
+
+/// `None` unless the ordered `episodes` are one gapless run in one season.
+fn span_of(episodes: &[EpisodeRef]) -> Option<EpisodeSpan> {
+    let season = episodes.first()?.season;
+    if episodes.iter().any(|episode| episode.season != season) {
+        return None;
+    }
+    let numbers: Vec<u16> = episodes.iter().map(|episode| episode.episode).collect();
+    EpisodeSpan::consecutive(season, &numbers)
+}
 
 /// Series status as the metadata source reports it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -293,7 +307,9 @@ impl Series {
 
     /// Episodes are matched by source id, so renumbered episodes keep their id, flags and file.
     /// New seasons follow the series flag (specials excepted); new episodes follow their season.
-    pub fn refresh(&mut self, metadata: SeriesMetadata, now: Timestamp) {
+    /// Returns the files whose episodes changed numbers.
+    pub fn refresh(&mut self, metadata: SeriesMetadata, now: Timestamp) -> Vec<RenumberedFile> {
+        let files_before = self.file_episodes();
         let season_flags: HashMap<u16, bool> =
             self.seasons.iter().map(|season| (season.number, season.monitored)).collect();
         let mut known: HashMap<u64, Episode> = self
@@ -335,6 +351,34 @@ impl Series {
         self.source_status = metadata.status;
         self.refreshed_at = now;
         self.sort();
+
+        let renumbered: Vec<RenumberedFile> = self
+            .file_episodes()
+            .into_iter()
+            .filter(|(file, episodes)| files_before.get(file) != Some(episodes))
+            .map(|(file, episodes)| RenumberedFile { file, span: span_of(&episodes) })
+            .collect();
+        for split in renumbered.iter().filter(|renumbered| renumbered.span.is_none()) {
+            for episode in self.seasons.iter_mut().flat_map(|season| &mut season.episodes) {
+                if episode.file == Some(split.file) {
+                    episode.file = None;
+                }
+            }
+        }
+        renumbered
+    }
+
+    /// The episodes holding each file, in order.
+    fn file_episodes(&self) -> BTreeMap<MediaFileId, Vec<EpisodeRef>> {
+        let mut files: BTreeMap<MediaFileId, Vec<EpisodeRef>> = BTreeMap::new();
+        for season in &self.seasons {
+            for episode in &season.episodes {
+                if let Some(file) = episode.file {
+                    files.entry(file).or_default().push(EpisodeRef { season: season.number, episode: episode.number });
+                }
+            }
+        }
+        files
     }
 
     pub fn status(&self, today: Date) -> SeriesStatus {

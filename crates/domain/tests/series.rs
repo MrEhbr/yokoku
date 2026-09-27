@@ -9,7 +9,7 @@ use rstest::rstest;
 use serde_json::json;
 use yokoku_domain::{
     EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId, MonitorPreset,
-    SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus,
+    SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus, events::RenumberedFile,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -188,7 +188,8 @@ fn refresh_keeps_identity_flags_and_files_of_renumbered_episodes() {
     let original = metadata(SourceStatus::Returning, &[(1, &[None, None])]);
     let mut series = Series::add(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
     let moved = find(&series, 1, 2).clone();
-    series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().file = Some(MediaFileId::generate());
+    let file = MediaFileId::generate();
+    series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().file = Some(file);
     series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().monitored = false;
 
     let mut renumbered = original;
@@ -197,14 +198,42 @@ fn refresh_keeps_identity_flags_and_files_of_renumbered_episodes() {
         number: 2,
         episodes: vec![EpisodeMetadata { number: 1, title: "Renamed".into(), ..episode }],
     });
-    series.refresh(renumbered, now() + 1.hour());
+    let files = series.refresh(renumbered, now() + 1.hour());
 
     let episode = find(&series, 2, 1);
     assert_eq!(episode.id, moved.id);
     assert_eq!(episode.title, "Renamed");
-    assert!(episode.file.is_some());
+    assert_eq!(episode.file, Some(file));
     assert!(!episode.monitored);
     assert_eq!(series.refreshed_at, now() + 1.hour());
+    assert_eq!(files, [RenumberedFile { file, span: EpisodeSpan::new(2, 1, 1) }]);
+}
+
+#[test]
+fn refresh_unlinks_a_file_whose_episodes_are_no_longer_consecutive() {
+    let original = metadata(SourceStatus::Returning, &[(1, &[None, None])]);
+    let mut series = Series::add(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+    let file = MediaFileId::generate();
+    for episode in [1, 2] {
+        series.episode_mut(EpisodeRef { season: 1, episode }).unwrap().file = Some(file);
+    }
+
+    let mut renumbered = original;
+    let episode = renumbered.seasons[0].episodes.pop().unwrap();
+    renumbered.seasons.push(SeasonMetadata { number: 2, episodes: vec![EpisodeMetadata { number: 1, ..episode }] });
+    let files = series.refresh(renumbered, now());
+
+    assert_eq!(files, [RenumberedFile { file, span: None }]);
+    assert_eq!((find(&series, 1, 1).file, find(&series, 2, 1).file), (None, None));
+}
+
+#[test]
+fn refresh_without_renumbering_reports_no_files() {
+    let original = metadata(SourceStatus::Returning, &[(1, &[None, None])]);
+    let mut series = Series::add(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+    series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().file = Some(MediaFileId::generate());
+
+    assert!(series.refresh(original, now()).is_empty());
 }
 
 #[rstest]

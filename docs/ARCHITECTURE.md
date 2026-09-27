@@ -124,7 +124,7 @@ Value types and rules shared by all modules. Examples:
 | `Movie::file_status(today)` | `Missing` only once the movie is `Released`. |
 | `Series::monitored_episodes()` | Monitored at series, season and episode level (FR-2.1, 2.3). |
 | `Series::add(metadata, preset, today, now)` | Applies the preset. Specials are never monitored by a preset. |
-| `Series::refresh(metadata, now)` | Matches episodes by source id, so renumbered episodes keep id, flags and file. New seasons follow the series flag (specials excepted); new episodes follow their season. Episodes gone from the source are dropped. |
+| `Series::refresh(metadata, now)` | Matches episodes by source id, so renumbered episodes keep id, flags and file. New seasons follow the series flag (specials excepted); new episodes follow their season. Episodes gone from the source are dropped. Returns the files whose episodes changed numbers, with their new span; a file whose episodes no longer form one span is unlinked from them. |
 | `Series::needs_refresh(now, today)` | Sonarr's rules: refreshed over 30 days ago, or an aired regular episode titled `TBA` or untitled; otherwise not within 6 h of the last refresh, and not ended or with an episode airing in the last 30 days or later. |
 | `Movie::needs_refresh(now, today)` | Radarr's rules: refreshed over 180 days ago; otherwise not within 12 h of the last refresh, and not `Released` or with a physical release in the last 30 days or later. TMDB allows keeping its data 6 months at most. |
 | `Series::absolute_to_ref(n)` | Counts episodes in order, excluding specials, which matches Jellyfin's default TMDB order (FR-4.9, FR-5.8). |
@@ -157,7 +157,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
   - `Calendar` (repositories + clock): calendar for a date range, missing grouped by series. Only monitored items appear (FR-2.3).
 - **Later:** iCal feed (served by `web`).
 - **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates), `Publisher` (events, appended after the save), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
-- **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
+- **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`, `EpisodesRenumbered` (a refresh renumbered episodes holding files).
 - **Subscribes to:** `FilesFound`, `FilesImported`, `FileDeleted` (`FileTracker` updates the file projection). `FileRenamed` keeps the file id, so the projection needs no change.
 
 `yokoku-metadata` sends at most 40 requests a second to each source, gives up on a request after 30 s (5 s to connect), and tries a request up to three times on 429, 502, 503, 504, a timeout or a failed connection, waiting as `Retry-After` says (at most 30 s) or 1 s, then 2 s. A 404 for an item is `NotFound`; 401 and 403 are `Refused` and not retried; an answer of another shape is `Invalid`. The TVDB client logs in once for all callers and logs in again once when its token is refused.
@@ -199,7 +199,7 @@ Owns library files, root folders, naming settings and imports.
 - **Library lock:** scan, import, rename and delete change files on disk before they commit, so each holds the `LibraryLock` from its first read of library files until its last commit; a scan never sees a file that is placed but not yet stored. `LockFile` in `system` takes an exclusive `flock` on `<database>.lock`, so the CLI and `serve` wait for each other as well. An import holds it per import, from its claim to its commit.
 - **Ports:** `MediaRepo` (root folders, files, imports; one `save(changes)` so a use case commits its state in one transaction), `Publisher` (events, appended after the save), `Catalog` (read-only view of `library` data), `FileSystem`, `LibraryLock`, `MediaProbe` (`FfProbe` in `system`), `Clock`; later `ImportQueue`.
 - **Emits:** `FilesFound`, `ImportNeedsReview`, `FilesImported`, `FileDeleted`, `FileRenamed`; later `ImportFailed`.
-- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesAdded`, `MovieAdded` (scan the item's folder), `SeriesRemoved`, `MovieRemoved` (delete the item's files when asked, otherwise drop their records and keep them on disk).
+- **Subscribes to:** `DownloadCompleted` (plans an import), `SeriesAdded`, `MovieAdded` (scan the item's folder), `SeriesRemoved`, `MovieRemoved` (delete the item's files when asked, otherwise drop their records and keep them on disk), `EpisodesRenumbered` (moves each file's target to its new span; a file without one leaves the library and goes to review).
 
 ### 5.4 `integrations`
 
@@ -294,6 +294,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 | `MovieAdded { movie, title }` | library | — (history) |
 | `SeriesRemoved { series, title, delete_files }` | library | media |
 | `MovieRemoved { movie, title, delete_files }` | library | media |
+| `EpisodesRenumbered { series, files }` | library | media |
 | `TorrentAdded { download, name, item }` | downloads | — (history) |
 | `DownloadCompleted { download, name, content_path, item }` | downloads | media |
 | `TorrentRemoved { download, name, item }` | downloads | — (history) |

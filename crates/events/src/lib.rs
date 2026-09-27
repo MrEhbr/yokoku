@@ -22,8 +22,8 @@ pub use subscription::{Handler, Subscription};
 pub use yokoku_domain::{
     CorrelationId,
     events::{
-        DeleteReason, DownloadCompleted, Event, EventKind, FileDeleted, FileRenamed, FilesFound, FilesImported,
-        ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, SeriesAdded, SeriesRemoved,
-        TorrentAdded, TorrentRemoved,
+        DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, EventKind, FileDeleted, FileRenamed, FilesFound,
+        FilesImported, ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, RenumberedFile,
+        SeriesAdded, SeriesRemoved, TorrentAdded, TorrentRemoved,
     },
 };
