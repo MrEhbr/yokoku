@@ -32,7 +32,7 @@ pub struct Correlated {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Failure {
+pub struct DeliveryFailure {
     pub event: EventId,
     pub error: String,
     pub attempts: u32,
@@ -55,13 +55,13 @@ pub trait EventLog: Send + Sync {
     async fn mark_delivered(&self, subscriber: &str, event: EventId) -> Result<(), StorageError>;
 
     /// Records the failure and moves the subscriber past the event, atomically.
-    async fn give_up(&self, subscriber: &str, failure: &Failure) -> Result<(), StorageError>;
+    async fn give_up(&self, subscriber: &str, failure: &DeliveryFailure) -> Result<(), StorageError>;
 
     /// Events the subscriber gave up on, with their failures, oldest first.
-    async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, Failure)>, StorageError>;
+    async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, DeliveryFailure)>, StorageError>;
 
     /// Updates a failure after another attempt; the position stays where it is.
-    async fn record_failure(&self, subscriber: &str, failure: &Failure) -> Result<(), StorageError>;
+    async fn record_failure(&self, subscriber: &str, failure: &DeliveryFailure) -> Result<(), StorageError>;
 
     /// Forgets a failure once the event was handled.
     async fn resolve(&self, subscriber: &str, event: EventId) -> Result<(), StorageError>;

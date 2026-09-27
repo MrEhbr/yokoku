@@ -13,7 +13,7 @@ mod subscription;
 
 pub use delivery::{Delivery, DeliveryConfig};
 pub use history::History;
-pub use log::{Correlated, EventId, EventLog, Failure, Recorded};
+pub use log::{Correlated, DeliveryFailure, EventId, EventLog, Recorded};
 pub use publisher::Publisher;
 pub use signal::{Listener, NewEvents};
 pub use spool::EventSpool;

@@ -7,4 +7,4 @@ pub mod ports;
 
 pub use downloads::{DownloadOptions, Downloads, PickUp, SyncReport};
 pub use error::DownloadError;
-pub use model::{Download, DownloadState, DownloadStatus};
+pub use model::{Download, DownloadState, TorrentStatus};

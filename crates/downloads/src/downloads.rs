@@ -12,7 +12,7 @@ use yokoku_events::{
 };
 
 use crate::{
-    Download, DownloadError, DownloadState, DownloadStatus,
+    Download, DownloadError, DownloadState, TorrentStatus,
     ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource},
 };
 
@@ -197,7 +197,7 @@ impl Downloads {
             hash,
             name,
             item,
-            status: DownloadStatus::unknown(),
+            status: TorrentStatus::unknown(),
             added_at: self.clock.now().timestamp(),
             completed_at: None,
             imported_at: None,

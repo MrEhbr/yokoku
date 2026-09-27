@@ -3,13 +3,13 @@ use std::{fmt, path::PathBuf};
 use yokoku_domain::{Confidence, Episode, EpisodeSpan, FileTarget, Movie, Numbering, Series};
 
 use crate::{
-    Classified, DownloadFile, Numbers, ParsedName, Video,
+    Classified, EpisodeHint, ListedFile, ParsedName, Video,
     titles::{TitleMatch, best_match, normalize},
 };
 
 /// What the download was added for (FR-4.7).
 #[derive(Debug, Clone, Copy)]
-pub enum Target<'a> {
+pub enum MatchScope<'a> {
     Series(&'a Series),
     Movie(&'a Movie),
     /// Not linked: match against everything in the library.
@@ -54,15 +54,17 @@ impl fmt::Display for Conflict {
 
 impl ImportPlan {
     /// Matches every video in a download to the library (FR-4).
-    pub fn new(files: &[DownloadFile], target: Target<'_>) -> Self {
+    pub fn new(files: &[ListedFile], scope: MatchScope<'_>) -> Self {
         let Classified { videos, mut ignored } = Classified::from_files(files);
 
-        let rows = match target {
-            Target::Series(series) => {
+        let rows = match scope {
+            MatchScope::Series(series) => {
                 videos.into_iter().map(|video| PlanRow::episodes(video, |_| Some((series, true)))).collect()
             },
-            Target::Movie(movie) => PlanRow::movie(videos, &mut ignored, |_| Some((movie, true))).into_iter().collect(),
-            Target::Library { series, movies } => {
+            MatchScope::Movie(movie) => {
+                PlanRow::movie(videos, &mut ignored, |_| Some((movie, true))).into_iter().collect()
+            },
+            MatchScope::Library { series, movies } => {
                 let series_rows: Vec<_> = videos
                     .iter()
                     .cloned()
@@ -236,9 +238,9 @@ impl ParsedName {
             matching.next().is_none().then_some((EpisodeSpan::single(reference), true))
         };
 
-        match &self.numbers {
-            Numbers::Episodes { season, episodes } => Some((series.span(*season, episodes)?, true)),
-            Numbers::Seasonless { episodes } => match series.numbering {
+        match &self.episode_hint {
+            EpisodeHint::Episodes { season, episodes } => Some((series.span(*season, episodes)?, true)),
+            EpisodeHint::Seasonless { episodes } => match series.numbering {
                 Numbering::Absolute => Some((series.absolute_span(episodes)?, true)),
                 Numbering::Standard => {
                     let regular: Vec<u16> =
@@ -250,8 +252,8 @@ impl ParsedName {
                     Some((guess?, false))
                 },
             },
-            Numbers::Date(date) => only(&|episode| episode.air_date == Some(*date)),
-            Numbers::None => {
+            EpisodeHint::Date(date) => only(&|episode| episode.air_date == Some(*date)),
+            EpisodeHint::None => {
                 let title = normalize(self.episode_title.as_deref().or(self.title.as_deref())?);
                 if title.is_empty() {
                     return None;

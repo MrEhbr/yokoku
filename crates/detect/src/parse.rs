@@ -17,12 +17,12 @@ static TITLE_WITH_YEAR: LazyLock<Regex> =
 pub struct ParsedName {
     pub title: Option<String>,
     pub year: Option<i16>,
-    pub numbers: Numbers,
+    pub episode_hint: EpisodeHint,
     pub episode_title: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Numbers {
+pub enum EpisodeHint {
     None,
     /// Episodes are sorted and non-empty.
     Episodes {
@@ -53,7 +53,7 @@ impl ParsedName {
         Self {
             title,
             year,
-            numbers: date.map_or_else(|| Numbers::from(&result), Numbers::Date),
+            episode_hint: date.map_or_else(|| EpisodeHint::from(&result), EpisodeHint::Date),
             episode_title: result.episode_title().map(str::to_owned),
         }
     }
@@ -84,7 +84,7 @@ impl ParsedName {
     }
 }
 
-impl From<&HunchResult> for Numbers {
+impl From<&HunchResult> for EpisodeHint {
     fn from(result: &HunchResult) -> Self {
         let numbers = |property| -> Vec<u16> { result.all(property).iter().filter_map(|n| n.parse().ok()).collect() };
         let mut episodes = numbers(Property::Episode);

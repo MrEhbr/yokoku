@@ -19,7 +19,7 @@ use yokoku_domain::{
 };
 use yokoku_events::{Event, EventLog, Publisher};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
-use yokoku_media::{ImportPlanner, Renamer, Review, RootFolders, RootKind, Scanner};
+use yokoku_media::{ImportPlanner, Renamer, Reviewer, RootFolders, RootKind, Scanner};
 use yokoku_naming::Naming;
 use yokoku_system::{FileSpool, LocalFileSystem, LockFile};
 
@@ -50,7 +50,7 @@ pub struct App {
     pub db: Database,
     pub roots: RootFolders,
     pub scanner: Scanner,
-    pub review: Review,
+    pub reviewer: Reviewer,
     pub renamer: Renamer,
     pub planner: ImportPlanner,
     pub frieren: Series,
@@ -71,7 +71,7 @@ impl App {
         let roots = RootFolders::new(repo.clone(), repo.clone(), fs.clone());
         let lock = Arc::new(LockFile::new(dir.path().join(LOCK)));
         let scanner = Scanner::new(repo.clone(), repo.clone(), fs, lock.clone(), clock.clone(), events.clone());
-        let review = Review::new(repo.clone(), repo.clone(), clock, events.clone());
+        let reviewer = Reviewer::new(repo.clone(), repo.clone(), clock, events.clone());
         let renamer = Renamer::new(
             repo.clone(),
             repo.clone(),
@@ -90,7 +90,7 @@ impl App {
         SeriesRepo::save(&db, &mut frieren).await.unwrap();
         MovieRepo::save(&db, &mut dune).await.unwrap();
 
-        let app = Self { dir, db, roots, scanner, review, renamer, planner, frieren, dune };
+        let app = Self { dir, db, roots, scanner, reviewer, renamer, planner, frieren, dune };
         app.roots.add(RootKind::Series, &app.path("tv")).await.unwrap();
         app.roots.add(RootKind::Movies, &app.path("movies")).await.unwrap();
         app

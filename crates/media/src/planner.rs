@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use async_trait::async_trait;
 use tracing::{debug, info, instrument};
-use yokoku_detect::{DownloadFile, ImportPlan, Target};
+use yokoku_detect::{ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series};
 use yokoku_events::{DownloadCompleted, Event, Handler, HandlerError, ImportFailed, ImportNeedsReview, Publisher};
 
@@ -46,18 +46,18 @@ impl ImportPlanner {
             return Ok(None);
         }
         let base = content.parent().unwrap_or(content);
-        let files: Vec<DownloadFile> = self
+        let files: Vec<ListedFile> = self
             .content_files(content)
             .await?
             .into_iter()
             .filter_map(|file| {
                 let path = file.path.strip_prefix(base).ok()?.to_owned();
-                Some(DownloadFile { path, size: file.size })
+                Some(ListedFile { path, size: file.size })
             })
             .collect();
 
         let scope = self.scope(item).await?;
-        let plan = ImportPlan::new(&files, scope.target());
+        let plan = ImportPlan::new(&files, scope.match_scope());
         let linked: Vec<FileTarget> = self.repo.files().await?.into_iter().map(|file| file.target).collect();
         let takes_linked =
             |target: &Option<FileTarget>| target.is_some_and(|target| linked.iter().any(|file| file.overlaps(&target)));
@@ -112,7 +112,7 @@ impl ImportPlanner {
     }
 
     /// The files of a folder download, or the single file of a one-file download.
-    async fn content_files(&self, content: &Path) -> Result<Vec<DownloadFile>, MediaError> {
+    async fn content_files(&self, content: &Path) -> Result<Vec<ListedFile>, MediaError> {
         if self.fs.is_dir(content).await? {
             return Ok(self.fs.files(content).await?);
         }
@@ -141,11 +141,11 @@ enum Scope {
 }
 
 impl Scope {
-    fn target(&self) -> Target<'_> {
+    fn match_scope(&self) -> MatchScope<'_> {
         match self {
-            Self::Series(series) => Target::Series(series),
-            Self::Movie(movie) => Target::Movie(movie),
-            Self::Library(series, movies) => Target::Library { series, movies },
+            Self::Series(series) => MatchScope::Series(series),
+            Self::Movie(movie) => MatchScope::Movie(movie),
+            Self::Library(series, movies) => MatchScope::Library { series, movies },
         }
     }
 }

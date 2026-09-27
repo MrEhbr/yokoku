@@ -5,12 +5,12 @@ use yokoku_domain::{Clock, EpisodeRef, ExternalId, FileStatus, ItemId, MovieId, 
 
 use crate::{
     LibraryError,
-    catalog::Catalog,
     ports::{MovieRepo, SeriesRepo},
+    snapshot::Snapshot,
 };
 
 /// Release tracking over monitored items: calendar and missing.
-pub struct Schedule {
+pub struct Calendar {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
     clock: Arc<dyn Clock>,
@@ -62,7 +62,7 @@ pub struct MissingMovie {
     pub year: Option<i16>,
 }
 
-impl Schedule {
+impl Calendar {
     pub fn new(series: Arc<dyn SeriesRepo>, movies: Arc<dyn MovieRepo>, clock: Arc<dyn Clock>) -> Self {
         Self { series, movies, clock }
     }
@@ -72,13 +72,13 @@ impl Schedule {
     }
 
     /// Monitored episodes and movie releases dated `from` to `to`, both inclusive, ordered by date.
-    pub async fn calendar(&self, from: Date, to: Date) -> Result<Vec<CalendarEntry>, LibraryError> {
+    pub async fn entries(&self, from: Date, to: Date) -> Result<Vec<CalendarEntry>, LibraryError> {
         let today = self.today();
-        let catalog = Catalog::load(self.series.as_ref(), self.movies.as_ref()).await?;
+        let snapshot = Snapshot::load(self.series.as_ref(), self.movies.as_ref()).await?;
         let in_range = |date: Date| from <= date && date <= to;
         let mut entries = Vec::new();
 
-        for series in &catalog.series {
+        for series in &snapshot.series {
             for (reference, episode) in series.monitored_episodes() {
                 let Some(date) = episode.air_date.filter(|&date| in_range(date)) else { continue };
                 entries.push(CalendarEntry {
@@ -91,7 +91,7 @@ impl Schedule {
                 });
             }
         }
-        for movie in catalog.movies.iter().filter(|movie| movie.monitored) {
+        for movie in snapshot.movies.iter().filter(|movie| movie.monitored) {
             for (kind, date) in movie.releases.dates().filter(|&(_, date)| in_range(date)) {
                 entries.push(CalendarEntry {
                     date,
@@ -111,9 +111,9 @@ impl Schedule {
     /// Monitored episodes that aired without a file, grouped by series, and released monitored movies without one.
     pub async fn missing(&self) -> Result<Missing, LibraryError> {
         let today = self.today();
-        let catalog = Catalog::load(self.series.as_ref(), self.movies.as_ref()).await?;
+        let snapshot = Snapshot::load(self.series.as_ref(), self.movies.as_ref()).await?;
 
-        let mut series: Vec<_> = catalog
+        let mut series: Vec<_> = snapshot
             .series
             .iter()
             .filter_map(|series| {
@@ -135,7 +135,7 @@ impl Schedule {
             .collect();
         series.sort_by_cached_key(|series| series.title.to_lowercase());
 
-        let mut movies: Vec<_> = catalog
+        let mut movies: Vec<_> = snapshot
             .movies
             .iter()
             .filter(|movie| movie.monitored && movie.file_status(today) == FileStatus::Missing)

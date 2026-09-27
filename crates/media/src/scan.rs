@@ -7,7 +7,7 @@ use std::{
 use async_trait::async_trait;
 use jiff::Timestamp;
 use tracing::{info, instrument};
-use yokoku_detect::{DownloadFile, ImportPlan, Target};
+use yokoku_detect::{ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId};
 use yokoku_events::{
     DeleteReason, Event, FileDeleted, FilesFound, Handler, HandlerError, ImportNeedsReview, MovieAdded, Publisher,
@@ -69,11 +69,11 @@ impl Scanner {
 
         let items = series
             .iter()
-            .map(|series| (&series.folder, Target::Series(series)))
-            .chain(movies.iter().map(|movie| (&movie.folder, Target::Movie(movie))));
+            .map(|series| (&series.folder, MatchScope::Series(series)))
+            .chain(movies.iter().map(|movie| (&movie.folder, MatchScope::Movie(movie))));
         let mut report = ScanReport::default();
-        for (folder, target) in items {
-            self.scan_folder(folder, target, &known, &mut report).await?;
+        for (folder, scope) in items {
+            self.scan_folder(folder, scope, &known, &mut report).await?;
         }
         Ok(report)
     }
@@ -88,12 +88,12 @@ impl Scanner {
         match item {
             ItemId::Series(id) => {
                 if let Some(series) = self.catalog.series(id).await? {
-                    self.scan_folder(&series.folder, Target::Series(&series), &known, &mut report).await?;
+                    self.scan_folder(&series.folder, MatchScope::Series(&series), &known, &mut report).await?;
                 }
             },
             ItemId::Movie(id) => {
                 if let Some(movie) = self.catalog.movie(id).await? {
-                    self.scan_folder(&movie.folder, Target::Movie(&movie), &known, &mut report).await?;
+                    self.scan_folder(&movie.folder, MatchScope::Movie(&movie), &known, &mut report).await?;
                 }
             },
         }
@@ -104,7 +104,7 @@ impl Scanner {
     async fn scan_folder(
         &self,
         folder: &ItemFolder,
-        target: Target<'_>,
+        scope: MatchScope<'_>,
         known: &Known,
         report: &mut ScanReport,
     ) -> Result<(), MediaError> {
@@ -114,7 +114,7 @@ impl Scanner {
         let path = folder.path();
         let listed = if self.fs.is_dir(&path).await? { self.fs.files(&path).await? } else { Vec::new() };
         let now = self.clock.now().timestamp();
-        let (changes, events) = scan_folder(&folder.root, &path, listed, known, target, now);
+        let (changes, events) = scan_folder(&folder.root, &path, listed, known, scope, now);
 
         self.repo.save(&changes).await?;
         self.events.publish_all(events).await;
@@ -171,9 +171,9 @@ impl Handler<MovieAdded> for Scanner {
 fn scan_folder(
     root: &Path,
     folder: &Path,
-    listed: Vec<DownloadFile>,
+    listed: Vec<ListedFile>,
     known: &Known,
-    target: Target<'_>,
+    scope: MatchScope<'_>,
     now: Timestamp,
 ) -> (Changes, Vec<Event>) {
     let listed_paths: HashSet<&Path> = listed.iter().map(|file| file.path.as_path()).collect();
@@ -184,15 +184,15 @@ fn scan_folder(
     let known_paths: HashSet<&Path> = known.files.iter().map(|file| file.path.as_path()).collect();
     let mut occupied: Vec<FileTarget> = kept.iter().map(|file| file.target).collect();
 
-    let new_files: Vec<DownloadFile> = listed
+    let new_files: Vec<ListedFile> = listed
         .into_iter()
         .filter(|file| !known_paths.contains(file.path.as_path()) && !known.claimed.contains(&file.path))
-        .filter_map(|file| Some(DownloadFile { path: file.path.strip_prefix(root).ok()?.to_owned(), size: file.size }))
+        .filter_map(|file| Some(ListedFile { path: file.path.strip_prefix(root).ok()?.to_owned(), size: file.size }))
         .collect();
 
     let mut changes = Changes::default();
     let mut rows = Vec::new();
-    for row in ImportPlan::new(&new_files, target).rows {
+    for row in ImportPlan::new(&new_files, scope).rows {
         let path = root.join(&row.video.path);
         let size = row.video.size;
         let certain = row.confidence == Confidence::Certain && row.conflicts.is_empty();

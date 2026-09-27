@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use proptest::prelude::*;
 use rstest::rstest;
-use yokoku_detect::{Classified, DownloadFile};
+use yokoku_detect::{Classified, ListedFile};
 use yokoku_domain::SubtitleTags;
 
-fn files(paths: &[&str]) -> Vec<DownloadFile> {
-    paths.iter().map(|path| DownloadFile { path: PathBuf::from(path), size: 1 }).collect()
+fn files(paths: &[&str]) -> Vec<ListedFile> {
+    paths.iter().map(|path| ListedFile { path: PathBuf::from(path), size: 1 }).collect()
 }
 
 fn videos(classified: &Classified) -> Vec<&str> {
@@ -159,7 +159,7 @@ fn any_path() -> impl Strategy<Value = String> {
 proptest! {
     #[test]
     fn every_file_lands_in_exactly_one_place(paths in prop::collection::btree_set(any_path(), 0..12)) {
-        let input: Vec<_> = paths.iter().map(|path| DownloadFile { path: PathBuf::from(path), size: 1 }).collect();
+        let input: Vec<_> = paths.iter().map(|path| ListedFile { path: PathBuf::from(path), size: 1 }).collect();
 
         let classified = Classified::from_files(&input);
 

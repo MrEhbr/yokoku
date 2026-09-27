@@ -5,7 +5,7 @@ use std::{
 };
 
 use tempfile::TempDir;
-use yokoku_detect::DownloadFile;
+use yokoku_detect::ListedFile;
 use yokoku_media::ports::FileSystem;
 use yokoku_system::LocalFileSystem;
 
@@ -16,7 +16,7 @@ fn write(root: &Path, relative: &str, size: usize) -> PathBuf {
     path
 }
 
-fn relative(root: &Path, files: &[DownloadFile]) -> Vec<(String, u64)> {
+fn relative(root: &Path, files: &[ListedFile]) -> Vec<(String, u64)> {
     files.iter().map(|file| (file.path.strip_prefix(root).unwrap().display().to_string(), file.size)).collect()
 }
 

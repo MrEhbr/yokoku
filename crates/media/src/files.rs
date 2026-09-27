@@ -1,6 +1,6 @@
 use std::{io, path::Path};
 
-use yokoku_detect::{Classified, DownloadFile, Subtitle};
+use yokoku_detect::{Classified, ListedFile, Subtitle};
 
 use crate::ports::{FileSystem, FsError};
 
@@ -8,7 +8,7 @@ use crate::ports::{FileSystem, FsError};
 pub(crate) async fn sidecar_subtitles(fs: &dyn FileSystem, video: &Path) -> Result<Vec<Subtitle>, FsError> {
     let (Some(folder), Some(stem)) = (video.parent(), video.file_stem()) else { return Ok(Vec::new()) };
     let prefix = format!("{}.", stem.to_string_lossy());
-    let candidates: Vec<DownloadFile> = fs
+    let candidates: Vec<ListedFile> = fs
         .files_in(folder)
         .await?
         .into_iter()

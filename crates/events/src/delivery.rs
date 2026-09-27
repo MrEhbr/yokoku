@@ -5,7 +5,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_domain::{CorrelationId, StorageError};
 
-use crate::{EventLog, Failure, Listener, Recorded, Subscriber, correlation::correlate};
+use crate::{DeliveryFailure, EventLog, Listener, Recorded, Subscriber, correlation::correlate};
 
 #[derive(Debug, Clone)]
 pub struct DeliveryConfig {
@@ -119,7 +119,8 @@ impl Delivery {
                             error = error.as_ref() as &(dyn Error + 'static),
                             "event handler failed again"
                         );
-                        let failure = Failure { error: error.to_string(), attempts: failure.attempts + 1, ..failure };
+                        let failure =
+                            DeliveryFailure { error: error.to_string(), attempts: failure.attempts + 1, ..failure };
                         self.log.record_failure(subscriber, &failure).await?;
                         Ok::<_, StorageError>(false)
                     },
@@ -157,7 +158,7 @@ impl Delivery {
                 },
                 Err(error) if attempt >= self.config.max_attempts => {
                     error!(attempt, error = error.as_ref() as &(dyn Error + 'static), "giving up on event");
-                    let failure = Failure { event: recorded.id, error: error.to_string(), attempts: attempt };
+                    let failure = DeliveryFailure { event: recorded.id, error: error.to_string(), attempts: attempt };
                     return self.log.give_up(subscriber, &failure).await;
                 },
                 Err(error) => {

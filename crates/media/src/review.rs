@@ -12,7 +12,7 @@ use crate::{
 
 /// Manual matching of files detection was unsure about (FR-4.11, FR-8.3). Rows are numbered
 /// from 1.
-pub struct Review {
+pub struct Reviewer {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,
     clock: Arc<dyn Clock>,
@@ -43,7 +43,7 @@ pub struct ReviewRow {
     pub conflicts: Vec<Conflict>,
 }
 
-impl Review {
+impl Reviewer {
     pub fn new(repo: Arc<dyn MediaRepo>, catalog: Arc<dyn Catalog>, clock: Arc<dyn Clock>, events: Publisher) -> Self {
         Self { repo, catalog, clock, events }
     }

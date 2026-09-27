@@ -19,14 +19,14 @@ async fn app() -> App {
 /// "Pluto" (ended), "Dune" (released), "Arrakis" (announced for 30 days from today).
 async fn populated() -> App {
     let app = App::new().await;
-    app.metadata.put_series(series_metadata(
+    app.provider.put_series(series_metadata(
         1,
         "frieren",
         SourceStatus::Returning,
         &[(1, &[Some(TODAY - 7.days()), Some(TODAY + 7.days())])],
     ));
-    app.metadata.put_series(series_metadata(2, "Pluto", SourceStatus::Ended, &[(1, &[Some(TODAY - 700.days())])]));
-    app.metadata.put_movie(movie_metadata(
+    app.provider.put_series(series_metadata(2, "Pluto", SourceStatus::Ended, &[(1, &[Some(TODAY - 700.days())])]));
+    app.provider.put_movie(movie_metadata(
         10,
         "Dune",
         Releases {
@@ -35,19 +35,19 @@ async fn populated() -> App {
             physical: Some(TODAY + 60.days()),
         },
     ));
-    app.metadata.put_movie(movie_metadata(
+    app.provider.put_movie(movie_metadata(
         11,
         "Arrakis",
         Releases { cinema: Some(TODAY + 30.days()), ..Releases::default() },
     ));
 
-    let frieren = app.sync.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    let frieren = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
     app.clock.advance(SignedDuration::from_hours(1));
-    app.sync.add_series(ExternalId::Tmdb(2), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    app.metadata.add_series(ExternalId::Tmdb(2), MonitorPreset::All, ROOT.into(), None).await.unwrap();
     app.clock.advance(SignedDuration::from_hours(1));
-    app.sync.add_movie(ExternalId::Tmdb(10), true, ROOT.into(), None).await.unwrap();
+    app.metadata.add_movie(ExternalId::Tmdb(10), true, ROOT.into(), None).await.unwrap();
     app.clock.advance(SignedDuration::from_hours(1));
-    app.sync.add_movie(ExternalId::Tmdb(11), true, ROOT.into(), None).await.unwrap();
+    app.metadata.add_movie(ExternalId::Tmdb(11), true, ROOT.into(), None).await.unwrap();
 
     let mut frieren = app.library.series(frieren.id).await.unwrap();
     frieren.seasons[0].episodes[0].file = Some(MediaFileId::generate());
@@ -106,13 +106,13 @@ async fn list_entries_show_status_files_and_next_release() {
 #[rstest]
 #[tokio::test]
 async fn monitoring_and_numbering_changes_are_stored(#[future(awt)] app: App) {
-    app.metadata.put_series(series_metadata(
+    app.provider.put_series(series_metadata(
         1,
         "Frieren",
         SourceStatus::Returning,
         &[(1, &[None, None]), (2, &[None])],
     ));
-    let series = app.sync.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    let series = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
 
     app.library.set_season_monitored(series.id, 2, false).await.unwrap();
     app.library.set_episode_monitored(series.id, EpisodeRef { season: 1, episode: 1 }, false).await.unwrap();
@@ -130,8 +130,8 @@ async fn monitoring_and_numbering_changes_are_stored(#[future(awt)] app: App) {
 #[rstest]
 #[tokio::test]
 async fn monitoring_rejects_unknown_targets(#[future(awt)] app: App) {
-    app.metadata.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[None])]));
-    let series = app.sync.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    app.provider.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[None])]));
+    let series = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
     let missing_episode = EpisodeRef { season: 1, episode: 9 };
     let unknown = SeriesId::generate();
 
@@ -149,10 +149,10 @@ async fn monitoring_rejects_unknown_targets(#[future(awt)] app: App) {
 #[rstest]
 #[tokio::test]
 async fn removing_items_records_whether_files_go_too(#[future(awt)] app: App) {
-    app.metadata.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[None])]));
-    app.metadata.put_movie(movie_metadata(10, "Dune", Releases::default()));
-    let series = app.sync.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
-    let movie = app.sync.add_movie(ExternalId::Tmdb(10), true, ROOT.into(), None).await.unwrap();
+    app.provider.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[None])]));
+    app.provider.put_movie(movie_metadata(10, "Dune", Releases::default()));
+    let series = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    let movie = app.metadata.add_movie(ExternalId::Tmdb(10), true, ROOT.into(), None).await.unwrap();
 
     app.library.remove_series(series.id, true).await.unwrap();
     app.library.remove_movie(movie.id, false).await.unwrap();

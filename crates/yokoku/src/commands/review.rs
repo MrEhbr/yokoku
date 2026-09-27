@@ -48,7 +48,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
 
     match args.command {
         Command::List => {
-            let pending = app.review.pending().await?;
+            let pending = app.reviewer.pending().await?;
             if pending.is_empty() {
                 hint!("Nothing to review.")?;
             }
@@ -57,7 +57,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             }
         },
         Command::Show { import } => {
-            let review = app.review.get(import).await?;
+            let review = app.reviewer.get(import).await?;
             say!("{}", review.source.display())?;
             for (number, row) in (1..).zip(&review.rows) {
                 let file = row.row.path.strip_prefix(&review.source).unwrap_or(&row.row.path);
@@ -81,18 +81,18 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         },
         Command::Match(args) => {
             let target = args.item.file_target(&app.library, args.episodes).await?;
-            app.review.match_row(args.import, args.row, target).await?;
+            app.reviewer.match_row(args.import, args.row, target).await?;
             success!("Matched row {}", args.row)?;
         },
         Command::Skip { import, row } => {
-            app.review.skip_row(import, row).await?;
+            app.reviewer.skip_row(import, row).await?;
             say!("Skipped row {row}")?;
         },
         Command::Replace { import, row } => {
-            app.review.replace_row(import, row).await?;
+            app.reviewer.replace_row(import, row).await?;
             say!("Row {row} replaces the library file")?;
         },
-        Command::Approve { import } => match app.review.approve(import).await? {
+        Command::Approve { import } => match app.reviewer.approve(import).await? {
             Approval::Linked(files) => {
                 app.deliver_events().await?;
                 success!("Linked {} files", files.len())?;

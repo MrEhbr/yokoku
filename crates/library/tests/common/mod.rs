@@ -18,7 +18,7 @@ use yokoku_domain::{
 };
 use yokoku_events::{Event, EventLog, Publisher};
 use yokoku_library::{
-    Library, MetadataSync, Schedule,
+    Calendar, Library, MetadataService,
     ports::{FolderNames, MetadataError, MetadataProvider, SearchResult},
 };
 use yokoku_system::FileSpool;
@@ -169,26 +169,26 @@ pub struct App {
     _dir: TempDir,
     pub db: Database,
     pub clock: Arc<FixedClock>,
-    pub metadata: Arc<StaticMetadata>,
+    pub provider: Arc<StaticMetadata>,
     pub library: Library,
-    pub schedule: Schedule,
-    pub sync: MetadataSync,
+    pub calendar: Calendar,
+    pub metadata: MetadataService,
 }
 
 impl App {
     pub async fn new() -> Self {
         let db = Database::open_in_memory().await.unwrap();
         let clock = Arc::new(FixedClock(Mutex::new(TODAY.at(12, 0, 0, 0).in_tz("Europe/Berlin").unwrap())));
-        let metadata = Arc::new(StaticMetadata::default());
+        let provider = Arc::new(StaticMetadata::default());
         let repo = Arc::new(db.clone());
         let dir = TempDir::new().unwrap();
         let events =
             Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool"))));
         let library = Library::new(repo.clone(), repo.clone(), clock.clone(), events.clone());
-        let schedule = Schedule::new(repo.clone(), repo.clone(), clock.clone());
-        let sync =
-            MetadataSync::new(repo.clone(), repo, metadata.clone(), Arc::new(SourceFolders), clock.clone(), events);
-        Self { _dir: dir, db, clock, metadata, library, schedule, sync }
+        let calendar = Calendar::new(repo.clone(), repo.clone(), clock.clone());
+        let metadata =
+            MetadataService::new(repo.clone(), repo, provider.clone(), Arc::new(SourceFolders), clock.clone(), events);
+        Self { _dir: dir, db, clock, provider, library, calendar, metadata }
     }
 
     pub async fn events(&self) -> Vec<Event> {

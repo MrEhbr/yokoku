@@ -46,13 +46,13 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
-    let day = args.date.unwrap_or_else(|| app.schedule.today());
+    let day = args.date.unwrap_or_else(|| app.calendar.today());
     let (from, to) = match settings.days {
         _ if args.month => month_of(day),
         Some(days) => (day, day + i64::from(days).days()),
         None => week_of(day),
     };
-    let entries = app.schedule.calendar(from, to).await?;
+    let entries = app.calendar.entries(from, to).await?;
 
     say!("{from} to {to}")?;
     if entries.is_empty() {

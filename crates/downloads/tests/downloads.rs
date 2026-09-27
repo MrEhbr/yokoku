@@ -14,7 +14,7 @@ use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, MovieId};
 use yokoku_downloads::{
-    Download, DownloadError, DownloadOptions, DownloadState, DownloadStatus, Downloads, PickUp,
+    Download, DownloadError, DownloadOptions, DownloadState, Downloads, PickUp, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
 use yokoku_events::{
@@ -107,7 +107,7 @@ fn torrent(done: u64, size: u64) -> Torrent {
     Torrent {
         hash: HASH.into(),
         name: "Dune.2021.1080p".into(),
-        status: DownloadStatus {
+        status: TorrentStatus {
             state: if complete { DownloadState::Seeding } else { DownloadState::Downloading },
             size,
             done,

@@ -8,7 +8,7 @@ use yokoku_domain::{
     DownloadId, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series, SeriesMetadata,
     SourceStatus,
 };
-use yokoku_downloads::{Download, DownloadState, DownloadStatus, ports::DownloadRepo};
+use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
 use yokoku_library::ports::SeriesRepo;
 
 fn now() -> Timestamp {
@@ -79,7 +79,7 @@ async fn saving_a_download_size_beyond_i64_fails() {
         hash: "abc".into(),
         name: "Frieren".into(),
         item: None,
-        status: DownloadStatus {
+        status: TorrentStatus {
             state: DownloadState::Downloading,
             size: u64::MAX,
             done: 0,

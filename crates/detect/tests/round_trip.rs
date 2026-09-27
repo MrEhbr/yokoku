@@ -1,6 +1,6 @@
 use jiff::{Timestamp, civil::date};
 use proptest::prelude::*;
-use yokoku_detect::{DownloadFile, ImportPlan, Target};
+use yokoku_detect::{ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{
     Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset, Movie, MovieMetadata,
     Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
@@ -54,7 +54,7 @@ proptest! {
         let span = EpisodeSpan::new(1, first, (first + length).min(3)).unwrap();
         let path = Naming::default().episode_path(&series, span, "mkv").unwrap();
 
-        let plan = ImportPlan::new(&[DownloadFile { path: path.clone(), size: 1 }], Target::Library {
+        let plan = ImportPlan::new(&[ListedFile { path: path.clone(), size: 1 }], MatchScope::Library {
             series: std::slice::from_ref(&series),
             movies: &[],
         });
@@ -69,7 +69,7 @@ proptest! {
         let movie = movie(title, year);
         let path = Naming::default().movie_path(&movie, "mkv");
 
-        let plan = ImportPlan::new(&[DownloadFile { path: path.clone(), size: 1 }], Target::Library {
+        let plan = ImportPlan::new(&[ListedFile { path: path.clone(), size: 1 }], MatchScope::Library {
             series: &[],
             movies: std::slice::from_ref(&movie),
         });

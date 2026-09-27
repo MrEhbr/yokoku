@@ -12,7 +12,7 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let hits = app.sync()?.search(&args.query.join(" ")).await?;
+    let hits = app.metadata()?.search(&args.query.join(" ")).await?;
 
     if hits.is_empty() {
         hint!("No results.")?;

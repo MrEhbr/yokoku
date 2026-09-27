@@ -2,7 +2,7 @@ use jiff::Timestamp;
 use proptest::prelude::*;
 use yokoku_db::Database;
 use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId, StorageError};
-use yokoku_downloads::{Download, DownloadState, DownloadStatus, ports::DownloadRepo};
+use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
 
 fn any_state() -> impl Strategy<Value = DownloadState> {
     prop_oneof![
@@ -33,7 +33,7 @@ fn any_download() -> impl Strategy<Value = Download> {
         "\\PC{0,30}",
         proptest::option::of("\\PC{0,30}"),
     )
-        .prop_map(|(state, size, done, download_rate, eta, download_dir, error)| DownloadStatus {
+        .prop_map(|(state, size, done, download_rate, eta, download_dir, error)| TorrentStatus {
             state,
             size,
             done,
@@ -87,7 +87,7 @@ fn download(hash: &str, added_at: &str) -> Download {
         hash: hash.into(),
         name: hash.into(),
         item: None,
-        status: DownloadStatus::unknown(),
+        status: TorrentStatus::unknown(),
         added_at: added_at.parse().unwrap(),
         completed_at: None,
         imported_at: None,

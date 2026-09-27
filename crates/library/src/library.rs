@@ -7,9 +7,9 @@ use yokoku_events::{MovieRemoved, Publisher, SeriesRemoved};
 
 use crate::{
     LibraryEntry, LibraryError, LibraryFilter, LibrarySort,
-    catalog::Catalog,
     ports::{MovieRepo, SeriesRepo},
     retry,
+    snapshot::Snapshot,
 };
 
 /// Queries and changes that need no metadata source.
@@ -36,9 +36,9 @@ impl Library {
 
     pub async fn list(&self, filter: LibraryFilter, sort: LibrarySort) -> Result<Vec<LibraryEntry>, LibraryError> {
         let today = self.today();
-        let catalog = Catalog::load(self.series.as_ref(), self.movies.as_ref()).await?;
-        let series = catalog.series.iter().map(|series| LibraryEntry::from_series(series, today));
-        let movies = catalog.movies.iter().map(|movie| LibraryEntry::from_movie(movie, today));
+        let snapshot = Snapshot::load(self.series.as_ref(), self.movies.as_ref()).await?;
+        let series = snapshot.series.iter().map(|series| LibraryEntry::from_series(series, today));
+        let movies = snapshot.movies.iter().map(|movie| LibraryEntry::from_movie(movie, today));
         let mut entries: Vec<_> = series.chain(movies).collect();
 
         entries.retain(|entry| filter.matches(entry));

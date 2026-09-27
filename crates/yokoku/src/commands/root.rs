@@ -2,7 +2,6 @@ use std::path::{self, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use yokoku_media::RootKind;
 
 use crate::{app::App, config::Config};
 
@@ -15,7 +14,7 @@ pub struct Args {
 #[derive(Subcommand)]
 pub enum Command {
     /// Add a folder that holds series or movies
-    Add { kind: Kind, path: PathBuf },
+    Add { kind: RootKind, path: PathBuf },
     /// List root folders
     List,
     /// Remove a root folder; refused while series or movies belong to it
@@ -23,7 +22,7 @@ pub enum Command {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum Kind {
+pub enum RootKind {
     Series,
     Movies,
 }
@@ -55,11 +54,11 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     Ok(())
 }
 
-impl From<Kind> for RootKind {
-    fn from(kind: Kind) -> Self {
+impl From<RootKind> for yokoku_media::RootKind {
+    fn from(kind: RootKind) -> Self {
         match kind {
-            Kind::Series => Self::Series,
-            Kind::Movies => Self::Movies,
+            RootKind::Series => Self::Series,
+            RootKind::Movies => Self::Movies,
         }
     }
 }

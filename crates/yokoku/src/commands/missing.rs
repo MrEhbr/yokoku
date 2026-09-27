@@ -8,7 +8,7 @@ pub struct Args {}
 
 pub async fn run(config: &Config, _args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let missing = app.schedule.missing().await?;
+    let missing = app.calendar.missing().await?;
 
     if missing.series.is_empty() && missing.movies.is_empty() {
         hint!("Nothing missing.")?;

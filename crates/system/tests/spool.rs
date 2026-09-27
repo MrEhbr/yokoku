@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use tempfile::TempDir;
 use tokio::sync::Notify;
 use yokoku_domain::{SeriesId, StorageError};
-use yokoku_events::{Correlated, CorrelationId, EventId, EventLog, EventSpool, Failure, Recorded, SeriesAdded};
+use yokoku_events::{Correlated, CorrelationId, DeliveryFailure, EventId, EventLog, EventSpool, Recorded, SeriesAdded};
 use yokoku_system::FileSpool;
 
 #[derive(Default)]
@@ -46,15 +46,15 @@ impl EventLog for MemoryLog {
         unreachable!()
     }
 
-    async fn give_up(&self, _: &str, _: &Failure) -> Result<(), StorageError> {
+    async fn give_up(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
         unreachable!()
     }
 
-    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, Failure)>, StorageError> {
+    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, DeliveryFailure)>, StorageError> {
         unreachable!()
     }
 
-    async fn record_failure(&self, _: &str, _: &Failure) -> Result<(), StorageError> {
+    async fn record_failure(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
         unreachable!()
     }
 
@@ -157,15 +157,15 @@ impl EventLog for GatedLog {
         unreachable!()
     }
 
-    async fn give_up(&self, _: &str, _: &Failure) -> Result<(), StorageError> {
+    async fn give_up(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
         unreachable!()
     }
 
-    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, Failure)>, StorageError> {
+    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, DeliveryFailure)>, StorageError> {
         unreachable!()
     }
 
-    async fn record_failure(&self, _: &str, _: &Failure) -> Result<(), StorageError> {
+    async fn record_failure(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
         unreachable!()
     }
 

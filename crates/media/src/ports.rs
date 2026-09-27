@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use yokoku_detect::DownloadFile;
+use yokoku_detect::ListedFile;
 use yokoku_domain::{DownloadId, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError};
 
 use crate::{Import, ImportStatus, MediaFile, MediaInfo, RootFolder};
@@ -15,10 +15,10 @@ pub trait FileSystem: Send + Sync {
 
     /// Regular files under `dir` at any depth, ordered by path. Hidden entries, symlinked
     /// folders and names that are not UTF-8 are skipped.
-    async fn files(&self, dir: &Path) -> Result<Vec<DownloadFile>, FsError>;
+    async fn files(&self, dir: &Path) -> Result<Vec<ListedFile>, FsError>;
 
     /// Files directly in `dir`, with the same rules as `files`.
-    async fn files_in(&self, dir: &Path) -> Result<Vec<DownloadFile>, FsError>;
+    async fn files_in(&self, dir: &Path) -> Result<Vec<ListedFile>, FsError>;
 
     /// Moves a file, creating missing folders. Fails when `to` is another existing file.
     async fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError>;

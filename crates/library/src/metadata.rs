@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Use cases that read from the metadata source.
-pub struct MetadataSync {
+pub struct MetadataService {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
     metadata: Arc<dyn MetadataProvider>,
@@ -40,7 +40,7 @@ pub struct RefreshFailure {
     pub error: LibraryError,
 }
 
-impl MetadataSync {
+impl MetadataService {
     pub fn new(
         series: Arc<dyn SeriesRepo>,
         movies: Arc<dyn MovieRepo>,

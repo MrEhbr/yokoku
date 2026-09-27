@@ -109,7 +109,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 say!("{} removed from Transmission after seeding", report.cleaned_up)?;
             }
             run_imports(&app).await?;
-            let waiting = app.review.pending().await?.len();
+            let waiting = app.reviewer.pending().await?.len();
             if waiting > 0 {
                 caution!("{waiting} imports wait for review; see `yokoku review list`")?;
             }

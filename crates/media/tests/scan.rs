@@ -47,7 +47,7 @@ async fn unsure_matches_go_to_review_per_item_folder() {
     let report = app.scanner.scan().await.unwrap();
 
     assert_eq!(report.found, 1);
-    let pending = app.review.pending().await.unwrap();
+    let pending = app.reviewer.pending().await.unwrap();
     assert_eq!(report.needs_review, pending.iter().map(|import| import.id).collect::<Vec<_>>());
     assert_eq!(relative(&app, pending.iter().map(|import| import.source.as_path())), ["tv/Frieren (2023)"]);
     let rows = |index: usize| -> Vec<(Option<_>, Confidence)> {
@@ -69,7 +69,7 @@ async fn files_outside_item_folders_are_ignored() {
     let report = app.scanner.scan().await.unwrap();
 
     assert_eq!(report, ScanReport::default());
-    assert!(app.review.pending().await.unwrap().is_empty());
+    assert!(app.reviewer.pending().await.unwrap().is_empty());
     assert!(app.events().await.is_empty());
 }
 
@@ -104,7 +104,7 @@ async fn a_second_file_for_a_linked_episode_goes_to_review() {
     let report = app.scanner.scan().await.unwrap();
 
     assert_eq!(report.found, 0);
-    let pending = app.review.pending().await.unwrap();
+    let pending = app.reviewer.pending().await.unwrap();
     assert_eq!(pending[0].rows[0].target, Some(app.episodes(1, 1, 1)));
     assert_eq!(pending[0].rows[0].confidence, Confidence::Certain);
 }
@@ -121,7 +121,7 @@ async fn scanning_again_changes_nothing() {
 
     assert_eq!(report, ScanReport::default());
     assert_eq!(app.events().await, events);
-    assert_eq!(app.review.pending().await.unwrap().len(), 1);
+    assert_eq!(app.reviewer.pending().await.unwrap().len(), 1);
 }
 
 #[tokio::test]

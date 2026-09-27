@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use tokio::task;
 use tracing::warn;
 use walkdir::{DirEntry, WalkDir};
-use yokoku_detect::DownloadFile;
+use yokoku_detect::ListedFile;
 use yokoku_media::ports::{FileStat, FileSystem, FsError};
 
 #[derive(Debug, Clone, Default)]
@@ -24,12 +24,12 @@ impl FileSystem for LocalFileSystem {
         }
     }
 
-    async fn files(&self, dir: &Path) -> Result<Vec<DownloadFile>, FsError> {
+    async fn files(&self, dir: &Path) -> Result<Vec<ListedFile>, FsError> {
         let dir = dir.to_owned();
         blocking(move || walk(&dir, true)).await
     }
 
-    async fn files_in(&self, dir: &Path) -> Result<Vec<DownloadFile>, FsError> {
+    async fn files_in(&self, dir: &Path) -> Result<Vec<ListedFile>, FsError> {
         let dir = dir.to_owned();
         blocking(move || walk(&dir, false)).await
     }
@@ -87,7 +87,7 @@ pub(crate) fn at(path: &Path) -> impl FnOnce(io::Error) -> FsError + '_ {
 }
 
 /// Any unreadable folder fails the whole walk, so a missing folder never looks empty.
-fn walk(root: &Path, recursive: bool) -> Result<Vec<DownloadFile>, FsError> {
+fn walk(root: &Path, recursive: bool) -> Result<Vec<ListedFile>, FsError> {
     let entries = WalkDir::new(root)
         .min_depth(1)
         .max_depth(if recursive { usize::MAX } else { 1 })
@@ -103,7 +103,7 @@ fn walk(root: &Path, recursive: bool) -> Result<Vec<DownloadFile>, FsError> {
         }
         let path = entry.into_path();
         match fs::metadata(&path) {
-            Ok(metadata) if metadata.is_file() => files.push(DownloadFile { path, size: metadata.len() }),
+            Ok(metadata) if metadata.is_file() => files.push(ListedFile { path, size: metadata.len() }),
             Ok(_) => {},
             Err(source) if source.kind() == io::ErrorKind::NotFound => {
                 warn!(path = %path.display(), "skipping a broken link");

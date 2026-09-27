@@ -5,6 +5,6 @@ mod parse;
 mod plan;
 mod titles;
 
-pub use classify::{Classified, DownloadFile, Subtitle, Video};
-pub use parse::{Numbers, ParsedName};
-pub use plan::{Conflict, ImportPlan, PlanRow, Target};
+pub use classify::{Classified, ListedFile, Subtitle, Video};
+pub use parse::{EpisodeHint, ParsedName};
+pub use plan::{Conflict, ImportPlan, MatchScope, PlanRow};

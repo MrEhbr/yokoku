@@ -18,10 +18,10 @@ struct Setup {
 
 async fn setup() -> Setup {
     let app = App::new().await;
-    app.metadata.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[Some(TODAY); 3])]));
-    app.metadata.put_movie(movie_metadata(10, "Dune", Releases::default()));
-    let series = app.sync.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
-    let movie = app.sync.add_movie(ExternalId::Tmdb(10), true, ROOT.into(), None).await.unwrap();
+    app.provider.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[Some(TODAY); 3])]));
+    app.provider.put_movie(movie_metadata(10, "Dune", Releases::default()));
+    let series = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    let movie = app.metadata.add_movie(ExternalId::Tmdb(10), true, ROOT.into(), None).await.unwrap();
     let repo = Arc::new(app.db.clone());
     let tracker = FileTracker::new(repo.clone(), repo);
     Setup { app, tracker, series, movie }
@@ -120,7 +120,7 @@ async fn file_links_survive_concurrent_refreshes() {
     };
     let refresh = async {
         for _ in 0..20 {
-            setup.app.sync.refresh_series(setup.series.id).await.unwrap();
+            setup.app.metadata.refresh_series(setup.series.id).await.unwrap();
         }
     };
     tokio::join!(link, refresh);

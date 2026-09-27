@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use jiff::Timestamp;
 use sqlx::{SqlitePool, types::Json};
 use yokoku_domain::{CorrelationId, StorageError};
-use yokoku_events::{Correlated, Event, EventId, EventLog, Failure, NewEvents, Recorded};
+use yokoku_events::{Correlated, DeliveryFailure, Event, EventId, EventLog, NewEvents, Recorded};
 
 use crate::{DbError, codec::Text};
 
@@ -21,7 +21,7 @@ impl SqliteEventLog {
         Self { pool, new_events }
     }
 
-    pub async fn failed_deliveries(&self, subscriber: &str) -> Result<Vec<Failure>, DbError> {
+    pub async fn failed_deliveries(&self, subscriber: &str) -> Result<Vec<DeliveryFailure>, DbError> {
         let rows: Vec<(i64, String, u32)> = sqlx::query_as(
             "SELECT event_id, error, attempts FROM failed_deliveries WHERE subscriber = ? ORDER BY event_id",
         )
@@ -31,7 +31,7 @@ impl SqliteEventLog {
 
         Ok(rows
             .into_iter()
-            .map(|(event, error, attempts)| Failure { event: EventId(event), error, attempts })
+            .map(|(event, error, attempts)| DeliveryFailure { event: EventId(event), error, attempts })
             .collect())
     }
 }
@@ -101,7 +101,7 @@ impl EventLog for SqliteEventLog {
         Ok(())
     }
 
-    async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, Failure)>, StorageError> {
+    async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, DeliveryFailure)>, StorageError> {
         let rows: Vec<FailedRow> = sqlx::query_as(
             "SELECT events.id, events.payload, events.occurred_at, events.correlation, failed_deliveries.error, failed_deliveries.attempts
              FROM failed_deliveries JOIN events ON events.id = failed_deliveries.event_id
@@ -115,13 +115,14 @@ impl EventLog for SqliteEventLog {
         Ok(rows
             .into_iter()
             .map(|row| {
-                let failure = Failure { event: EventId(row.event.id), error: row.error, attempts: row.attempts };
+                let failure =
+                    DeliveryFailure { event: EventId(row.event.id), error: row.error, attempts: row.attempts };
                 (row.event.into(), failure)
             })
             .collect())
     }
 
-    async fn record_failure(&self, subscriber: &str, failure: &Failure) -> Result<(), StorageError> {
+    async fn record_failure(&self, subscriber: &str, failure: &DeliveryFailure) -> Result<(), StorageError> {
         sqlx::query(
             "UPDATE failed_deliveries
              SET error = ?, attempts = ?, failed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -147,7 +148,7 @@ impl EventLog for SqliteEventLog {
         Ok(())
     }
 
-    async fn give_up(&self, subscriber: &str, failure: &Failure) -> Result<(), StorageError> {
+    async fn give_up(&self, subscriber: &str, failure: &DeliveryFailure) -> Result<(), StorageError> {
         let mut tx = self.pool.begin().await.map_err(StorageError::new)?;
 
         sqlx::query(

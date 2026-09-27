@@ -29,7 +29,7 @@ pub enum Command {
 }
 
 /// Settings stored in the database at `path`; none while it does not exist.
-pub async fn stored(path: &Path) -> Result<Vec<(String, Value)>> {
+pub async fn stored_settings(path: &Path) -> Result<Vec<(String, Value)>> {
     if !path.exists() {
         return Ok(Vec::new());
     }

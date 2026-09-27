@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 use yokoku_db::Database;
 use yokoku_domain::SeriesId;
 use yokoku_events::{
-    Correlated, CorrelationId, Delivery, DeliveryConfig, EventId, EventLog, Failure, HandlerError, Recorded,
+    Correlated, CorrelationId, Delivery, DeliveryConfig, DeliveryFailure, EventId, EventLog, HandlerError, Recorded,
     SeriesAdded, Subscriber, correlation,
 };
 
@@ -166,7 +166,7 @@ async fn gives_up_after_max_attempts_and_moves_on(#[future(awt)] harness: Harnes
     harness.position_reaches(2).await;
     assert_eq!(
         harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap(),
-        [Failure { event: EventId(1), error: "handler failed".into(), attempts: 3 }]
+        [DeliveryFailure { event: EventId(1), error: "handler failed".into(), attempts: 3 }]
     );
 }
 
@@ -251,7 +251,7 @@ async fn a_retry_that_fails_again_counts_the_attempt_and_keeps_the_position(#[fu
     let log = harness.db.event_log();
     assert_eq!(
         log.failed_deliveries(SUBSCRIBER).await.unwrap(),
-        [Failure { event: EventId(1), error: "handler failed".into(), attempts: 4 }]
+        [DeliveryFailure { event: EventId(1), error: "handler failed".into(), attempts: 4 }]
     );
     assert_eq!(log.last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
 }

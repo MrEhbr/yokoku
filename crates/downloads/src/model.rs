@@ -11,7 +11,7 @@ pub struct Download {
     pub hash: String,
     pub name: String,
     pub item: Option<ItemId>,
-    pub status: DownloadStatus,
+    pub status: TorrentStatus,
     pub added_at: Timestamp,
     pub completed_at: Option<Timestamp>,
     /// When files from it reached the library.
@@ -22,7 +22,7 @@ pub struct Download {
 
 /// The client's view of a torrent at the last sync.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DownloadStatus {
+pub struct TorrentStatus {
     pub state: DownloadState,
     /// Bytes selected for download.
     pub size: u64,
@@ -72,11 +72,11 @@ impl Download {
 
     pub(crate) fn mark_removed(&mut self) {
         self.status =
-            DownloadStatus { state: DownloadState::Removed, download_rate: 0, eta: None, ..self.status.clone() };
+            TorrentStatus { state: DownloadState::Removed, download_rate: 0, eta: None, ..self.status.clone() };
     }
 }
 
-impl DownloadStatus {
+impl TorrentStatus {
     /// Before the client has reported anything.
     pub fn unknown() -> Self {
         Self {

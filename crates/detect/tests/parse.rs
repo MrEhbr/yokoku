@@ -2,18 +2,18 @@ use std::path::Path;
 
 use jiff::civil::date;
 use rstest::rstest;
-use yokoku_detect::{Numbers, ParsedName};
+use yokoku_detect::{EpisodeHint, ParsedName};
 
-fn episodes(season: u16, episodes: &[u16]) -> Numbers {
-    Numbers::Episodes { season, episodes: episodes.to_vec() }
+fn episodes(season: u16, episodes: &[u16]) -> EpisodeHint {
+    EpisodeHint::Episodes { season, episodes: episodes.to_vec() }
 }
 
-fn seasonless(episodes: &[u16]) -> Numbers {
-    Numbers::Seasonless { episodes: episodes.to_vec() }
+fn seasonless(episodes: &[u16]) -> EpisodeHint {
+    EpisodeHint::Seasonless { episodes: episodes.to_vec() }
 }
 
-fn aired(year: i16, month: i8, day: i8) -> Numbers {
-    Numbers::Date(date(year, month, day))
+fn aired(year: i16, month: i8, day: i8) -> EpisodeHint {
+    EpisodeHint::Date(date(year, month, day))
 }
 
 /// `title: None` means the title is left to library matching and not asserted.
@@ -83,25 +83,25 @@ fn aired(year: i16, month: i8, day: i8) -> Numbers {
     episodes(1, &[1, 2])
 )]
 #[case("Frieren - Beyond Journey's End (2023)/Season 01/03.mkv", Some("Frieren - Beyond Journey's End"), Some(2023), episodes(1, &[3]))]
-#[case("Dune - Part Two (2024)/Dune - Part Two (2024).mkv", Some("Dune - Part Two"), Some(2024), Numbers::None)]
-#[case("300 (2006)/300 (2006).mkv", Some("300"), Some(2006), Numbers::None)]
-#[case("Uncut Gems (2019)/Uncut Gems (2019).mkv", Some("Uncut Gems"), Some(2019), Numbers::None)]
+#[case("Dune - Part Two (2024)/Dune - Part Two (2024).mkv", Some("Dune - Part Two"), Some(2024), EpisodeHint::None)]
+#[case("300 (2006)/300 (2006).mkv", Some("300"), Some(2006), EpisodeHint::None)]
+#[case("Uncut Gems (2019)/Uncut Gems (2019).mkv", Some("Uncut Gems"), Some(2019), EpisodeHint::None)]
 #[case("Proper Manors (2012)/Season 01/Proper Manors (2012) - S01E02.mkv", Some("Proper Manors"), Some(2012), episodes(1, &[2]))]
 #[case("Proper Manors (2012)/Season 01/03.mkv", Some("Proper Manors"), Some(2012), episodes(1, &[3]))]
-#[case("300.2006.1080p.BluRay.mkv", Some("300"), Some(2006), Numbers::None)]
+#[case("300.2006.1080p.BluRay.mkv", Some("300"), Some(2006), EpisodeHint::None)]
 // movies
-#[case("The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv", Some("The Matrix"), Some(1999), Numbers::None)]
-#[case("2001.A.Space.Odyssey.1968.1080p.BluRay.mkv", Some("2001 A Space Odyssey"), Some(1968), Numbers::None)]
-#[case("Амели.2001.BDRip.1080p.mkv", Some("Амели"), Some(2001), Numbers::None)]
-#[case("1917.2019.1080p.BluRay.x264.mkv", Some("1917"), Some(2019), Numbers::None)]
+#[case("The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv", Some("The Matrix"), Some(1999), EpisodeHint::None)]
+#[case("2001.A.Space.Odyssey.1968.1080p.BluRay.mkv", Some("2001 A Space Odyssey"), Some(1968), EpisodeHint::None)]
+#[case("Амели.2001.BDRip.1080p.mkv", Some("Амели"), Some(2001), EpisodeHint::None)]
+#[case("1917.2019.1080p.BluRay.x264.mkv", Some("1917"), Some(2019), EpisodeHint::None)]
 // years in folders
-#[case("Movies Collection 2020/The.Matrix.1999.1080p.mkv", Some("The Matrix"), Some(1999), Numbers::None)]
+#[case("Movies Collection 2020/The.Matrix.1999.1080p.mkv", Some("The Matrix"), Some(1999), EpisodeHint::None)]
 #[case("Old 1990s/Doctor.Who.2005.S01E02.mkv", Some("Doctor Who"), Some(2005), episodes(1, &[2]))]
 fn parses_release_names(
     #[case] path: &str,
     #[case] title: Option<&str>,
     #[case] year: Option<i16>,
-    #[case] numbers: Numbers,
+    #[case] episode_hint: EpisodeHint,
 ) {
     let parsed = ParsedName::parse(Path::new(path));
 
@@ -109,7 +109,7 @@ fn parses_release_names(
         assert_eq!(parsed.title.as_deref(), Some(title), "{path}");
     }
     assert_eq!(parsed.year, year, "{path}");
-    assert_eq!(parsed.numbers, numbers, "{path}");
+    assert_eq!(parsed.episode_hint, episode_hint, "{path}");
 }
 
 #[rstest]
@@ -132,14 +132,14 @@ fn keeps_episode_titles(#[case] path: &str, #[case] episode_title: Option<&str>)
 proptest::proptest! {
     #[test]
     fn any_path_parses_to_well_formed_numbers(path in "[\\PC/]{0,80}") {
-        let numbers = ParsedName::parse(Path::new(&path)).numbers;
+        let episode_hint = ParsedName::parse(Path::new(&path)).episode_hint;
 
-        match numbers {
-            Numbers::Episodes { episodes, .. } | Numbers::Seasonless { episodes, .. } => {
+        match episode_hint {
+            EpisodeHint::Episodes { episodes, .. } | EpisodeHint::Seasonless { episodes, .. } => {
                 proptest::prop_assert!(!episodes.is_empty());
                 proptest::prop_assert!(episodes.windows(2).all(|pair| pair[0] < pair[1]));
             },
-            Numbers::None | Numbers::Date(_) => {},
+            EpisodeHint::None | EpisodeHint::Date(_) => {},
         }
     }
 }

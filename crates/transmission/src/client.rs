@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use tracing::debug;
 use yokoku_downloads::{
-    DownloadState, DownloadStatus,
+    DownloadState, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
 
@@ -133,7 +133,7 @@ impl From<wire::Torrent> for Torrent {
         Torrent {
             hash: torrent.hash_string.to_ascii_lowercase(),
             name: torrent.name,
-            status: DownloadStatus {
+            status: TorrentStatus {
                 state,
                 size: torrent.size_when_done,
                 done: torrent.size_when_done.saturating_sub(torrent.left_until_done),

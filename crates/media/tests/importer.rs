@@ -118,8 +118,8 @@ async fn replacing_removes_the_old_library_file() {
         .unwrap()
         .unwrap();
     assert_eq!(import.status, ImportStatus::NeedsReview);
-    app.review.replace_row(import.id, 1).await.unwrap();
-    assert_eq!(app.review.approve(import.id).await.unwrap(), Approval::Queued);
+    app.reviewer.replace_row(import.id, 1).await.unwrap();
+    assert_eq!(app.reviewer.approve(import.id).await.unwrap(), Approval::Queued);
 
     app.importer(ImportMode::HardLink).run_pending().await.unwrap();
 
@@ -231,8 +231,8 @@ async fn a_failed_replacement_records_the_file_it_removed() {
         .await
         .unwrap()
         .unwrap();
-    app.review.replace_row(import.id, 1).await.unwrap();
-    app.review.approve(import.id).await.unwrap();
+    app.reviewer.replace_row(import.id, 1).await.unwrap();
+    app.reviewer.approve(import.id).await.unwrap();
     app.write(E01, 99);
 
     let failed = app.importer(ImportMode::HardLink).run_pending().await.unwrap();

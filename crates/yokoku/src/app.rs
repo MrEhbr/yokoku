@@ -11,9 +11,9 @@ use yokoku_domain::{Clock, ItemId, MovieMetadata, SeriesMetadata};
 use yokoku_downloads::{DownloadOptions, Downloads, PickUp};
 use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
 use yokoku_integrations::Rescans;
-use yokoku_library::{Library, MetadataSync, Schedule, ports::FolderNames};
+use yokoku_library::{Calendar, Library, MetadataService, ports::FolderNames};
 use yokoku_media::{
-    Deleter, ImportPlanner, Importer, Prober, Renamer, Review, RootFolders, Scanner,
+    Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
     ports::{FileSystem, LibraryLock},
 };
 use yokoku_metadata::TmdbClient;
@@ -139,10 +139,10 @@ impl TransmissionConfig {
 /// Use cases wired to their adapters.
 pub struct App {
     pub library: Library,
-    pub schedule: Schedule,
+    pub calendar: Calendar,
     pub roots: RootFolders,
     pub scanner: Arc<Scanner>,
-    pub review: Review,
+    pub reviewer: Reviewer,
     pub renamer: Renamer,
     pub downloads: Arc<Downloads>,
     pub importer: Arc<Importer>,
@@ -151,7 +151,7 @@ pub struct App {
     pub prober: Arc<Prober>,
     /// `None` while no Jellyfin is configured.
     pub rescans: Option<Arc<Rescans>>,
-    sync: Option<Arc<MetadataSync>>,
+    metadata: Option<Arc<MetadataService>>,
     db: Arc<Database>,
     events: Publisher,
     subscribers: Vec<Arc<dyn Subscriber>>,
@@ -165,12 +165,18 @@ impl App {
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()?));
         let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
         let naming = config.naming.naming()?;
-        let metadata = &config.metadata;
-        let sync = metadata.tmdb_token.as_ref().map(|token| {
-            let tmdb =
-                TmdbClient::new(token.expose(), &metadata.language, &metadata.region).with_base_url(&metadata.tmdb_url);
+        let metadata = config.metadata.tmdb_token.as_ref().map(|token| {
+            let tmdb = TmdbClient::new(token.expose(), &config.metadata.language, &config.metadata.region)
+                .with_base_url(&config.metadata.tmdb_url);
             let folders = Arc::new(NamedFolders(naming.clone()));
-            Arc::new(MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), folders, clock.clone(), events.clone()))
+            Arc::new(MetadataService::new(
+                db.clone(),
+                db.clone(),
+                Arc::new(tmdb),
+                folders,
+                clock.clone(),
+                events.clone(),
+            ))
         });
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
@@ -200,10 +206,10 @@ impl App {
 
         Ok(Self {
             library: Library::new(db.clone(), db.clone(), clock.clone(), events.clone()),
-            schedule: Schedule::new(db.clone(), db.clone(), clock.clone()),
+            calendar: Calendar::new(db.clone(), db.clone(), clock.clone()),
             roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
             scanner: scanner.clone(),
-            review: Review::new(db.clone(), db.clone(), clock.clone(), events.clone()),
+            reviewer: Reviewer::new(db.clone(), db.clone(), clock.clone(), events.clone()),
             downloads: downloads.clone(),
             renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), naming.clone(), events.clone()),
             importer: Arc::new(Importer::new(
@@ -230,7 +236,7 @@ impl App {
             deleter,
             prober,
             rescans,
-            sync,
+            metadata,
             db,
         })
     }
@@ -282,8 +288,8 @@ impl App {
     }
 
     /// Use cases that need the metadata source.
-    pub fn sync(&self) -> Result<&MetadataSync> {
-        self.sync.as_deref().context("No TMDB token configured; set APP__METADATA__TMDB_TOKEN")
+    pub fn metadata(&self) -> Result<&MetadataService> {
+        self.metadata.as_deref().context("No TMDB token configured; set APP__METADATA__TMDB_TOKEN")
     }
 
     /// The item's title with its year; `removed series` or `removed movie` once it left the library.

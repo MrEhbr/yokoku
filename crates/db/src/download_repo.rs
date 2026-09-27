@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 use jiff::Timestamp;
 use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId, StorageError};
-use yokoku_downloads::{Download, DownloadState, DownloadStatus, ports::DownloadRepo};
+use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
 
 use crate::{
     Database, DbError,
@@ -137,7 +137,7 @@ impl TryFrom<DownloadRow> for Download {
             hash: row.hash,
             name: row.name,
             item,
-            status: DownloadStatus {
+            status: TorrentStatus {
                 state: row.state.0,
                 size: row.size,
                 done: row.done,

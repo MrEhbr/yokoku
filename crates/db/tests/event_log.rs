@@ -2,7 +2,9 @@ use jiff::{SignedDuration, Timestamp};
 use rstest::{fixture, rstest};
 use yokoku_db::Database;
 use yokoku_domain::{MovieId, SeriesId};
-use yokoku_events::{Correlated, CorrelationId, Event, EventId, EventLog, Failure, MovieAdded, Recorded, SeriesAdded};
+use yokoku_events::{
+    Correlated, CorrelationId, DeliveryFailure, Event, EventId, EventLog, MovieAdded, Recorded, SeriesAdded,
+};
 
 fn series_added(id: i64) -> Event {
     SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }.into()
@@ -87,7 +89,7 @@ async fn keeps_a_position_per_subscriber(#[future(awt)] db: Database) {
 async fn give_up_records_the_failure_and_advances(#[future(awt)] db: Database) {
     append(&db, &[series_added(1)]).await;
     let log = db.event_log();
-    let failure = Failure { event: EventId(1), error: "boom".into(), attempts: 5 };
+    let failure = DeliveryFailure { event: EventId(1), error: "boom".into(), attempts: 5 };
 
     log.give_up("a", &failure).await.unwrap();
     log.give_up("a", &failure).await.unwrap();
@@ -123,10 +125,12 @@ async fn events_and_positions_survive_reopening() {
 async fn failed_events_are_listed_updated_and_resolved_without_moving_the_position(#[future(awt)] db: Database) {
     append(&db, &[series_added(1), series_added(2)]).await;
     let log = db.event_log();
-    log.give_up("files", &Failure { event: EventId(1), error: "disk full".into(), attempts: 3 }).await.unwrap();
+    log.give_up("files", &DeliveryFailure { event: EventId(1), error: "disk full".into(), attempts: 3 }).await.unwrap();
     log.mark_delivered("files", EventId(2)).await.unwrap();
 
-    log.record_failure("files", &Failure { event: EventId(1), error: "still full".into(), attempts: 4 }).await.unwrap();
+    log.record_failure("files", &DeliveryFailure { event: EventId(1), error: "still full".into(), attempts: 4 })
+        .await
+        .unwrap();
     let failed = log.failed("files").await.unwrap();
 
     assert_eq!(failed.len(), 1);

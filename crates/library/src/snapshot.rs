@@ -6,12 +6,12 @@ use crate::{
 };
 
 /// Every series and movie, fully loaded.
-pub(crate) struct Catalog {
+pub(crate) struct Snapshot {
     pub series: Vec<Series>,
     pub movies: Vec<Movie>,
 }
 
-impl Catalog {
+impl Snapshot {
     /// Items removed while loading are skipped.
     pub async fn load(series_repo: &dyn SeriesRepo, movie_repo: &dyn MovieRepo) -> Result<Self, LibraryError> {
         let mut series = Vec::new();

@@ -52,7 +52,7 @@ crates/
   detect/         yokoku-detect        Pure: downloaded files → ImportPlan
   naming/         yokoku-naming        Pure: NamingTemplate parse/render, sanitising
 
-  library/        yokoku-library       Catalog, monitoring, metadata refresh, schedule queries
+  library/        yokoku-library       Catalog, monitoring, metadata refresh, calendar queries
   downloads/      yokoku-downloads     Torrents, Transmission sync, seeding cleanup
   media/          yokoku-media         Import pipeline, review, scan, rename, delete
   integrations/   yokoku-integrations  Jellyfin rescan
@@ -151,8 +151,8 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
 
 - **Use cases**, split by what they depend on:
   - `Library` (repositories + clock): list with filter and sort, series and movie details, set monitoring, set numbering, remove.
-  - `MetadataSync` (+ metadata source): search, add (applying a monitor preset, into a root folder of the item's kind, which the caller takes from `media`), refresh one item or all.
-  - `Schedule` (repositories + clock): calendar for a date range, missing grouped by series. Only monitored items appear (FR-2.3).
+  - `MetadataService` (+ metadata source): search, add (applying a monitor preset, into a root folder of the item's kind, which the caller takes from `media`), refresh one item or all.
+  - `Calendar` (repositories + clock): calendar for a date range, missing grouped by series. Only monitored items appear (FR-2.3).
 - **Later:** iCal feed (served by `web`).
 - **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates), `Publisher` (events, appended after the save), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
 - **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
@@ -186,7 +186,7 @@ Owns library files, root folders, naming settings and imports.
   - Review: match a row to episodes or a movie in the library, or skip it; approve once every other row has a conflict-free match. Skipped files are not offered again by later scans.
   - Run an approved import.
   - Root folders: add (absolute, existing, not overlapping another root), list, remove (refused while items belong to it).
-  - Scan item folders (FR-8.2, 8.3, 8.7): the files under each item's `root/folder` are detected against that item alone (`Target::Series` / `Target::Movie`); nothing else in a root is read. New files that are `Certain`, conflict-free and hold nothing already linked are linked in place; the rest of the folder becomes one import in review. Linked files missing from disk are forgotten with `FileDeleted { reason: External }`. A root that cannot be read fails the scan, so an unmounted disk never looks empty.
+  - Scan item folders (FR-8.2, 8.3, 8.7): the files under each item's `root/folder` are detected against that item alone (`MatchScope::Series` / `MatchScope::Movie`); nothing else in a root is read. New files that are `Certain`, conflict-free and hold nothing already linked are linked in place; the rest of the folder becomes one import in review. Linked files missing from disk are forgotten with `FileDeleted { reason: External }`. A root that cannot be read fails the scan, so an unmounted disk never looks empty.
   - Rename with preview (FR-5.7): `Renamer::preview(scope)` lists the moves naming asks for, for the whole library, a series or a movie; `apply` makes them file by file, inside the item's `root/folder`. Subtitles beside a video (named after it) move with it and get normalised language tags. Files outside every root, whose item is gone, or that would share a path are skipped; a file already at the new path is never replaced, and that move is reported as failed. Folders left empty are removed up to the root; one that cannot be removed is only logged.
   - Delete files (FR-8.4, 8.5): `Deleter::delete(target)` removes the files holding an episode span or movie, committing each file with `FileDeleted { reason: User }` once its video is gone, then its subtitles and folders left empty; a failure in that cleanup is only logged. Removing a series or movie with `delete_files` does the same for all its files (`ItemRemoved`).
   - Scan an added item (FR-8.8): the `media.scan_added` subscriber scans the new item's folder as above.

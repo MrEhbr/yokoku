@@ -4,7 +4,6 @@ use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
-use yokoku_domain::MonitorPreset;
 use yokoku_media::RootKind;
 
 use crate::{
@@ -16,12 +15,12 @@ use crate::{
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct AddConfig {
-    pub monitor: Monitor,
+    pub monitor: MonitorPreset,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
-pub enum Monitor {
+pub enum MonitorPreset {
     /// Every episode, or the movie
     #[default]
     All,
@@ -40,7 +39,7 @@ pub struct Args {
 
     /// What to monitor, overriding `add.monitor`; movies accept `all` or `none`
     #[arg(long)]
-    pub monitor: Option<Monitor>,
+    pub monitor: Option<MonitorPreset>,
 
     /// Root folder to add the item to; it must be a root of the item's type
     #[arg(long)]
@@ -69,7 +68,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
-    let sync = app.sync()?;
+    let metadata = app.metadata()?;
     let root_kind = match args.item.kind {
         Kind::Series => RootKind::Series,
         Kind::Movie => RootKind::Movies,
@@ -77,7 +76,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let root = app.roots.get(root_kind, &path::absolute(&args.root)?).await?.path;
     match args.item.kind {
         Kind::Series => {
-            let series = sync.add_series(args.item.source, settings.monitor.into(), root, args.folder).await?;
+            let series = metadata.add_series(args.item.source, settings.monitor.into(), root, args.folder).await?;
             success!(
                 "Added series {} {} in {}",
                 title_with_year(&series.title, series.year).bold(),
@@ -87,11 +86,13 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         },
         Kind::Movie => {
             let monitored = match settings.monitor {
-                Monitor::All => true,
-                Monitor::None => false,
-                Monitor::Future | Monitor::LatestSeason => bail!("movies can only be monitored with `all` or `none`"),
+                MonitorPreset::All => true,
+                MonitorPreset::None => false,
+                MonitorPreset::Future | MonitorPreset::LatestSeason => {
+                    bail!("movies can only be monitored with `all` or `none`")
+                },
             };
-            let movie = sync.add_movie(args.item.source, monitored, root, args.folder).await?;
+            let movie = metadata.add_movie(args.item.source, monitored, root, args.folder).await?;
             success!(
                 "Added movie {} {} in {}",
                 title_with_year(&movie.title, movie.year).bold(),
@@ -104,13 +105,13 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     app.deliver_events().await
 }
 
-impl From<Monitor> for MonitorPreset {
-    fn from(monitor: Monitor) -> Self {
+impl From<MonitorPreset> for yokoku_domain::MonitorPreset {
+    fn from(monitor: MonitorPreset) -> Self {
         match monitor {
-            Monitor::All => Self::All,
-            Monitor::Future => Self::Future,
-            Monitor::LatestSeason => Self::LatestSeason,
-            Monitor::None => Self::None,
+            MonitorPreset::All => Self::All,
+            MonitorPreset::Future => Self::Future,
+            MonitorPreset::LatestSeason => Self::LatestSeason,
+            MonitorPreset::None => Self::None,
         }
     }
 }

@@ -6,7 +6,7 @@ use std::sync::{
 use async_trait::async_trait;
 use yokoku_domain::{MovieId, SeriesId, StorageError};
 use yokoku_events::{
-    Correlated, CorrelationId, Event, EventId, EventLog, EventSpool, Failure, MovieAdded, Publisher, Recorded,
+    Correlated, CorrelationId, DeliveryFailure, Event, EventId, EventLog, EventSpool, MovieAdded, Publisher, Recorded,
     SeriesAdded, correlation::correlate,
 };
 
@@ -61,15 +61,15 @@ impl EventLog for MemoryLog {
         unreachable!()
     }
 
-    async fn give_up(&self, _: &str, _: &Failure) -> Result<(), StorageError> {
+    async fn give_up(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
         unreachable!()
     }
 
-    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, Failure)>, StorageError> {
+    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, DeliveryFailure)>, StorageError> {
         unreachable!()
     }
 
-    async fn record_failure(&self, _: &str, _: &Failure) -> Result<(), StorageError> {
+    async fn record_failure(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
         unreachable!()
     }
 

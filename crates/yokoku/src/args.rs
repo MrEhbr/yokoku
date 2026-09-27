@@ -78,7 +78,7 @@ impl Args {
         let path = self.config.as_deref();
         let mut config: Config = crate::config::load(path, &[]).context("Failed to load configuration")?;
         if !matches!(self.command, Command::Settings(_)) {
-            let stored = commands::settings::stored(&config.database.path).await?;
+            let stored = commands::settings::stored_settings(&config.database.path).await?;
             if !stored.is_empty() {
                 config = crate::config::load(path, &stored)
                     .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;

@@ -3,7 +3,7 @@ use std::error::Error;
 use async_trait::async_trait;
 use yokoku_domain::{DownloadId, StorageError};
 
-use crate::{Download, DownloadStatus};
+use crate::{Download, TorrentStatus};
 
 /// The label `DownloadClient::add` puts on every torrent it adds.
 pub const LABEL: &str = "yokoku";
@@ -45,7 +45,7 @@ pub struct Torrent {
     /// Lowercase hex info hash.
     pub hash: String,
     pub name: String,
-    pub status: DownloadStatus,
+    pub status: TorrentStatus,
     /// Every selected byte is downloaded and verified.
     pub complete: bool,
     /// Seeding reached the client's ratio or idle limit.

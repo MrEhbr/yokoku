@@ -23,11 +23,11 @@ async fn pending(app: &App) -> ImportId {
 async fn approving_links_matched_rows_and_leaves_skipped_ones() {
     let app = App::new().await;
     let id = pending(&app).await;
-    app.review.match_row(id, 1, app.episodes(1, 1, 2)).await.unwrap();
-    app.review.match_row(id, 2, app.movie()).await.unwrap();
-    app.review.skip_row(id, 3).await.unwrap();
+    app.reviewer.match_row(id, 1, app.episodes(1, 1, 2)).await.unwrap();
+    app.reviewer.match_row(id, 2, app.movie()).await.unwrap();
+    app.reviewer.skip_row(id, 3).await.unwrap();
 
-    let Approval::Linked(files) = app.review.approve(id).await.unwrap() else { panic!("scan imports are linked") };
+    let Approval::Linked(files) = app.reviewer.approve(id).await.unwrap() else { panic!("scan imports are linked") };
 
     assert_eq!(
         files.iter().map(|file| (file.path.clone(), file.target)).collect::<Vec<_>>(),
@@ -42,17 +42,17 @@ async fn approving_links_matched_rows_and_leaves_skipped_ones() {
         app.events().await.last(),
         Some(&FilesImported { import: id, download: None, files: linked.collect() }.into())
     );
-    assert!(app.review.pending().await.unwrap().is_empty());
+    assert!(app.reviewer.pending().await.unwrap().is_empty());
 }
 
 #[tokio::test]
 async fn approved_and_skipped_files_are_not_reviewed_again() {
     let app = App::new().await;
     let id = pending(&app).await;
-    app.review.match_row(id, 1, app.episodes(1, 1, 1)).await.unwrap();
-    app.review.skip_row(id, 2).await.unwrap();
-    app.review.skip_row(id, 3).await.unwrap();
-    app.review.approve(id).await.unwrap();
+    app.reviewer.match_row(id, 1, app.episodes(1, 1, 1)).await.unwrap();
+    app.reviewer.skip_row(id, 2).await.unwrap();
+    app.reviewer.skip_row(id, 3).await.unwrap();
+    app.reviewer.approve(id).await.unwrap();
 
     let report = app.scanner.scan().await.unwrap();
 
@@ -63,9 +63,9 @@ async fn approved_and_skipped_files_are_not_reviewed_again() {
 async fn every_row_needs_a_match_or_a_skip() {
     let app = App::new().await;
     let id = pending(&app).await;
-    app.review.match_row(id, 2, app.movie()).await.unwrap();
+    app.reviewer.match_row(id, 2, app.movie()).await.unwrap();
 
-    let error = app.review.approve(id).await.unwrap_err();
+    let error = app.reviewer.approve(id).await.unwrap_err();
 
     assert!(matches!(error, MediaError::UnmatchedRows(ref rows) if rows == &[1, 3]), "{error}");
     assert!(app.db_files().await.is_empty());
@@ -76,12 +76,12 @@ async fn rows_sharing_an_episode_or_holding_a_linked_one_conflict() {
     let app = App::new().await;
     app.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E03.mkv", 10);
     let id = pending(&app).await;
-    app.review.match_row(id, 1, app.episodes(1, 1, 2)).await.unwrap();
-    app.review.match_row(id, 2, app.episodes(1, 2, 2)).await.unwrap();
-    app.review.match_row(id, 3, app.episodes(1, 3, 3)).await.unwrap();
+    app.reviewer.match_row(id, 1, app.episodes(1, 1, 2)).await.unwrap();
+    app.reviewer.match_row(id, 2, app.episodes(1, 2, 2)).await.unwrap();
+    app.reviewer.match_row(id, 3, app.episodes(1, 3, 3)).await.unwrap();
 
-    let review = app.review.get(id).await.unwrap();
-    let error = app.review.approve(id).await.unwrap_err();
+    let review = app.reviewer.get(id).await.unwrap();
+    let error = app.reviewer.approve(id).await.unwrap_err();
 
     let conflicts: Vec<_> = review.rows.iter().map(|row| row.conflicts.clone()).collect();
     assert_eq!(conflicts, [vec![Conflict::SharedTarget], vec![Conflict::SharedTarget], vec![Conflict::AlreadyHasFile]]);
@@ -92,15 +92,15 @@ async fn rows_sharing_an_episode_or_holding_a_linked_one_conflict() {
 async fn skipping_a_row_clears_its_conflicts() {
     let app = App::new().await;
     let id = pending(&app).await;
-    app.review.match_row(id, 1, app.movie()).await.unwrap();
-    app.review.match_row(id, 2, app.movie()).await.unwrap();
-    app.review.skip_row(id, 2).await.unwrap();
-    app.review.skip_row(id, 3).await.unwrap();
+    app.reviewer.match_row(id, 1, app.movie()).await.unwrap();
+    app.reviewer.match_row(id, 2, app.movie()).await.unwrap();
+    app.reviewer.skip_row(id, 2).await.unwrap();
+    app.reviewer.skip_row(id, 3).await.unwrap();
 
-    let review = app.review.get(id).await.unwrap();
+    let review = app.reviewer.get(id).await.unwrap();
 
     assert!(review.rows.iter().all(|row| row.conflicts.is_empty()));
-    app.review.approve(id).await.unwrap();
+    app.reviewer.approve(id).await.unwrap();
 }
 
 #[rstest]
@@ -112,10 +112,10 @@ async fn matches_must_be_in_the_library(#[case] target: fn(&App) -> FileTarget, 
     let app = App::new().await;
     let id = pending(&app).await;
 
-    let error = app.review.match_row(id, 1, target(&app)).await.unwrap_err();
+    let error = app.reviewer.match_row(id, 1, target(&app)).await.unwrap_err();
 
     assert!(error.to_string().contains(message), "{error}");
-    assert_eq!(app.review.get(id).await.unwrap().rows[0].row.target, None);
+    assert_eq!(app.reviewer.get(id).await.unwrap().rows[0].row.target, None);
 }
 
 #[rstest]
@@ -126,7 +126,7 @@ async fn rows_are_numbered_from_one(#[case] row: usize) {
     let app = App::new().await;
     let id = pending(&app).await;
 
-    let error = app.review.skip_row(id, row).await.unwrap_err();
+    let error = app.reviewer.skip_row(id, row).await.unwrap_err();
 
     assert!(matches!(error, MediaError::RowNotFound(number) if number == row), "{error}");
 }
@@ -136,12 +136,12 @@ async fn done_and_unknown_imports_cannot_be_reviewed() {
     let app = App::new().await;
     let id = pending(&app).await;
     for row in 1..=3 {
-        app.review.skip_row(id, row).await.unwrap();
+        app.reviewer.skip_row(id, row).await.unwrap();
     }
-    app.review.approve(id).await.unwrap();
+    app.reviewer.approve(id).await.unwrap();
 
-    let done = app.review.approve(id).await.unwrap_err();
-    let unknown = app.review.get(ImportId::generate()).await.unwrap_err();
+    let done = app.reviewer.approve(id).await.unwrap_err();
+    let unknown = app.reviewer.get(ImportId::generate()).await.unwrap_err();
 
     assert!(matches!(done, MediaError::NotInReview(_)), "{done}");
     assert!(matches!(unknown, MediaError::ImportNotFound(_)), "{unknown}");
@@ -176,7 +176,7 @@ async fn approving_a_download_queues_it_for_placing() {
     let app = App::new().await;
     let id = downloaded(&app).await;
 
-    let approval = app.review.approve(id).await.unwrap();
+    let approval = app.reviewer.approve(id).await.unwrap();
 
     assert_eq!(approval, Approval::Queued);
     let stored = MediaRepo::import(&app.db, id).await.unwrap().unwrap();
@@ -192,14 +192,14 @@ async fn a_download_row_can_replace_the_library_file() {
     app.scanner.scan().await.unwrap();
     let id = downloaded(&app).await;
     let conflicts = |review: yokoku_media::ImportReview| review.rows[0].conflicts.clone();
-    assert_eq!(conflicts(app.review.get(id).await.unwrap()), [Conflict::AlreadyHasFile]);
+    assert_eq!(conflicts(app.reviewer.get(id).await.unwrap()), [Conflict::AlreadyHasFile]);
 
-    app.review.replace_row(id, 1).await.unwrap();
+    app.reviewer.replace_row(id, 1).await.unwrap();
 
-    let review = app.review.get(id).await.unwrap();
+    let review = app.reviewer.get(id).await.unwrap();
     assert!(review.rows[0].row.replace);
     assert_eq!(conflicts(review), []);
-    assert_eq!(app.review.approve(id).await.unwrap(), Approval::Queued);
+    assert_eq!(app.reviewer.approve(id).await.unwrap(), Approval::Queued);
 }
 
 #[tokio::test]
@@ -207,7 +207,7 @@ async fn files_found_by_a_scan_cannot_replace_library_files() {
     let app = App::new().await;
     let id = pending(&app).await;
 
-    let error = app.review.replace_row(id, 1).await.unwrap_err();
+    let error = app.reviewer.replace_row(id, 1).await.unwrap_err();
 
     assert!(matches!(error, MediaError::ReplaceInPlace), "{error}");
 }

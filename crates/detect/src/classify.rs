@@ -41,9 +41,9 @@ const BIBLIOGRAPHIC_CODES: [(&str, &str); 20] = [
     ("wel", "cym"),
 ];
 
-/// A file inside a download, relative to the download's root.
+/// A file from a folder listing, with its size.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DownloadFile {
+pub struct ListedFile {
     pub path: PathBuf,
     pub size: u64,
 }
@@ -76,7 +76,7 @@ enum Kind {
 
 impl Classified {
     /// Keeps videos, attaches subtitles to them and ignores samples, extras and everything else.
-    pub fn from_files(files: &[DownloadFile]) -> Self {
+    pub fn from_files(files: &[ListedFile]) -> Self {
         let mut classified = Self::default();
         let mut subtitles = Vec::new();
         for file in files {

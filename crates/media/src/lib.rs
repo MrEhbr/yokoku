@@ -23,6 +23,6 @@ pub use model::{
 pub use planner::ImportPlanner;
 pub use prober::{FileDetails, ProbeReport, Prober};
 pub use rename::{Move, Rename, RenameFailure, RenamePlan, RenameReport, RenameScope, Renamer, SkipReason, Skipped};
-pub use review::{Approval, ImportReview, Review, ReviewRow};
+pub use review::{Approval, ImportReview, ReviewRow, Reviewer};
 pub use roots::RootFolders;
 pub use scan::{ScanReport, Scanner};

@@ -5,7 +5,7 @@ use jiff::{
     civil::{Date, date},
 };
 use rstest::rstest;
-use yokoku_detect::{Conflict, DownloadFile, ImportPlan, Target};
+use yokoku_detect::{Conflict, ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{
     Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MediaFileId, MonitorPreset, Movie,
     MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
@@ -153,13 +153,13 @@ impl Library {
         self.movies.iter().find(|movie| movie.source == ExternalId::Tmdb(source)).unwrap()
     }
 
-    fn unlinked(&self) -> Target<'_> {
-        Target::Library { series: &self.series, movies: &self.movies }
+    fn unlinked(&self) -> MatchScope<'_> {
+        MatchScope::Library { series: &self.series, movies: &self.movies }
     }
 }
 
-fn files(paths: &[&str]) -> Vec<DownloadFile> {
-    paths.iter().map(|path| DownloadFile { path: PathBuf::from(path), size: 1_000 }).collect()
+fn files(paths: &[&str]) -> Vec<ListedFile> {
+    paths.iter().map(|path| ListedFile { path: PathBuf::from(path), size: 1_000 }).collect()
 }
 
 fn episodes(series: &Series, season: u16, first: u16, last: u16) -> Option<FileTarget> {
@@ -175,7 +175,7 @@ fn linked_series_matches_by_numbers_and_imports_automatically() {
     let library = Library::new();
     let bad = library.series(2);
 
-    let plan = ImportPlan::new(&files(&["Breaking.Bad.S02E03.720p.mkv"]), Target::Series(bad));
+    let plan = ImportPlan::new(&files(&["Breaking.Bad.S02E03.720p.mkv"]), MatchScope::Series(bad));
 
     assert_eq!(outcome(&plan), [(episodes(bad, 2, 3, 3), Confidence::Certain)]);
     assert!(plan.is_automatic());
@@ -186,7 +186,7 @@ fn linked_series_ignores_the_title_in_the_name() {
     let library = Library::new();
     let bad = library.series(2);
 
-    let plan = ImportPlan::new(&files(&["Totally.Different.Name.S01E02.mkv"]), Target::Series(bad));
+    let plan = ImportPlan::new(&files(&["Totally.Different.Name.S01E02.mkv"]), MatchScope::Series(bad));
 
     assert_eq!(outcome(&plan), [(episodes(bad, 1, 2, 2), Confidence::Certain)]);
 }
@@ -199,7 +199,7 @@ fn linked_series_ignores_the_title_in_the_name() {
 fn names_that_do_not_fit_the_episode_list_are_unknown(#[case] name: &str) {
     let library = Library::new();
 
-    let plan = ImportPlan::new(&files(&[name]), Target::Series(library.series(2)));
+    let plan = ImportPlan::new(&files(&[name]), MatchScope::Series(library.series(2)));
 
     assert_eq!(outcome(&plan), [(None, Confidence::Unknown)]);
     assert!(!plan.is_automatic());
@@ -212,7 +212,7 @@ fn season_packs_take_the_season_from_the_folder() {
 
     let plan = ImportPlan::new(
         &files(&["Breaking.Bad.S02.1080p/Breaking.Bad.E05.mkv", "Breaking.Bad.S02.1080p/06.mkv"]),
-        Target::Series(bad),
+        MatchScope::Series(bad),
     );
 
     assert_eq!(
@@ -226,8 +226,10 @@ fn full_series_packs_use_each_season_folder() {
     let library = Library::new();
     let bad = library.series(2);
 
-    let plan =
-        ImportPlan::new(&files(&["Breaking Bad/Season 1/01.mkv", "Breaking Bad/Season 2/01.mkv"]), Target::Series(bad));
+    let plan = ImportPlan::new(
+        &files(&["Breaking Bad/Season 1/01.mkv", "Breaking Bad/Season 2/01.mkv"]),
+        MatchScope::Series(bad),
+    );
 
     assert_eq!(
         outcome(&plan),
@@ -240,7 +242,7 @@ fn multi_episode_files_match_a_span() {
     let library = Library::new();
     let bad = library.series(2);
 
-    let plan = ImportPlan::new(&files(&["Breaking.Bad.S01E01-E03.mkv"]), Target::Series(bad));
+    let plan = ImportPlan::new(&files(&["Breaking.Bad.S01E01-E03.mkv"]), MatchScope::Series(bad));
 
     assert_eq!(outcome(&plan), [(episodes(bad, 1, 1, 3), Confidence::Certain)]);
 }
@@ -262,7 +264,7 @@ fn seasonless_numbers_for_a_standard_series_are_a_guess() {
     let library = Library::new();
     let bad = library.series(2);
 
-    let plan = ImportPlan::new(&files(&["Breaking Bad - 04.mkv"]), Target::Series(bad));
+    let plan = ImportPlan::new(&files(&["Breaking Bad - 04.mkv"]), MatchScope::Series(bad));
 
     assert_eq!(outcome(&plan), [(episodes(bad, 2, 1, 1), Confidence::Guess)]);
 }
@@ -290,7 +292,7 @@ fn names_without_numbers_match_by_episode_title(
     let library = Library::new();
     let series = library.series(source);
 
-    let plan = ImportPlan::new(&files(&[name]), Target::Series(series));
+    let plan = ImportPlan::new(&files(&[name]), MatchScope::Series(series));
 
     assert_eq!(outcome(&plan), [(episodes(series, season, episode, episode), Confidence::Certain)]);
 }
@@ -340,13 +342,13 @@ fn movies_keep_the_largest_video_and_ignore_the_rest() {
     let library = Library::new();
     let dune = library.movie(10);
     let files = vec![
-        DownloadFile { path: "Dune.2021/Dune.2021.1080p.mkv".into(), size: 8_000_000_000 },
-        DownloadFile { path: "Dune.2021/Dune.2021.1080p.en.srt".into(), size: 90_000 },
-        DownloadFile { path: "Dune.2021/Behind.The.Dune.mkv".into(), size: 300_000_000 },
-        DownloadFile { path: "Dune.2021/Dune.2021.sample.mkv".into(), size: 50_000_000 },
+        ListedFile { path: "Dune.2021/Dune.2021.1080p.mkv".into(), size: 8_000_000_000 },
+        ListedFile { path: "Dune.2021/Dune.2021.1080p.en.srt".into(), size: 90_000 },
+        ListedFile { path: "Dune.2021/Behind.The.Dune.mkv".into(), size: 300_000_000 },
+        ListedFile { path: "Dune.2021/Dune.2021.sample.mkv".into(), size: 50_000_000 },
     ];
 
-    let plan = ImportPlan::new(&files, Target::Movie(dune));
+    let plan = ImportPlan::new(&files, MatchScope::Movie(dune));
 
     assert_eq!(outcome(&plan), [(Some(FileTarget::Movie(dune.id)), Confidence::Certain)]);
     assert_eq!(plan.rows[0].video.subtitles.len(), 1);
@@ -361,7 +363,7 @@ fn episodes_that_already_have_files_are_conflicts() {
     library.series[1].seasons[0].episodes[0].file = Some(MediaFileId::generate());
     let bad = library.series(2);
 
-    let plan = ImportPlan::new(&files(&["Breaking.Bad.S01E01.mkv"]), Target::Series(bad));
+    let plan = ImportPlan::new(&files(&["Breaking.Bad.S01E01.mkv"]), MatchScope::Series(bad));
 
     assert_eq!(plan.rows[0].conflicts, [Conflict::AlreadyHasFile]);
     assert!(!plan.is_automatic());
@@ -373,7 +375,7 @@ fn two_files_for_the_same_episode_are_conflicts() {
 
     let plan = ImportPlan::new(
         &files(&["Breaking.Bad.S01E01-E02.mkv", "Breaking.Bad.S01E02.1080p.mkv", "Breaking.Bad.S01E03.mkv"]),
-        Target::Series(library.series(2)),
+        MatchScope::Series(library.series(2)),
     );
 
     let conflicts: Vec<_> = plan.rows.iter().map(|row| row.conflicts.clone()).collect();
@@ -385,7 +387,7 @@ fn two_files_for_the_same_episode_are_conflicts() {
 fn an_empty_download_is_never_automatic() {
     let library = Library::new();
 
-    let plan = ImportPlan::new(&files(&["readme.txt"]), Target::Series(library.series(2)));
+    let plan = ImportPlan::new(&files(&["readme.txt"]), MatchScope::Series(library.series(2)));
 
     assert!(plan.rows.is_empty());
     assert!(!plan.is_automatic());
@@ -395,7 +397,7 @@ fn an_empty_download_is_never_automatic() {
 fn air_dates_outside_the_list_do_not_match() {
     let library = Library::new();
 
-    let plan = ImportPlan::new(&files(&["The.Daily.Show.2026.09.27.720p.mkv"]), Target::Series(library.series(3)));
+    let plan = ImportPlan::new(&files(&["The.Daily.Show.2026.09.27.720p.mkv"]), MatchScope::Series(library.series(3)));
 
     assert_eq!(outcome(&plan), [(None, Confidence::Unknown)]);
 }

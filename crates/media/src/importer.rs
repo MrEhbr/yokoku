@@ -6,7 +6,7 @@ use std::{
 };
 
 use tracing::{debug, info, instrument, warn};
-use yokoku_detect::{Classified, DownloadFile};
+use yokoku_detect::{Classified, ListedFile};
 use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
 use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, Publisher};
 use yokoku_naming::{Naming, subtitle_path};
@@ -218,7 +218,7 @@ impl Importer {
         &self,
         source: &Path,
     ) -> Result<HashMap<PathBuf, Vec<(PathBuf, yokoku_domain::SubtitleTags)>>, FsError> {
-        let files: Vec<DownloadFile> = if self.fs.is_dir(source).await? {
+        let files: Vec<ListedFile> = if self.fs.is_dir(source).await? {
             self.fs.files(source).await?
         } else {
             self.fs.files_in(source.parent().unwrap_or(source)).await?
