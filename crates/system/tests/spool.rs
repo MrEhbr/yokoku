@@ -1,13 +1,15 @@
 use std::{
     fs,
     sync::{
-        Mutex,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
+    time::Duration,
 };
 
 use async_trait::async_trait;
 use tempfile::TempDir;
+use tokio::sync::Notify;
 use yokoku_domain::{SeriesId, StorageError};
 use yokoku_events::{Event, EventId, EventLog, EventSpool, Failure, Recorded, SeriesAdded};
 use yokoku_system::FileSpool;
@@ -120,4 +122,80 @@ async fn a_torn_line_is_skipped() {
     assert_eq!(spool.replay(&log).await.unwrap(), 1);
     assert_eq!(*log.events.lock().unwrap(), [event]);
     assert_eq!(fs::read_to_string(&path).unwrap(), "");
+}
+
+/// Holds each append until `release` is notified; `entered` is notified when one starts.
+#[derive(Default)]
+struct GatedLog {
+    inner: MemoryLog,
+    entered: Notify,
+    release: Notify,
+}
+
+#[async_trait]
+impl EventLog for GatedLog {
+    async fn append(&self, events: &[Event]) -> Result<(), StorageError> {
+        self.entered.notify_one();
+        self.release.notified().await;
+        self.inner.append(events).await
+    }
+
+    async fn last_delivered(&self, _: &str) -> Result<Option<EventId>, StorageError> {
+        unreachable!()
+    }
+
+    async fn read_after(&self, _: Option<EventId>, _: u32) -> Result<Vec<Recorded>, StorageError> {
+        unreachable!()
+    }
+
+    async fn read_before(&self, _: Option<EventId>, _: u32) -> Result<Vec<Recorded>, StorageError> {
+        unreachable!()
+    }
+
+    async fn mark_delivered(&self, _: &str, _: EventId) -> Result<(), StorageError> {
+        unreachable!()
+    }
+
+    async fn give_up(&self, _: &str, _: &Failure) -> Result<(), StorageError> {
+        unreachable!()
+    }
+
+    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, Failure)>, StorageError> {
+        unreachable!()
+    }
+
+    async fn record_failure(&self, _: &str, _: &Failure) -> Result<(), StorageError> {
+        unreachable!()
+    }
+
+    async fn resolve(&self, _: &str, _: EventId) -> Result<(), StorageError> {
+        unreachable!()
+    }
+}
+
+#[tokio::test]
+async fn a_push_during_a_replay_waits_for_it_and_is_kept_for_the_next() {
+    let dir = TempDir::new().unwrap();
+    let spool = FileSpool::new(dir.path().join("yokoku.spool"));
+    let log = Arc::new(GatedLog::default());
+    let (first, second) = (series_added("first"), series_added("second"));
+    spool.push(std::slice::from_ref(&first)).await.unwrap();
+
+    let replay = tokio::spawn({
+        let (spool, log) = (spool.clone(), log.clone());
+        async move { spool.replay(log.as_ref()).await }
+    });
+    log.entered.notified().await;
+    let push = tokio::spawn({
+        let (spool, second) = (spool.clone(), second.clone());
+        async move { spool.push(&[second]).await }
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(!push.is_finished());
+    log.release.notify_one();
+
+    assert_eq!(replay.await.unwrap().unwrap(), 1);
+    push.await.unwrap().unwrap();
+    assert_eq!(spool.replay(&log.inner).await.unwrap(), 1);
+    assert_eq!(*log.inner.events.lock().unwrap(), [first, second]);
 }
