@@ -2,6 +2,7 @@
 
 mod clock;
 mod confidence;
+mod episode_span;
 pub mod events;
 mod external;
 mod file_status;
@@ -20,6 +21,7 @@ mod subtitle;
 
 pub use clock::Clock;
 pub use confidence::Confidence;
+pub use episode_span::{EpisodeRef, EpisodeSpan, ParseEpisodeSpanError};
 pub use external::{ExternalId, ParseExternalIdError};
 pub use file_status::FileStatus;
 pub use file_target::FileTarget;
@@ -30,8 +32,8 @@ pub use live::Live;
 pub use movie::{Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
 pub use secret::Secret;
 pub use series::{
-    Episode, EpisodeMetadata, EpisodeRef, EpisodeSpan, MonitorPreset, Numbering, ParseEpisodeSpanError, Season,
-    SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus,
+    Episode, EpisodeMetadata, MonitorPreset, Numbering, Season, SeasonMetadata, Series, SeriesMetadata, SeriesStatus,
+    SourceStatus,
 };
 pub use settings_store::SettingsStore;
 pub use storage_error::StorageError;
