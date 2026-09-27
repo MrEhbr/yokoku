@@ -1,12 +1,12 @@
 use anyhow::Result;
 use clap::Parser;
-use yokoku_domain::ItemId;
+use yokoku_domain::{ItemId, title_with_year};
 use yokoku_library::LibraryStatus;
 
 use crate::{
     app::App,
     cli::{
-        commands::{ItemArgs, title_with_year},
+        commands::ItemArgs,
         output::{Paint, Painted},
     },
     config::Config,

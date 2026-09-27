@@ -4,12 +4,13 @@ use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
+use yokoku_domain::title_with_year;
 use yokoku_media::RootKind;
 
 use crate::{
     app::App,
     cli::{
-        commands::{ItemArgs, Kind, title_with_year},
+        commands::{ItemArgs, Kind},
         output::Paint,
     },
     config::Config,

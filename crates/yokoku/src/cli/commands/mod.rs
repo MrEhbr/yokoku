@@ -97,10 +97,3 @@ pub fn confirm_deletion(files: &[MediaFile], yes: bool) -> Result<()> {
         _ => bail!("Nothing was deleted"),
     }
 }
-
-pub fn title_with_year(title: &str, year: Option<i16>) -> String {
-    match year {
-        Some(year) => format!("{title} ({year})"),
-        None => title.to_owned(),
-    }
-}

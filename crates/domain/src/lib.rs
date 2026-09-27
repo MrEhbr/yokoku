@@ -22,7 +22,7 @@ pub use file_status::FileStatus;
 pub use file_target::FileTarget;
 pub use folder::{InvalidFolderName, ItemFolder};
 pub use id::{CorrelationId, DownloadId, EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
-pub use item::{ItemId, MediaKind};
+pub use item::{ItemId, MediaKind, title_with_year};
 pub use movie::{Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
 pub use series::{
     Episode, EpisodeMetadata, EpisodeRef, EpisodeSpan, MonitorPreset, Numbering, ParseEpisodeSpanError, Season,

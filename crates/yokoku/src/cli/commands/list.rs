@@ -2,15 +2,12 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
-use yokoku_domain::{MovieStatus, SeriesStatus};
+use yokoku_domain::{MovieStatus, SeriesStatus, title_with_year};
 use yokoku_library::{LibraryFilter, LibrarySort, LibraryStatus};
 
 use crate::{
     app::App,
-    cli::{
-        commands::{Kind, title_with_year},
-        output::Paint,
-    },
+    cli::{commands::Kind, output::Paint},
     config::Config,
 };
 
