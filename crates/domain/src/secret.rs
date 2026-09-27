@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{cell::Cell, path::PathBuf};
 
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
@@ -6,14 +6,18 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
 /// Characters `masked` shows at each end.
 const SHOWN: usize = 4;
 
+thread_local! {
+    static MASKING: Cell<bool> = const { Cell::new(false) };
+}
+
 /// A secret value, given inline or read from a file when deserialized.
 ///
 /// In TOML:
 ///   `key = "literal-value"`
 ///   `key = { file = "/path" }`   the file's content, without trailing whitespace
 ///
-/// It serializes as its value, so a saved secret loads again; `masked` is how it is shown, and `Debug`
-/// shows nothing of it.
+/// It serializes as its value, so a saved secret loads again, or masked within `Secret::masking`;
+/// `Debug` shows nothing of it.
 #[derive(Debug, Clone)]
 pub struct Secret(SecretString);
 
@@ -31,6 +35,18 @@ impl Secret {
 
     pub fn expose(&self) -> &str {
         self.0.expose_secret()
+    }
+
+    /// Runs `serialize` with every `Secret` it serializes on this thread masked.
+    pub fn masking<T>(serialize: impl FnOnce() -> T) -> T {
+        struct Restore(bool);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                MASKING.set(self.0);
+            }
+        }
+        let _restore = Restore(MASKING.replace(true));
+        serialize()
     }
 
     /// The first and last four characters, `abcd…wxyz`; for eight or fewer, `…` and the last quarter.
@@ -57,7 +73,7 @@ impl<'de> Deserialize<'de> for Secret {
 
 impl Serialize for Secret {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.expose())
+        if MASKING.get() { serializer.serialize_str(&self.masked()) } else { serializer.serialize_str(self.expose()) }
     }
 }
 
@@ -114,6 +130,19 @@ mod tests {
     #[case::multibyte("пароль-секрет", "паро…крет")]
     fn masks_all_but_its_ends(#[case] value: &str, #[case] masked: &str) {
         assert_eq!(Secret::new(value).masked(), masked);
+    }
+
+    #[test]
+    fn serializes_masked_only_while_masking() {
+        let holder = Holder { secret: Secret::new("eyJhbGciOiJIUzI1NiJ9") };
+
+        let masked = Secret::masking(|| serde_json::to_value(&holder)).unwrap();
+        let saved = serde_json::to_value(&holder).unwrap();
+
+        assert_eq!(
+            (masked["secret"].as_str(), saved["secret"].as_str()),
+            (Some("eyJh…NiJ9"), Some("eyJhbGciOiJIUzI1NiJ9"))
+        );
     }
 
     #[test]

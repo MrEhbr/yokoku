@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use serde_json::Value;
 use yokoku_config::Config;
 use yokoku_db::Database;
-use yokoku_domain::{Secret, SettingsStore};
+use yokoku_domain::SettingsStore;
 use yokoku_events::{Publisher, SettingsChanged};
 use yokoku_system::FileSpool;
 
@@ -41,7 +41,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
                 hint!("No stored settings.")?;
             }
             for (key, value) in &stored {
-                say!("{key} = {}", shown(key, value))?;
+                say!("{key} = {}", Config::shown(key, value))?;
             }
         },
         Command::Get { key } => {
@@ -59,7 +59,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
 
             db.set_setting(&key, &value).await.context("Failed to store the setting")?;
             events.publish(SettingsChanged { key: key.clone() }).await;
-            success!("Set {key} = {}", shown(&key, &value))?;
+            success!("Set {key} = {}", Config::shown(&key, &value))?;
             let variable = format!("APP__{}", key.to_uppercase().replace('.', "__"));
             if std::env::var_os(&variable).is_some() {
                 say!("{variable} is set and takes precedence")?;
@@ -74,14 +74,4 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
         },
     }
     Ok(())
-}
-
-/// A stored value as JSON, with a secret given inline masked; a secret file shows its path.
-fn shown(key: &str, value: &Value) -> String {
-    match value {
-        Value::String(secret) if Config::is_secret(key) => {
-            Value::from(Secret::new(secret.as_str()).masked()).to_string()
-        },
-        value => value.to_string(),
-    }
 }

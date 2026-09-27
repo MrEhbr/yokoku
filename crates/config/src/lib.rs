@@ -8,7 +8,7 @@ mod settings;
 use std::path::Path;
 
 use anyhow::{Result, bail};
-use config::{Environment, File, FileFormat};
+use config::{ConfigBuilder, Environment, File, FileFormat, builder::DefaultState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use yokoku_domain::Secret;
@@ -27,10 +27,6 @@ pub use crate::{
 };
 
 const ENV_PREFIX: &str = "APP";
-
-/// Every `Secret` setting.
-const SECRETS: [&str; 5] =
-    ["metadata.tmdb.token", "metadata.tvdb.api_key", "metadata.tvdb.pin", "transmission.password", "jellyfin.api_key"];
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(default)]
@@ -56,6 +52,12 @@ impl Config {
     /// Loads with precedence: env vars (APP__*) > stored settings > config file > defaults.
     /// `stored` holds values by dotted key, such as `import.mode`.
     pub fn load(config_path: Option<&Path>, stored: &[(String, Value)]) -> Result<Self> {
+        let layers = Self::layers(config_path, stored)?;
+        Ok(layers.add_source(Environment::with_prefix(ENV_PREFIX).separator("__")).build()?.try_deserialize()?)
+    }
+
+    /// Defaults, the config file, then `stored`.
+    fn layers(config_path: Option<&Path>, stored: &[(String, Value)]) -> Result<ConfigBuilder<DefaultState>> {
         let mut builder = config::Config::builder().add_source(config::Config::try_from(&Self::default())?);
 
         if let Some(path) = config_path {
@@ -65,11 +67,7 @@ impl Config {
         for (key, value) in stored {
             stored_layer = stored_layer.set_override(key, config::Value::deserialize(value)?)?;
         }
-        builder = builder.add_source(stored_layer.build()?);
-
-        let config = builder.add_source(Environment::with_prefix(ENV_PREFIX).separator("__")).build()?;
-
-        Ok(config.try_deserialize()?)
+        Ok(builder.add_source(stored_layer.build()?))
     }
 
     /// Fails on a setting that would only fail later, when used.
@@ -81,16 +79,15 @@ impl Config {
 
     /// The value of a known setting, e.g. `import.mode`, as JSON: `"copy"`, `14`; a secret masked.
     pub fn setting(&self, key: &str) -> Result<String> {
-        let value = self.value(key)?;
-        Ok(match value {
-            Value::String(secret) if Self::is_secret(key) => Value::from(Secret::new(secret).masked()).to_string(),
-            value => value.to_string(),
-        })
+        Ok(self.value(key)?.to_string())
     }
 
-    /// Whether `key` holds a `Secret`.
-    pub fn is_secret(key: &str) -> bool {
-        SECRETS.contains(&key)
+    /// A stored value as `setting` shows it over the defaults alone, so a secret is masked; as stored
+    /// when it does not load.
+    pub fn shown(key: &str, stored: &Value) -> String {
+        let alone = [(key.to_owned(), stored.clone())];
+        let loaded = Self::layers(None, &alone).and_then(|layers| Ok(layers.build()?.try_deserialize::<Self>()?));
+        loaded.and_then(|config| config.setting(key)).unwrap_or_else(|_| stored.to_string())
     }
 
     /// Fails unless `key` is a setting the database can store.
@@ -103,7 +100,7 @@ impl Config {
     }
 
     fn value(&self, key: &str) -> Result<Value> {
-        let config = serde_json::to_value(self)?;
+        let config = Secret::masking(|| serde_json::to_value(self))?;
         match key.split('.').try_fold(&config, |value, part| value.get(part)) {
             Some(value) if !value.is_object() => Ok(value.clone()),
             _ => bail!("{key} is not a setting"),
