@@ -12,7 +12,7 @@ use jiff::{
 use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
-use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, MovieId};
+use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, Live, MovieId};
 use yokoku_downloads::{
     Download, DownloadError, DownloadOptions, DownloadState, Downloads, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
@@ -141,7 +141,7 @@ async fn setup_with(options: DownloadOptions) -> Setup {
         Arc::new(db.clone()),
         client.clone(),
         Arc::new(FixedClock),
-        options,
+        Live::fixed(options),
         Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool")))),
     );
     Setup { _dir: dir, db, client, downloads }

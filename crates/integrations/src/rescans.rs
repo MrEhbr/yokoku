@@ -34,14 +34,17 @@ impl Rescans {
     }
 
     /// Rescans when a request is pending and nothing newer arrived for `quiet`; returns whether it
-    /// did. A request made while the rescan runs stays pending.
+    /// did. A request made while the rescan runs, or while no media server is configured, stays pending.
     #[instrument(skip_all)]
     pub async fn run_due(&self, quiet: SignedDuration) -> Result<bool, RescanError> {
         let Some(requested_at) = self.store.requested_at().await? else { return Ok(false) };
         if self.clock.now().timestamp().duration_since(requested_at) < quiet {
             return Ok(false);
         }
-        self.server.refresh_library().await?;
+        match self.server.refresh_library().await {
+            Err(MediaServerError::NotConfigured) => return Ok(false),
+            result => result?,
+        }
         info!("media server rescanning");
         self.store.clear(requested_at).await?;
         Ok(true)

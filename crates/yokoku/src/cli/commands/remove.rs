@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::{ItemId, MediaKind};
 
 use crate::{
@@ -22,9 +21,7 @@ pub struct Args {
     pub yes: bool,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
-
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let item = args.item.resolve(&app.library).await?;
     if args.delete_files {
         confirm_deletion(&app.deleter.files_of_item(item).await?, args.yes)?;

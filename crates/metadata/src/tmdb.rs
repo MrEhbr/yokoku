@@ -1,42 +1,26 @@
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
-use yokoku_domain::{EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
+use yokoku_domain::{EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 use crate::{
+    MetadataSettings,
     http::{self, Http, invalid},
     wire::{self, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails},
 };
 
-const BASE_URL: &str = "https://api.themoviedb.org/3";
 /// TMDB's limit on `append_to_response` entries per request.
 const MAX_APPENDED_SEASONS: usize = 20;
 
 /// TMDB API v3 with a read access token.
 pub struct TmdbClient {
     http: Http,
-    base_url: String,
-    token: String,
-    language: String,
-    region: String,
+    settings: Live<MetadataSettings>,
 }
 
 impl TmdbClient {
-    /// `language` like `en-US`; `region` like `US` selects movie release dates.
-    pub fn new(token: impl Into<String>, language: impl Into<String>, region: impl Into<String>) -> Self {
-        Self {
-            http: Http::new("TMDB"),
-            base_url: BASE_URL.to_owned(),
-            token: token.into(),
-            language: language.into(),
-            region: region.into(),
-        }
-    }
-
-    #[must_use]
-    pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
-        self.base_url = base_url.into();
-        self
+    pub fn new(settings: Live<MetadataSettings>) -> Self {
+        Self { http: Http::new("TMDB"), settings }
     }
 
     async fn get<T: DeserializeOwned>(
@@ -45,11 +29,13 @@ impl TmdbClient {
         query: &[(&str, &str)],
         source: Option<ExternalId>,
     ) -> Result<T, MetadataError> {
+        let settings = self.settings.current();
+        let token = settings.tmdb.token.as_ref().ok_or_else(|| MetadataError::Refused("no TMDB token".into()))?;
         let request = self
             .http
-            .get(format!("{}/{endpoint}", self.base_url))
-            .bearer_auth(&self.token)
-            .query(&[("language", self.language.as_str())])
+            .get(format!("{}/{endpoint}", settings.tmdb.url))
+            .bearer_auth(token.expose())
+            .query(&[("language", settings.language.as_str())])
             .query(query);
         http::json(self.http.send(request, source).await?).await
     }
@@ -135,7 +121,7 @@ impl MetadataProvider for TmdbClient {
         Ok(MovieMetadata {
             source,
             year: wire::year(details.release_date.as_deref()),
-            releases: details.releases(&self.region),
+            releases: details.releases(&self.settings.current().region),
             alternate_titles: details.alternative_titles.into_distinct(&details.title, &details.original_title),
             title: details.title,
             original_title: details.original_title,

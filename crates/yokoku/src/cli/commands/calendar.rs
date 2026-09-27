@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use jiff::{ToSpan, civil::Date};
 use tracing::debug;
-use yokoku_config::{CalendarConfig, Config};
+use yokoku_config::CalendarConfig;
 use yokoku_library::{CalendarRelease, month_of, week_of};
 
 use crate::{app::App, cli::output::Paint};
@@ -35,11 +35,10 @@ impl Args {
     }
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let settings = args.apply_overrides(&config.calendar);
+pub async fn run(app: &App, args: Args) -> Result<()> {
+    let settings = args.apply_overrides(&app.settings.current().calendar);
     debug!(?settings, "resolved command settings");
 
-    let app = App::open(config).await?;
     let day = args.date.unwrap_or_else(|| app.calendar.today());
     let (from, to) = match settings.days {
         _ if args.month => month_of(day),

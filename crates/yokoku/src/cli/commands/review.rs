@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use yokoku_config::Config;
 use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
 use yokoku_media::Approval;
 
@@ -45,9 +44,7 @@ pub struct MatchArgs {
     pub episodes: Option<EpisodeSpan>,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
-
+pub async fn run(app: &App, args: Args) -> Result<()> {
     match args.command {
         Command::List => {
             let pending = app.reviewer.pending().await?;
@@ -99,7 +96,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 app.deliver_events().await?;
                 success!("Linked {} files", files.len())?;
             },
-            Approval::Queued => run_imports(&app).await?,
+            Approval::Queued => run_imports(app).await?,
         },
     }
 

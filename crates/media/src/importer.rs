@@ -8,7 +8,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 use yokoku_detect::{Classified, ListedFile};
-use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
+use yokoku_domain::{Clock, FileTarget, ImportId, Live, MediaFileId};
 use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, Publisher};
 use yokoku_naming::{Naming, subtitle_path};
 
@@ -41,8 +41,8 @@ pub struct Importer {
     fs: Arc<dyn FileSystem>,
     lock: Arc<dyn LibraryLock>,
     clock: Arc<dyn Clock>,
-    naming: Naming,
-    mode: ImportMode,
+    naming: Live<Naming>,
+    mode: Live<ImportMode>,
     events: Publisher,
 }
 
@@ -61,8 +61,8 @@ impl Importer {
         fs: Arc<dyn FileSystem>,
         lock: Arc<dyn LibraryLock>,
         clock: Arc<dyn Clock>,
-        naming: Naming,
-        mode: ImportMode,
+        naming: Live<Naming>,
+        mode: Live<ImportMode>,
         events: Publisher,
     ) -> Self {
         Self { repo, catalog, fs, lock, clock, naming, mode, events }
@@ -224,11 +224,11 @@ impl Importer {
         match target {
             FileTarget::Episodes { series: id, span } => {
                 let series = self.catalog.series(id).await?.ok_or(MediaError::SeriesNotFound(id))?;
-                Ok(series.folder.path().join(self.naming.episode_path(&series, span, &extension)?))
+                Ok(series.folder.path().join(self.naming.current().episode_path(&series, span, &extension)?))
             },
             FileTarget::Movie(id) => {
                 let movie = self.catalog.movie(id).await?.ok_or(MediaError::MovieNotFound(id))?;
-                Ok(movie.folder.path().join(self.naming.movie_path(&movie, &extension)))
+                Ok(movie.folder.path().join(self.naming.current().movie_path(&movie, &extension)))
             },
         }
     }
@@ -267,7 +267,7 @@ impl Importer {
             (Some(from), Some(to)) => {
                 from.same_file(&to) || (from.size == to.size && self.fs.same_contents(source, destination).await?)
             },
-            (None, Some(_)) => self.mode == ImportMode::Move,
+            (None, Some(_)) => self.mode.current() == ImportMode::Move,
             (_, None) => false,
         })
     }
@@ -285,7 +285,8 @@ impl Importer {
             (Some(_), None) => {},
         }
 
-        let result = match self.mode {
+        let mode = self.mode.current();
+        let result = match mode {
             ImportMode::HardLink => match self.fs.hard_link(source, destination).await {
                 Err(error) if error.source.kind() == io::ErrorKind::CrossesDevices => {
                     warn!(path = %source.display(), "cannot hard-link across file systems; copying");
@@ -297,7 +298,7 @@ impl Importer {
             ImportMode::Move => files::move_file(self.fs.as_ref(), source, destination).await,
         };
         result?;
-        debug!(from = %source.display(), to = %destination.display(), mode = ?self.mode, "placed");
+        debug!(from = %source.display(), to = %destination.display(), ?mode, "placed");
         Ok(())
     }
 }

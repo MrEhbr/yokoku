@@ -1,17 +1,25 @@
+use std::sync::{Arc, Mutex};
+
 use jiff::civil::date;
 use serde_json::{Value, json};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{body_json, header, method, path, query_param},
 };
-use yokoku_domain::{ExternalId, MediaKind, SourceStatus};
+use yokoku_domain::{ExternalId, Live, MediaKind, Secret, SourceStatus};
 use yokoku_library::ports::{MetadataError, MetadataProvider};
-use yokoku_metadata::TvdbClient;
+use yokoku_metadata::{MetadataSettings, TvdbClient, TvdbSettings};
 
 const TOKEN: &str = "test-token";
 
 fn client(server: &MockServer) -> TvdbClient {
-    TvdbClient::new("api-key", Some("1234".to_owned()), "eng").with_base_url(server.uri())
+    TvdbClient::new(Live::fixed(settings_at(&server.uri(), "api-key")))
+}
+
+fn settings_at(url: &str, api_key: &str) -> MetadataSettings {
+    let tvdb =
+        TvdbSettings { api_key: Some(Secret::new(api_key)), pin: Some(Secret::new("1234")), url: url.to_owned() };
+    MetadataSettings { tvdb, ..MetadataSettings::default() }
 }
 
 fn ok(data: Value) -> ResponseTemplate {
@@ -148,6 +156,29 @@ async fn one_login_serves_every_request() {
     let client = client(&server);
 
     client.series(ExternalId::Tvdb(424536)).await.unwrap();
+    client.series(ExternalId::Tvdb(424536)).await.unwrap();
+}
+
+#[tokio::test]
+async fn a_changed_api_key_logs_in_again() {
+    let server = MockServer::start().await;
+    let login = |api_key: &str| {
+        Mock::given(path("/login"))
+            .and(body_json(json!({ "apikey": api_key, "pin": "1234" })))
+            .respond_with(ok(json!({ "token": TOKEN })))
+            .expect(1)
+    };
+    login("api-key").mount(&server).await;
+    login("new-key").mount(&server).await;
+    mount_frieren(&server).await;
+    let api_key = Arc::new(Mutex::new("api-key"));
+    let client = TvdbClient::new(Live::new({
+        let (server, api_key) = (server.uri(), api_key.clone());
+        move || settings_at(&server, &api_key.lock().unwrap())
+    }));
+
+    client.series(ExternalId::Tvdb(424536)).await.unwrap();
+    *api_key.lock().unwrap() = "new-key";
     client.series(ExternalId::Tvdb(424536)).await.unwrap();
 }
 

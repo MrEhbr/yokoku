@@ -19,6 +19,8 @@ pub enum MediaServerError {
     Unavailable(#[source] Box<dyn Error + Send + Sync>),
     #[error("media server refused the request: {0}")]
     Refused(String),
+    #[error("no media server configured")]
+    NotConfigured,
 }
 
 /// The one pending rescan request.

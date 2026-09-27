@@ -1,6 +1,6 @@
 use jiff::{Timestamp, Zoned, tz::TimeZone};
 use serde::{Deserialize, Serialize};
-use yokoku_domain::Clock;
+use yokoku_domain::{Clock, Live};
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ClockSettings {
@@ -17,17 +17,17 @@ impl ClockSettings {
 
 #[derive(Debug, Clone)]
 pub struct SystemClock {
-    time_zone: TimeZone,
+    time_zone: Live<TimeZone>,
 }
 
 impl SystemClock {
-    pub fn new(time_zone: TimeZone) -> Self {
+    pub fn new(time_zone: Live<TimeZone>) -> Self {
         Self { time_zone }
     }
 }
 
 impl Clock for SystemClock {
     fn now(&self) -> Zoned {
-        Timestamp::now().to_zoned(self.time_zone.clone())
+        Timestamp::now().to_zoned(self.time_zone.current())
     }
 }

@@ -2,7 +2,6 @@ use std::path::{self, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use yokoku_config::Config;
 
 use crate::app::App;
 
@@ -28,9 +27,7 @@ pub enum RootKind {
     Movies,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
-
+pub async fn run(app: &App, args: Args) -> Result<()> {
     match args.command {
         Command::Add { kind, path } => {
             let root = app.roots.add(kind.into(), &path::absolute(path)?).await?;

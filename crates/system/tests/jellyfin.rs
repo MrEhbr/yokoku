@@ -3,10 +3,15 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{header, method, path},
 };
+use yokoku_domain::{Live, Secret};
 use yokoku_integrations::ports::{MediaServer, MediaServerError};
-use yokoku_system::JellyfinClient;
+use yokoku_system::{JellyfinClient, JellyfinSettings};
 
 const AUTHORIZATION: &str = "MediaBrowser Token=\"secret\"";
+
+fn client(url: impl Into<String>, api_key: &str) -> JellyfinClient {
+    JellyfinClient::new(Live::fixed(JellyfinSettings { url: Some(url.into()), api_key: Some(Secret::new(api_key)) }))
+}
 
 #[tokio::test]
 async fn refreshes_the_library_with_the_api_key() {
@@ -19,7 +24,7 @@ async fn refreshes_the_library_with_the_api_key() {
         .mount(&server)
         .await;
 
-    JellyfinClient::new(format!("{}/", server.uri()), "secret").refresh_library().await.unwrap();
+    client(format!("{}/", server.uri()), "secret").refresh_library().await.unwrap();
 }
 
 #[tokio::test]
@@ -32,7 +37,7 @@ async fn reports_the_server_version() {
         .mount(&server)
         .await;
 
-    assert_eq!(JellyfinClient::new(server.uri(), "secret").version().await.unwrap(), "Jellyfin 10.10.7");
+    assert_eq!(client(server.uri(), "secret").version().await.unwrap(), "Jellyfin 10.10.7");
 }
 
 #[tokio::test]
@@ -40,14 +45,21 @@ async fn a_rejected_key_is_refused() {
     let server = MockServer::start().await;
     Mock::given(method("POST")).respond_with(ResponseTemplate::new(403)).mount(&server).await;
 
-    let error = JellyfinClient::new(server.uri(), "not an admin").refresh_library().await.unwrap_err();
+    let error = client(server.uri(), "not an admin").refresh_library().await.unwrap_err();
 
     assert!(matches!(error, MediaServerError::Refused(_)), "{error}");
 }
 
 #[tokio::test]
 async fn an_unreachable_server_is_unavailable() {
-    let error = JellyfinClient::new("http://127.0.0.1:9", "secret").refresh_library().await.unwrap_err();
+    let error = client("http://127.0.0.1:9", "secret").refresh_library().await.unwrap_err();
 
     assert!(matches!(error, MediaServerError::Unavailable(_)), "{error}");
+}
+
+#[tokio::test]
+async fn a_server_without_a_url_is_not_configured() {
+    let unset = JellyfinClient::new(Live::fixed(JellyfinSettings::default()));
+
+    assert!(matches!(unset.refresh_library().await.unwrap_err(), MediaServerError::NotConfigured));
 }

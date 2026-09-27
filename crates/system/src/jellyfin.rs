@@ -1,10 +1,10 @@
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use reqwest::{RequestBuilder, StatusCode};
+use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
-use yokoku_domain::Secret;
+use yokoku_domain::{Live, Secret};
 use yokoku_integrations::ports::{MediaServer, MediaServerError};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -21,8 +21,7 @@ pub struct JellyfinSettings {
 /// Jellyfin's HTTP API, authenticated with an administrator's API key.
 pub struct JellyfinClient {
     http: reqwest::Client,
-    url: String,
-    api_key: String,
+    settings: Live<JellyfinSettings>,
 }
 
 #[derive(Deserialize)]
@@ -32,26 +31,30 @@ struct SystemInfo {
 }
 
 impl JellyfinClient {
-    /// `url` is the server's address, e.g. `http://localhost:8096`.
-    pub fn new(url: impl Into<String>, api_key: impl Into<String>) -> Self {
-        Self::with_timeout(url, api_key, TIMEOUT)
+    pub fn new(settings: Live<JellyfinSettings>) -> Self {
+        Self::with_timeout(settings, TIMEOUT)
     }
 
-    fn with_timeout(url: impl Into<String>, api_key: impl Into<String>, timeout: Duration) -> Self {
+    fn with_timeout(settings: Live<JellyfinSettings>, timeout: Duration) -> Self {
         let http = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(timeout)
             .build()
             .expect("TLS backend initializes");
-        Self { http, url: url.into().trim_end_matches('/').to_owned(), api_key: api_key.into() }
+        Self { http, settings }
     }
 
-    fn authorized(&self, request: RequestBuilder) -> RequestBuilder {
-        request.header("Authorization", format!("MediaBrowser Token=\"{}\"", self.api_key))
-    }
-
-    async fn send(&self, request: RequestBuilder) -> Result<reqwest::Response, MediaServerError> {
-        let request = self.authorized(request).build().map_err(unavailable)?;
+    /// Sends `method` to `path` on the configured server; `NotConfigured` while its URL is unset.
+    async fn send(&self, method: Method, path: &str) -> Result<reqwest::Response, MediaServerError> {
+        let settings = self.settings.current();
+        let url = settings.url.as_deref().ok_or(MediaServerError::NotConfigured)?.trim_end_matches('/');
+        let api_key = settings.api_key.as_ref().map_or("", Secret::expose);
+        let request = self
+            .http
+            .request(method, format!("{url}{path}"))
+            .header("Authorization", format!("MediaBrowser Token=\"{api_key}\""))
+            .build()
+            .map_err(unavailable)?;
         let (method, path) = (request.method().clone(), request.url().path().to_owned());
         let started = Instant::now();
         let response = self.http.execute(request).await.map_err(unavailable)?;
@@ -70,13 +73,13 @@ impl JellyfinClient {
 #[async_trait]
 impl MediaServer for JellyfinClient {
     async fn version(&self) -> Result<String, MediaServerError> {
-        let response = self.send(self.http.get(format!("{}/System/Info", self.url))).await?;
+        let response = self.send(Method::GET, "/System/Info").await?;
         let info: SystemInfo = response.json().await.map_err(unavailable)?;
         Ok(format!("Jellyfin {}", info.version))
     }
 
     async fn refresh_library(&self) -> Result<(), MediaServerError> {
-        self.send(self.http.post(format!("{}/Library/Refresh", self.url))).await.map(drop)
+        self.send(Method::POST, "/Library/Refresh").await.map(drop)
     }
 }
 
@@ -97,7 +100,10 @@ mod tests {
         let server = MockServer::start().await;
         let stalled = ResponseTemplate::new(204).set_delay(Duration::from_secs(5));
         Mock::given(any()).respond_with(stalled).mount(&server).await;
-        let client = JellyfinClient::with_timeout(server.uri(), "secret", Duration::from_millis(50));
+        let client = JellyfinClient::with_timeout(
+            Live::fixed(JellyfinSettings { url: Some(server.uri()), api_key: Some(Secret::new("secret")) }),
+            Duration::from_millis(50),
+        );
 
         let started = Instant::now();
         let error = client.refresh_library().await.unwrap_err();

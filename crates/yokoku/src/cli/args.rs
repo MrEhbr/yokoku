@@ -7,7 +7,7 @@ use tracing::{Instrument, error, info_span};
 use yokoku_config::{Config, LogOutput};
 use yokoku_events::{CorrelationId, correlation::correlate};
 
-use crate::{cli::commands, logging};
+use crate::{app::App, cli::commands, logging};
 
 /// Attribution TMDB and TheTVDB require.
 const DATA_SOURCES: &str = "This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise \
@@ -79,16 +79,11 @@ pub enum Command {
 }
 
 impl Args {
-    async fn resolve_config(&self) -> Result<Config> {
-        let path = self.config.as_deref();
-        let mut config: Config = yokoku_config::load(path, &[]).context("Failed to load configuration")?;
-        if !matches!(self.command, Some(Command::Settings(_))) {
-            let stored = commands::settings::stored_settings(&config.database.path).await?;
-            if !stored.is_empty() {
-                config = yokoku_config::load(path, &stored)
-                    .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
-            }
-        }
+    /// The configuration from the config file and the environment; the stored settings are read
+    /// once the database opens.
+    fn resolve_config(&self) -> Result<Config> {
+        let mut config: Config =
+            yokoku_config::load(self.config.as_deref(), &[]).context("Failed to load configuration")?;
 
         // `tracing_level()` yields the default level even when no flag was
         // passed, so only consult it when the user actually supplied one.
@@ -102,7 +97,7 @@ impl Args {
 
 /// Runs `command` in a `command` span under a new correlation id; a failure also goes to a log file.
 pub async fn route(args: Args, command: &str) -> Result<()> {
-    let config = args.resolve_config().await?;
+    let config = args.resolve_config()?;
     let _guard = logging::setup(&config.log).context("Failed to initialize logging")?;
 
     let correlation = CorrelationId::generate();
@@ -119,30 +114,35 @@ pub async fn route(args: Args, command: &str) -> Result<()> {
 async fn dispatch(config: &Config, args: Args) -> Result<()> {
     use Command::*;
 
-    let Some(command) = args.command else {
-        return crate::service::run(config).await;
+    let command = match args.command {
+        Some(Settings(cmd_args)) => return commands::settings::run(config, args.config.as_deref(), cmd_args).await,
+        command => command,
+    };
+    let app = App::open(config, args.config.as_deref()).await?;
+    let Some(command) = command else {
+        return crate::service::run(&app).await;
     };
     match command {
-        Search(cmd_args) => commands::search::run(config, cmd_args).await,
-        Add(cmd_args) => commands::add::run(config, cmd_args).await,
-        Refresh(cmd_args) => commands::refresh::run(config, cmd_args).await,
-        List(cmd_args) => commands::list::run(config, cmd_args).await,
-        Show(cmd_args) => commands::show::run(config, cmd_args).await,
-        Monitor(cmd_args) => commands::monitor::run(config, cmd_args).await,
-        Numbering(cmd_args) => commands::numbering::run(config, cmd_args).await,
-        Remove(cmd_args) => commands::remove::run(config, cmd_args).await,
-        Calendar(cmd_args) => commands::calendar::run(config, cmd_args).await,
-        Missing(cmd_args) => commands::missing::run(config, cmd_args).await,
-        Root(cmd_args) => commands::root::run(config, cmd_args).await,
-        Scan(cmd_args) => commands::scan::run(config, cmd_args).await,
-        Review(cmd_args) => commands::review::run(config, cmd_args).await,
-        Rename(cmd_args) => commands::rename::run(config, cmd_args).await,
-        Download(cmd_args) => commands::download::run(config, cmd_args).await,
-        Import(cmd_args) => commands::import::run(config, cmd_args).await,
-        History(cmd_args) => commands::history::run(config, cmd_args).await,
-        Delete(cmd_args) => commands::delete::run(config, cmd_args).await,
-        Files(cmd_args) => commands::files::run(config, cmd_args).await,
-        Jellyfin(cmd_args) => commands::jellyfin::run(config, cmd_args).await,
-        Settings(cmd_args) => commands::settings::run(config, args.config.as_deref(), cmd_args).await,
+        Search(cmd_args) => commands::search::run(&app, cmd_args).await,
+        Add(cmd_args) => commands::add::run(&app, cmd_args).await,
+        Refresh(cmd_args) => commands::refresh::run(&app, cmd_args).await,
+        List(cmd_args) => commands::list::run(&app, cmd_args).await,
+        Show(cmd_args) => commands::show::run(&app, cmd_args).await,
+        Monitor(cmd_args) => commands::monitor::run(&app, cmd_args).await,
+        Numbering(cmd_args) => commands::numbering::run(&app, cmd_args).await,
+        Remove(cmd_args) => commands::remove::run(&app, cmd_args).await,
+        Calendar(cmd_args) => commands::calendar::run(&app, cmd_args).await,
+        Missing(cmd_args) => commands::missing::run(&app, cmd_args).await,
+        Root(cmd_args) => commands::root::run(&app, cmd_args).await,
+        Scan(cmd_args) => commands::scan::run(&app, cmd_args).await,
+        Review(cmd_args) => commands::review::run(&app, cmd_args).await,
+        Rename(cmd_args) => commands::rename::run(&app, cmd_args).await,
+        Download(cmd_args) => commands::download::run(&app, cmd_args).await,
+        Import(cmd_args) => commands::import::run(&app, cmd_args).await,
+        History(cmd_args) => commands::history::run(&app, cmd_args).await,
+        Delete(cmd_args) => commands::delete::run(&app, cmd_args).await,
+        Files(cmd_args) => commands::files::run(&app, cmd_args).await,
+        Jellyfin(cmd_args) => commands::jellyfin::run(&app, cmd_args).await,
+        Settings(_) => unreachable!("settings run before the app opens"),
     }
 }

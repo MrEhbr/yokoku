@@ -5,9 +5,9 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{header, method, path, query_param},
 };
-use yokoku_domain::{ExternalId, MediaKind, SourceStatus};
+use yokoku_domain::{ExternalId, Live, MediaKind, Secret, SourceStatus};
 use yokoku_library::ports::{MetadataError, MetadataProvider};
-use yokoku_metadata::TmdbClient;
+use yokoku_metadata::{MetadataSettings, TmdbClient, TmdbSettings};
 
 const TOKEN: &str = "test-token";
 
@@ -21,7 +21,8 @@ async fn server() -> MockServer {
 }
 
 fn client(server: &MockServer, region: &str) -> TmdbClient {
-    TmdbClient::new(TOKEN, "en-US", region).with_base_url(server.uri())
+    let tmdb = TmdbSettings { token: Some(Secret::new(TOKEN)), url: server.uri() };
+    TmdbClient::new(Live::fixed(MetadataSettings { region: region.into(), tmdb, ..MetadataSettings::default() }))
 }
 
 /// Serves `tv/{id}` with alternative titles for the season list, and `tv/{id}?append_to_response=...` for the seasons.

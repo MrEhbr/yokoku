@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::ExternalId;
 
 use crate::{
@@ -26,13 +25,12 @@ pub struct Args {
     pub limit: usize,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let item = match ItemArgs::optional(args.kind, args.source) {
         Some(item) => Some(item.resolve(&app.library).await?),
         None => None,
     };
-    let time_zone = config.clock.time_zone();
+    let time_zone = app.settings.current().clock.time_zone();
 
     let entries = app.history.page(item, None, args.limit).await?;
     if entries.is_empty() {

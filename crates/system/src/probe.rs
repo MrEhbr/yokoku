@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::{process::Command, time::timeout};
 use tracing::debug;
+use yokoku_domain::Live;
 use yokoku_media::{
     AudioStream, MediaInfo, SubtitleStream, VideoStream,
     ports::{MediaProbe, ProbeError},
@@ -30,13 +31,13 @@ impl Default for ProbeSettings {
 /// Runs `ffprobe` on a file and reads its JSON report.
 #[derive(Debug, Clone)]
 pub struct FfProbe {
-    program: PathBuf,
+    program: Live<PathBuf>,
 }
 
 impl FfProbe {
     /// `program` is `ffprobe` on the `PATH`, or a path to it.
-    pub fn new(program: impl Into<PathBuf>) -> Self {
-        Self { program: program.into() }
+    pub fn new(program: Live<PathBuf>) -> Self {
+        Self { program }
     }
 }
 
@@ -84,7 +85,7 @@ impl MediaProbe for FfProbe {
     async fn probe(&self, path: &Path) -> Result<MediaInfo, ProbeError> {
         let failed = |reason: String| ProbeError::Failed { path: path.to_owned(), reason };
         let started = Instant::now();
-        let run = Command::new(&self.program)
+        let run = Command::new(self.program.current())
             .args(["-v", "error", "-print_format", "json", "-show_format", "-show_streams"])
             .arg(path)
             .kill_on_drop(true)

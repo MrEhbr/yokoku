@@ -6,7 +6,7 @@ use std::{
 };
 
 use tracing::{info, instrument, warn};
-use yokoku_domain::{FileTarget, MediaFileId, MovieId, Series, SeriesId};
+use yokoku_domain::{FileTarget, Live, MediaFileId, MovieId, Series, SeriesId};
 use yokoku_events::{FileRenamed, Publisher};
 use yokoku_naming::{Naming, subtitle_path};
 
@@ -21,7 +21,7 @@ pub struct Renamer {
     catalog: Arc<dyn Catalog>,
     fs: Arc<dyn FileSystem>,
     lock: Arc<dyn LibraryLock>,
-    naming: Naming,
+    naming: Live<Naming>,
     events: Publisher,
 }
 
@@ -100,7 +100,7 @@ impl Renamer {
         catalog: Arc<dyn Catalog>,
         fs: Arc<dyn FileSystem>,
         lock: Arc<dyn LibraryLock>,
-        naming: Naming,
+        naming: Live<Naming>,
         events: Publisher,
     ) -> Self {
         Self { repo, catalog, fs, lock, naming, events }
@@ -204,14 +204,14 @@ impl Renamer {
                     Entry::Vacant(entry) => entry.insert(self.catalog.series(id).await?),
                 };
                 series.as_ref().and_then(|series| {
-                    Some(series.folder.path().join(self.naming.episode_path(series, span, &extension).ok()?))
+                    Some(series.folder.path().join(self.naming.current().episode_path(series, span, &extension).ok()?))
                 })
             },
             FileTarget::Movie(id) => self
                 .catalog
                 .movie(id)
                 .await?
-                .map(|movie| movie.folder.path().join(self.naming.movie_path(&movie, &extension))),
+                .map(|movie| movie.folder.path().join(self.naming.current().movie_path(&movie, &extension))),
         })
     }
 

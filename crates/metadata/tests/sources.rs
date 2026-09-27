@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use yokoku_domain::{ExternalId, MediaKind, MovieMetadata, Releases, SeriesMetadata, SourceStatus};
+use yokoku_domain::{ExternalId, Live, MediaKind, MovieMetadata, Releases, SeriesMetadata, SourceStatus};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_metadata::Sources;
 
@@ -45,7 +45,7 @@ impl MetadataProvider for Stub {
 }
 
 fn sources(tvdb: bool) -> Sources {
-    Sources::new(Arc::new(Stub(ExternalId::Tmdb)), tvdb.then(|| Arc::new(Stub(ExternalId::Tvdb)) as _))
+    Sources::new(Arc::new(Stub(ExternalId::Tmdb)), Arc::new(Stub(ExternalId::Tvdb)), Live::fixed(tvdb))
 }
 
 #[tokio::test]

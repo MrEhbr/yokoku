@@ -4,11 +4,12 @@ use wiremock::{
     Mock, MockServer, Request, ResponseTemplate,
     matchers::{basic_auth, body_partial_json, header, method, path},
 };
+use yokoku_domain::{Live, Secret};
 use yokoku_downloads::{
     DownloadState,
     ports::{ClientError, DownloadClient, TorrentSource},
 };
-use yokoku_transmission::TransmissionClient;
+use yokoku_transmission::{TransmissionClient, TransmissionSettings};
 
 const RPC: &str = "/transmission/rpc";
 const SESSION: &str = "6qXR0iKsWG3NkpqOtgfvVFzN";
@@ -41,7 +42,19 @@ async fn answer(server: &MockServer, rpc_method: &str, response: ResponseTemplat
 }
 
 fn client(server: &MockServer) -> TransmissionClient {
-    TransmissionClient::new(format!("{}{RPC}", server.uri()))
+    connect(TransmissionSettings { url: format!("{}{RPC}", server.uri()), ..TransmissionSettings::default() })
+}
+
+fn signed_in(server: &MockServer, password: &str) -> TransmissionClient {
+    connect(TransmissionSettings {
+        url: format!("{}{RPC}", server.uri()),
+        username: Some("yokoku".into()),
+        password: Some(Secret::new(password)),
+    })
+}
+
+fn connect(settings: TransmissionSettings) -> TransmissionClient {
+    TransmissionClient::new(Live::fixed(settings))
 }
 
 fn torrent(fields: Value) -> Value {
@@ -185,8 +198,8 @@ async fn sends_credentials_and_reports_rejected_ones() {
         .await;
     answer(&server, "session-get", ResponseTemplate::new(401)).await;
 
-    let accepted = client(&server).with_credentials("yokoku", "secret").version().await;
-    let rejected = client(&server).with_credentials("yokoku", "wrong").version().await.unwrap_err();
+    let accepted = signed_in(&server, "secret").version().await;
+    let rejected = signed_in(&server, "wrong").version().await.unwrap_err();
 
     assert!(accepted.is_ok(), "{accepted:?}");
     assert!(matches!(rejected, ClientError::Refused(_)), "{rejected}");
@@ -194,7 +207,13 @@ async fn sends_credentials_and_reports_rejected_ones() {
 
 #[tokio::test]
 async fn an_unreachable_client_is_unavailable() {
-    let error = TransmissionClient::new("http://127.0.0.1:9/transmission/rpc").version().await.unwrap_err();
+    let error = connect(TransmissionSettings {
+        url: "http://127.0.0.1:9/transmission/rpc".into(),
+        ..TransmissionSettings::default()
+    })
+    .version()
+    .await
+    .unwrap_err();
 
     assert!(matches!(error, ClientError::Unavailable(_)), "{error}");
 }

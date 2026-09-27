@@ -7,7 +7,7 @@ use std::{
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
-use yokoku_domain::{Clock, DownloadId, ItemId, StorageError};
+use yokoku_domain::{Clock, DownloadId, ItemId, Live, StorageError};
 use yokoku_events::{
     DownloadCompleted, Event, FilesImported, Handler, HandlerError, Publisher, TorrentAdded, TorrentRemoved,
 };
@@ -22,7 +22,7 @@ pub struct Downloads {
     repo: Arc<dyn DownloadRepo>,
     client: Arc<dyn DownloadClient>,
     clock: Arc<dyn Clock>,
-    options: DownloadOptions,
+    options: Live<DownloadOptions>,
     events: Publisher,
 }
 
@@ -38,8 +38,10 @@ pub struct DownloadOptions {
 }
 
 impl DownloadOptions {
-    fn picks_up(&self, torrent: &Torrent) -> bool {
-        self.pick_up_labels.iter().any(|label| torrent.labels.contains(label))
+    /// Labelled `LABEL`, or with a pick up label or folder.
+    fn takes_on(&self, torrent: &Torrent) -> bool {
+        torrent.labels.iter().any(|label| label == LABEL)
+            || self.pick_up_labels.iter().any(|label| torrent.labels.contains(label))
             || self.pick_up_folder.as_ref().is_some_and(|folder| torrent.status.download_dir.starts_with(folder))
     }
 }
@@ -62,7 +64,7 @@ impl Downloads {
         repo: Arc<dyn DownloadRepo>,
         client: Arc<dyn DownloadClient>,
         clock: Arc<dyn Clock>,
-        options: DownloadOptions,
+        options: Live<DownloadOptions>,
         events: Publisher,
     ) -> Self {
         Self { repo, client, clock, options, events }
@@ -102,6 +104,7 @@ impl Downloads {
     /// qualify, become unlinked downloads, emitting `TorrentAdded`.
     #[instrument(skip_all)]
     pub async fn sync(&self) -> Result<SyncReport, DownloadError> {
+        let options = self.options.current();
         let known = self.repo.list().await?;
         let active: Vec<Download> =
             known.iter().filter(|download| download.status.state != DownloadState::Removed).cloned().collect();
@@ -115,7 +118,7 @@ impl Downloads {
             let seeded = torrent.as_ref().is_some_and(|torrent| torrent.seeding_done);
             let completed = self.apply(&mut download, torrent);
             let mut events: Vec<Event> = completed.iter().cloned().collect();
-            let clean_up = seeded && self.options.remove_after_seeding && download.imported_at.is_some();
+            let clean_up = seeded && options.remove_after_seeding && download.imported_at.is_some();
             if clean_up {
                 self.client.remove(&download.hash, true).await?;
                 download.mark_removed();
@@ -152,7 +155,7 @@ impl Downloads {
         let known: HashSet<&str> = known.iter().map(|download| download.hash.as_str()).collect();
         let mut new: Vec<Torrent> = torrents
             .into_values()
-            .filter(|torrent| !known.contains(torrent.hash.as_str()) && self.qualifies(torrent))
+            .filter(|torrent| !known.contains(torrent.hash.as_str()) && options.takes_on(torrent))
             .collect();
         new.sort_by(|a, b| a.hash.cmp(&b.hash));
         for torrent in new {
@@ -173,11 +176,6 @@ impl Downloads {
         }
         debug!(synced = report.synced, picked_up = report.picked_up, "downloads synced");
         Ok(report)
-    }
-
-    /// Labelled `LABEL`, or picked up by the options.
-    fn qualifies(&self, torrent: &Torrent) -> bool {
-        torrent.labels.iter().any(|label| label == LABEL) || self.options.picks_up(torrent)
     }
 
     /// A new download and its `TorrentAdded`, with `DownloadCompleted` when the torrent is complete.

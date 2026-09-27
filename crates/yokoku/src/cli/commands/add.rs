@@ -3,7 +3,7 @@ use std::path::{self, PathBuf};
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
 use tracing::debug;
-use yokoku_config::{AddConfig, Config};
+use yokoku_config::AddConfig;
 use yokoku_domain::{self as domain, title_with_year};
 use yokoku_media::RootKind;
 
@@ -58,11 +58,10 @@ impl Args {
     }
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let settings = args.apply_overrides(&config.add);
+pub async fn run(app: &App, args: Args) -> Result<()> {
+    let settings = args.apply_overrides(&app.settings.current().add);
     debug!(?settings, "resolved command settings");
 
-    let app = App::open(config).await?;
     let metadata = app.metadata()?;
     let root_kind = match args.item.kind {
         Kind::Series => RootKind::Series,

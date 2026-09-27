@@ -1,20 +1,17 @@
-use std::{sync::Arc, time::Duration};
+use std::{path::Path, sync::Arc, time::Duration};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use jiff::SignedDuration;
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
-use yokoku_config::Config;
+use yokoku_config::{Config, Settings};
 use yokoku_db::Database;
-use yokoku_domain::{Clock, ItemId, MovieMetadata, SeriesMetadata, title_with_year};
+use yokoku_domain::{Clock, ItemId, Live, MovieMetadata, SeriesMetadata, title_with_year};
 use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
 use yokoku_integrations::Rescans;
-use yokoku_library::{
-    Calendar, Library, MetadataService,
-    ports::{FolderNames, MetadataProvider},
-};
+use yokoku_library::{Calendar, Library, MetadataService, ports::FolderNames};
 use yokoku_media::{
     Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
     ports::{FileSystem, LibraryLock},
@@ -26,8 +23,9 @@ use yokoku_transmission::TransmissionClient;
 
 use crate::subscriptions;
 
-/// Use cases wired to their adapters.
+/// Use cases wired to their adapters, each reading the settings in effect when it runs.
 pub struct App {
+    pub settings: Settings,
     pub library: Library,
     pub calendar: Calendar,
     pub roots: RootFolders,
@@ -39,63 +37,53 @@ pub struct App {
     pub history: History,
     pub deleter: Arc<Deleter>,
     pub prober: Arc<Prober>,
-    /// `None` while no Jellyfin is configured.
-    pub rescans: Option<Arc<Rescans>>,
-    metadata: Option<Arc<MetadataService>>,
+    pub rescans: Arc<Rescans>,
+    metadata: Arc<MetadataService>,
     db: Arc<Database>,
     events: Publisher,
     subscribers: Vec<Arc<dyn Subscriber>>,
 }
 
 impl App {
-    pub async fn open(config: &Config) -> Result<Self> {
+    /// `config` comes from the config file at `config_path` and the environment; the stored
+    /// settings go over it once the database is open.
+    pub async fn open(config: &Config, config_path: Option<&Path>) -> Result<Self> {
+        config.validate().context("Invalid configuration")?;
         let path = &config.database.path;
         let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
         let db = Arc::new(db);
-        let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()));
+        let settings = Settings::open(config_path.map(Path::to_path_buf), db.clone())
+            .await
+            .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(settings.live(|config| config.clock.time_zone())));
         let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
-        let naming = config.naming.clone();
-        let settings = &config.metadata;
-        let tvdb_language = settings.tvdb_language()?;
-        let metadata = settings.tmdb.token.as_ref().map(|token| {
-            let tmdb =
-                TmdbClient::new(token.expose(), &settings.language, &settings.region).with_base_url(&settings.tmdb.url);
-            let tvdb = settings.tvdb.api_key.as_ref().map(|key| {
-                let pin = settings.tvdb.pin.as_ref().map(|pin| pin.expose().to_owned());
-                let client = TvdbClient::new(key.expose(), pin, tvdb_language);
-                Arc::new(client.with_base_url(&settings.tvdb.url)) as Arc<dyn MetadataProvider>
-            });
-            let folders = Arc::new(NamedFolders(naming.clone()));
-            Arc::new(MetadataService::new(
-                db.clone(),
-                db.clone(),
-                Arc::new(Sources::new(Arc::new(tmdb), tvdb)),
-                folders,
-                clock.clone(),
-                events.clone(),
-            ))
-        });
+        let naming = settings.live(|config| config.naming.clone());
+        let metadata_settings = settings.live(|config| config.metadata.clone());
+        let metadata = Arc::new(MetadataService::new(
+            db.clone(),
+            db.clone(),
+            Arc::new(Sources::new(
+                Arc::new(TmdbClient::new(metadata_settings.clone())),
+                Arc::new(TvdbClient::new(metadata_settings)),
+                settings.live(|config| config.metadata.tvdb.api_key.is_some()),
+            )),
+            Arc::new(NamedFolders(naming.clone())),
+            clock.clone(),
+            events.clone(),
+        ));
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
         let lock: Arc<dyn LibraryLock> = Arc::new(LockFile::new(path.with_extension("lock")));
-        let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(FfProbe::new(&config.files.ffprobe))));
+        let probe = FfProbe::new(settings.live(|config| config.files.ffprobe.clone()));
+        let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(probe)));
         let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone(), events.clone()));
-        let jellyfin = &config.jellyfin;
-        let rescans = jellyfin.url.as_ref().map(|url| {
-            let server = JellyfinClient::new(url, jellyfin.api_key.as_ref().map_or("", |key| key.expose()));
-            Arc::new(Rescans::new(db.clone(), Arc::new(server), clock.clone()))
-        });
-        let transmission = &config.transmission;
-        let mut client = TransmissionClient::new(&transmission.url);
-        if let Some(username) = &transmission.username {
-            let password = transmission.password.as_ref().map_or("", |password| password.expose());
-            client = client.with_credentials(username, password);
-        }
+        let jellyfin = JellyfinClient::new(settings.live(|config| config.jellyfin.clone()));
+        let rescans = Arc::new(Rescans::new(db.clone(), Arc::new(jellyfin), clock.clone()));
         let downloads = Arc::new(Downloads::new(
             db.clone(),
-            Arc::new(client),
+            Arc::new(TransmissionClient::new(settings.live(|config| config.transmission.clone()))),
             clock.clone(),
-            config.downloads.clone(),
+            settings.live(|config| config.downloads.clone()),
             events.clone(),
         ));
         let scanner =
@@ -116,7 +104,7 @@ impl App {
                 lock,
                 clock.clone(),
                 naming,
-                config.import.mode,
+                settings.live(|config| config.import.mode),
                 events.clone(),
             )),
             history: History::new(Arc::new(db.event_log())),
@@ -128,8 +116,9 @@ impl App {
                 &downloads,
                 &prober,
                 &scanner,
-                rescans.as_ref(),
+                &rescans,
             ),
+            settings,
             deleter,
             prober,
             rescans,
@@ -147,9 +136,7 @@ impl App {
             let delivery = Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), quick_delivery());
             delivery.catch_up().await.context("Failed to deliver events")?;
         }
-        if let Some(rescans) = &self.rescans
-            && let Err(error) = rescans.run_due(SignedDuration::ZERO).await
-        {
+        if let Err(error) = self.rescans.run_due(SignedDuration::ZERO).await {
             warn!(%error, "Jellyfin rescan failed; it will be tried again");
         }
         Ok(())
@@ -184,13 +171,15 @@ impl App {
         })
     }
 
-    /// Use cases that need the metadata source.
+    /// Use cases that need the metadata source; fails while no TMDB token is configured.
     pub fn metadata(&self) -> Result<&MetadataService> {
-        self.metadata.as_deref().context("No TMDB token configured; set APP__METADATA__TMDB__TOKEN")
+        if self.settings.current().metadata.tmdb.token.is_none() {
+            bail!("No TMDB token configured; set APP__METADATA__TMDB__TOKEN");
+        }
+        Ok(&self.metadata)
     }
 
-    /// `None` while no TMDB token is configured.
-    pub fn metadata_service(&self) -> Option<Arc<MetadataService>> {
+    pub fn metadata_service(&self) -> Arc<MetadataService> {
         self.metadata.clone()
     }
 
@@ -205,15 +194,15 @@ impl App {
 }
 
 /// Names new item folders with the configured naming patterns.
-struct NamedFolders(Naming);
+struct NamedFolders(Live<Naming>);
 
 impl FolderNames for NamedFolders {
     fn series_folder(&self, metadata: &SeriesMetadata) -> String {
-        self.0.series_folder(&metadata.title, metadata.year)
+        self.0.current().series_folder(&metadata.title, metadata.year)
     }
 
     fn movie_folder(&self, metadata: &MovieMetadata) -> String {
-        self.0.movie_folder(&metadata.title, metadata.year)
+        self.0.current().movie_folder(&metadata.title, metadata.year)
     }
 }
 

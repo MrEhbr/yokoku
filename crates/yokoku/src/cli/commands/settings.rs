@@ -25,15 +25,6 @@ pub enum Command {
     Unset { key: String },
 }
 
-/// Settings stored in the database at `path`; none while it does not exist.
-pub async fn stored_settings(path: &Path) -> Result<Vec<(String, Value)>> {
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
-    db.settings().await.context("Failed to read the stored settings")
-}
-
 /// `config` comes from the config file and environment alone, so a stored value that no longer
 /// loads can still be unset.
 pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Result<()> {

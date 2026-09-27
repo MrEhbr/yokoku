@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::{ItemId, title_with_year};
 use yokoku_library::LibraryStatus;
 
@@ -18,8 +17,7 @@ pub struct Args {
     pub item: ItemArgs,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let today = app.library.today();
 
     match args.item.resolve(&app.library).await? {

@@ -27,11 +27,12 @@ impl Clock for TestClock {
     }
 }
 
-/// Counts refreshes; can fail, or record another request while refreshing.
+/// Counts refreshes; can fail, be unconfigured, or record another request while refreshing.
 #[derive(Default)]
 struct RecordingServer {
     refreshes: Mutex<u32>,
     failing: Mutex<bool>,
+    unconfigured: Mutex<bool>,
     request_during_refresh: Mutex<Option<(Database, Timestamp)>>,
 }
 
@@ -44,6 +45,9 @@ impl MediaServer for RecordingServer {
     async fn refresh_library(&self) -> Result<(), MediaServerError> {
         if *self.failing.lock().unwrap() {
             return Err(MediaServerError::Unavailable("connection refused".into()));
+        }
+        if *self.unconfigured.lock().unwrap() {
+            return Err(MediaServerError::NotConfigured);
         }
         *self.refreshes.lock().unwrap() += 1;
         let request = self.request_during_refresh.lock().unwrap().take();
@@ -141,6 +145,18 @@ async fn a_failed_rescan_stays_pending() {
     *setup.server.failing.lock().unwrap() = true;
 
     assert!(setup.rescans.run_due(QUIET).await.is_err());
+
+    assert!(setup.db.requested_at().await.unwrap().is_some());
+}
+
+#[tokio::test]
+async fn a_due_rescan_waits_while_no_media_server_is_configured() {
+    let setup = setup().await;
+    setup.handle(deleted()).await;
+    setup.clock.advance(QUIET);
+    *setup.server.unconfigured.lock().unwrap() = true;
+
+    assert!(!setup.rescans.run_due(QUIET).await.unwrap());
 
     assert!(setup.db.requested_at().await.unwrap().is_some());
 }

@@ -9,7 +9,7 @@ use reqwest::{StatusCode, header::HeaderValue};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use tracing::debug;
-use yokoku_domain::Secret;
+use yokoku_domain::{Live, Secret};
 use yokoku_downloads::{
     DownloadState, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
@@ -37,28 +37,22 @@ impl Default for TransmissionSettings {
 /// Talks to Transmission's RPC endpoint, e.g. `http://localhost:9091/transmission/rpc`.
 pub struct TransmissionClient {
     http: reqwest::Client,
-    url: String,
-    credentials: Option<(String, String)>,
+    settings: Live<TransmissionSettings>,
     session: Mutex<Option<HeaderValue>>,
 }
 
 impl TransmissionClient {
-    pub fn new(url: impl Into<String>) -> Self {
-        Self::with_timeout(url, TIMEOUT)
+    pub fn new(settings: Live<TransmissionSettings>) -> Self {
+        Self::with_timeout(settings, TIMEOUT)
     }
 
-    fn with_timeout(url: impl Into<String>, timeout: Duration) -> Self {
+    fn with_timeout(settings: Live<TransmissionSettings>, timeout: Duration) -> Self {
         let http = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(timeout)
             .build()
             .expect("TLS backend initializes");
-        Self { http, url: url.into(), credentials: None, session: Mutex::new(None) }
-    }
-
-    pub fn with_credentials(mut self, username: impl Into<String>, password: impl Into<String>) -> Self {
-        self.credentials = Some((username.into(), password.into()));
-        self
+        Self { http, settings, session: Mutex::new(None) }
     }
 
     /// Sends one RPC call, repeating it once with the session id a 409 answer carries.
@@ -93,12 +87,13 @@ impl TransmissionClient {
     }
 
     async fn send(&self, body: &Value) -> Result<reqwest::Response, ClientError> {
-        let mut request = self.http.post(&self.url).json(body);
+        let settings = self.settings.current();
+        let mut request = self.http.post(&settings.url).json(body);
         if let Some(session) = self.session.lock().expect("session lock").clone() {
             request = request.header(SESSION_HEADER, session);
         }
-        if let Some((username, password)) = &self.credentials {
-            request = request.basic_auth(username, Some(password));
+        if let Some(username) = &settings.username {
+            request = request.basic_auth(username, Some(settings.password.as_ref().map_or("", Secret::expose)));
         }
         request.send().await.map_err(unavailable)
     }
@@ -194,7 +189,10 @@ mod tests {
         let server = MockServer::start().await;
         let stalled = ResponseTemplate::new(200).set_delay(Duration::from_secs(5));
         Mock::given(any()).respond_with(stalled).mount(&server).await;
-        let client = TransmissionClient::with_timeout(server.uri(), Duration::from_millis(50));
+        let client = TransmissionClient::with_timeout(
+            Live::fixed(TransmissionSettings { url: server.uri(), ..TransmissionSettings::default() }),
+            Duration::from_millis(50),
+        );
 
         let started = Instant::now();
         let error = client.version().await.unwrap_err();

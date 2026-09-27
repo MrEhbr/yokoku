@@ -23,10 +23,8 @@ pub struct Jobs {
     pub downloads: Arc<Downloads>,
     pub importer: Arc<Importer>,
     pub scanner: Arc<Scanner>,
-    /// `None` while no metadata source is configured.
-    pub metadata: Option<Arc<MetadataService>>,
-    /// `None` while no media server is configured.
-    pub rescans: Option<Arc<Rescans>>,
+    pub metadata: Arc<MetadataService>,
+    pub rescans: Arc<Rescans>,
 }
 
 /// Cron schedules, with seconds: `*/30 * * * * *` is every 30 seconds.
@@ -95,12 +93,9 @@ pub fn monitor(jobs: Jobs, schedules: Schedules) -> Monitor {
     monitor = register(monitor, "sync-downloads", schedules.sync_downloads, jobs.downloads, sync_downloads);
     monitor = register(monitor, "execute-imports", schedules.execute_imports, jobs.importer, execute_imports);
     monitor = register(monitor, "scan-library", schedules.scan_library, jobs.scanner, scan_library);
-    if let Some(metadata) = jobs.metadata {
-        monitor = register(monitor, "refresh-metadata", schedules.refresh_metadata, metadata, refresh_metadata);
-    }
-    if let Some(rescans) = jobs.rescans {
-        monitor = register(monitor, "rescan-media-server", schedules.rescan_media_server, rescans, rescan_media_server);
-    }
+    monitor = register(monitor, "refresh-metadata", schedules.refresh_metadata, jobs.metadata, refresh_metadata);
+    monitor =
+        register(monitor, "rescan-media-server", schedules.rescan_media_server, jobs.rescans, rescan_media_server);
     monitor
 }
 

@@ -4,46 +4,36 @@ use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 use tracing::debug;
-use yokoku_domain::{EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
+use yokoku_domain::{EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 use crate::{
+    MetadataSettings,
     http::{self, Http},
     tvdb_wire::{self, Envelope, EpisodePage, Login, SearchItem, SeriesDetails, Token},
     wire,
 };
 
-const BASE_URL: &str = "https://api4.thetvdb.com/v4";
 /// 500 episodes a page.
 const MAX_EPISODE_PAGES: usize = 100;
 
 /// TheTVDB API v4 for series, with a project API key and, for user-supported keys, a subscriber PIN.
 pub struct TvdbClient {
     http: Http,
-    base_url: String,
+    settings: Live<MetadataSettings>,
+    /// The token with the API key and PIN it was issued for.
+    token: Mutex<Option<(Credentials, String)>>,
+}
+
+#[derive(PartialEq, Eq)]
+struct Credentials {
     api_key: String,
     pin: Option<String>,
-    language: String,
-    token: Mutex<Option<String>>,
 }
 
 impl TvdbClient {
-    /// `language` is a three-letter code like `eng`.
-    pub fn new(api_key: impl Into<String>, pin: Option<String>, language: impl Into<String>) -> Self {
-        Self {
-            http: Http::new("TVDB"),
-            base_url: BASE_URL.to_owned(),
-            api_key: api_key.into(),
-            pin,
-            language: language.into(),
-            token: Mutex::new(None),
-        }
-    }
-
-    #[must_use]
-    pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
-        self.base_url = base_url.into();
-        self
+    pub fn new(settings: Live<MetadataSettings>) -> Self {
+        Self { http: Http::new("TVDB"), settings, token: Mutex::new(None) }
     }
 
     /// Logs in on first use, and once more when the token is refused.
@@ -53,42 +43,62 @@ impl TvdbClient {
         query: &[(&str, &str)],
         source: Option<ExternalId>,
     ) -> Result<Envelope<T>, MetadataError> {
-        let request = self.http.get(format!("{}/{endpoint}", self.base_url)).query(query);
-        let token = self.token().await?;
+        let settings = self.settings.current();
+        let request = self.http.get(format!("{}/{endpoint}", settings.tvdb.url)).query(query);
+        let token = self.token(&settings).await?;
         let response =
             match self.http.send(request.try_clone().expect("GET has no body").bearer_auth(&token), source).await {
                 Err(MetadataError::Refused(_)) => {
                     debug!("renewing the TVDB token");
                     self.forget(&token).await;
-                    self.http.send(request.bearer_auth(self.token().await?), source).await?
+                    self.http.send(request.bearer_auth(self.token(&settings).await?), source).await?
                 },
                 response => response?,
             };
         http::json(response).await
     }
 
-    /// The cached token, or a new one; concurrent callers wait for a single login.
-    async fn token(&self) -> Result<String, MetadataError> {
-        let mut token = self.token.lock().await;
-        if let Some(token) = token.as_ref() {
+    /// The cached token, or a new one once the API key or PIN changed; concurrent callers wait for
+    /// a single login.
+    async fn token(&self, settings: &MetadataSettings) -> Result<String, MetadataError> {
+        let api_key = settings.tvdb.api_key.as_ref().ok_or_else(|| MetadataError::Refused("no TVDB API key".into()))?;
+        let credentials = Credentials {
+            api_key: api_key.expose().to_owned(),
+            pin: settings.tvdb.pin.as_ref().map(|pin| pin.expose().to_owned()),
+        };
+        let mut cached = self.token.lock().await;
+        if let Some((issued_for, token)) = cached.as_ref()
+            && *issued_for == credentials
+        {
             return Ok(token.clone());
         }
-        let login = Login { apikey: &self.api_key, pin: self.pin.as_deref() };
-        let request = self.http.post(format!("{}/login", self.base_url)).json(&login);
+        let login = Login { apikey: &credentials.api_key, pin: credentials.pin.as_deref() };
+        let request = self.http.post(format!("{}/login", settings.tvdb.url)).json(&login);
         let envelope: Envelope<Token> = http::json(self.http.send(request, None).await?).await?;
-        Ok(token.insert(envelope.data.token).clone())
+        *cached = Some((credentials, envelope.data.token.clone()));
+        Ok(envelope.data.token)
     }
 
     /// Drops `stale` unless another caller already replaced it.
     async fn forget(&self, stale: &str) {
-        let mut token = self.token.lock().await;
-        if token.as_deref() == Some(stale) {
-            *token = None;
+        let mut cached = self.token.lock().await;
+        if cached.as_ref().is_some_and(|(_, token)| token == stale) {
+            *cached = None;
         }
     }
 
-    async fn episodes(&self, id: u64, source: ExternalId) -> Result<Vec<tvdb_wire::EpisodeItem>, MetadataError> {
-        let endpoint = format!("series/{id}/episodes/default/{}", self.language);
+    /// The three-letter code for the configured language, e.g. `eng`.
+    fn language(&self) -> Result<&'static str, MetadataError> {
+        self.settings.current().tvdb_language().map_err(|error| MetadataError::Unavailable(Box::new(error)))
+    }
+
+    async fn episodes(
+        &self,
+        id: u64,
+        source: ExternalId,
+        language: &str,
+    ) -> Result<Vec<tvdb_wire::EpisodeItem>, MetadataError> {
+        let endpoint = format!("series/{id}/episodes/default/{language}");
         let mut episodes = Vec::new();
         for page in 0..MAX_EPISODE_PAGES {
             let page = page.to_string();
@@ -105,6 +115,7 @@ impl TvdbClient {
 #[async_trait]
 impl MetadataProvider for TvdbClient {
     async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
+        let language = self.language()?;
         let envelope: Envelope<Vec<SearchItem>> =
             self.get("search", &[("query", query), ("type", "series")], None).await?;
 
@@ -116,7 +127,7 @@ impl MetadataProvider for TvdbClient {
                 Some(SearchResult {
                     kind: MediaKind::Series,
                     source: ExternalId::Tvdb(id),
-                    title: item.translations.remove(&self.language).unwrap_or_else(|| item.name.clone()),
+                    title: item.translations.remove(language).unwrap_or_else(|| item.name.clone()),
                     original_title: item.name,
                     year: wire::year(item.year.as_deref()),
                     poster_path: item.image_url,
@@ -127,13 +138,14 @@ impl MetadataProvider for TvdbClient {
 
     async fn series(&self, source: ExternalId) -> Result<SeriesMetadata, MetadataError> {
         let id = tvdb_id(source)?;
+        let language = self.language()?;
         let details: SeriesDetails = self
             .get(&format!("series/{id}/extended"), &[("meta", "translations"), ("short", "true")], Some(source))
             .await?
             .data;
 
         let mut seasons: BTreeMap<u16, Vec<EpisodeMetadata>> = BTreeMap::new();
-        for episode in self.episodes(id, source).await? {
+        for episode in self.episodes(id, source, language).await? {
             seasons.entry(episode.season_number).or_default().push(EpisodeMetadata {
                 source_id: episode.id,
                 number: episode.number,
@@ -149,7 +161,7 @@ impl MetadataProvider for TvdbClient {
             })
             .collect();
 
-        let title = details.translated_name(&self.language).unwrap_or(&details.name).to_owned();
+        let title = details.translated_name(language).unwrap_or(&details.name).to_owned();
         let mut alternate_titles: Vec<String> = Vec::new();
         for alias in details.aliases {
             if alias.name != title && alias.name != details.name && !alternate_titles.contains(&alias.name) {

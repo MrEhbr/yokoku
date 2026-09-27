@@ -2,7 +2,6 @@ use std::fs;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use yokoku_config::Config;
 use yokoku_domain::ExternalId;
 use yokoku_downloads::{DownloadState, ports::TorrentSource};
 
@@ -46,9 +45,7 @@ pub struct AddArgs {
     pub source: Option<ExternalId>,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
-
+pub async fn run(app: &App, args: Args) -> Result<()> {
     match args.command {
         Command::Test => {
             let version = app.downloads.test_connection().await?;
@@ -65,7 +62,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 Some(_) => success!("Added {}; it is already complete", download.name)?,
                 None => success!("Added {}", download.name)?,
             }
-            run_imports(&app).await?;
+            run_imports(app).await?;
         },
         Command::List => {
             let downloads = app.downloads.list().await?;
@@ -110,7 +107,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             if report.cleaned_up > 0 {
                 say!("{} removed from Transmission after seeding", report.cleaned_up)?;
             }
-            run_imports(&app).await?;
+            run_imports(app).await?;
             let waiting = app.reviewer.pending().await?.len();
             if waiting > 0 {
                 caution!("{waiting} imports wait for review; see `yokoku review list`")?;

@@ -7,20 +7,19 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use tracing::info;
-use yokoku_config::Config;
 use yokoku_jobs::Jobs;
 use yokoku_web::Server;
 
 use crate::app::App;
 
 /// Serves the web interface, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
-pub async fn run(config: &Config) -> Result<()> {
+pub async fn run(app: &App) -> Result<()> {
+    let config = app.settings.current();
     let schedules = config.serve.schedules()?;
     let server = Server::new(config.web.assets.as_deref())
         .context("Failed to load the web assets; bundle them with `topcoat asset bundle -p yokoku`")?;
     let listener = bind().await?;
     let address = listener.local_addr()?;
-    let app = App::open(config).await?;
 
     let stop = CancellationToken::new();
     let shutdown = CancellationToken::new();

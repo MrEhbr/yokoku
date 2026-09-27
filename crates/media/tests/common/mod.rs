@@ -14,7 +14,7 @@ use jiff::{
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Clock, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset, Movie,
+    Clock, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ItemFolder, Live, MonitorPreset, Movie,
     MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog, Publisher};
@@ -77,7 +77,7 @@ impl App {
             repo.clone(),
             Arc::new(LocalFileSystem),
             lock,
-            Naming::default(),
+            Live::fixed(Naming::default()),
             events.clone(),
         );
         let planner =
@@ -133,8 +133,8 @@ impl App {
             Arc::new(LocalFileSystem),
             self.lock(),
             Arc::new(FixedClock),
-            Naming::default(),
-            mode,
+            Live::fixed(Naming::default()),
+            Live::fixed(mode),
             self.publisher(),
         )
     }

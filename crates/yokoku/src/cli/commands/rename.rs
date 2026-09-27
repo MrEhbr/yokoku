@@ -2,7 +2,6 @@ use std::path::Path;
 
 use anyhow::{Result, bail};
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::{ExternalId, ItemId};
 use yokoku_media::RenameScope;
 
@@ -29,8 +28,7 @@ pub struct Args {
     pub apply: bool,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let scope = match ItemArgs::optional(args.kind, args.source) {
         None => RenameScope::All,
         Some(item) => match item.resolve(&app.library).await? {

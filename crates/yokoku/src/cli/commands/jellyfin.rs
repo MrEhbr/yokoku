@@ -1,6 +1,5 @@
-use anyhow::{Context, Result};
+use anyhow::{Result, bail};
 use clap::{Parser, Subcommand};
-use yokoku_config::Config;
 
 use crate::app::App;
 
@@ -18,10 +17,11 @@ pub enum Command {
     Rescan,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
-    let rescans =
-        app.rescans.as_ref().context("No Jellyfin configured; set jellyfin.url and APP__JELLYFIN__API_KEY")?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
+    if app.settings.current().jellyfin.url.is_none() {
+        bail!("No Jellyfin configured; set jellyfin.url and APP__JELLYFIN__API_KEY");
+    }
+    let rescans = &app.rescans;
     match args.command {
         Command::Test => success!("Connected to {}", rescans.test_connection().await?)?,
         Command::Rescan => {

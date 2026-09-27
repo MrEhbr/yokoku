@@ -1,6 +1,5 @@
 use anyhow::{Result, bail};
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::{ExternalId, ItemId};
 
 use crate::{
@@ -19,8 +18,7 @@ pub struct Args {
     pub source: Option<ExternalId>,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let metadata = app.metadata()?;
     let item = ItemArgs::optional(args.kind, args.source);
 

@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::EpisodeSpan;
 
 use crate::{
@@ -19,8 +18,7 @@ pub struct Args {
     pub yes: bool,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let target = args.item.file_target(&app.library, args.episodes).await?;
 
     confirm_deletion(&app.deleter.files_of(target).await?, args.yes)?;

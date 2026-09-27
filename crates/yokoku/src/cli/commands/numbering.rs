@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
-use yokoku_config::Config;
 use yokoku_domain::{ExternalId, Numbering as SeriesNumbering};
 
 use crate::app::App;
@@ -21,8 +20,7 @@ pub struct Args {
     pub numbering: Numbering,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let series = app
         .library
         .find_series(args.source)

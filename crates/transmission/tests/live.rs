@@ -10,14 +10,14 @@ use std::{
 use jiff::{Timestamp, Zoned, tz::TimeZone};
 use tokio::{process::Command, time::sleep};
 use yokoku_db::Database;
-use yokoku_domain::Clock;
+use yokoku_domain::{Clock, Live};
 use yokoku_downloads::{
     DownloadOptions, DownloadState, Downloads,
     ports::{DownloadClient, TorrentSource},
 };
 use yokoku_events::{DownloadCompleted, Event, EventLog, Publisher};
 use yokoku_system::FileSpool;
-use yokoku_transmission::TransmissionClient;
+use yokoku_transmission::{TransmissionClient, TransmissionSettings};
 
 const WAIT: Duration = Duration::from_secs(20);
 
@@ -70,7 +70,10 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         .spawn()
         .unwrap();
 
-    let client = Arc::new(TransmissionClient::new(format!("http://127.0.0.1:{port}/transmission/rpc")));
+    let client = Arc::new(TransmissionClient::new(Live::fixed(TransmissionSettings {
+        url: format!("http://127.0.0.1:{port}/transmission/rpc"),
+        ..TransmissionSettings::default()
+    })));
     let version = wait_for(async || client.version().await.ok()).await;
     assert!(version.starts_with("Transmission 4"), "{version}");
 
@@ -79,7 +82,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         Arc::new(db.clone()),
         client.clone(),
         Arc::new(SystemTime),
-        DownloadOptions::default(),
+        Live::fixed(DownloadOptions::default()),
         Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool")))),
     );
     let added = use_case.add(&TorrentSource::File(fs::read(&torrent_file).unwrap()), None).await.unwrap();

@@ -3,6 +3,7 @@
 
 mod log;
 mod sections;
+mod settings;
 
 use std::path::Path;
 
@@ -22,6 +23,7 @@ use yokoku_transmission::TransmissionSettings;
 pub use crate::{
     log::{LogConfig, LogFormat, LogOutput},
     sections::{AddConfig, CalendarConfig, DatabaseConfig, ListConfig, WebConfig},
+    settings::Settings,
 };
 
 const ENV_PREFIX: &str = "APP";

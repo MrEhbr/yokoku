@@ -20,10 +20,10 @@ pub fn subscribers(
     downloads: &Arc<Downloads>,
     prober: &Arc<Prober>,
     scanner: &Arc<Scanner>,
-    rescans: Option<&Arc<Rescans>>,
+    rescans: &Arc<Rescans>,
 ) -> Vec<Arc<dyn Subscriber>> {
     let tracker = Arc::new(FileTracker::new(db.clone(), db.clone(), db.clone()));
-    let mut subscriptions = vec![
+    [
         Subscription::new("media.scan_added").on::<SeriesAdded>(scanner.clone()).on::<MovieAdded>(scanner.clone()),
         Subscription::new("library.files")
             .on::<FilesFound>(tracker.clone())
@@ -34,12 +34,12 @@ pub fn subscribers(
         Subscription::new("media.renumbered").on::<EpisodesRenumbered>(scanner.clone()),
         Subscription::new("downloads.imports").on::<FilesImported>(downloads.clone()),
         Subscription::new("media.probe").on::<FilesFound>(prober.clone()).on::<FilesImported>(prober.clone()),
-    ];
-    subscriptions.extend(rescans.map(|rescans| {
         Subscription::new("integrations.rescans")
             .on::<FilesImported>(rescans.clone())
             .on::<FileRenamed>(rescans.clone())
-            .on::<FileDeleted>(rescans.clone())
-    }));
-    subscriptions.into_iter().map(|subscription| Arc::new(subscription) as Arc<dyn Subscriber>).collect()
+            .on::<FileDeleted>(rescans.clone()),
+    ]
+    .into_iter()
+    .map(|subscription| Arc::new(subscription) as Arc<dyn Subscriber>)
+    .collect()
 }

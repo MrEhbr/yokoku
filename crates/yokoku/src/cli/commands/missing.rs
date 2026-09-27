@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::title_with_year;
 
 use crate::{app::App, cli::output::Paint};
@@ -8,8 +7,7 @@ use crate::{app::App, cli::output::Paint};
 #[derive(Parser)]
 pub struct Args {}
 
-pub async fn run(config: &Config, _args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, _args: Args) -> Result<()> {
     let missing = app.calendar.missing().await?;
 
     if missing.series.is_empty() && missing.movies.is_empty() {

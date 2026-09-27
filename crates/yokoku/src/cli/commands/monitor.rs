@@ -1,6 +1,5 @@
 use anyhow::{Result, bail};
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::{EpisodeRef, ItemId};
 
 use crate::{app::App, cli::commands::ItemArgs};
@@ -23,8 +22,7 @@ pub struct Args {
     pub off: bool,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let monitored = !args.off;
 
     match (args.item.resolve(&app.library).await?, args.season, args.episode) {

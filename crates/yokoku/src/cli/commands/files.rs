@@ -1,6 +1,5 @@
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use yokoku_config::Config;
 use yokoku_media::{MediaError, ports::ProbeError};
 
 use crate::{
@@ -22,9 +21,7 @@ pub enum Command {
     Probe,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
-
+pub async fn run(app: &App, args: Args) -> Result<()> {
     match args.command {
         Command::Show(item) => {
             let item = item.resolve(&app.library).await?;
@@ -65,7 +62,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         Command::Probe => {
             let report = match app.prober.probe_missing().await {
                 Err(MediaError::Probe(ProbeError::Missing)) => {
-                    let program = config.files.ffprobe.display();
+                    let program = app.settings.current().files.ffprobe.display().to_string();
                     bail!("{program} is not installed; set [files] ffprobe to its path");
                 },
                 result => result.context("Failed to probe files")?,

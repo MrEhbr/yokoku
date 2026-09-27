@@ -6,8 +6,8 @@ use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use yokoku_db::Database;
 use yokoku_domain::{
-    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MediaFileId, MonitorPreset,
-    Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, Live, MediaFileId,
+    MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::Publisher;
 use yokoku_library::{
@@ -73,13 +73,13 @@ impl Seeded {
 
     fn library(&self) -> Library {
         let db = Arc::new(self.db.clone());
-        Library::new(db.clone(), db, Arc::new(SystemClock::new(TimeZone::UTC)), self.publisher())
+        Library::new(db.clone(), db, Arc::new(SystemClock::new(Live::fixed(TimeZone::UTC))), self.publisher())
     }
 
     fn scanner(&self) -> Scanner {
         let db = Arc::new(self.db.clone());
         let lock = Arc::new(LockFile::new(self.dir.path().join("yokoku.lock")));
-        let clock = Arc::new(SystemClock::new(TimeZone::UTC));
+        let clock = Arc::new(SystemClock::new(Live::fixed(TimeZone::UTC)));
         Scanner::new(db.clone(), db, Arc::new(LocalFileSystem), lock, clock, self.publisher())
     }
 

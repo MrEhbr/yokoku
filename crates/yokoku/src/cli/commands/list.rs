@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use tracing::debug;
-use yokoku_config::{Config, ListConfig};
+use yokoku_config::ListConfig;
 use yokoku_domain::{MovieStatus, SeriesStatus, title_with_year};
 use yokoku_library::{LibraryFilter, LibrarySort, LibraryStatus};
 
@@ -55,11 +55,10 @@ impl Args {
     }
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let settings = args.apply_overrides(&config.list);
+pub async fn run(app: &App, args: Args) -> Result<()> {
+    let settings = args.apply_overrides(&app.settings.current().list);
     debug!(?settings, "resolved command settings");
 
-    let app = App::open(config).await?;
     let filter = LibraryFilter { kind: args.kind.map(Into::into), status: args.status.map(Into::into) };
     let entries = app.library.list(filter, settings.sort).await?;
 

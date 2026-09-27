@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use yokoku_config::Config;
 use yokoku_domain::title_with_year;
 
 use crate::{app::App, cli::output::Paint};
@@ -12,8 +11,7 @@ pub struct Args {
     pub query: Vec<String>,
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, args: Args) -> Result<()> {
     let hits = app.metadata()?.search(&args.query.join(" ")).await?;
 
     if hits.is_empty() {

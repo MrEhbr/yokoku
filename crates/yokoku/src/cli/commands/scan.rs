@@ -1,14 +1,12 @@
 use anyhow::Result;
 use clap::Parser;
-use yokoku_config::Config;
 
 use crate::app::App;
 
 #[derive(Parser)]
 pub struct Args {}
 
-pub async fn run(config: &Config, _args: Args) -> Result<()> {
-    let app = App::open(config).await?;
+pub async fn run(app: &App, _args: Args) -> Result<()> {
     if app.roots.list().await?.is_empty() {
         hint!("No root folders; add one with `yokoku root add`.")?;
         return Ok(());

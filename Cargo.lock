@@ -4875,9 +4875,11 @@ name = "yokoku-config"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "async-trait",
  "config",
  "serde",
  "serde_json",
+ "tokio",
  "tracing",
  "yokoku-domain",
  "yokoku-downloads",

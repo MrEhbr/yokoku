@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use yokoku_config::Config;
 use yokoku_domain::ImportId;
 
 use crate::{app::App, cli::output::Paint};
@@ -21,9 +20,7 @@ pub enum Command {
     Retry { import: ImportId },
 }
 
-pub async fn run(config: &Config, args: Args) -> Result<()> {
-    let app = App::open(config).await?;
-
+pub async fn run(app: &App, args: Args) -> Result<()> {
     match args.command {
         Command::List => {
             let imports = app.importer.list().await?;
@@ -43,10 +40,10 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 }
             }
         },
-        Command::Run => run_imports(&app).await?,
+        Command::Run => run_imports(app).await?,
         Command::Retry { import } => {
             app.importer.retry(import).await?;
-            run_imports(&app).await?;
+            run_imports(app).await?;
         },
     }
     Ok(())

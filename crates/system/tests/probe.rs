@@ -7,6 +7,7 @@ use std::{
 };
 
 use tempfile::TempDir;
+use yokoku_domain::Live;
 use yokoku_media::{
     AudioStream, MediaInfo, SubtitleStream, VideoStream,
     ports::{MediaProbe, ProbeError},
@@ -42,7 +43,7 @@ async fn reads_video_audio_and_subtitle_streams() {
     let report = include_str!("fixtures/ffprobe_sample.json");
     let program = stand_in(dir.path(), report, "", 0);
 
-    let info = FfProbe::new(program).probe(Path::new("/movies/sample.mkv")).await.unwrap();
+    let info = FfProbe::new(Live::fixed(program)).probe(Path::new("/movies/sample.mkv")).await.unwrap();
 
     assert_eq!(info, sample());
 }
@@ -58,7 +59,7 @@ async fn cover_art_is_not_the_video_and_undetermined_languages_are_unknown() {
     ], "format": {} }"#;
     let program = stand_in(dir.path(), report, "", 0);
 
-    let info = FfProbe::new(program).probe(Path::new("/tv/a.mkv")).await.unwrap();
+    let info = FfProbe::new(Live::fixed(program)).probe(Path::new("/tv/a.mkv")).await.unwrap();
 
     assert_eq!(info.video, Some(VideoStream { codec: "hevc".into(), width: 1920, height: 1080 }));
     assert_eq!(info.audio, [AudioStream { codec: "opus".into(), language: None, channels: 2 }]);
@@ -70,7 +71,7 @@ async fn a_file_it_cannot_read_fails_with_its_first_error_line() {
     let dir = TempDir::new().unwrap();
     let program = stand_in(dir.path(), "", "\n/tv/a.mkv: Invalid data found when processing input\n", 1);
 
-    let error = FfProbe::new(program).probe(Path::new("/tv/a.mkv")).await.unwrap_err();
+    let error = FfProbe::new(Live::fixed(program)).probe(Path::new("/tv/a.mkv")).await.unwrap_err();
 
     assert!(
         matches!(&error, ProbeError::Failed { path, reason }
@@ -81,7 +82,8 @@ async fn a_file_it_cannot_read_fails_with_its_first_error_line() {
 
 #[tokio::test]
 async fn a_missing_program_is_reported_as_missing() {
-    let error = FfProbe::new("/nonexistent/ffprobe").probe(Path::new("/tv/a.mkv")).await.unwrap_err();
+    let error =
+        FfProbe::new(Live::fixed("/nonexistent/ffprobe".into())).probe(Path::new("/tv/a.mkv")).await.unwrap_err();
 
     assert!(matches!(error, ProbeError::Missing), "{error}");
 }
@@ -106,7 +108,7 @@ async fn real_ffprobe_reads_a_generated_file() {
         .unwrap();
     assert!(status.success());
 
-    let info = FfProbe::new("ffprobe").probe(&video).await.unwrap();
+    let info = FfProbe::new(Live::fixed("ffprobe".into())).probe(&video).await.unwrap();
 
     assert_eq!(MediaInfo { duration: None, ..info.clone() }, MediaInfo { duration: None, ..sample() });
     assert!(info.duration.is_some_and(|duration| duration >= Duration::from_secs(2)));
