@@ -96,9 +96,9 @@ async fn files_without_a_root_or_a_library_item_are_skipped() {
     let app = App::new().await;
     linked(&app, MESSY).await;
     linked(&app, "movies/Dune (2021)/dune.2021.mkv").await;
-    SeriesRepo::remove(&app.db, app.frieren.id, &[]).await.unwrap();
+    SeriesRepo::remove(&app.db, app.frieren.id).await.unwrap();
     app.roots.remove(&app.path("tv")).await.unwrap();
-    MovieRepo::remove(&app.db, app.dune.id, &[]).await.unwrap();
+    MovieRepo::remove(&app.db, app.dune.id).await.unwrap();
 
     let plan = app.renamer.preview(RenameScope::All).await.unwrap();
 

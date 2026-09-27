@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
 use yokoku_domain::{ExternalId, ItemFolder, MediaFileId, Movie, MovieId, Releases, StorageError};
-use yokoku_events::Event;
 use yokoku_library::ports::MovieRepo;
 
 use crate::{
@@ -70,23 +69,23 @@ impl MovieRepo for Database {
         Ok(self.movie_ids().await?)
     }
 
-    async fn save(&self, movie: &mut Movie, events: &[Event]) -> Result<(), StorageError> {
-        Ok(self.save_movie(movie, events).await?)
+    async fn save(&self, movie: &mut Movie) -> Result<(), StorageError> {
+        Ok(self.save_movie(movie).await?)
     }
 
-    async fn remove(&self, id: MovieId, events: &[Event]) -> Result<(), StorageError> {
+    async fn remove(&self, id: MovieId) -> Result<(), StorageError> {
         let mut tx = self.begin().await?;
         sqlx::query("DELETE FROM movies WHERE id = ?")
             .bind(id.to_string())
             .execute(&mut *tx)
             .await
             .map_err(DbError::from)?;
-        Ok(self.commit(tx, events).await?)
+        Ok(self.commit(tx, &[]).await?)
     }
 }
 
 impl Database {
-    async fn save_movie(&self, movie: &mut Movie, events: &[Event]) -> Result<(), DbError> {
+    async fn save_movie(&self, movie: &mut Movie) -> Result<(), DbError> {
         let source = SourceColumns::from(movie.source);
         let date = |date: Option<Date>| date.map(|date| date.to_string());
         let mut tx = self.begin_save("movies", &movie.id.to_string(), movie.revision).await?;
@@ -124,7 +123,7 @@ impl Database {
         .execute(&mut *tx)
         .await?;
 
-        self.commit(tx, events).await?;
+        self.commit(tx, &[]).await?;
         movie.revision += 1;
         Ok(())
     }

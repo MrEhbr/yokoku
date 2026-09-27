@@ -9,7 +9,7 @@ use tracing::warn;
 use yokoku_db::Database;
 use yokoku_domain::{Clock, MovieMetadata, SeriesMetadata};
 use yokoku_downloads::{DownloadOptions, Downloads, PickUp};
-use yokoku_events::{Delivery, DeliveryConfig, History, Subscriber};
+use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
 use yokoku_integrations::Rescans;
 use yokoku_library::{Library, MetadataSync, Schedule, ports::FolderNames};
 use yokoku_media::{
@@ -162,13 +162,14 @@ impl App {
         let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
         let db = Arc::new(db);
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()?));
+        let events = Publisher::new(Arc::new(db.event_log()));
         let naming = config.naming.naming()?;
         let metadata = &config.metadata;
         let sync = metadata.tmdb_token.as_ref().map(|token| {
             let tmdb =
                 TmdbClient::new(token.expose(), &metadata.language, &metadata.region).with_base_url(&metadata.tmdb_url);
             let folders = Arc::new(NamedFolders(naming.clone()));
-            Arc::new(MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), folders, clock.clone()))
+            Arc::new(MetadataSync::new(db.clone(), db.clone(), Arc::new(tmdb), folders, clock.clone(), events.clone()))
         });
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
@@ -190,7 +191,7 @@ impl App {
         let scanner = Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone()));
 
         Ok(Self {
-            library: Library::new(db.clone(), db.clone(), clock.clone()),
+            library: Library::new(db.clone(), db.clone(), clock.clone(), events.clone()),
             schedule: Schedule::new(db.clone(), db.clone(), clock.clone()),
             roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
             scanner: scanner.clone(),

@@ -54,7 +54,7 @@ async fn loading_a_series_with_a_bad_stored_value_fails(#[case] corruption: &'st
     let path = dir.path().join("yokoku.db");
     let db = Database::open(&path).await.unwrap();
     let mut series = series(1001);
-    SeriesRepo::save(&db, &mut series, &[]).await.unwrap();
+    SeriesRepo::save(&db, &mut series).await.unwrap();
 
     let raw = SqlitePool::connect_with(SqliteConnectOptions::new().filename(&path)).await.unwrap();
     sqlx::query(corruption).execute(&raw).await.unwrap();
@@ -67,7 +67,7 @@ async fn saving_an_episode_source_id_beyond_i64_fails() {
     let db = Database::open_in_memory().await.unwrap();
     let mut series = series(u64::MAX);
 
-    assert!(SeriesRepo::save(&db, &mut series, &[]).await.is_err());
+    assert!(SeriesRepo::save(&db, &mut series).await.is_err());
     assert_eq!(SeriesRepo::get(&db, series.id).await.unwrap(), None);
 }
 

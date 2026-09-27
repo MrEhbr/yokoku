@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use yokoku_domain::{
     ExternalId, ItemFolder, MediaKind, Movie, MovieId, MovieMetadata, Series, SeriesId, SeriesMetadata, StorageError,
 };
-use yokoku_events::Event;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchResult {
@@ -37,10 +36,9 @@ pub enum MetadataError {
     Unavailable(#[source] Box<dyn Error + Send + Sync>),
 }
 
-/// Writes store the aggregate and `events` in one transaction. A save inserts an aggregate at
-/// revision 0 and otherwise updates it only when the stored revision matches, then bumps
-/// `revision`; a save made from an older revision, or of a removed aggregate, fails with
-/// `StorageError::Conflict`.
+/// A save inserts an aggregate at revision 0 and otherwise updates it only when the stored
+/// revision matches, then bumps `revision`; a save made from an older revision, or of a removed
+/// aggregate, fails with `StorageError::Conflict`.
 #[async_trait]
 pub trait SeriesRepo: Send + Sync {
     async fn get(&self, id: SeriesId) -> Result<Option<Series>, StorageError>;
@@ -48,20 +46,19 @@ pub trait SeriesRepo: Send + Sync {
     async fn find_by_folder(&self, folder: &ItemFolder) -> Result<Option<SeriesId>, StorageError>;
     async fn ids(&self) -> Result<Vec<SeriesId>, StorageError>;
     /// Saves the series with all its seasons and episodes.
-    async fn save(&self, series: &mut Series, events: &[Event]) -> Result<(), StorageError>;
-    async fn remove(&self, id: SeriesId, events: &[Event]) -> Result<(), StorageError>;
+    async fn save(&self, series: &mut Series) -> Result<(), StorageError>;
+    async fn remove(&self, id: SeriesId) -> Result<(), StorageError>;
 }
 
-/// Writes store the aggregate and `events` in one transaction. A save inserts an aggregate at
-/// revision 0 and otherwise updates it only when the stored revision matches, then bumps
-/// `revision`; a save made from an older revision, or of a removed aggregate, fails with
-/// `StorageError::Conflict`.
+/// A save inserts an aggregate at revision 0 and otherwise updates it only when the stored
+/// revision matches, then bumps `revision`; a save made from an older revision, or of a removed
+/// aggregate, fails with `StorageError::Conflict`.
 #[async_trait]
 pub trait MovieRepo: Send + Sync {
     async fn get(&self, id: MovieId) -> Result<Option<Movie>, StorageError>;
     async fn find_by_source(&self, source: ExternalId) -> Result<Option<Movie>, StorageError>;
     async fn find_by_folder(&self, folder: &ItemFolder) -> Result<Option<MovieId>, StorageError>;
     async fn ids(&self) -> Result<Vec<MovieId>, StorageError>;
-    async fn save(&self, movie: &mut Movie, events: &[Event]) -> Result<(), StorageError>;
-    async fn remove(&self, id: MovieId, events: &[Event]) -> Result<(), StorageError>;
+    async fn save(&self, movie: &mut Movie) -> Result<(), StorageError>;
+    async fn remove(&self, id: MovieId) -> Result<(), StorageError>;
 }

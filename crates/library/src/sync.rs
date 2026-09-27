@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use yokoku_domain::{
     Clock, ExternalId, ItemFolder, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
 };
-use yokoku_events::{MovieAdded, SeriesAdded};
+use yokoku_events::{MovieAdded, Publisher, SeriesAdded};
 
 use crate::{
     LibraryError,
@@ -18,6 +18,7 @@ pub struct MetadataSync {
     metadata: Arc<dyn MetadataProvider>,
     folders: Arc<dyn FolderNames>,
     clock: Arc<dyn Clock>,
+    events: Publisher,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,8 +46,9 @@ impl MetadataSync {
         metadata: Arc<dyn MetadataProvider>,
         folders: Arc<dyn FolderNames>,
         clock: Arc<dyn Clock>,
+        events: Publisher,
     ) -> Self {
-        Self { series, movies, metadata, folders, clock }
+        Self { series, movies, metadata, folders, clock, events }
     }
 
     pub async fn search(&self, query: &str) -> Result<Vec<SearchHit>, LibraryError> {
@@ -81,8 +83,8 @@ impl MetadataSync {
         let now = self.clock.now();
 
         let mut series = Series::add(metadata, folder, preset, now.date(), now.timestamp());
-        let added = SeriesAdded { series: series.id, title: series.title.clone() }.into();
-        self.series.save(&mut series, &[added]).await?;
+        self.series.save(&mut series).await?;
+        self.events.publish(SeriesAdded { series: series.id, title: series.title.clone() }).await;
         Ok(series)
     }
 
@@ -105,8 +107,8 @@ impl MetadataSync {
         }
 
         let mut movie = Movie::add(metadata, folder, monitored, self.clock.now().timestamp());
-        let added = MovieAdded { movie: movie.id, title: movie.title.clone() }.into();
-        self.movies.save(&mut movie, &[added]).await?;
+        self.movies.save(&mut movie).await?;
+        self.events.publish(MovieAdded { movie: movie.id, title: movie.title.clone() }).await;
         Ok(movie)
     }
 
@@ -118,7 +120,7 @@ impl MetadataSync {
         retry::on_conflict(|| async move {
             let mut series = self.series.get(id).await?.ok_or(LibraryError::SeriesNotFound(id))?;
             series.refresh(metadata.clone(), self.clock.now().timestamp());
-            self.series.save(&mut series, &[]).await?;
+            self.series.save(&mut series).await?;
             Ok(series)
         })
         .await
@@ -132,7 +134,7 @@ impl MetadataSync {
         retry::on_conflict(|| async move {
             let mut movie = self.movies.get(id).await?.ok_or(LibraryError::MovieNotFound(id))?;
             movie.refresh(metadata.clone(), self.clock.now().timestamp());
-            self.movies.save(&mut movie, &[]).await?;
+            self.movies.save(&mut movie).await?;
             Ok(movie)
         })
         .await

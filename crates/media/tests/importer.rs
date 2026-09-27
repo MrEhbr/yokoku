@@ -138,7 +138,7 @@ async fn files_go_to_the_item_folder_after_its_title_changes() {
     approved(&app).await;
     let mut frieren = app.frieren.clone();
     frieren.title = "Sousou no Frieren".into();
-    SeriesRepo::save(&app.db, &mut frieren, &[]).await.unwrap();
+    SeriesRepo::save(&app.db, &mut frieren).await.unwrap();
 
     app.importer(ImportMode::HardLink).run_pending().await.unwrap();
 

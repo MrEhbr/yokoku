@@ -7,7 +7,6 @@ use yokoku_domain::{
     Episode, EpisodeId, ExternalId, ItemFolder, MediaFileId, Numbering, Season, Series, SeriesId, SourceStatus,
     StorageError,
 };
-use yokoku_events::Event;
 use yokoku_library::ports::SeriesRepo;
 
 use crate::{
@@ -89,18 +88,18 @@ impl SeriesRepo for Database {
         Ok(self.series_ids().await?)
     }
 
-    async fn save(&self, series: &mut Series, events: &[Event]) -> Result<(), StorageError> {
-        Ok(self.save_series(series, events).await?)
+    async fn save(&self, series: &mut Series) -> Result<(), StorageError> {
+        Ok(self.save_series(series).await?)
     }
 
-    async fn remove(&self, id: SeriesId, events: &[Event]) -> Result<(), StorageError> {
+    async fn remove(&self, id: SeriesId) -> Result<(), StorageError> {
         let mut tx = self.begin().await?;
         sqlx::query("DELETE FROM series WHERE id = ?")
             .bind(id.to_string())
             .execute(&mut *tx)
             .await
             .map_err(DbError::from)?;
-        Ok(self.commit(tx, events).await?)
+        Ok(self.commit(tx, &[]).await?)
     }
 }
 
@@ -141,7 +140,7 @@ impl Database {
         Ok(Some(row.into_series(seasons, episodes)?))
     }
 
-    async fn save_series(&self, series: &mut Series, events: &[Event]) -> Result<(), DbError> {
+    async fn save_series(&self, series: &mut Series) -> Result<(), DbError> {
         let id = series.id.to_string();
         let source = SourceColumns::from(series.source);
         let mut tx = self.begin_save("series", &id, series.revision).await?;
@@ -224,7 +223,7 @@ impl Database {
             .execute(&mut *tx)
             .await?;
 
-        self.commit(tx, events).await?;
+        self.commit(tx, &[]).await?;
         series.revision += 1;
         Ok(())
     }

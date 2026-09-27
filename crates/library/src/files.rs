@@ -49,12 +49,12 @@ impl FileTracker {
                             change(&mut episode.file);
                         }
                     }
-                    self.series.save(&mut series, &[]).await?;
+                    self.series.save(&mut series).await?;
                 },
                 FileTarget::Movie(movie) => {
                     let Some(mut movie) = self.movies.get(movie).await? else { return Ok(()) };
                     change(&mut movie.file);
-                    self.movies.save(&mut movie, &[]).await?;
+                    self.movies.save(&mut movie).await?;
                 },
             }
             Ok(())

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use jiff::civil::Date;
 use yokoku_domain::{Clock, EpisodeRef, ExternalId, Movie, MovieId, Numbering, Series, SeriesId};
-use yokoku_events::{MovieRemoved, SeriesRemoved};
+use yokoku_events::{MovieRemoved, Publisher, SeriesRemoved};
 
 use crate::{
     LibraryEntry, LibraryError, LibraryFilter, LibrarySort,
@@ -16,11 +16,17 @@ pub struct Library {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
     clock: Arc<dyn Clock>,
+    events: Publisher,
 }
 
 impl Library {
-    pub fn new(series: Arc<dyn SeriesRepo>, movies: Arc<dyn MovieRepo>, clock: Arc<dyn Clock>) -> Self {
-        Self { series, movies, clock }
+    pub fn new(
+        series: Arc<dyn SeriesRepo>,
+        movies: Arc<dyn MovieRepo>,
+        clock: Arc<dyn Clock>,
+        events: Publisher,
+    ) -> Self {
+        Self { series, movies, clock, events }
     }
 
     pub fn today(&self) -> Date {
@@ -96,21 +102,23 @@ impl Library {
         retry::on_conflict(|| async move {
             let mut movie = self.movie(id).await?;
             movie.monitored = monitored;
-            Ok(self.movies.save(&mut movie, &[]).await?)
+            Ok(self.movies.save(&mut movie).await?)
         })
         .await
     }
 
     pub async fn remove_series(&self, id: SeriesId, delete_files: bool) -> Result<(), LibraryError> {
         let series = self.series(id).await?;
-        let removed = SeriesRemoved { series: id, title: series.title, delete_files }.into();
-        Ok(self.series.remove(id, &[removed]).await?)
+        self.series.remove(id).await?;
+        self.events.publish(SeriesRemoved { series: id, title: series.title, delete_files }).await;
+        Ok(())
     }
 
     pub async fn remove_movie(&self, id: MovieId, delete_files: bool) -> Result<(), LibraryError> {
         let movie = self.movie(id).await?;
-        let removed = MovieRemoved { movie: id, title: movie.title, delete_files }.into();
-        Ok(self.movies.remove(id, &[removed]).await?)
+        self.movies.remove(id).await?;
+        self.events.publish(MovieRemoved { movie: id, title: movie.title, delete_files }).await;
+        Ok(())
     }
 
     async fn update_series(
@@ -122,7 +130,7 @@ impl Library {
         retry::on_conflict(|| async move {
             let mut series = self.series(id).await?;
             change(&mut series)?;
-            Ok(self.series.save(&mut series, &[]).await?)
+            Ok(self.series.save(&mut series).await?)
         })
         .await
     }

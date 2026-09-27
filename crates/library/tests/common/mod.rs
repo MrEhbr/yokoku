@@ -15,7 +15,7 @@ use yokoku_domain::{
     Clock, EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata,
     SourceStatus,
 };
-use yokoku_events::{Event, EventLog};
+use yokoku_events::{Event, EventLog, Publisher};
 use yokoku_library::{
     Library, MetadataSync, Schedule,
     ports::{FolderNames, MetadataError, MetadataProvider, SearchResult},
@@ -178,9 +178,11 @@ impl App {
         let clock = Arc::new(FixedClock(Mutex::new(TODAY.at(12, 0, 0, 0).in_tz("Europe/Berlin").unwrap())));
         let metadata = Arc::new(StaticMetadata::default());
         let repo = Arc::new(db.clone());
-        let library = Library::new(repo.clone(), repo.clone(), clock.clone());
+        let events = Publisher::new(Arc::new(db.event_log()));
+        let library = Library::new(repo.clone(), repo.clone(), clock.clone(), events.clone());
         let schedule = Schedule::new(repo.clone(), repo.clone(), clock.clone());
-        let sync = MetadataSync::new(repo.clone(), repo, metadata.clone(), Arc::new(SourceFolders), clock.clone());
+        let sync =
+            MetadataSync::new(repo.clone(), repo, metadata.clone(), Arc::new(SourceFolders), clock.clone(), events);
         Self { db, clock, metadata, library, schedule, sync }
     }
 

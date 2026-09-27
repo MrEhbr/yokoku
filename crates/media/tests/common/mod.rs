@@ -75,8 +75,8 @@ impl App {
         let movies = ItemFolder::new(dir.path().join("movies"), "Dune (2021)".into()).unwrap();
         let mut frieren = Series::add(frieren_metadata(), tv, MonitorPreset::All, TODAY, now());
         let mut dune = Movie::add(dune_metadata(), movies, true, now());
-        SeriesRepo::save(&db, &mut frieren, &[]).await.unwrap();
-        MovieRepo::save(&db, &mut dune, &[]).await.unwrap();
+        SeriesRepo::save(&db, &mut frieren).await.unwrap();
+        MovieRepo::save(&db, &mut dune).await.unwrap();
 
         let app = Self { dir, db, roots, scanner, review, renamer, planner, frieren, dune };
         app.roots.add(RootKind::Series, &app.path("tv")).await.unwrap();

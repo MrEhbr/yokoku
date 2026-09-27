@@ -154,7 +154,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
   - `MetadataSync` (+ metadata source): search, add (applying a monitor preset, into a root folder of the item's kind, which the caller takes from `media`), refresh one item or all.
   - `Schedule` (repositories + clock): calendar for a date range, upcoming, missing grouped by series. Only monitored items appear (FR-2.3).
 - **Later:** iCal feed (served by `web`).
-- **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates, events in the same transaction), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
+- **Ports:** `SeriesRepo`, `MovieRepo` (whole aggregates), `Publisher` (events, appended after the save), `MetadataProvider`, `Clock`. The list is built from the aggregates; a dedicated query port comes only if the library grows large enough to need one.
 - **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
 - **Subscribes to:** `FilesFound`, `FilesImported`, `FileDeleted` (`FileTracker` updates the file projection). `FileRenamed` keeps the file id, so the projection needs no change.
 

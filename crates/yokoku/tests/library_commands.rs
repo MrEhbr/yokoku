@@ -83,11 +83,10 @@ async fn seeded_library() -> Library {
     SeriesRepo::save(
         &db,
         &mut Series::add(frieren, ItemFolder::default(), MonitorPreset::All, today(), Timestamp::now()),
-        &[],
     )
     .await
     .unwrap();
-    MovieRepo::save(&db, &mut Movie::add(dune, ItemFolder::default(), true, Timestamp::now()), &[]).await.unwrap();
+    MovieRepo::save(&db, &mut Movie::add(dune, ItemFolder::default(), true, Timestamp::now())).await.unwrap();
     library
 }
 

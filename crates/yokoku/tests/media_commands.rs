@@ -51,7 +51,7 @@ impl Setup {
             status: SourceStatus::Returning,
             seasons: vec![SeasonMetadata { number: 1, episodes: vec![episode(1), episode(2)] }],
         };
-        SeriesRepo::save(&db, &mut Series::add(frieren, folder, MonitorPreset::All, today(), Timestamp::now()), &[])
+        SeriesRepo::save(&db, &mut Series::add(frieren, folder, MonitorPreset::All, today(), Timestamp::now()))
             .await
             .unwrap();
 

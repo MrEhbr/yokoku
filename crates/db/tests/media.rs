@@ -239,8 +239,8 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
         true,
         now(),
     );
-    SeriesRepo::save(&db, &mut series, &[]).await.unwrap();
-    MovieRepo::save(&db, &mut movie, &[]).await.unwrap();
+    SeriesRepo::save(&db, &mut series).await.unwrap();
+    MovieRepo::save(&db, &mut movie).await.unwrap();
 
     assert_eq!(db.all_series().await.unwrap(), std::slice::from_ref(&series));
     assert_eq!(db.all_movies().await.unwrap(), std::slice::from_ref(&movie));

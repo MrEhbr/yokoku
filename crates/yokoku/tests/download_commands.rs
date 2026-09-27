@@ -40,7 +40,7 @@ impl Setup {
             releases: Releases::default(),
         };
         let folder = ItemFolder::new(dir.path().join("movies"), "Dune (2021)".into()).unwrap();
-        MovieRepo::save(&db, &mut Movie::add(dune, folder, true, Timestamp::now()), &[]).await.unwrap();
+        MovieRepo::save(&db, &mut Movie::add(dune, folder, true, Timestamp::now())).await.unwrap();
 
         let transmission = MockServer::start().await;
         Mock::given(method("POST"))
