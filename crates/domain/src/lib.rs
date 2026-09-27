@@ -28,7 +28,7 @@ pub use id::{CorrelationId, DownloadId, EpisodeId, ImportId, MediaFileId, MovieI
 pub use item::{ItemId, MediaKind, title_with_year};
 pub use live::Live;
 pub use movie::{Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
-pub use secret::{REDACTED, Secret};
+pub use secret::Secret;
 pub use series::{
     Episode, EpisodeMetadata, EpisodeRef, EpisodeSpan, MonitorPreset, Numbering, ParseEpisodeSpanError, Season,
     SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus,

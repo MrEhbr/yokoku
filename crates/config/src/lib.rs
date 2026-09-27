@@ -11,7 +11,7 @@ use anyhow::{Result, bail};
 use config::{Environment, File, FileFormat};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use yokoku_domain::REDACTED;
+use yokoku_domain::Secret;
 use yokoku_downloads::DownloadOptions;
 use yokoku_jobs::ScheduleSettings;
 use yokoku_media::ImportSettings;
@@ -27,6 +27,10 @@ pub use crate::{
 };
 
 const ENV_PREFIX: &str = "APP";
+
+/// Every `Secret` setting.
+const SECRETS: [&str; 5] =
+    ["metadata.tmdb.token", "metadata.tvdb.api_key", "metadata.tvdb.pin", "transmission.password", "jellyfin.api_key"];
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(default)]
@@ -75,15 +79,18 @@ impl Config {
         Ok(())
     }
 
-    /// The value of a known setting, e.g. `import.mode`, as JSON: `"copy"`, `14`.
+    /// The value of a known setting, e.g. `import.mode`, as JSON: `"copy"`, `14`; a secret masked.
     pub fn setting(&self, key: &str) -> Result<String> {
-        Ok(self.value(key)?.to_string())
+        let value = self.value(key)?;
+        Ok(match value {
+            Value::String(secret) if Self::is_secret(key) => Value::from(Secret::new(secret).masked()).to_string(),
+            value => value.to_string(),
+        })
     }
 
-    /// Whether `key` holds a `Secret`, which `setting` shows as `"<redacted>"`.
+    /// Whether `key` holds a `Secret`.
     pub fn is_secret(key: &str) -> bool {
-        let probe = [(key.to_owned(), Value::from("probe"))];
-        Self::load(None, &probe).and_then(|config| config.value(key)).is_ok_and(|value| value == REDACTED)
+        SECRETS.contains(&key)
     }
 
     /// Fails unless `key` is a setting the database can store.

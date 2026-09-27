@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use serde_json::Value;
 use yokoku_config::Config;
 use yokoku_db::Database;
-use yokoku_domain::{REDACTED, SettingsStore};
+use yokoku_domain::{Secret, SettingsStore};
 use yokoku_events::{Publisher, SettingsChanged};
 use yokoku_system::FileSpool;
 
@@ -76,7 +76,12 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
     Ok(())
 }
 
-/// A stored value as JSON, or `"<redacted>"` for a secret.
+/// A stored value as JSON, with a secret given inline masked; a secret file shows its path.
 fn shown(key: &str, value: &Value) -> String {
-    if Config::is_secret(key) { Value::from(REDACTED).to_string() } else { value.to_string() }
+    match value {
+        Value::String(secret) if Config::is_secret(key) => {
+            Value::from(Secret::new(secret.as_str()).masked()).to_string()
+        },
+        value => value.to_string(),
+    }
 }

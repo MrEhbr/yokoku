@@ -4879,6 +4879,7 @@ dependencies = [
  "config",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
  "yokoku-domain",

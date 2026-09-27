@@ -3,14 +3,17 @@ use std::path::PathBuf;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
 
-/// How every secret serializes.
-pub const REDACTED: &str = "<redacted>";
+/// Characters `masked` shows at each end.
+const SHOWN: usize = 4;
 
 /// A secret value, given inline or read from a file when deserialized.
 ///
 /// In TOML:
 ///   `key = "literal-value"`
 ///   `key = { file = "/path" }`   the file's content, without trailing whitespace
+///
+/// It serializes as its value, so a saved secret loads again; `masked` is how it is shown, and `Debug`
+/// shows nothing of it.
 #[derive(Debug, Clone)]
 pub struct Secret(SecretString);
 
@@ -29,6 +32,14 @@ impl Secret {
     pub fn expose(&self) -> &str {
         self.0.expose_secret()
     }
+
+    /// The first and last four characters, `abcd…wxyz`; for eight or fewer, `…` and the last quarter.
+    pub fn masked(&self) -> String {
+        let chars: Vec<char> = self.expose().chars().collect();
+        let (head, tail) = if chars.len() > 2 * SHOWN { (SHOWN, SHOWN) } else { (0, chars.len() / 4) };
+        let (start, end) = (&chars[..head], &chars[chars.len() - tail..]);
+        format!("{}…{}", String::from_iter(start), String::from_iter(end))
+    }
 }
 
 impl<'de> Deserialize<'de> for Secret {
@@ -46,12 +57,14 @@ impl<'de> Deserialize<'de> for Secret {
 
 impl Serialize for Secret {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(REDACTED)
+        serializer.serialize_str(self.expose())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
 
     #[derive(Deserialize, Serialize)]
@@ -86,10 +99,25 @@ mod tests {
     }
 
     #[test]
-    fn never_shows_the_value() {
-        let holder = holder(r#"secret = "hello""#).unwrap();
+    fn serializes_as_its_value_so_it_loads_again() {
+        let saved = toml::to_string(&holder(r#"secret = "hello""#).unwrap()).unwrap();
 
-        assert_eq!(serde_json::to_value(&holder).unwrap()["secret"], REDACTED);
-        assert!(!format!("{:?}", holder.secret).contains("hello"));
+        assert_eq!(holder(&saved).unwrap().secret.expose(), "hello");
+    }
+
+    #[rstest]
+    #[case::long("eyJhbGciOiJIUzI1NiJ9", "eyJh…NiJ9")]
+    #[case::nine("123456789", "1234…6789")]
+    #[case::eight("12345678", "…78")]
+    #[case::pin("1234", "…4")]
+    #[case::tiny("abc", "…")]
+    #[case::multibyte("пароль-секрет", "паро…крет")]
+    fn masks_all_but_its_ends(#[case] value: &str, #[case] masked: &str) {
+        assert_eq!(Secret::new(value).masked(), masked);
+    }
+
+    #[test]
+    fn debug_shows_nothing_of_it() {
+        assert!(!format!("{:?}", Secret::new("hello")).contains("hel"));
     }
 }

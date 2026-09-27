@@ -91,7 +91,7 @@ fn environment_variables_take_precedence_over_stored_settings() {
 }
 
 #[test]
-fn secrets_are_never_shown() {
+fn secrets_are_shown_masked() {
     let setup = setup();
 
     let unset = setup
@@ -108,11 +108,11 @@ fn secrets_are_never_shown() {
         .unwrap();
 
     assert_eq!(String::from_utf8(unset.stdout).unwrap(), "null\n");
-    assert_eq!(String::from_utf8(set.stdout).unwrap(), "\"<redacted>\"\n");
+    assert_eq!(String::from_utf8(set.stdout).unwrap(), "\"very…cret\"\n");
 }
 
 #[test]
-fn secrets_can_be_stored_but_are_never_shown() {
+fn secrets_can_be_stored_but_are_shown_masked() {
     let setup = setup();
 
     let run = |args: &[&str]| {
@@ -125,9 +125,9 @@ fn secrets_can_be_stored_but_are_never_shown() {
     let listed = run(&["settings", "list"]);
     let effective = run(&["settings", "get", "metadata.tmdb.token"]);
 
-    assert_eq!(stored, "Set metadata.tmdb.token = \"<redacted>\"\n");
-    assert_eq!(listed, "metadata.tmdb.token = \"<redacted>\"\n");
-    assert_eq!(effective, "\"<redacted>\"\n");
+    assert_eq!(stored, "Set metadata.tmdb.token = \"very…cret\"\n");
+    assert_eq!(listed, "metadata.tmdb.token = \"very…cret\"\n");
+    assert_eq!(effective, "\"very…cret\"\n");
 }
 
 #[test]
