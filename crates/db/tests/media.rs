@@ -254,6 +254,35 @@ async fn renamed_files_keep_their_id_and_target(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
+async fn claimed_paths_are_rows_of_unfinished_imports_and_skipped_rows(#[future] db: Database) {
+    let db = db.await;
+    let mut imports = Vec::new();
+    for (status, name) in [
+        (ImportStatus::NeedsReview, "review"),
+        (ImportStatus::Approved, "approved"),
+        (ImportStatus::Importing, "importing"),
+        (ImportStatus::Failed, "failed"),
+        (ImportStatus::Done, "done"),
+    ] {
+        let skipped = ImportRow { skipped: true, ..row(&format!("/{name}/skipped.mkv"), None) };
+        let rows = vec![row(&format!("/{name}/kept.mkv"), None), skipped];
+        imports.push(Import { status, ..import(&format!("/{name}"), now(), rows) });
+    }
+    MediaRepo::save(&db, &Changes { imports, ..Changes::default() }).await.unwrap();
+
+    let mut claimed = db.claimed_paths().await.unwrap();
+    claimed.sort();
+
+    let unfinished = ["approved", "failed", "importing", "review"]
+        .into_iter()
+        .flat_map(|name| [format!("/{name}/kept.mkv"), format!("/{name}/skipped.mkv")]);
+    let mut expected: Vec<PathBuf> = unfinished.chain(["/done/skipped.mkv".into()]).map(PathBuf::from).collect();
+    expected.sort();
+    assert_eq!(claimed, expected);
+}
+
+#[rstest]
+#[tokio::test]
 async fn the_library_reads_where_a_file_is_now(#[future] db: Database) {
     let db = db.await;
     let linked = file("/tv/a.mkv", episodes(1, 1));

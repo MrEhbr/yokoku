@@ -152,6 +152,17 @@ impl MediaRepo for Database {
         }
     }
 
+    async fn claimed_paths(&self) -> Result<Vec<PathBuf>, StorageError> {
+        let paths: Vec<String> = sqlx::query_scalar(
+            "SELECT import_rows.path FROM import_rows JOIN imports ON imports.id = import_rows.import_id
+             WHERE imports.status != 'done' OR import_rows.skipped",
+        )
+        .fetch_all(self.pool())
+        .await
+        .map_err(DbError::from)?;
+        Ok(paths.into_iter().map(PathBuf::from).collect())
+    }
+
     async fn claim_next_approved(&self) -> Result<Option<Import>, StorageError> {
         let record: Option<ImportRecord> = sqlx::query_as(
             "UPDATE imports SET status = 'importing'

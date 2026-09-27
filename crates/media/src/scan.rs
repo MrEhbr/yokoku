@@ -40,8 +40,18 @@ pub struct ScanReport {
 
 /// Library files and the files already taken by imports, read once per scan.
 struct Known {
+    /// Ordered by path, so the files under a folder are adjacent.
     files: Vec<MediaFile>,
+    paths: HashSet<PathBuf>,
     claimed: HashSet<PathBuf>,
+}
+
+impl Known {
+    fn under(&self, folder: &Path) -> &[MediaFile] {
+        let start = self.files.partition_point(|file| file.path.as_path() < folder);
+        let len = self.files[start..].partition_point(|file| file.path.starts_with(folder));
+        &self.files[start..start + len]
+    }
 }
 
 impl Scanner {
@@ -115,18 +125,19 @@ impl Scanner {
         let listed = if self.fs.is_dir(&path).await? { self.fs.files(&path).await? } else { Vec::new() };
         let now = self.clock.now().timestamp();
         let (changes, events) = scan_folder(&folder.root, &path, listed, known, scope, now);
+        if changes.added_files.is_empty() && changes.removed_files.is_empty() && changes.imports.is_empty() {
+            return Ok(());
+        }
 
         self.repo.save(&changes).await?;
         self.events.publish_all(events).await;
-        if !changes.added_files.is_empty() || !changes.removed_files.is_empty() || !changes.imports.is_empty() {
-            info!(
-                folder = %path.display(),
-                found = changes.added_files.len(),
-                vanished = changes.removed_files.len(),
-                needs_review = changes.imports.len(),
-                "item folder changed outside the app"
-            );
-        }
+        info!(
+            folder = %path.display(),
+            found = changes.added_files.len(),
+            vanished = changes.removed_files.len(),
+            needs_review = changes.imports.len(),
+            "item folder changed outside the app"
+        );
         report.found += changes.added_files.len();
         report.vanished += changes.removed_files.len();
         report.needs_review.extend(changes.imports.iter().map(|import| import.id));
@@ -185,20 +196,11 @@ impl Scanner {
     }
 
     async fn known(&self) -> Result<Known, MediaError> {
-        Ok(Known { files: self.repo.files().await?, claimed: self.claimed_paths().await? })
-    }
-
-    /// Files of imports not yet done, and files the user chose to skip.
-    async fn claimed_paths(&self) -> Result<HashSet<PathBuf>, MediaError> {
-        let mut pending = Vec::new();
-        for status in [ImportStatus::NeedsReview, ImportStatus::Approved, ImportStatus::Importing, ImportStatus::Failed]
-        {
-            pending.extend(self.repo.imports(status).await?);
-        }
-        let done = self.repo.imports(ImportStatus::Done).await?;
-        let pending_rows = pending.into_iter().flat_map(|import| import.rows);
-        let skipped_rows = done.into_iter().flat_map(|import| import.rows).filter(|row| row.skipped);
-        Ok(pending_rows.chain(skipped_rows).map(|row| row.path).collect())
+        let mut files = self.repo.files().await?;
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        let paths = files.iter().map(|file| file.path.clone()).collect();
+        let claimed = self.repo.claimed_paths().await?.into_iter().collect();
+        Ok(Known { files, paths, claimed })
     }
 }
 
@@ -236,18 +238,20 @@ fn scan_folder(
     now: Timestamp,
 ) -> (Changes, Vec<Event>) {
     let listed_paths: HashSet<&Path> = listed.iter().map(|file| file.path.as_path()).collect();
-    let (vanished, kept): (Vec<&MediaFile>, Vec<&MediaFile>) = known
-        .files
-        .iter()
-        .partition(|file| file.path.starts_with(folder) && !listed_paths.contains(file.path.as_path()));
-    let known_paths: HashSet<&Path> = known.files.iter().map(|file| file.path.as_path()).collect();
-    let mut occupied: Vec<FileTarget> = kept.iter().map(|file| file.target).collect();
+    let vanished: Vec<&MediaFile> =
+        known.under(folder).iter().filter(|file| !listed_paths.contains(file.path.as_path())).collect();
 
     let new_files: Vec<ListedFile> = listed
         .into_iter()
-        .filter(|file| !known_paths.contains(file.path.as_path()) && !known.claimed.contains(&file.path))
+        .filter(|file| !known.paths.contains(&file.path) && !known.claimed.contains(&file.path))
         .filter_map(|file| Some(ListedFile { path: file.path.strip_prefix(root).ok()?.to_owned(), size: file.size }))
         .collect();
+    let mut occupied: Vec<FileTarget> = if new_files.is_empty() {
+        Vec::new()
+    } else {
+        let gone: HashSet<MediaFileId> = vanished.iter().map(|file| file.id).collect();
+        known.files.iter().filter(|file| !gone.contains(&file.id)).map(|file| file.target).collect()
+    };
 
     let mut changes = Changes::default();
     let mut rows = Vec::new();
@@ -295,4 +299,33 @@ fn scan_folder(
     );
     changes.removed_files = vanished.iter().map(|file| file.id).collect();
     (changes, events)
+}
+
+#[cfg(test)]
+mod tests {
+    use yokoku_domain::MovieId;
+
+    use super::*;
+
+    #[test]
+    fn under_holds_only_the_files_inside_the_folder() {
+        let file = |path: &str| MediaFile {
+            id: MediaFileId::generate(),
+            path: path.into(),
+            size: 1,
+            target: FileTarget::Movie(MovieId::generate()),
+            added_at: Timestamp::UNIX_EPOCH,
+        };
+        let mut files: Vec<MediaFile> =
+            ["/tv/A (2023) Extra/a.mkv", "/tv/A (2023)/S1/b.mkv", "/tv/A (2023)/a.mkv", "/tv/A/a.mkv"]
+                .into_iter()
+                .map(file)
+                .collect();
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        let known = Known { files, paths: HashSet::new(), claimed: HashSet::new() };
+
+        let under: Vec<_> = known.under(Path::new("/tv/A (2023)")).iter().map(|file| file.path.clone()).collect();
+
+        assert_eq!(under, [PathBuf::from("/tv/A (2023)/S1/b.mkv"), PathBuf::from("/tv/A (2023)/a.mkv")]);
+    }
 }

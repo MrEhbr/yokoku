@@ -118,6 +118,8 @@ pub trait MediaRepo: Send + Sync {
     /// Oldest first.
     async fn imports(&self, status: ImportStatus) -> Result<Vec<Import>, StorageError>;
     async fn import_for_download(&self, download: DownloadId) -> Result<Option<Import>, StorageError>;
+    /// Paths of the rows of imports not yet done, and of skipped rows of done ones.
+    async fn claimed_paths(&self) -> Result<Vec<PathBuf>, StorageError>;
     /// Moves the oldest `Approved` import to `Importing` and returns it; one caller wins each import.
     async fn claim_next_approved(&self) -> Result<Option<Import>, StorageError>;
     /// Moves every `Importing` import back to `Approved`; returns how many.
