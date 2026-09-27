@@ -17,9 +17,10 @@ use yokoku_media::{
     Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
     ports::{FileSystem, LibraryLock},
 };
+use yokoku_media_servers::JellyfinClient;
 use yokoku_metadata::{Sources, TmdbClient, TvdbClient};
 use yokoku_naming::Naming;
-use yokoku_system::{FfProbe, FileSpool, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
+use yokoku_system::{FfProbe, FileSpool, LocalFileSystem, LockFile, SystemClock};
 
 use crate::subscriptions;
 

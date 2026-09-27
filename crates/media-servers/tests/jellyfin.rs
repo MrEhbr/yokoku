@@ -5,7 +5,7 @@ use wiremock::{
 };
 use yokoku_domain::{Live, Secret};
 use yokoku_integrations::ports::{MediaServer, MediaServerError};
-use yokoku_system::{JellyfinClient, JellyfinSettings};
+use yokoku_media_servers::{JellyfinClient, JellyfinSettings};
 
 const AUTHORIZATION: &str = "MediaBrowser Token=\"secret\"";
 

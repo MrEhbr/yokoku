@@ -16,9 +16,10 @@ use yokoku_download_clients::TransmissionSettings;
 use yokoku_downloads::DownloadOptions;
 use yokoku_jobs::ScheduleSettings;
 use yokoku_media::ImportSettings;
+use yokoku_media_servers::JellyfinSettings;
 use yokoku_metadata::MetadataSettings;
 use yokoku_naming::Naming;
-use yokoku_system::{ClockSettings, JellyfinSettings, ProbeSettings};
+use yokoku_system::{ClockSettings, ProbeSettings};
 
 pub use crate::{
     log::{LogConfig, LogFormat, LogOutput},

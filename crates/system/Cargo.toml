@@ -12,12 +12,10 @@ workspace = true
 yokoku-detect.workspace = true
 yokoku-domain.workspace = true
 yokoku-events.workspace = true
-yokoku-integrations.workspace = true
 yokoku-media.workspace = true
 
 async-trait.workspace = true
 jiff = { workspace = true, features = ["serde"] }
-reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["fs", "process", "rt", "time"] }
@@ -25,6 +23,5 @@ tracing.workspace = true
 walkdir.workspace = true
 
 [dev-dependencies]
-wiremock.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }

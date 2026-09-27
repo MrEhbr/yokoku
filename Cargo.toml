@@ -20,6 +20,7 @@ yokoku-integrations = { path = "crates/integrations" }
 yokoku-jobs = { path = "crates/jobs" }
 yokoku-library = { path = "crates/library" }
 yokoku-media = { path = "crates/media" }
+yokoku-media-servers = { path = "crates/media-servers" }
 yokoku-metadata = { path = "crates/metadata" }
 yokoku-naming = { path = "crates/naming" }
 yokoku-system = { path = "crates/system" }

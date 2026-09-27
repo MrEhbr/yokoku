@@ -4864,6 +4864,7 @@ dependencies = [
  "yokoku-jobs",
  "yokoku-library",
  "yokoku-media",
+ "yokoku-media-servers",
  "yokoku-metadata",
  "yokoku-naming",
  "yokoku-system",
@@ -4889,6 +4890,7 @@ dependencies = [
  "yokoku-jobs",
  "yokoku-library",
  "yokoku-media",
+ "yokoku-media-servers",
  "yokoku-metadata",
  "yokoku-naming",
  "yokoku-system",
@@ -5079,6 +5081,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "yokoku-media-servers"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "wiremock",
+ "yokoku-domain",
+ "yokoku-integrations",
+]
+
+[[package]]
 name = "yokoku-metadata"
 version = "0.0.1"
 dependencies = [
@@ -5116,18 +5133,15 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "jiff",
- "reqwest",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
  "tracing",
  "walkdir",
- "wiremock",
  "yokoku-detect",
  "yokoku-domain",
  "yokoku-events",
- "yokoku-integrations",
  "yokoku-media",
 ]
 

@@ -1,0 +1,23 @@
+[package]
+name = "yokoku-media-servers"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+yokoku-domain.workspace = true
+yokoku-integrations.workspace = true
+
+async-trait.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "time"] }
+wiremock.workspace = true
