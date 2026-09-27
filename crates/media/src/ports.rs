@@ -6,7 +6,6 @@ use std::{
 use async_trait::async_trait;
 use yokoku_detect::DownloadFile;
 use yokoku_domain::{DownloadId, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError};
-use yokoku_events::Event;
 
 use crate::{Import, ImportStatus, MediaFile, MediaInfo, RootFolder};
 
@@ -127,8 +126,8 @@ pub trait MediaRepo: Send + Sync {
     /// Files never probed, ordered by path.
     async fn files_without_media_info(&self) -> Result<Vec<MediaFile>, StorageError>;
 
-    /// Stores `changes` and appends `events` in one transaction.
-    async fn save(&self, changes: &Changes, events: &[Event]) -> Result<(), StorageError>;
+    /// Stores `changes` in one transaction.
+    async fn save(&self, changes: &Changes) -> Result<(), StorageError>;
 }
 
 #[derive(Debug, Default)]

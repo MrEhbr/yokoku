@@ -167,7 +167,7 @@ async fn downloaded(app: &App) -> ImportId {
         }],
         created_at: common::now(),
     };
-    MediaRepo::save(&app.db, &Changes { imports: vec![import.clone()], ..Changes::default() }, &[]).await.unwrap();
+    MediaRepo::save(&app.db, &Changes { imports: vec![import.clone()], ..Changes::default() }).await.unwrap();
     import.id
 }
 

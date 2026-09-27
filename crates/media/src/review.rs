@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use jiff::Timestamp;
 use yokoku_detect::Conflict;
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, MediaFileId};
-use yokoku_events::FilesImported;
+use yokoku_events::{FilesImported, Publisher};
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError, MediaFile,
@@ -16,6 +16,7 @@ pub struct Review {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,
     clock: Arc<dyn Clock>,
+    events: Publisher,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,8 +44,8 @@ pub struct ReviewRow {
 }
 
 impl Review {
-    pub fn new(repo: Arc<dyn MediaRepo>, catalog: Arc<dyn Catalog>, clock: Arc<dyn Clock>) -> Self {
-        Self { repo, catalog, clock }
+    pub fn new(repo: Arc<dyn MediaRepo>, catalog: Arc<dyn Catalog>, clock: Arc<dyn Clock>, events: Publisher) -> Self {
+        Self { repo, catalog, clock, events }
     }
 
     /// Imports waiting for review, oldest first.
@@ -112,7 +113,7 @@ impl Review {
 
         if import.download.is_some() {
             import.status = ImportStatus::Approved;
-            self.repo.save(&Changes { imports: vec![import], ..Changes::default() }, &[]).await?;
+            self.repo.save(&Changes { imports: vec![import], ..Changes::default() }).await?;
             return Ok(Approval::Queued);
         }
 
@@ -136,10 +137,10 @@ impl Review {
             import: id,
             download: import.download,
             files: files.iter().map(MediaFile::linked).collect(),
-        }
-        .into();
+        };
         let changes = Changes { added_files: files.clone(), imports: vec![import], ..Changes::default() };
-        self.repo.save(&changes, &[event]).await?;
+        self.repo.save(&changes).await?;
+        self.events.publish(event).await;
         Ok(Approval::Linked(files))
     }
 
@@ -162,7 +163,7 @@ impl Review {
             row.checked_sub(1).filter(|&index| index < import.rows.len()).ok_or(MediaError::RowNotFound(row))?;
         change(&mut import.rows[index]);
         let changes = Changes { imports: vec![import], ..Changes::default() };
-        Ok(self.repo.save(&changes, &[]).await?)
+        Ok(self.repo.save(&changes).await?)
     }
 
     async fn check_exists(&self, target: FileTarget) -> Result<(), MediaError> {

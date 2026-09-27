@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::warn;
 use yokoku_domain::{FileTarget, ItemId};
-use yokoku_events::{DeleteReason, FileDeleted, Handler, HandlerError, MovieRemoved, SeriesRemoved};
+use yokoku_events::{DeleteReason, FileDeleted, Handler, HandlerError, MovieRemoved, Publisher, SeriesRemoved};
 
 use crate::{
     MediaError, MediaFile, files,
@@ -15,11 +15,17 @@ pub struct Deleter {
     repo: Arc<dyn MediaRepo>,
     fs: Arc<dyn FileSystem>,
     lock: Arc<dyn LibraryLock>,
+    events: Publisher,
 }
 
 impl Deleter {
-    pub fn new(repo: Arc<dyn MediaRepo>, fs: Arc<dyn FileSystem>, lock: Arc<dyn LibraryLock>) -> Self {
-        Self { repo, fs, lock }
+    pub fn new(
+        repo: Arc<dyn MediaRepo>,
+        fs: Arc<dyn FileSystem>,
+        lock: Arc<dyn LibraryLock>,
+        events: Publisher,
+    ) -> Self {
+        Self { repo, fs, lock, events }
     }
 
     /// The library files holding any of `target`.
@@ -49,8 +55,10 @@ impl Deleter {
         for file in &files {
             let subtitles = files::sidecar_subtitles(self.fs.as_ref(), &file.path).await?;
             self.fs.remove_file(&file.path).await?;
-            let event = FileDeleted { file: file.id, path: file.path.clone(), target: file.target, reason }.into();
-            self.repo.save(&Changes { removed_files: vec![file.id], ..Changes::default() }, &[event]).await?;
+            self.repo.save(&Changes { removed_files: vec![file.id], ..Changes::default() }).await?;
+            self.events
+                .publish(FileDeleted { file: file.id, path: file.path.clone(), target: file.target, reason })
+                .await;
 
             for subtitle in subtitles {
                 if let Err(error) = self.fs.remove_file(&subtitle.path).await {

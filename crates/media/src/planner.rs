@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use async_trait::async_trait;
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series};
-use yokoku_events::{DownloadCompleted, Handler, HandlerError, ImportFailed, ImportNeedsReview};
+use yokoku_events::{DownloadCompleted, Event, Handler, HandlerError, ImportFailed, ImportNeedsReview, Publisher};
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError,
@@ -16,6 +16,7 @@ pub struct ImportPlanner {
     catalog: Arc<dyn Catalog>,
     fs: Arc<dyn FileSystem>,
     clock: Arc<dyn Clock>,
+    events: Publisher,
 }
 
 impl ImportPlanner {
@@ -24,8 +25,9 @@ impl ImportPlanner {
         catalog: Arc<dyn Catalog>,
         fs: Arc<dyn FileSystem>,
         clock: Arc<dyn Clock>,
+        events: Publisher,
     ) -> Self {
-        Self { repo, catalog, fs, clock }
+        Self { repo, catalog, fs, clock, events }
     }
 
     /// Detects what the download holds. The import is `Approved` when every file is certain and
@@ -86,7 +88,7 @@ impl ImportPlanner {
             created_at: self.clock.now().timestamp(),
         };
 
-        let event = match status {
+        let event: Option<Event> = match status {
             ImportStatus::NeedsReview => {
                 Some(ImportNeedsReview { import: import.id, source: import.source.clone() }.into())
             },
@@ -100,7 +102,8 @@ impl ImportPlanner {
             ),
             _ => None,
         };
-        self.repo.save(&Changes { imports: vec![import.clone()], ..Changes::default() }, event.as_slice()).await?;
+        self.repo.save(&Changes { imports: vec![import.clone()], ..Changes::default() }).await?;
+        self.events.publish_all(event.into_iter().collect()).await;
         Ok(Some(import))
     }
 

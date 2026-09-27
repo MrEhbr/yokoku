@@ -9,7 +9,6 @@ use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MediaFileId, MonitorPreset,
     Movie, MovieId, MovieMetadata, Releases, Series, SeriesId, SeriesMetadata, SourceStatus,
 };
-use yokoku_events::{DeleteReason, EventLog, FileDeleted, ImportNeedsReview};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind,
@@ -67,24 +66,17 @@ async fn root_folders_are_listed_by_path_and_removed_by_path(#[future] db: Datab
 
 #[rstest]
 #[tokio::test]
-async fn commit_adds_and_removes_files_with_their_events(#[future] db: Database) {
+async fn commit_adds_and_removes_files(#[future] db: Database) {
     let db = db.await;
     let (kept, gone) =
         (file("/tv/a.mkv", episodes(1, 2)), file("/movies/b.mkv", FileTarget::Movie(MovieId(Uuid::from_u128(3)))));
-    MediaRepo::save(&db, &Changes { added_files: vec![kept.clone(), gone.clone()], ..Changes::default() }, &[])
+    MediaRepo::save(&db, &Changes { added_files: vec![kept.clone(), gone.clone()], ..Changes::default() })
         .await
         .unwrap();
-    let event =
-        FileDeleted { file: gone.id, path: gone.path.clone(), target: gone.target, reason: DeleteReason::External }
-            .into();
 
-    MediaRepo::save(&db, &Changes { removed_files: vec![gone.id], ..Changes::default() }, std::slice::from_ref(&event))
-        .await
-        .unwrap();
+    MediaRepo::save(&db, &Changes { removed_files: vec![gone.id], ..Changes::default() }).await.unwrap();
 
     assert_eq!(db.files().await.unwrap(), [kept]);
-    let recorded = db.event_log().read_after(None, 10).await.unwrap();
-    assert_eq!(recorded.into_iter().map(|recorded| recorded.event).collect::<Vec<_>>(), [event]);
 }
 
 #[rstest]
@@ -92,17 +84,15 @@ async fn commit_adds_and_removes_files_with_their_events(#[future] db: Database)
 async fn a_failed_commit_changes_nothing(#[future] db: Database) {
     let db = db.await;
     let existing = file("/tv/a.mkv", episodes(1, 1));
-    MediaRepo::save(&db, &Changes { added_files: vec![existing.clone()], ..Changes::default() }, &[]).await.unwrap();
+    MediaRepo::save(&db, &Changes { added_files: vec![existing.clone()], ..Changes::default() }).await.unwrap();
     let pending = import("/tv/b", now(), vec![row("/tv/b/1.mkv", None)]);
     let duplicate = file("/tv/a.mkv", episodes(2, 2));
 
     let changes = Changes { added_files: vec![duplicate], imports: vec![pending.clone()], ..Changes::default() };
-    let event = ImportNeedsReview { import: pending.id, source: pending.source.clone() }.into();
-    assert!(MediaRepo::save(&db, &changes, &[event]).await.is_err());
+    assert!(MediaRepo::save(&db, &changes).await.is_err());
 
     assert_eq!(db.files().await.unwrap(), [existing]);
     assert_eq!(db.import(pending.id).await.unwrap(), None);
-    assert!(db.event_log().read_after(None, 10).await.unwrap().is_empty());
 }
 
 #[rstest]
@@ -114,7 +104,7 @@ async fn imports_are_listed_by_status_oldest_first(#[future] db: Database) {
     let mut done = import("/tv/done", now(), vec![]);
     done.status = ImportStatus::Done;
     let changes = Changes { imports: vec![newer.clone(), older.clone(), done.clone()], ..Changes::default() };
-    MediaRepo::save(&db, &changes, &[]).await.unwrap();
+    MediaRepo::save(&db, &changes).await.unwrap();
 
     assert_eq!(db.imports(ImportStatus::NeedsReview).await.unwrap(), [older, newer]);
     assert_eq!(db.imports(ImportStatus::Done).await.unwrap(), [done]);
@@ -125,13 +115,13 @@ async fn imports_are_listed_by_status_oldest_first(#[future] db: Database) {
 async fn saving_an_import_again_replaces_its_rows(#[future] db: Database) {
     let db = db.await;
     let mut pending = import("/tv/b", now(), vec![row("/tv/b/1.mkv", None), row("/tv/b/2.mkv", None)]);
-    MediaRepo::save(&db, &Changes { imports: vec![pending.clone()], ..Changes::default() }, &[]).await.unwrap();
+    MediaRepo::save(&db, &Changes { imports: vec![pending.clone()], ..Changes::default() }).await.unwrap();
 
     pending.rows.truncate(1);
     pending.rows[0].target = Some(episodes(4, 4));
     pending.rows[0].skipped = true;
     pending.status = ImportStatus::Done;
-    MediaRepo::save(&db, &Changes { imports: vec![pending.clone()], ..Changes::default() }, &[]).await.unwrap();
+    MediaRepo::save(&db, &Changes { imports: vec![pending.clone()], ..Changes::default() }).await.unwrap();
 
     assert_eq!(db.import(pending.id).await.unwrap(), Some(pending));
 }
@@ -196,7 +186,7 @@ proptest! {
         let (stored_import, stored_files) = block_on(async {
             let db = Database::open_in_memory().await.unwrap();
             let changes = Changes { added_files: vec![linked.clone()], imports: vec![pending.clone()], ..Changes::default() };
-            MediaRepo::save(&db, &changes, &[]).await.unwrap();
+            MediaRepo::save(&db, &changes).await.unwrap();
             (db.import(pending.id).await.unwrap(), db.files().await.unwrap())
         });
 
@@ -254,10 +244,10 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
 async fn renamed_files_keep_their_id_and_target(#[future] db: Database) {
     let db = db.await;
     let moved = file("/tv/a.mkv", episodes(1, 1));
-    MediaRepo::save(&db, &Changes { added_files: vec![moved.clone()], ..Changes::default() }, &[]).await.unwrap();
+    MediaRepo::save(&db, &Changes { added_files: vec![moved.clone()], ..Changes::default() }).await.unwrap();
 
     let changes = Changes { renamed_files: vec![(moved.id, "/tv/Frieren/a.mkv".into())], ..Changes::default() };
-    MediaRepo::save(&db, &changes, &[]).await.unwrap();
+    MediaRepo::save(&db, &changes).await.unwrap();
 
     assert_eq!(db.files().await.unwrap(), [MediaFile { path: "/tv/Frieren/a.mkv".into(), ..moved }]);
 }
@@ -273,7 +263,7 @@ async fn approved_imports_are_claimed_oldest_first_and_once(#[future] db: Databa
     let (older, newer) = (approved("/downloads/a", now()), approved("/downloads/b", now() + 1.hour()));
     let waiting = import("/downloads/c", now() - 1.hour(), vec![]);
     let changes = Changes { imports: vec![newer.clone(), older.clone(), waiting], ..Changes::default() };
-    MediaRepo::save(&db, &changes, &[]).await.unwrap();
+    MediaRepo::save(&db, &changes).await.unwrap();
 
     let first = db.claim_next_approved().await.unwrap().unwrap();
     let second = db.claim_next_approved().await.unwrap().unwrap();
@@ -293,9 +283,9 @@ async fn a_download_has_at_most_one_import(#[future] db: Database) {
     let download = DownloadId::generate();
     let first = Import { download: Some(download), ..import("/downloads/a", now(), vec![]) };
     let second = Import { download: Some(download), ..import("/downloads/a", now(), vec![]) };
-    MediaRepo::save(&db, &Changes { imports: vec![first.clone()], ..Changes::default() }, &[]).await.unwrap();
+    MediaRepo::save(&db, &Changes { imports: vec![first.clone()], ..Changes::default() }).await.unwrap();
 
-    let duplicate = MediaRepo::save(&db, &Changes { imports: vec![second], ..Changes::default() }, &[]).await;
+    let duplicate = MediaRepo::save(&db, &Changes { imports: vec![second], ..Changes::default() }).await;
 
     assert!(duplicate.is_err());
     assert_eq!(db.import_for_download(download).await.unwrap(), Some(first));

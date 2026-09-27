@@ -8,7 +8,7 @@ use std::{
 use tracing::{info, warn};
 use yokoku_detect::{Classified, DownloadFile};
 use yokoku_domain::{Clock, FileTarget, ImportId, MediaFileId};
-use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed};
+use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, Publisher};
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
@@ -35,6 +35,7 @@ pub struct Importer {
     clock: Arc<dyn Clock>,
     naming: Naming,
     mode: ImportMode,
+    events: Publisher,
 }
 
 /// What an import changed in the library.
@@ -45,6 +46,7 @@ struct Placed {
 }
 
 impl Importer {
+    #[expect(clippy::too_many_arguments, reason = "one argument per dependency")]
     pub fn new(
         repo: Arc<dyn MediaRepo>,
         catalog: Arc<dyn Catalog>,
@@ -53,8 +55,9 @@ impl Importer {
         clock: Arc<dyn Clock>,
         naming: Naming,
         mode: ImportMode,
+        events: Publisher,
     ) -> Self {
-        Self { repo, catalog, fs, lock, clock, naming, mode }
+        Self { repo, catalog, fs, lock, clock, naming, mode, events }
     }
 
     /// Imports that are approved, running or failed, oldest first.
@@ -94,7 +97,7 @@ impl Importer {
         }
         import.status = ImportStatus::Approved;
         import.error = None;
-        Ok(self.repo.save(&Changes { imports: vec![import], ..Changes::default() }, &[]).await?)
+        Ok(self.repo.save(&Changes { imports: vec![import], ..Changes::default() }).await?)
     }
 
     /// Stores what the import changed on disk, whether it finished or failed part way.
@@ -141,7 +144,8 @@ impl Importer {
             imports: vec![import.clone()],
             ..Changes::default()
         };
-        self.repo.save(&changes, &events).await?;
+        self.repo.save(&changes).await?;
+        self.events.publish_all(events).await;
         Ok(import)
     }
 

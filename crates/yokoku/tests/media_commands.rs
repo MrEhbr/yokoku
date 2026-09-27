@@ -490,7 +490,7 @@ async fn an_import_left_running_by_a_stopped_command_runs_again() {
         }],
         created_at: Timestamp::now(),
     };
-    MediaRepo::save(&db, &Changes { imports: vec![import], ..Changes::default() }, &[]).await.unwrap();
+    MediaRepo::save(&db, &Changes { imports: vec![import], ..Changes::default() }).await.unwrap();
 
     let stdout = setup.stdout(&["import", "run"]);
 

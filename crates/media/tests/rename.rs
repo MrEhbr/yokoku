@@ -140,7 +140,7 @@ async fn files_that_would_share_a_path_are_skipped() {
         added_at: now(),
     };
     let changes = Changes { added_files: vec![file("a"), file("b")], ..Changes::default() };
-    MediaRepo::save(&app.db, &changes, &[]).await.unwrap();
+    MediaRepo::save(&app.db, &changes).await.unwrap();
 
     let plan = app.renamer.preview(RenameScope::All).await.unwrap();
 

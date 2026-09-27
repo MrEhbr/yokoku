@@ -9,7 +9,8 @@ use jiff::Timestamp;
 use yokoku_detect::{DownloadFile, ImportPlan, Target};
 use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId};
 use yokoku_events::{
-    DeleteReason, Event, FileDeleted, FilesFound, Handler, HandlerError, ImportNeedsReview, MovieAdded, SeriesAdded,
+    DeleteReason, Event, FileDeleted, FilesFound, Handler, HandlerError, ImportNeedsReview, MovieAdded, Publisher,
+    SeriesAdded,
 };
 
 use crate::{
@@ -23,6 +24,7 @@ pub struct Scanner {
     fs: Arc<dyn FileSystem>,
     lock: Arc<dyn LibraryLock>,
     clock: Arc<dyn Clock>,
+    events: Publisher,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -48,8 +50,9 @@ impl Scanner {
         fs: Arc<dyn FileSystem>,
         lock: Arc<dyn LibraryLock>,
         clock: Arc<dyn Clock>,
+        events: Publisher,
     ) -> Self {
-        Self { repo, catalog, fs, lock, clock }
+        Self { repo, catalog, fs, lock, clock, events }
     }
 
     /// Links new files in the folder of every library item, sends the rest to review and forgets
@@ -110,7 +113,8 @@ impl Scanner {
         let now = self.clock.now().timestamp();
         let (changes, events) = scan_folder(&folder.root, &path, listed, known, target, now);
 
-        self.repo.save(&changes, &events).await?;
+        self.repo.save(&changes).await?;
+        self.events.publish_all(events).await;
         report.found += changes.added_files.len();
         report.vanished += changes.removed_files.len();
         report.needs_review.extend(changes.imports.iter().map(|import| import.id));

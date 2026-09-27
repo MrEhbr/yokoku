@@ -7,7 +7,6 @@ use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId,
     StorageError,
 };
-use yokoku_events::Event;
 use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind,
     ports::{Catalog, Changes, MediaRepo},
@@ -195,8 +194,8 @@ impl MediaRepo for Database {
         Ok(rows.into_iter().map(MediaFile::try_from).collect::<Result<_, _>>()?)
     }
 
-    async fn save(&self, changes: &Changes, events: &[Event]) -> Result<(), StorageError> {
-        Ok(self.save_changes(changes, events).await?)
+    async fn save(&self, changes: &Changes) -> Result<(), StorageError> {
+        Ok(self.save_changes(changes).await?)
     }
 }
 
@@ -249,7 +248,7 @@ impl Database {
         })
     }
 
-    async fn save_changes(&self, changes: &Changes, events: &[Event]) -> Result<(), DbError> {
+    async fn save_changes(&self, changes: &Changes) -> Result<(), DbError> {
         let mut tx = self.begin().await?;
         for id in &changes.removed_files {
             sqlx::query("DELETE FROM media_files WHERE id = ?").bind(id.to_string()).execute(&mut *tx).await?;
@@ -306,7 +305,7 @@ impl Database {
                 bind_target(query, row.target.into()).execute(&mut *tx).await?;
             }
         }
-        self.commit(tx, events).await
+        self.commit(tx, &[]).await
     }
 }
 

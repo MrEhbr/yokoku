@@ -17,7 +17,7 @@ use yokoku_domain::{
     Clock, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset, Movie,
     MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
-use yokoku_events::{Event, EventLog};
+use yokoku_events::{Event, EventLog, Publisher};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{ImportPlanner, Renamer, Review, RootFolders, RootKind, Scanner};
 use yokoku_naming::Naming;
@@ -62,14 +62,23 @@ impl App {
 
         let db = Database::open_in_memory().await.unwrap();
         let repo = Arc::new(db.clone());
+        let events = Publisher::new(Arc::new(db.event_log()));
         let fs = Arc::new(LocalFileSystem);
         let clock = Arc::new(FixedClock);
         let roots = RootFolders::new(repo.clone(), repo.clone(), fs.clone());
         let lock = Arc::new(LockFile::new(dir.path().join(LOCK)));
-        let scanner = Scanner::new(repo.clone(), repo.clone(), fs, lock.clone(), clock.clone());
-        let review = Review::new(repo.clone(), repo.clone(), clock);
-        let renamer = Renamer::new(repo.clone(), repo.clone(), Arc::new(LocalFileSystem), lock, Naming::default());
-        let planner = ImportPlanner::new(repo.clone(), repo, Arc::new(LocalFileSystem), Arc::new(FixedClock));
+        let scanner = Scanner::new(repo.clone(), repo.clone(), fs, lock.clone(), clock.clone(), events.clone());
+        let review = Review::new(repo.clone(), repo.clone(), clock, events.clone());
+        let renamer = Renamer::new(
+            repo.clone(),
+            repo.clone(),
+            Arc::new(LocalFileSystem),
+            lock,
+            Naming::default(),
+            events.clone(),
+        );
+        let planner =
+            ImportPlanner::new(repo.clone(), repo, Arc::new(LocalFileSystem), Arc::new(FixedClock), events.clone());
 
         let tv = ItemFolder::new(dir.path().join("tv"), "Frieren (2023)".into()).unwrap();
         let movies = ItemFolder::new(dir.path().join("movies"), "Dune (2021)".into()).unwrap();
@@ -123,11 +132,16 @@ impl App {
             Arc::new(FixedClock),
             Naming::default(),
             mode,
+            self.publisher(),
         )
     }
 
     pub fn deleter(&self) -> yokoku_media::Deleter {
-        yokoku_media::Deleter::new(Arc::new(self.db.clone()), Arc::new(LocalFileSystem), self.lock())
+        yokoku_media::Deleter::new(Arc::new(self.db.clone()), Arc::new(LocalFileSystem), self.lock(), self.publisher())
+    }
+
+    pub fn publisher(&self) -> Publisher {
+        Publisher::new(Arc::new(self.db.event_log()))
     }
 
     pub fn lock(&self) -> Arc<LockFile> {

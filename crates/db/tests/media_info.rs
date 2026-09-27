@@ -33,7 +33,7 @@ fn info() -> MediaInfo {
 }
 
 async fn stored(db: &Database, files: &[MediaFile]) {
-    db.save(&Changes { added_files: files.to_vec(), ..Changes::default() }, &[]).await.unwrap();
+    db.save(&Changes { added_files: files.to_vec(), ..Changes::default() }).await.unwrap();
 }
 
 #[tokio::test]
@@ -45,7 +45,7 @@ async fn details_are_replaced_and_go_with_their_file() {
     db.save_media_info(dune.id, &info()).await.unwrap();
     db.save_media_info(dune.id, &MediaInfo::default()).await.unwrap();
     let replaced = db.media_info(dune.id).await.unwrap();
-    db.save(&Changes { removed_files: vec![dune.id], ..Changes::default() }, &[]).await.unwrap();
+    db.save(&Changes { removed_files: vec![dune.id], ..Changes::default() }).await.unwrap();
 
     assert_eq!(replaced, Some(MediaInfo::default()));
     assert_eq!(db.media_info(dune.id).await.unwrap(), None);

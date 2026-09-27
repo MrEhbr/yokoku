@@ -175,7 +175,7 @@ impl App {
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
         let lock: Arc<dyn LibraryLock> = Arc::new(LockFile::new(path.with_extension("lock")));
         let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(FfProbe::new(&config.files.ffprobe))));
-        let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone()));
+        let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone(), events.clone()));
         let jellyfin = &config.jellyfin;
         let rescans = jellyfin.url.as_ref().map(|url| {
             let server = JellyfinClient::new(url, jellyfin.api_key.as_ref().map_or("", |key| key.expose()));
@@ -194,16 +194,17 @@ impl App {
             transmission.options(),
             events.clone(),
         ));
-        let scanner = Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone()));
+        let scanner =
+            Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone(), events.clone()));
 
         Ok(Self {
             library: Library::new(db.clone(), db.clone(), clock.clone(), events.clone()),
             schedule: Schedule::new(db.clone(), db.clone(), clock.clone()),
             roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
             scanner: scanner.clone(),
-            review: Review::new(db.clone(), db.clone(), clock.clone()),
+            review: Review::new(db.clone(), db.clone(), clock.clone(), events.clone()),
             downloads: downloads.clone(),
-            renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), naming.clone()),
+            renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), naming.clone(), events.clone()),
             importer: Arc::new(Importer::new(
                 db.clone(),
                 db.clone(),
@@ -212,11 +213,12 @@ impl App {
                 clock.clone(),
                 naming,
                 config.import.mode.into(),
+                events.clone(),
             )),
             history: History::new(Arc::new(db.event_log())),
             subscribers: subscriptions::subscribers(
                 &db,
-                &Arc::new(ImportPlanner::new(db.clone(), db.clone(), fs.clone(), clock.clone())),
+                &Arc::new(ImportPlanner::new(db.clone(), db.clone(), fs.clone(), clock.clone(), events.clone())),
                 &deleter,
                 &downloads,
                 &prober,

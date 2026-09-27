@@ -6,7 +6,7 @@ use std::{
 
 use tracing::warn;
 use yokoku_domain::{FileTarget, MediaFileId, MovieId, Series, SeriesId};
-use yokoku_events::FileRenamed;
+use yokoku_events::{FileRenamed, Publisher};
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
@@ -21,6 +21,7 @@ pub struct Renamer {
     fs: Arc<dyn FileSystem>,
     lock: Arc<dyn LibraryLock>,
     naming: Naming,
+    events: Publisher,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,8 +90,9 @@ impl Renamer {
         fs: Arc<dyn FileSystem>,
         lock: Arc<dyn LibraryLock>,
         naming: Naming,
+        events: Publisher,
     ) -> Self {
-        Self { repo, catalog, fs, lock, naming }
+        Self { repo, catalog, fs, lock, naming, events }
     }
 
     /// The moves `apply` would make; nothing on disk changes.
@@ -150,14 +152,14 @@ impl Renamer {
                     from: video.from.clone(),
                     to: video.to.clone(),
                     target: Some(rename.target),
-                }
-                .into();
-                if let Err(error) = self.repo.save(&changes, &[event]).await {
+                };
+                if let Err(error) = self.repo.save(&changes).await {
                     if let Err(undo) = self.fs.rename(&video.to, &video.from).await {
                         warn!(path = %video.to.display(), %undo, "could not move a file back after a failed save");
                     }
                     return Err(error.into());
                 }
+                self.events.publish(event).await;
             }
             for subtitle in rename.subtitles.iter().filter(|subtitle| subtitle.from != subtitle.to) {
                 if let Err(error) = self.fs.rename(&subtitle.from, &subtitle.to).await {
