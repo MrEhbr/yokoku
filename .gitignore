@@ -50,6 +50,7 @@ perf.data.old
 # Environment/config
 .env
 .env.*
+.envrc
 .direnv/
 
 # Security - keys & secrets
