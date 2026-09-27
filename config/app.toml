@@ -8,14 +8,16 @@ path = "yokoku.db"
 [clock]
 # timezone = "Europe/Berlin"
 
-# Secrets (tmdb_token, password, api_key) take a value or { file = "/run/secrets/name" };
-# APP__METADATA__TMDB_TOKEN or APP__METADATA__TMDB_TOKEN__FILE set them from the environment.
-# tmdb_token = { file = "/run/secrets/tmdb_token" }
 [metadata]
 language = "en-US"
 region = "US"
 
-# The password is a secret, like tmdb_token.
+# Secrets (token, password, api_key) take a value or { file = "/run/secrets/name" };
+# APP__METADATA__TMDB__TOKEN or APP__METADATA__TMDB__TOKEN__FILE set them from the environment.
+[metadata.tmdb]
+# token = { file = "/run/secrets/tmdb_token" }
+
+# The password is a secret, like the TMDB token.
 [transmission]
 url = "http://localhost:9091/transmission/rpc"
 # username = "yokoku"
@@ -46,7 +48,7 @@ scan_library = "0 0 5 * * *"
 [import]
 mode = "hardlink"
 
-# Rescans after library changes; api_key is a secret, like tmdb_token.
+# Rescans after library changes; api_key is a secret, like the TMDB token.
 [jellyfin]
 # url = "http://localhost:8096"
 

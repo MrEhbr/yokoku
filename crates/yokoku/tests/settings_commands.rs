@@ -90,14 +90,14 @@ fn secrets_are_never_shown() {
 
     let unset = setup
         .command()
-        .args(["settings", "get", "metadata.tmdb_token"])
-        .env_remove("APP__METADATA__TMDB_TOKEN")
+        .args(["settings", "get", "metadata.tmdb.token"])
+        .env_remove("APP__METADATA__TMDB__TOKEN")
         .output()
         .unwrap();
     let set = setup
         .command()
-        .args(["settings", "get", "metadata.tmdb_token"])
-        .env("APP__METADATA__TMDB_TOKEN", "very-secret")
+        .args(["settings", "get", "metadata.tmdb.token"])
+        .env("APP__METADATA__TMDB__TOKEN", "very-secret")
         .output()
         .unwrap();
 
@@ -110,17 +110,17 @@ fn secrets_can_be_stored_but_are_never_shown() {
     let setup = setup();
 
     let run = |args: &[&str]| {
-        let output = setup.command().args(args).env_remove("APP__METADATA__TMDB_TOKEN").output().unwrap();
+        let output = setup.command().args(args).env_remove("APP__METADATA__TMDB__TOKEN").output().unwrap();
         assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
         String::from_utf8(output.stdout).unwrap()
     };
 
-    let stored = run(&["settings", "set", "metadata.tmdb_token", "very-secret"]);
+    let stored = run(&["settings", "set", "metadata.tmdb.token", "very-secret"]);
     let listed = run(&["settings", "list"]);
-    let effective = run(&["settings", "get", "metadata.tmdb_token"]);
+    let effective = run(&["settings", "get", "metadata.tmdb.token"]);
 
-    assert_eq!(stored, "Set metadata.tmdb_token = \"<redacted>\"\n");
-    assert_eq!(listed, "metadata.tmdb_token = \"<redacted>\"\n");
+    assert_eq!(stored, "Set metadata.tmdb.token = \"<redacted>\"\n");
+    assert_eq!(listed, "metadata.tmdb.token = \"<redacted>\"\n");
     assert_eq!(effective, "\"<redacted>\"\n");
 }
 

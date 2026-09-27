@@ -4,12 +4,12 @@ use yokoku_library::ports::MetadataProvider;
 use yokoku_metadata::TmdbClient;
 
 fn client() -> TmdbClient {
-    let token = std::env::var("APP__METADATA__TMDB_TOKEN").expect("APP__METADATA__TMDB_TOKEN is set");
+    let token = std::env::var("APP__METADATA__TMDB__TOKEN").expect("APP__METADATA__TMDB__TOKEN is set");
     TmdbClient::new(token, "en-US", "US")
 }
 
 #[tokio::test]
-#[ignore = "calls the real TMDB API; run with APP__METADATA__TMDB_TOKEN set"]
+#[ignore = "calls the real TMDB API; run with APP__METADATA__TMDB__TOKEN set"]
 async fn real_tmdb_matches_the_recorded_shapes() {
     let client = client();
 

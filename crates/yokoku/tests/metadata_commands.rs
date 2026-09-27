@@ -64,8 +64,8 @@ impl Tmdb {
         command
             .env("APP__DATABASE__PATH", &self.database)
             .env("APP__CLOCK__TIMEZONE", "UTC")
-            .env("APP__METADATA__TMDB_TOKEN", "test-token")
-            .env("APP__METADATA__TMDB_URL", self.server.uri());
+            .env("APP__METADATA__TMDB__TOKEN", "test-token")
+            .env("APP__METADATA__TMDB__URL", self.server.uri());
         command
     }
 }
@@ -180,9 +180,9 @@ async fn metadata_commands_need_a_token() {
     let tmdb = tmdb().await;
 
     tmdb.command()
-        .env_remove("APP__METADATA__TMDB_TOKEN")
+        .env_remove("APP__METADATA__TMDB__TOKEN")
         .args(["search", "dune"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("No TMDB token configured; set APP__METADATA__TMDB_TOKEN"));
+        .stderr(predicate::str::contains("No TMDB token configured; set APP__METADATA__TMDB__TOKEN"));
 }

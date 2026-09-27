@@ -51,12 +51,18 @@ impl ClockConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetadataConfig {
-    /// TMDB API read access token.
-    pub tmdb_token: Option<Secret>,
-    pub tmdb_url: String,
+    /// Like `en-US`.
     pub language: String,
     /// Country whose movie release dates are used.
     pub region: String,
+    pub tmdb: TmdbConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TmdbConfig {
+    /// API read access token.
+    pub token: Option<Secret>,
+    pub url: String,
 }
 
 /// Path patterns for library files, one per path component; see `NamingTemplates` for the tokens.
@@ -93,10 +99,9 @@ impl NamingConfig {
 impl Default for MetadataConfig {
     fn default() -> Self {
         Self {
-            tmdb_token: None,
-            tmdb_url: "https://api.themoviedb.org/3".into(),
             language: "en-US".into(),
             region: "US".into(),
+            tmdb: TmdbConfig { token: None, url: "https://api.themoviedb.org/3".into() },
         }
     }
 }
@@ -165,9 +170,10 @@ impl App {
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(config.clock.time_zone()?));
         let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
         let naming = config.naming.naming()?;
-        let metadata = config.metadata.tmdb_token.as_ref().map(|token| {
-            let tmdb = TmdbClient::new(token.expose(), &config.metadata.language, &config.metadata.region)
-                .with_base_url(&config.metadata.tmdb_url);
+        let settings = &config.metadata;
+        let metadata = settings.tmdb.token.as_ref().map(|token| {
+            let tmdb =
+                TmdbClient::new(token.expose(), &settings.language, &settings.region).with_base_url(&settings.tmdb.url);
             let folders = Arc::new(NamedFolders(naming.clone()));
             Arc::new(MetadataService::new(
                 db.clone(),
@@ -289,7 +295,7 @@ impl App {
 
     /// Use cases that need the metadata source.
     pub fn metadata(&self) -> Result<&MetadataService> {
-        self.metadata.as_deref().context("No TMDB token configured; set APP__METADATA__TMDB_TOKEN")
+        self.metadata.as_deref().context("No TMDB token configured; set APP__METADATA__TMDB__TOKEN")
     }
 
     /// The item's title with its year; `removed series` or `removed movie` once it left the library.
