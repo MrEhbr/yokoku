@@ -8,7 +8,7 @@ use topcoat::{
 /// state so the native closed state remains hidden.
 const OVERLAY: StaticClass = class!(
     "fixed inset-0 z-50 size-full max-h-none max-w-none overflow-hidden \
-     bg-background/80 text-foreground backdrop-blur-sm open:flex",
+     bg-overlay text-ink open:flex",
 );
 
 /// Classes that fade the overlay in and out. `allow-discrete` keeps it displayed
@@ -118,8 +118,8 @@ impl SheetSide {
 
 /// Classes for a sheet panel with vertically stacked content and internal scrolling.
 const CONTENT: StaticClass = class!(
-    "flex flex-col gap-4 overflow-y-auto border-border bg-card p-6 \
-     text-card-foreground shadow-sm [transition:translate_200ms_ease-out]",
+    "flex flex-col gap-4 overflow-y-auto border-ink bg-surface p-5 \
+     text-ink shadow-dialog [transition:translate_200ms_ease-out]",
 );
 
 /// The content panel inside a sheet.

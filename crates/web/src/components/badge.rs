@@ -5,19 +5,25 @@ use topcoat::{
 
 /// The visual style of a [`badge`].
 ///
-/// [`Default`] is `BadgeVariant::Primary`, used when no variant is given.
+/// Pair a status variant with a label and an icon.
+///
+/// [`Default`] is `BadgeVariant::Neutral`, used when no variant is given.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum BadgeVariant {
-    /// The primary-filled badge for highlighted statuses.
+    /// A quiet tag for neutral labels and counts.
     #[default]
-    Primary,
-    /// A muted, tinted fill for neutral statuses.
-    Secondary,
-    /// A hairline-bordered badge on the page background.
+    Neutral,
+    /// A bordered tag on the page background.
     Outline,
-    /// A destructive-filled badge for errors and warnings.
-    Destructive,
+    /// A present file or a completed operation.
+    Success,
+    /// A missing file or something that needs review.
+    Warning,
+    /// A failure or conflict.
+    Danger,
+    /// An upcoming or informational state.
+    Info,
 }
 
 impl BadgeVariant {
@@ -25,20 +31,20 @@ impl BadgeVariant {
     /// the shared base to avoid conflicting classes.
     fn classes(self) -> StaticClass {
         match self {
-            Self::Primary => class!("border-transparent bg-primary text-primary-foreground"),
-            Self::Secondary => class!("border-transparent bg-foreground/5 text-foreground"),
-            Self::Outline => class!("border-border text-foreground"),
-            Self::Destructive => {
-                class!("border-transparent bg-destructive text-destructive-foreground")
-            },
+            Self::Neutral => class!("border-line bg-subtle text-ink"),
+            Self::Outline => class!("border-control text-ink"),
+            Self::Success => class!("border-transparent bg-success-soft text-success"),
+            Self::Warning => class!("border-transparent bg-warning-soft text-warning"),
+            Self::Danger => class!("border-transparent bg-danger-soft text-danger"),
+            Self::Info => class!("border-transparent bg-info-soft text-info"),
         }
     }
 }
 
 /// Classes shared by badge variants. A border reserves the same space in every variant.
 const BASE: StaticClass = class!(
-    "inline-flex w-fit shrink-0 items-center justify-center gap-1 rounded-md \
-     border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+    "inline-flex w-fit shrink-0 items-center justify-center gap-1 \
+     border px-2 py-0.5 text-caption font-medium whitespace-nowrap [&>svg]:size-3",
 );
 
 /// Builds the full class list for a badge of the given `variant`.
@@ -57,13 +63,13 @@ pub fn badge_variants(variant: BadgeVariant) -> Class<(StaticClass, StaticClass)
 
 /// A small label for a status or count.
 ///
-/// `variant` defaults to `Primary`. Pass the label as children and extra attributes
+/// `variant` defaults to `Neutral`. Pass the label as children and extra attributes
 /// through `attrs`. Attributes go on the `<span>`, with classes added to its classes.
 /// Use [`badge_variants`] to apply the same styling to another element.
 ///
 /// ```ignore
 /// view! {
-///     badge(variant: BadgeVariant::Destructive, "Failed")
+///     badge(variant: BadgeVariant::Danger, "Failed")
 /// }
 /// ```
 #[component]

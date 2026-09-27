@@ -37,7 +37,7 @@ impl SeparatorOrientation {
 }
 
 /// Classes for a separator that keeps its thickness in a flex layout.
-const SEPARATOR: StaticClass = class!("shrink-0 border-0 bg-border");
+const SEPARATOR: StaticClass = class!("shrink-0 border-0 bg-line");
 
 /// A thin rule between groups of content.
 ///

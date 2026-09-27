@@ -5,17 +5,17 @@ use topcoat::{
 
 /// Classes for the checkbox input that forms the switch track.
 const SWITCH: StaticClass = class!(
-    "peer h-4.5 w-8 shrink-0 appearance-none rounded-full \
-     bg-foreground/20 shadow-xs transition-colors outline-none checked:bg-primary \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     focus-visible:ring-offset-background disabled:pointer-events-none",
+    "peer h-5 w-9 shrink-0 appearance-none border border-control \
+     bg-subtle transition-colors checked:border-ink checked:bg-ink \
+     disabled:pointer-events-none",
 );
 
 /// Classes that position the thumb at either end of the track according to the checked
 /// state.
 const THUMB: StaticClass = class!(
-    "pointer-events-none absolute top-1/2 left-0.5 size-3.5 -translate-y-1/2 \
-     rounded-full bg-background shadow-xs transition-transform peer-checked:translate-x-3.5",
+    "pointer-events-none absolute top-1/2 left-[3px] size-3.5 -translate-y-1/2 \
+     bg-control transition-transform peer-checked:translate-x-4 peer-checked:bg-canvas \
+     motion-reduce:transition-none",
 );
 
 /// An on/off control for a setting.
@@ -40,7 +40,7 @@ pub async fn switch(#[default] mut attrs: Attributes) -> Result<impl View> {
     Ok(view! {
         <span
             class=(class!(
-                "peer relative inline-flex shrink-0 has-[:disabled]:opacity-50",
+                "peer relative inline-flex shrink-0 has-[:disabled]:opacity-45",
                 attrs.remove("class"),
             ))
         >

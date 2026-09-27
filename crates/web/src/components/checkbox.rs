@@ -4,21 +4,23 @@ use topcoat::{
     view::{Attributes, StaticClass, View, attributes, class, component, view},
 };
 
-/// Classes for the native checkbox input and its checked state.
+/// Classes for the native checkbox input and its checked and indeterminate states.
 const CHECKBOX: StaticClass = class!(
-    "peer size-4 shrink-0 appearance-none rounded-[4px] border border-border \
-     bg-background transition-colors outline-none \
-     checked:border-primary checked:bg-primary \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     focus-visible:ring-offset-background disabled:pointer-events-none",
+    "peer size-4 shrink-0 cursor-pointer appearance-none border border-control \
+     bg-surface transition-colors \
+     checked:border-ink checked:bg-ink \
+     indeterminate:border-ink indeterminate:bg-ink \
+     disabled:cursor-not-allowed",
 );
+
+/// Classes shared by the overlaid check and dash marks.
+const MARK: &str = "pointer-events-none absolute inset-0 m-auto size-3.5 text-canvas opacity-0";
 
 /// A styled native checkbox.
 ///
 /// Pass input attributes and event handlers through `attrs`. Classes apply to the
 /// wrapper, while other attributes go on the `<input>`. Use `checked` for the initial
-/// state. The indeterminate state requires setting a DOM property and has no custom
-/// styling.
+/// state. The indeterminate state is a DOM property, set from script; it shows a dash.
 ///
 /// ```ignore
 /// view! {
@@ -36,7 +38,7 @@ pub async fn checkbox(#[default] mut attrs: Attributes) -> Result<impl View> {
     Ok(view! {
         <span
             class=(class!(
-                "peer relative inline-flex shrink-0 has-[:disabled]:opacity-50",
+                "peer relative inline-flex shrink-0 has-[:disabled]:opacity-45",
                 attrs.remove("class"),
             ))
         >
@@ -44,9 +46,12 @@ pub async fn checkbox(#[default] mut attrs: Attributes) -> Result<impl View> {
             icon(
                 data: iconify_icon!("lucide:check"),
                 attrs: attributes! {
-                    class="pointer-events-none absolute inset-0 m-auto size-3.5 \
-                        text-primary-foreground opacity-0 peer-checked:opacity-100"
+                    class=(class!(MARK, "peer-[:checked:not(:indeterminate)]:opacity-100"))
                 }
+            )
+            icon(
+                data: iconify_icon!("lucide:minus"),
+                attrs: attributes! { class=(class!(MARK, "peer-indeterminate:opacity-100")) }
             )
         </span>
     })

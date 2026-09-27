@@ -7,33 +7,38 @@ use topcoat::{
 
 /// Classes for the select control, with space for a custom dropdown arrow.
 const SELECT: StaticClass = class!(
-    "h-9 w-full appearance-none items-center rounded-lg border border-border \
-     bg-transparent pr-8 pl-3 text-left text-sm transition-colors outline-none \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive \
-     focus-visible:ring-offset-background disabled:pointer-events-none",
+    "min-h-9 w-full appearance-none items-center border border-control \
+     bg-surface py-1.5 pr-8 pl-2 text-left text-body text-ink transition-colors \
+     aria-invalid:border-danger aria-invalid:focus-visible:outline-danger \
+     disabled:cursor-not-allowed disabled:bg-subtle disabled:text-muted",
 );
 
 /// Classes for browsers that support customizable select pickers. Other browsers use
 /// their native picker.
 const PICKER: StaticClass = class!(
     "[&::picker(select)]:[appearance:base-select] \
-     [&::picker(select)]:mt-1 [&::picker(select)]:rounded-lg \
-     [&::picker(select)]:border [&::picker(select)]:border-border \
-     [&::picker(select)]:bg-popover [&::picker(select)]:p-1 \
-     [&::picker(select)]:text-popover-foreground [&::picker(select)]:shadow-sm \
+     [&::picker(select)]:my-1 [&::picker(select)]:border \
+     [&::picker(select)]:border-control [&::picker(select)]:bg-surface \
+     [&::picker(select)]:text-ink [&::picker(select)]:shadow-popover \
+     [&::picker(select)]:min-w-[anchor-size(width)] \
+     [&::picker(select)]:max-w-[calc(100dvw-2rem)] \
+     [&::picker(select)]:max-h-[min(20rem,60dvh)] [&::picker(select)]:overflow-auto \
      [&::picker-icon]:hidden \
-     [&_optgroup>legend]:px-2 [&_optgroup>legend]:py-1.5 \
-     [&_optgroup>legend]:text-xs [&_optgroup>legend]:font-medium \
-     [&_optgroup>legend]:text-muted-foreground [&_optgroup>legend]:cursor-default \
+     [&_optgroup>legend]:px-3 [&_optgroup>legend]:py-1.5 \
+     [&_optgroup>legend]:text-caption [&_optgroup>legend]:font-medium \
+     [&_optgroup>legend]:text-muted [&_optgroup>legend]:cursor-default \
      [&_optgroup>legend]:select-none \
-     [&_option]:flex [&_option]:items-center [&_option]:gap-2 [&_option]:rounded-md \
-     [&_option]:px-2 [&_option]:py-1.5 [&_option]:text-sm [&_option]:outline-none \
-     [&_option:hover]:bg-foreground/5 [&_option:focus]:bg-foreground/5 \
-     [&_option:checked]:font-medium \
+     [&_option]:flex [&_option]:min-h-9 [&_option]:items-center [&_option]:gap-2 \
+     [&_option]:px-3 [&_option]:py-2 [&_option]:text-body \
+     [&_option]:whitespace-normal [&_option]:wrap-anywhere \
+     [&_option]:outline-offset-[-2px] \
+     [&_option:checked]:bg-subtle [&_option:checked]:font-medium \
+     [&_option:not(:disabled):is(:hover,:focus-visible)]:bg-accent \
+     [&_option:not(:disabled):is(:hover,:focus-visible)]:text-accent-ink \
+     [&_option:disabled]:text-muted \
      [&_option::checkmark]:order-1 [&_option::checkmark]:ml-auto \
      [&_option::checkmark]:size-4 [&_option::checkmark]:shrink-0 \
-     [&_option::checkmark]:content-[''] [&_option::checkmark]:bg-muted-foreground \
+     [&_option::checkmark]:content-[''] [&_option::checkmark]:bg-current \
      [&_option::checkmark]:[mask-size:100%_100%] \
      [&_option::checkmark]:[mask-image:var(--select-checkmark)]",
 );
@@ -94,7 +99,7 @@ pub async fn select(cx: &Cx, #[default] mut attrs: Attributes, #[default] child:
     Ok(view! {
         <span
             class=(class!(
-                "relative block has-[:disabled]:opacity-50 \
+                "relative block \
                  [&>select]:[appearance:base-select] \
                  [&:has(select:open)>svg]:rotate-180",
                 attrs.remove("class"),
@@ -105,8 +110,8 @@ pub async fn select(cx: &Cx, #[default] mut attrs: Attributes, #[default] child:
             icon(
                 data: iconify_icon!("lucide:chevron-down"),
                 attrs: attributes! {
-                    class="pointer-events-none absolute top-1/2 right-3 size-4 \
-                        -translate-y-1/2 text-muted-foreground transition-transform"
+                    class="pointer-events-none absolute top-1/2 right-2.5 size-4 \
+                        -translate-y-1/2 text-muted transition-transform"
                 }
             )
         </span>

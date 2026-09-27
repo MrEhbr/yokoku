@@ -86,7 +86,7 @@ pub async fn pagination_link(
     #[default]
     child: Child<'_>,
 ) -> Result<impl View> {
-    let variant = if active { ButtonVariant::Outline } else { ButtonVariant::Ghost };
+    let variant = if active { ButtonVariant::Secondary } else { ButtonVariant::Quiet };
 
     Ok(view! {
         <a
@@ -120,7 +120,7 @@ pub async fn pagination_previous(
     Ok(view! {
         <a
             class=(class!(
-                button_variants(ButtonVariant::Ghost, ButtonSize::Md),
+                button_variants(ButtonVariant::Quiet, ButtonSize::Md),
                 attrs.remove("class"),
             ))
             (attrs)
@@ -145,7 +145,7 @@ pub async fn pagination_next(
     Ok(view! {
         <a
             class=(class!(
-                button_variants(ButtonVariant::Ghost, ButtonSize::Md),
+                button_variants(ButtonVariant::Quiet, ButtonSize::Md),
                 attrs.remove("class"),
             ))
             (attrs)
@@ -162,7 +162,7 @@ pub async fn pagination_ellipsis(#[default] mut attrs: Attributes) -> Result<imp
     Ok(view! {
         <span
             class=(class!(
-                "flex size-9 items-center justify-center text-muted-foreground",
+                "flex size-9 items-center justify-center text-muted",
                 attrs.remove("class"),
             ))
             (attrs)

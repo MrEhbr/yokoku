@@ -56,7 +56,7 @@ pub async fn accordion_item(#[default] mut attrs: Attributes, #[default] child: 
     Ok(view! {
         <details
             class=(class!(
-                "group border-b border-border last:border-b-0",
+                "group border-b border-line last:border-b-0",
                 ANIMATION,
                 attrs.remove("class"),
             ))
@@ -76,9 +76,8 @@ pub async fn accordion_trigger(#[default] mut attrs: Attributes, #[default] chil
         <summary
             class=(class!(
                 "flex w-full cursor-pointer list-none items-center justify-between gap-4 py-4 \
-                 text-left text-sm font-medium outline-none transition-colors \
-                 hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring \
-                 focus-visible:ring-offset-2 focus-visible:ring-offset-background \
+                 text-left text-body font-medium transition-colors \
+                 hover:text-muted \
                  [&::-webkit-details-marker]:hidden",
                 attrs.remove("class"),
             ))
@@ -88,7 +87,7 @@ pub async fn accordion_trigger(#[default] mut attrs: Attributes, #[default] chil
             icon(
                 data: iconify_icon!("lucide:chevron-down"),
                 attrs: attributes! {
-                    class="size-4 shrink-0 text-muted-foreground transition-transform \
+                    class="size-4 shrink-0 text-muted transition-transform \
                         duration-200 ease-out group-open:rotate-180"
                 }
             )
@@ -101,7 +100,7 @@ pub async fn accordion_trigger(#[default] mut attrs: Attributes, #[default] chil
 pub async fn accordion_content(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <div
-            class=(class!("pb-4 text-sm text-muted-foreground", attrs.remove("class")))
+            class=(class!("pb-4 text-body text-muted", attrs.remove("class")))
             (attrs)
         >
             (child)

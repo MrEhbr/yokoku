@@ -6,8 +6,8 @@ use topcoat::{
 /// Classes for a card with vertically stacked sections. Each section supplies its own
 /// horizontal padding so other content can span the full width.
 const CARD: StaticClass = class!(
-    "flex flex-col gap-5 rounded-xl border border-border bg-card py-6 \
-     text-card-foreground shadow-sm",
+    "flex flex-col gap-4 border border-line bg-surface py-5 \
+     text-ink",
 );
 
 /// A bordered panel that groups related content.
@@ -25,7 +25,7 @@ const CARD: StaticClass = class!(
 ///         )
 ///         card_footer(
 ///             attrs: attributes! { class="justify-end" },
-///             button(variant: ButtonVariant::Destructive, "Delete")
+///             button(variant: ButtonVariant::Danger, "Delete")
 ///         )
 ///     )
 /// }
@@ -41,7 +41,7 @@ pub async fn card(#[default] mut attrs: Attributes, #[default] child: Child<'_>)
 pub async fn card_header(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <div
-            class=(class!("flex flex-col gap-1.5 px-6", attrs.remove("class")))
+            class=(class!("flex flex-col gap-1.5 px-5", attrs.remove("class")))
             (attrs)
         >
             (child)
@@ -54,7 +54,7 @@ pub async fn card_header(#[default] mut attrs: Attributes, #[default] child: Chi
 pub async fn card_title(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <h3
-            class=(class!("text-base leading-none font-semibold", attrs.remove("class")))
+            class=(class!("text-section font-medium", attrs.remove("class")))
             (attrs)
         >
             (child)
@@ -67,7 +67,7 @@ pub async fn card_title(#[default] mut attrs: Attributes, #[default] child: Chil
 pub async fn card_description(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <p
-            class=(class!("text-sm text-muted-foreground", attrs.remove("class")))
+            class=(class!("text-body text-muted", attrs.remove("class")))
             (attrs)
         >
             (child)
@@ -78,7 +78,7 @@ pub async fn card_description(#[default] mut attrs: Attributes, #[default] child
 /// The main body of a [`card`].
 #[component]
 pub async fn card_content(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! { <div class=(class!("px-6", attrs.remove("class"))) (attrs)>(child)</div> })
+    Ok(view! { <div class=(class!("px-5", attrs.remove("class"))) (attrs)>(child)</div> })
 }
 
 /// The closing section of a [`card`], a horizontal row for actions.
@@ -86,7 +86,7 @@ pub async fn card_content(#[default] mut attrs: Attributes, #[default] child: Ch
 pub async fn card_footer(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <div
-            class=(class!("flex items-center gap-2 px-6", attrs.remove("class")))
+            class=(class!("flex flex-wrap items-center gap-2 px-5", attrs.remove("class")))
             (attrs)
         >
             (child)

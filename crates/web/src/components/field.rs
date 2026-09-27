@@ -21,7 +21,7 @@ pub enum FieldOrientation {
 impl FieldOrientation {
     fn classes(self) -> StaticClass {
         match self {
-            Self::Vertical => class!("flex-col gap-2"),
+            Self::Vertical => class!("flex-col gap-1.5"),
             Self::Horizontal => {
                 class!("flex-row items-center gap-3 [&>[data-slot=field-label]]:flex-1")
             },
@@ -48,8 +48,8 @@ pub enum FieldLegendVariant {
 impl FieldLegendVariant {
     fn classes(self) -> StaticClass {
         match self {
-            Self::Legend => class!("text-base font-semibold"),
-            Self::Label => class!("text-sm font-medium"),
+            Self::Legend => class!("text-section font-medium"),
+            Self::Label => class!("text-caption font-medium"),
         }
     }
 }
@@ -158,9 +158,9 @@ pub async fn field_label(#[default] mut attrs: Attributes, #[default] child: Chi
             attrs: attributes! {
                 data-slot="field-label"
                 class=(class!(
-                    "leading-snug group-has-[:disabled]/field:opacity-50 \
-                     group-has-[[aria-invalid=true]]/field:text-destructive \
-                     group-data-[invalid=true]/field:text-destructive",
+                    "text-caption leading-snug group-has-[:is(input,select,textarea,button):disabled]/field:opacity-45 \
+                     group-has-[[aria-invalid=true]]/field:text-danger \
+                     group-data-[invalid=true]/field:text-danger",
                     attrs.remove("class"),
                 ))
                 (attrs)
@@ -175,7 +175,7 @@ pub async fn field_label(#[default] mut attrs: Attributes, #[default] child: Chi
 pub async fn field_title(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <div
-            class=(class!("text-sm leading-snug font-medium", attrs.remove("class")))
+            class=(class!("text-caption leading-snug font-medium", attrs.remove("class")))
             (attrs)
         >
             (child)
@@ -189,7 +189,7 @@ pub async fn field_description(#[default] mut attrs: Attributes, #[default] chil
     Ok(view! {
         <p
             class=(class!(
-                "text-sm leading-relaxed text-muted-foreground [&_a]:underline [&_a]:underline-offset-4",
+                "text-caption text-muted [&_a]:underline [&_a]:underline-offset-4",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -205,7 +205,7 @@ pub async fn field_separator(#[default] mut attrs: Attributes, #[default] child:
     Ok(view! {
         <div
             class=(class!(
-                "flex items-center gap-3 text-xs text-muted-foreground has-[>span:empty]:gap-0 before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border",
+                "flex items-center gap-3 text-caption text-muted has-[>span:empty]:gap-0 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -225,7 +225,7 @@ pub async fn field_error(#[default] mut attrs: Attributes, #[default] child: Chi
     Ok(view! {
         <div
             role="alert"
-            class=(class!("text-sm text-destructive", attrs.remove("class")))
+            class=(class!("text-caption text-danger", attrs.remove("class")))
             (attrs)
         >
             (child)

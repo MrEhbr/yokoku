@@ -5,10 +5,15 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "gallery"
+path = "src/gallery.rs"
+
 [lints]
 workspace = true
 
 [dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 topcoat = { workspace = true, features = ["default", "font-fontsource", "icon-iconify", "tailwind"] }
 
 [build-dependencies]

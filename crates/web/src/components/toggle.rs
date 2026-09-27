@@ -45,9 +45,9 @@ impl ToggleSize {
     /// Classes for the toggle dimensions.
     fn classes(self) -> StaticClass {
         match self {
-            Self::Sm => class!("h-8 gap-1.5 rounded-md px-2"),
-            Self::Md => class!("h-9 gap-2 rounded-lg px-3"),
-            Self::Lg => class!("h-10 gap-2 rounded-lg px-4"),
+            Self::Sm => class!("h-8 gap-1.5 px-2"),
+            Self::Md => class!("h-9 gap-2 px-3"),
+            Self::Lg => class!("h-10 gap-2 px-4"),
         }
     }
 }
@@ -55,12 +55,12 @@ impl ToggleSize {
 /// Classes that style the label from its input's checked, focused, and disabled states.
 const BASE: StaticClass = class!(
     "inline-flex shrink-0 cursor-pointer items-center justify-center border \
-     border-transparent text-sm font-medium whitespace-nowrap transition-colors select-none \
-     text-muted-foreground hover:bg-foreground/5 hover:text-foreground \
-     has-[:checked]:bg-foreground/10 has-[:checked]:text-foreground \
-     has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring \
-     has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background \
-     has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50",
+     border-transparent text-body font-medium whitespace-nowrap transition-colors select-none \
+     text-muted hover:bg-subtle hover:text-ink \
+     has-[:checked]:bg-subtle has-[:checked]:text-ink \
+     has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 \
+     has-[:focus-visible]:outline-ink \
+     has-[:disabled]:pointer-events-none has-[:disabled]:opacity-45",
 );
 
 /// A control that stays pressed when selected.
@@ -131,7 +131,7 @@ pub async fn toggle_group(#[default] mut attrs: Attributes, #[default] child: Ch
     Ok(view! {
         <div
             class=(class!(
-                "inline-flex w-fit items-center gap-1 rounded-lg border border-border p-1",
+                "inline-flex w-fit items-center gap-1 border border-control p-1",
                 attrs.remove("class"),
             ))
             (attrs)

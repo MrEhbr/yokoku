@@ -26,10 +26,10 @@ use super::dialog::dialog;
 ///             )
 ///             dialog_footer(
 ///                 <a href="/workspace" class=(button_variants(
-///                     ButtonVariant::Ghost,
+///                     ButtonVariant::Quiet,
 ///                     ButtonSize::Md,
 ///                 ))>"Keep it"</a>
-///                 button(variant: ButtonVariant::Destructive, "Delete")
+///                 button(variant: ButtonVariant::Danger, "Delete")
 ///             )
 ///         )
 ///     )

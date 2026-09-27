@@ -21,7 +21,7 @@ use topcoat::{
 ///             dropdown_menu_item("Duplicate")
 ///             dropdown_menu_separator()
 ///             dropdown_menu_item(
-///                 attrs: attributes! { class="text-destructive" },
+///                 attrs: attributes! { class="text-danger" },
 ///                 "Delete"
 ///             )
 ///         )
@@ -54,7 +54,7 @@ const TRIGGER: StaticClass = class!("cursor-pointer list-none [&::-webkit-detail
 /// view! {
 ///     dropdown_menu_trigger(
 ///         attrs: attributes! {
-///             class=(button_variants(ButtonVariant::Outline, ButtonSize::Md))
+///             class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))
 ///         },
 ///         "Options"
 ///         icon(
@@ -75,8 +75,8 @@ pub async fn dropdown_menu_trigger(#[default] mut attrs: Attributes, #[default] 
 
 /// Classes for floating menu panels with their own background, border, and text color.
 const PANEL: StaticClass = class!(
-    "absolute z-50 min-w-40 rounded-lg border border-border bg-popover p-1 \
-     text-popover-foreground shadow-sm",
+    "absolute z-50 min-w-40 border border-control bg-surface p-1 \
+     text-ink shadow-popover",
 );
 
 /// The floating panel of a [`dropdown_menu`], holding the menu's items.
@@ -96,9 +96,9 @@ pub async fn dropdown_menu_content(#[default] mut attrs: Attributes, #[default] 
 
 /// Classes for a menu item and its interaction states.
 const ITEM: StaticClass = class!(
-    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm \
-     whitespace-nowrap outline-none hover:bg-foreground/5 focus-visible:bg-foreground/5 \
-     active:bg-foreground/10 disabled:pointer-events-none disabled:opacity-50",
+    "flex w-full items-center gap-2 px-2 py-1.5 text-left text-body \
+     whitespace-nowrap hover:bg-subtle focus-visible:bg-subtle \
+     active:bg-subtle disabled:cursor-not-allowed disabled:opacity-45",
 );
 
 /// One action in a [`dropdown_menu_content`], rendered as a `<button>`.
@@ -156,7 +156,7 @@ pub async fn dropdown_menu_sub_trigger(
             class=(class!(
                 ITEM,
                 TRIGGER,
-                "group-open/sub:bg-foreground/5",
+                "group-open/sub:bg-subtle",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -192,7 +192,7 @@ pub async fn dropdown_menu_label(#[default] mut attrs: Attributes, #[default] ch
     Ok(view! {
         <p
             class=(class!(
-                "px-2 py-1.5 text-xs font-medium text-muted-foreground",
+                "px-2 py-1.5 text-caption font-medium text-muted",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -206,6 +206,6 @@ pub async fn dropdown_menu_label(#[default] mut attrs: Attributes, #[default] ch
 #[component]
 pub async fn dropdown_menu_separator(#[default] mut attrs: Attributes) -> Result<impl View> {
     Ok(view! {
-        <hr class=(class!("-mx-1 my-1 border-border", attrs.remove("class"))) (attrs)>
+        <hr class=(class!("-mx-1 my-1 border-line", attrs.remove("class"))) (attrs)>
     })
 }

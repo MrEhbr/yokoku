@@ -6,11 +6,16 @@ use topcoat::{
 /// Classes for the native progress track and fill. Indeterminate animation depends on
 /// the browser and may appear as an empty track.
 const PROGRESS: StaticClass = class!(
-    "h-2 w-full appearance-none overflow-hidden rounded-full \
-     bg-foreground/10 [&::-webkit-progress-bar]:bg-transparent \
-     [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-primary \
+    "h-1.5 w-full appearance-none overflow-hidden \
+     bg-subtle [&::-webkit-progress-bar]:bg-transparent \
+     [&::-webkit-progress-value]:bg-ink \
      [&::-webkit-progress-value]:transition-all \
-     [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-primary",
+     [&::-moz-progress-bar]:bg-ink [&:indeterminate::-moz-progress-bar]:bg-transparent \
+     indeterminate:bg-linear-to-r indeterminate:from-ink indeterminate:to-ink \
+     indeterminate:bg-size-[30%_100%] indeterminate:bg-no-repeat \
+     indeterminate:animate-progress-indeterminate \
+     motion-reduce:indeterminate:animate-none motion-reduce:indeterminate:bg-size-[auto] \
+     motion-reduce:indeterminate:bg-[repeating-linear-gradient(90deg,var(--yk-ink)_0_6px,transparent_6px_12px)]",
 );
 
 /// A native progress bar.
@@ -29,7 +34,7 @@ const PROGRESS: StaticClass = class!(
 /// ```
 #[component]
 pub async fn progress(
-    /// The completed amount, out of `max`.
+    /// The completed amount, out of `max`. `None` renders an indeterminate bar.
     #[into]
     #[default]
     value: Option<f32>,

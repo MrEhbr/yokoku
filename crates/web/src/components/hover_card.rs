@@ -14,8 +14,8 @@ use topcoat::{
 ///     hover_card(
 ///         <a href="/people/ada" class="font-medium underline">"@ada"</a>
 ///         hover_card_content(
-///             <p class="text-sm font-medium">"Ada Lovelace"</p>
-///             <p class="text-sm text-muted-foreground">"Owner, joined in 2024."</p>
+///             <p class="text-body font-medium">"Ada Lovelace"</p>
+///             <p class="text-body text-muted">"Owner, joined in 2024."</p>
 ///         )
 ///     )
 /// }
@@ -35,8 +35,8 @@ pub async fn hover_card(#[default] mut attrs: Attributes, #[default] child: Chil
 /// Classes for the panel below the trigger. Delayed opacity and visibility transitions
 /// let the pointer reach the panel before it closes.
 const PANEL: StaticClass = class!(
-    "invisible absolute top-full left-0 z-50 mt-2 w-64 rounded-lg border \
-     border-border bg-popover p-4 text-popover-foreground opacity-0 shadow-sm \
+    "invisible absolute top-full left-0 z-50 mt-2 w-64 border \
+     border-control bg-surface p-4 text-ink opacity-0 shadow-popover \
      [transition:opacity_150ms_ease-out_300ms,visibility_150ms_allow-discrete_300ms] \
      group-hover:visible group-hover:opacity-100 \
      group-focus-within:visible group-focus-within:opacity-100",

@@ -9,7 +9,7 @@ use topcoat::{
 /// Set `display` only for the open state so the native closed state remains hidden.
 const OVERLAY: StaticClass = class!(
     "fixed inset-0 z-50 size-full max-h-none max-w-none items-start \
-     justify-center overflow-y-auto bg-background/80 p-4 text-foreground backdrop-blur-sm \
+     justify-center overflow-y-auto bg-overlay p-4 text-ink \
      open:flex",
 );
 
@@ -47,11 +47,11 @@ const FADE: StaticClass = class!(
 ///                 // renders it closed.
 ///                 <a
 ///                     href="/workspace"
-///                     class=(button_variants(ButtonVariant::Ghost, ButtonSize::Md))
+///                     class=(button_variants(ButtonVariant::Quiet, ButtonSize::Md))
 ///                 >
 ///                     "Cancel"
 ///                 </a>
-///                 button(variant: ButtonVariant::Destructive, "Delete")
+///                 button(variant: ButtonVariant::Danger, "Delete")
 ///             )
 ///         )
 ///     )
@@ -83,8 +83,8 @@ pub async fn dialog(
 /// Classes for the dialog panel. Automatic vertical margins center short panels while
 /// keeping the top of an oversized panel reachable by scrolling.
 const CONTENT: StaticClass = class!(
-    "relative my-auto flex w-full max-w-lg flex-col gap-4 rounded-xl \
-     border border-border bg-card p-6 text-card-foreground shadow-sm",
+    "relative my-auto flex w-full max-w-dialog flex-col gap-4 \
+     border border-ink bg-surface p-5 text-ink shadow-dialog",
 );
 
 /// Classes that scale and fade the panel as the dialog opens or closes.
@@ -123,7 +123,7 @@ pub async fn dialog_header(#[default] mut attrs: Attributes, #[default] child: C
 pub async fn dialog_title(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <h2
-            class=(class!("text-lg leading-none font-semibold", attrs.remove("class")))
+            class=(class!("text-section font-medium", attrs.remove("class")))
             (attrs)
         >
             (child)
@@ -136,7 +136,7 @@ pub async fn dialog_title(#[default] mut attrs: Attributes, #[default] child: Ch
 pub async fn dialog_description(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <p
-            class=(class!("text-sm text-muted-foreground", attrs.remove("class")))
+            class=(class!("text-body text-muted", attrs.remove("class")))
             (attrs)
         >
             (child)

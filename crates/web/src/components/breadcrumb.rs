@@ -38,7 +38,7 @@ pub async fn breadcrumb_list(#[default] mut attrs: Attributes, #[default] child:
     Ok(view! {
         <ol
             class=(class!(
-                "flex flex-wrap items-center gap-2 text-sm text-muted-foreground",
+                "flex flex-wrap items-center gap-2 text-body text-muted",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -68,7 +68,7 @@ pub async fn breadcrumb_link(#[default] mut attrs: Attributes, #[default] child:
     Ok(view! {
         <a
             class=(class!(
-                "transition-colors hover:text-foreground",
+                "transition-colors hover:text-ink",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -86,7 +86,7 @@ pub async fn breadcrumb_page(#[default] mut attrs: Attributes, #[default] child:
     Ok(view! {
         <span
             aria-current="page"
-            class=(class!("font-medium text-foreground", attrs.remove("class")))
+            class=(class!("font-medium text-ink", attrs.remove("class")))
             (attrs)
         >
             (child)

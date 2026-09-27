@@ -22,15 +22,15 @@ impl AvatarSize {
     /// Classes for the avatar dimensions and fallback text size.
     fn classes(self) -> StaticClass {
         match self {
-            Self::Sm => class!("size-8 text-xs"),
-            Self::Md => class!("size-10 text-sm"),
-            Self::Lg => class!("size-12 text-base"),
+            Self::Sm => class!("size-8 text-caption"),
+            Self::Md => class!("size-10 text-body"),
+            Self::Lg => class!("size-12 text-body"),
         }
     }
 }
 
 /// Classes that clip the avatar to a circle and position its image over the fallback.
-const AVATAR: StaticClass = class!("relative flex shrink-0 overflow-hidden rounded-full");
+const AVATAR: StaticClass = class!("relative flex shrink-0 overflow-hidden");
 
 /// A circular image with optional fallback content.
 ///
@@ -105,8 +105,8 @@ pub async fn avatar_fallback(#[default] mut attrs: Attributes, #[default] child:
     Ok(view! {
         <span
             class=(class!(
-                "flex size-full items-center justify-center bg-foreground/10 font-medium \
-                 text-foreground select-none",
+                "flex size-full items-center justify-center bg-subtle font-medium \
+                 text-ink select-none",
                 attrs.remove("class"),
             ))
             (attrs)

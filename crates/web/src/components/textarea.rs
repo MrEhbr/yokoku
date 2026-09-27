@@ -6,12 +6,11 @@ use topcoat::{
 /// Classes for a textarea that grows with its content. Browsers without content sizing
 /// support keep the minimum height and scroll.
 const TEXTAREA: StaticClass = class!(
-    "field-sizing-content min-h-16 w-full rounded-lg border border-border \
-     bg-transparent px-3 py-2 text-sm transition-colors outline-none \
-     placeholder:text-muted-foreground \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive \
-     focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+    "field-sizing-content min-h-16 w-full border border-control \
+     bg-surface px-2 py-1.5 text-body text-ink transition-colors \
+     placeholder:text-muted \
+     aria-invalid:border-danger aria-invalid:focus-visible:outline-danger \
+     disabled:cursor-not-allowed disabled:bg-subtle disabled:text-muted",
 );
 
 /// A text input for multiple lines.

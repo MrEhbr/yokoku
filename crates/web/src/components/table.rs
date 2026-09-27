@@ -32,7 +32,7 @@ pub async fn table(#[default] mut attrs: Attributes, #[default] child: Child<'_>
         <div class="w-full overflow-x-auto">
             <table
                 class=(class!(
-                    "w-full caption-bottom border-collapse text-sm",
+                    "w-full caption-bottom border-collapse text-body",
                     attrs.remove("class"),
                 ))
                 (attrs)
@@ -72,7 +72,7 @@ pub async fn table_footer(#[default] mut attrs: Attributes, #[default] child: Ch
     Ok(view! {
         <tfoot
             class=(class!(
-                "border-t border-border bg-foreground/5 font-medium [&>tr]:last:border-b-0",
+                "border-t border-line bg-subtle font-medium [&>tr]:last:border-b-0",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -88,7 +88,7 @@ pub async fn table_row(#[default] mut attrs: Attributes, #[default] child: Child
     Ok(view! {
         <tr
             class=(class!(
-                "border-b border-border transition-colors hover:bg-foreground/5",
+                "border-b border-line aria-selected:bg-subtle data-[selected=true]:bg-subtle",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -104,8 +104,8 @@ pub async fn table_head(#[default] mut attrs: Attributes, #[default] child: Chil
     Ok(view! {
         <th
             class=(class!(
-                "h-10 px-3 text-left align-middle font-medium whitespace-nowrap \
-                 text-muted-foreground",
+                "px-3 py-2 text-left align-middle text-caption font-medium whitespace-nowrap \
+                 text-muted",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -120,7 +120,7 @@ pub async fn table_head(#[default] mut attrs: Attributes, #[default] child: Chil
 pub async fn table_cell(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <td
-            class=(class!("p-3 align-middle whitespace-nowrap", attrs.remove("class")))
+            class=(class!("px-3 py-3 align-middle", attrs.remove("class")))
             (attrs)
         >
             (child)
@@ -133,7 +133,7 @@ pub async fn table_cell(#[default] mut attrs: Attributes, #[default] child: Chil
 pub async fn table_caption(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <caption
-            class=(class!("mt-4 text-sm text-muted-foreground", attrs.remove("class")))
+            class=(class!("mt-4 text-body text-muted", attrs.remove("class")))
             (attrs)
         >
             (child)

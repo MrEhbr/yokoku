@@ -39,15 +39,14 @@ pub async fn radio_group(#[default] mut attrs: Attributes, #[default] child: Chi
 
 /// Classes for the radio input and its selected border.
 const RADIO: StaticClass = class!(
-    "peer size-4 shrink-0 appearance-none rounded-full border border-border \
-     bg-background transition-colors outline-none checked:border-primary \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     focus-visible:ring-offset-background disabled:pointer-events-none",
+    "peer size-4 shrink-0 appearance-none rounded-full border border-control \
+     bg-surface transition-colors checked:border-ink \
+     disabled:pointer-events-none",
 );
 
 /// The classes for the dot marking the picked option.
 const DOT: StaticClass = class!(
-    "pointer-events-none absolute inset-0 m-auto size-2 rounded-full bg-primary \
+    "pointer-events-none absolute inset-0 m-auto size-2 rounded-full bg-ink \
      opacity-0 transition-opacity peer-checked:opacity-100",
 );
 
@@ -63,7 +62,7 @@ pub async fn radio_group_item(#[default] mut attrs: Attributes) -> Result<impl V
     Ok(view! {
         <span
             class=(class!(
-                "peer relative inline-flex shrink-0 has-[:disabled]:opacity-50",
+                "peer relative inline-flex shrink-0 has-[:disabled]:opacity-45",
                 attrs.remove("class"),
             ))
         >

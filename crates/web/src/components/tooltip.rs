@@ -17,7 +17,7 @@ use topcoat::{
 ///     tooltip(
 ///         button(
 ///             size: ButtonSize::Icon,
-///             variant: ButtonVariant::Outline,
+///             variant: ButtonVariant::Secondary,
 ///             icon(data: iconify_icon!("lucide:copy"), label: "Copy link")
 ///         )
 ///         tooltip_content("Copy link")
@@ -40,8 +40,8 @@ pub async fn tooltip(#[default] mut attrs: Attributes, #[default] child: Child<'
 /// and visibility transitions let it fade in and out.
 const BUBBLE: StaticClass = class!(
     "pointer-events-none invisible absolute bottom-full left-1/2 z-50 mb-2 \
-     -translate-x-1/2 rounded-md bg-foreground px-2.5 py-1 text-xs font-medium text-background \
-     opacity-0 shadow-sm whitespace-nowrap \
+     -translate-x-1/2 bg-ink px-2.5 py-1 text-caption font-medium text-canvas \
+     opacity-0 whitespace-nowrap \
      [transition:opacity_150ms_ease-out,visibility_150ms_allow-discrete] \
      group-hover:visible group-hover:opacity-100 \
      group-focus-within:visible group-focus-within:opacity-100",

@@ -4,7 +4,7 @@ use topcoat::{
 };
 
 /// Classes for a pulsing placeholder with a muted background.
-const SKELETON: StaticClass = class!("animate-pulse rounded-md bg-foreground/10");
+const SKELETON: StaticClass = class!("animate-pulse bg-subtle");
 
 /// A pulsing placeholder for content that is loading.
 ///

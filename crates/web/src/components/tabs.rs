@@ -44,7 +44,7 @@ pub async fn tabs_list(#[default] mut attrs: Attributes, #[default] child: Child
     Ok(view! {
         <div
             class=(class!(
-                "inline-flex w-fit items-center gap-1 rounded-lg border border-border p-1",
+                "flex flex-wrap border-b border-line",
                 attrs.remove("class"),
             ))
             (attrs)
@@ -56,13 +56,10 @@ pub async fn tabs_list(#[default] mut attrs: Attributes, #[default] child: Child
 
 /// Classes for a tab trigger's active and hover states.
 const TRIGGER: StaticClass = class!(
-    "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 \
-     rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors outline-none \
-     focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 \
-     focus-visible:ring-offset-background text-muted-foreground \
-     hover:bg-foreground/5 hover:text-foreground \
-     aria-[current=page]:bg-foreground/10 aria-[current=page]:text-foreground \
-     aria-[current=page]:hover:bg-foreground/10",
+    "-mb-px inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-2 \
+     border-b-2 border-transparent px-3 py-2 text-body whitespace-nowrap text-muted \
+     transition-colors hover:bg-subtle hover:text-ink \
+     aria-[current=page]:border-ink aria-[current=page]:text-ink",
 );
 
 /// A link that selects a panel.
