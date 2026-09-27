@@ -12,22 +12,22 @@ macro_rules! say {
 
 /// `say!` in green.
 macro_rules! success {
-    ($($arg:tt)+) => { say!("{}", $crate::output::Paint::green(format_args!($($arg)+))) };
+    ($($arg:tt)+) => { say!("{}", $crate::cli::output::Paint::green(format_args!($($arg)+))) };
 }
 
 /// `say!` in red.
 macro_rules! failure {
-    ($($arg:tt)+) => { say!("{}", $crate::output::Paint::red(format_args!($($arg)+))) };
+    ($($arg:tt)+) => { say!("{}", $crate::cli::output::Paint::red(format_args!($($arg)+))) };
 }
 
 /// `say!` in yellow.
 macro_rules! caution {
-    ($($arg:tt)+) => { say!("{}", $crate::output::Paint::yellow(format_args!($($arg)+))) };
+    ($($arg:tt)+) => { say!("{}", $crate::cli::output::Paint::yellow(format_args!($($arg)+))) };
 }
 
 /// `say!` dimmed.
 macro_rules! hint {
-    ($($arg:tt)+) => { say!("{}", $crate::output::Paint::dimmed(format_args!($($arg)+))) };
+    ($($arg:tt)+) => { say!("{}", $crate::cli::output::Paint::dimmed(format_args!($($arg)+))) };
 }
 
 /// Styles a value shown on stdout; it stays plain when stdout takes no colors.

@@ -5,9 +5,11 @@ use yokoku_library::LibraryStatus;
 
 use crate::{
     app::App,
-    commands::{ItemArgs, title_with_year},
+    cli::{
+        commands::{ItemArgs, title_with_year},
+        output::{Paint, Painted},
+    },
     config::Config,
-    output::{Paint, Painted},
 };
 
 #[derive(Parser)]

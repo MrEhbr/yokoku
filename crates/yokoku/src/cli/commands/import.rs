@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use yokoku_domain::ImportId;
 use yokoku_media::ImportMode;
 
-use crate::{app::App, config::Config, output::Paint};
+use crate::{app::App, cli::output::Paint, config::Config};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct ImportConfig {

@@ -4,7 +4,7 @@ use yokoku_domain::EpisodeSpan;
 
 use crate::{
     app::App,
-    commands::{ItemArgs, confirm_deletion},
+    cli::commands::{ItemArgs, confirm_deletion},
     config::Config,
 };
 

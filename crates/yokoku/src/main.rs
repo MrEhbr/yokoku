@@ -1,11 +1,9 @@
 #![forbid(unsafe_code)]
 
 #[macro_use]
-mod output;
+mod cli;
 
 mod app;
-mod args;
-mod commands;
 mod config;
 mod logging;
 mod secret;
@@ -17,7 +15,7 @@ use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
 use owo_colors::{OwoColorize, Stream, Style};
 
-use crate::args::Args;
+use crate::cli::args::{self, Args};
 
 async fn run() -> Result<()> {
     let matches = Args::command().get_matches();

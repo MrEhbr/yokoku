@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tracing::debug;
 use yokoku_library::{CalendarRelease, month_of, week_of};
 
-use crate::{app::App, config::Config, output::Paint};
+use crate::{app::App, cli::output::Paint, config::Config};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct CalendarConfig {

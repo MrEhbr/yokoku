@@ -7,7 +7,7 @@ use tracing::{Instrument, error, info_span};
 use yokoku_events::{CorrelationId, correlation::correlate};
 
 use crate::{
-    commands,
+    cli::commands,
     config::Config,
     logging::{self, LogOutput},
 };

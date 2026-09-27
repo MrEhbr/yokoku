@@ -7,9 +7,11 @@ use yokoku_library::{LibraryFilter, LibrarySort, LibraryStatus};
 
 use crate::{
     app::App,
-    commands::{Kind, title_with_year},
+    cli::{
+        commands::{Kind, title_with_year},
+        output::Paint,
+    },
     config::Config,
-    output::Paint,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]

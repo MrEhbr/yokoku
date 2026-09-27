@@ -5,9 +5,11 @@ use yokoku_media::Approval;
 
 use crate::{
     app::App,
-    commands::{ItemArgs, import::run_imports},
+    cli::{
+        commands::{ItemArgs, import::run_imports},
+        output::Paint,
+    },
     config::Config,
-    output::Paint,
 };
 
 #[derive(Parser)]

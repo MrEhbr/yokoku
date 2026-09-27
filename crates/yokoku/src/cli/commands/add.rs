@@ -8,9 +8,11 @@ use yokoku_media::RootKind;
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, title_with_year},
+    cli::{
+        commands::{ItemArgs, Kind, title_with_year},
+        output::Paint,
+    },
     config::Config,
-    output::Paint,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]

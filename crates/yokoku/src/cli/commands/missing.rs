@@ -1,7 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
 
-use crate::{app::App, commands::title_with_year, config::Config, output::Paint};
+use crate::{
+    app::App,
+    cli::{commands::title_with_year, output::Paint},
+    config::Config,
+};
 
 #[derive(Parser)]
 pub struct Args {}

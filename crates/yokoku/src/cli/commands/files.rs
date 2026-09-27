@@ -5,7 +5,11 @@ use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use yokoku_media::{MediaError, ports::ProbeError};
 
-use crate::{app::App, commands::ItemArgs, config::Config, output::Paint};
+use crate::{
+    app::App,
+    cli::{commands::ItemArgs, output::Paint},
+    config::Config,
+};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct FilesConfig {

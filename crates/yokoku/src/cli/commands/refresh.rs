@@ -4,7 +4,7 @@ use yokoku_domain::{ExternalId, ItemId};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind},
+    cli::commands::{ItemArgs, Kind},
     config::Config,
 };
 

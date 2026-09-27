@@ -4,9 +4,11 @@ use yokoku_domain::ExternalId;
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind},
+    cli::{
+        commands::{ItemArgs, Kind},
+        output::Paint,
+    },
     config::Config,
-    output::Paint,
 };
 
 #[derive(Parser)]

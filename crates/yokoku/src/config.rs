@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 
 use crate::{
     app::{ClockConfig, DatabaseConfig, MetadataConfig, NamingConfig, TransmissionConfig},
-    commands::{
+    cli::commands::{
         add::AddConfig, calendar::CalendarConfig, files::FilesConfig, import::ImportConfig, jellyfin::JellyfinConfig,
         list::ListConfig, serve::ServeConfig,
     },

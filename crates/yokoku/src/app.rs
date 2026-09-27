@@ -24,7 +24,7 @@ use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_system::{FfProbe, FileSpool, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
 use yokoku_transmission::TransmissionClient;
 
-use crate::{commands::title_with_year, config::Config, secret::Secret, subscriptions};
+use crate::{cli::commands::title_with_year, config::Config, secret::Secret, subscriptions};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DatabaseConfig {

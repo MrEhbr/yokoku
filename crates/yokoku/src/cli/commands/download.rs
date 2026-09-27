@@ -7,9 +7,11 @@ use yokoku_downloads::{DownloadState, ports::TorrentSource};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind, import::run_imports},
+    cli::{
+        commands::{ItemArgs, Kind, import::run_imports},
+        output::Paint,
+    },
     config::Config,
-    output::Paint,
 };
 
 #[derive(Parser)]
