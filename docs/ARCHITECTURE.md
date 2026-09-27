@@ -158,6 +158,8 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
 - **Emits:** `SeriesAdded`, `MovieAdded`, `SeriesRemoved`, `MovieRemoved`.
 - **Subscribes to:** `FilesFound`, `FilesImported`, `FileDeleted` (`FileTracker` updates the file projection). `FileRenamed` keeps the file id, so the projection needs no change.
 
+`yokoku-metadata` sends at most 40 requests a second to each source, gives up on a request after 30 s (5 s to connect), and tries a request up to three times on 429, 502, 503, 504, a timeout or a failed connection, waiting as `Retry-After` says (at most 30 s) or 1 s, then 2 s. A 404 for an item is `NotFound`; 401 and 403 are `Refused` and not retried; an answer of another shape is `Invalid`.
+
 ### 5.2 `downloads`
 
 Owns the downloads Yokoku knows about and the Transmission connection settings.

@@ -13,10 +13,12 @@ yokoku-domain.workspace = true
 yokoku-library.workspace = true
 
 async-trait.workspace = true
+governor.workspace = true
 jiff.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio = { workspace = true, features = ["time"] }
 tracing.workspace = true
 
 [dev-dependencies]

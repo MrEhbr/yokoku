@@ -1,22 +1,20 @@
-use std::time::Instant;
-
 use async_trait::async_trait;
-use reqwest::{Client, StatusCode};
 use serde::de::DeserializeOwned;
-use tracing::debug;
 use yokoku_domain::{EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
-use crate::wire::{self, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails};
+use crate::{
+    http::{self, Http, invalid},
+    wire::{self, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails},
+};
 
 const BASE_URL: &str = "https://api.themoviedb.org/3";
 /// TMDB's limit on `append_to_response` entries per request.
 const MAX_APPENDED_SEASONS: usize = 20;
 
 /// TMDB API v3 with a read access token.
-#[derive(Debug, Clone)]
 pub struct TmdbClient {
-    http: Client,
+    http: Http,
     base_url: String,
     token: String,
     language: String,
@@ -27,7 +25,7 @@ impl TmdbClient {
     /// `language` like `en-US`; `region` like `US` selects movie release dates.
     pub fn new(token: impl Into<String>, language: impl Into<String>, region: impl Into<String>) -> Self {
         Self {
-            http: Client::new(),
+            http: Http::new("TMDB"),
             base_url: BASE_URL.to_owned(),
             token: token.into(),
             language: language.into(),
@@ -47,29 +45,13 @@ impl TmdbClient {
         query: &[(&str, &str)],
         source: Option<ExternalId>,
     ) -> Result<T, MetadataError> {
-        let started = Instant::now();
-        let response = self
+        let request = self
             .http
             .get(format!("{}/{endpoint}", self.base_url))
             .bearer_auth(&self.token)
             .query(&[("language", self.language.as_str())])
-            .query(query)
-            .send()
-            .await
-            .map_err(unavailable)?;
-        debug!(
-            endpoint,
-            status = response.status().as_u16(),
-            elapsed_ms = started.elapsed().as_millis(),
-            "TMDB request"
-        );
-
-        if let Some(source) = source
-            && response.status() == StatusCode::NOT_FOUND
-        {
-            return Err(MetadataError::NotFound(source));
-        }
-        response.error_for_status().map_err(unavailable)?.json().await.map_err(unavailable)
+            .query(query);
+        http::json(self.http.send(request, source).await?).await
     }
 }
 
@@ -116,7 +98,7 @@ impl MetadataProvider for TmdbClient {
             let mut page: TvDetails = self.get(&endpoint, &[("append_to_response", &append)], Some(source)).await?;
             for number in chunk {
                 let Some(value) = page.appended.remove(&format!("season/{number}")) else { continue };
-                let season: SeasonDetails = serde_json::from_value(value).map_err(unavailable)?;
+                let season: SeasonDetails = serde_json::from_value(value).map_err(invalid)?;
                 seasons.push(SeasonMetadata {
                     number: season.season_number,
                     episodes: season
@@ -167,8 +149,4 @@ fn tmdb_id(source: ExternalId) -> Result<u64, MetadataError> {
         ExternalId::Tmdb(id) => Ok(id),
         ExternalId::Tvdb(_) => Err(MetadataError::Unavailable(format!("TMDB cannot look up {source}").into())),
     }
-}
-
-fn unavailable(error: impl std::error::Error + Send + Sync + 'static) -> MetadataError {
-    MetadataError::Unavailable(Box::new(error))
 }

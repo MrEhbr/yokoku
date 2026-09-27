@@ -185,18 +185,68 @@ async fn missing_items_are_not_found() {
     assert!(matches!(error, MetadataError::NotFound(ExternalId::Tmdb(404))));
 }
 
-#[rstest]
-#[case::bad_token(401)]
-#[case::rate_limited(429)]
-#[case::server_error(500)]
+fn failing(status: u16) -> ResponseTemplate {
+    ResponseTemplate::new(status).insert_header("retry-after", "0")
+}
+
 #[tokio::test]
-async fn failing_requests_leave_the_source_unavailable(#[case] status: u16) {
+async fn a_refused_token_is_not_retried_and_says_why() {
     let server = server().await;
-    Mock::given(path("/movie/1")).respond_with(ResponseTemplate::new(status)).mount(&server).await;
+    let body = json!({ "status_code": 7, "status_message": "Invalid API key: You must be granted a valid key." });
+    Mock::given(path("/movie/1"))
+        .respond_with(ResponseTemplate::new(401).set_body_json(body))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let error = client(&server, "US").movie(ExternalId::Tmdb(1)).await.unwrap_err();
+
+    assert!(matches!(&error, MetadataError::Refused(reason) if reason.contains("Invalid API key")), "{error:?}");
+}
+
+#[rstest]
+#[case::rate_limited(429)]
+#[case::bad_gateway(502)]
+#[case::overloaded(503)]
+#[case::gateway_timeout(504)]
+#[tokio::test]
+async fn temporary_failures_are_retried(#[case] status: u16) {
+    let server = server().await;
+    Mock::given(path("/movie/438631")).respond_with(failing(status)).up_to_n_times(2).mount(&server).await;
+    Mock::given(path("/movie/438631"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(fixture("movie_438631.json")))
+        .mount(&server)
+        .await;
+
+    let dune = client(&server, "US").movie(ExternalId::Tmdb(438631)).await.unwrap();
+
+    assert_eq!(dune.title, "Dune");
+}
+
+#[rstest]
+#[case::still_rate_limited(429, 3)]
+#[case::server_error(500, 1)]
+#[tokio::test]
+async fn failing_requests_leave_the_source_unavailable(#[case] status: u16, #[case] attempts: u64) {
+    let server = server().await;
+    Mock::given(path("/movie/1")).respond_with(failing(status)).expect(attempts).mount(&server).await;
 
     let error = client(&server, "US").movie(ExternalId::Tmdb(1)).await.unwrap_err();
 
     assert!(matches!(error, MetadataError::Unavailable(_)));
+}
+
+#[tokio::test]
+async fn answers_of_another_shape_are_invalid() {
+    let server = server().await;
+    Mock::given(path("/movie/1"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("<html>"))
+        .mount(&server)
+        .await;
+
+    let error = client(&server, "US").movie(ExternalId::Tmdb(1)).await.unwrap_err();
+
+    assert!(matches!(error, MetadataError::Invalid(_)));
 }
 
 #[tokio::test]

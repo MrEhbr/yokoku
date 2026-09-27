@@ -34,6 +34,11 @@ pub enum MetadataError {
     NotFound(ExternalId),
     #[error("metadata source unavailable")]
     Unavailable(#[source] Box<dyn Error + Send + Sync>),
+    /// The source rejected the credentials; trying again does not help.
+    #[error("metadata source refused the request: {0}")]
+    Refused(String),
+    #[error("unexpected answer from the metadata source")]
+    Invalid(#[source] Box<dyn Error + Send + Sync>),
 }
 
 /// A save inserts an aggregate at revision 0 and otherwise updates it only when the stored
