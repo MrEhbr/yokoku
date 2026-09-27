@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use yokoku_domain::ExternalId;
-use yokoku_downloads::{Download, DownloadState, ports::TorrentSource};
+use yokoku_downloads::{DownloadState, ports::TorrentSource};
 
 use crate::{
     app::App,
@@ -75,7 +75,18 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                     Some(item) => app.title(item).await,
                     None => "-".into(),
                 };
-                let (state, progress) = status(download);
+                let status = &download.status;
+                let (state, progress) = match (&status.error, status.state) {
+                    (Some(error), _) => ("error", error.clone()),
+                    (None, DownloadState::Downloading) => {
+                        let rate = format!("{:.1} MB/s", status.download_rate as f64 / 1_000_000.0);
+                        let left = status.eta.map(|eta| format!(", {}h {:02}m left", eta / 3600, eta % 3600 / 60));
+                        ("downloading", rate + &left.unwrap_or_default())
+                    },
+                    (None, DownloadState::Stopped) if download.completed_at.is_some() => ("finished", String::new()),
+                    (None, DownloadState::Stopped) => ("paused", String::new()),
+                    (None, state) => (state.as_str(), String::new()),
+                };
                 say!(
                     "{:<50} {:>3}%  {:<11}  {progress:<24}  {item}",
                     download.name,
@@ -115,21 +126,5 @@ impl AddArgs {
         }
         let bytes = fs::read(&self.torrent).with_context(|| format!("Failed to read {}", self.torrent))?;
         Ok(TorrentSource::File(bytes))
-    }
-}
-
-/// The state, with the rate and time left while downloading, or the error if any.
-fn status(download: &Download) -> (&'static str, String) {
-    let status = &download.status;
-    match (&status.error, status.state) {
-        (Some(error), _) => ("error", error.clone()),
-        (None, DownloadState::Downloading) => {
-            let rate = format!("{:.1} MB/s", status.download_rate as f64 / 1_000_000.0);
-            let left = status.eta.map(|seconds| format!(", {}h {:02}m left", seconds / 3600, seconds % 3600 / 60));
-            ("downloading", rate + &left.unwrap_or_default())
-        },
-        (None, DownloadState::Stopped) if download.completed_at.is_some() => ("finished", String::new()),
-        (None, DownloadState::Stopped) => ("paused", String::new()),
-        (None, state) => (state.as_str(), String::new()),
     }
 }

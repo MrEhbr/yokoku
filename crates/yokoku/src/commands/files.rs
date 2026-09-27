@@ -1,9 +1,9 @@
-use std::{io, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
-use yokoku_media::{FileDetails, MediaError, ports::ProbeError};
+use yokoku_media::{MediaError, ports::ProbeError};
 
 use crate::{app::App, commands::ItemArgs, config::Config, output::Paint};
 
@@ -39,12 +39,38 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     match args.command {
         Command::Show(item) => {
             let item = item.resolve(&app.library).await?;
-            let details = app.prober.details(item).await?;
-            if details.is_empty() {
+            let files = app.prober.details(item).await?;
+            if files.is_empty() {
                 hint!("No files.")?;
             }
-            for file in &details {
-                write_details(file)?;
+            for details in &files {
+                say!("{}", details.file.path.display().bold())?;
+                let size = format!("{:.1} GB", details.file.size as f64 / 1_000_000_000.0);
+                match &details.info {
+                    None => say!("  {size}, not probed yet; run `yokoku files probe`")?,
+                    Some(info) => {
+                        let minutes = info.duration.map(|duration| duration.as_secs() / 60);
+                        let duration = minutes.map(|minutes| format!("{}h {:02}m", minutes / 60, minutes % 60));
+                        let video = info.video.as_ref().map(ToString::to_string);
+                        let summary: Vec<String> = [Some(size), duration, video].into_iter().flatten().collect();
+                        say!("  {}", summary.join(", "))?;
+                        if !info.audio.is_empty() {
+                            let audio: Vec<String> = info.audio.iter().map(ToString::to_string).collect();
+                            say!("  Audio      {}", audio.join(", "))?;
+                        }
+                    },
+                }
+                let inside: Vec<String> =
+                    details.info.iter().flat_map(|info| &info.subtitles).map(ToString::to_string).collect();
+                let beside: Vec<String> = details.subtitle_files.iter().map(ToString::to_string).collect();
+                let parts: Vec<String> = [(inside, "in the file"), (beside, "beside it")]
+                    .into_iter()
+                    .filter(|(languages, _)| !languages.is_empty())
+                    .map(|(languages, place)| format!("{} {place}", languages.join(", ")))
+                    .collect();
+                if !parts.is_empty() {
+                    say!("  Subtitles  {}", parts.join("; "))?;
+                }
             }
         },
         Command::Probe => {
@@ -60,36 +86,6 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 failure!("Could not probe {}: {reason}", path.display())?;
             }
         },
-    }
-    Ok(())
-}
-
-fn write_details(details: &FileDetails) -> io::Result<()> {
-    say!("{}", details.file.path.display().bold())?;
-    let size = format!("{:.1} GB", details.file.size as f64 / 1_000_000_000.0);
-    match &details.info {
-        None => say!("  {size}, not probed yet; run `yokoku files probe`")?,
-        Some(info) => {
-            let minutes = info.duration.map(|duration| duration.as_secs() / 60);
-            let duration = minutes.map(|minutes| format!("{}h {:02}m", minutes / 60, minutes % 60));
-            let summary: Vec<String> =
-                [Some(size), duration, info.video.as_ref().map(ToString::to_string)].into_iter().flatten().collect();
-            say!("  {}", summary.join(", "))?;
-            if !info.audio.is_empty() {
-                let audio: Vec<String> = info.audio.iter().map(ToString::to_string).collect();
-                say!("  Audio      {}", audio.join(", "))?;
-            }
-        },
-    }
-    let inside: Vec<String> = details.info.iter().flat_map(|info| &info.subtitles).map(ToString::to_string).collect();
-    let beside: Vec<String> = details.subtitle_files.iter().map(ToString::to_string).collect();
-    let parts: Vec<String> = [(inside, "in the file"), (beside, "beside it")]
-        .into_iter()
-        .filter(|(languages, _)| !languages.is_empty())
-        .map(|(languages, place)| format!("{} {place}", languages.join(", ")))
-        .collect();
-    if !parts.is_empty() {
-        say!("  Subtitles  {}", parts.join("; "))?;
     }
     Ok(())
 }
