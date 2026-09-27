@@ -12,13 +12,13 @@ use config::{ConfigBuilder, Environment, File, FileFormat, builder::DefaultState
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use yokoku_domain::Secret;
+use yokoku_download_clients::TransmissionSettings;
 use yokoku_downloads::DownloadOptions;
 use yokoku_jobs::ScheduleSettings;
 use yokoku_media::ImportSettings;
 use yokoku_metadata::MetadataSettings;
 use yokoku_naming::Naming;
 use yokoku_system::{ClockSettings, JellyfinSettings, ProbeSettings};
-use yokoku_transmission::TransmissionSettings;
 
 pub use crate::{
     log::{LogConfig, LogFormat, LogOutput},

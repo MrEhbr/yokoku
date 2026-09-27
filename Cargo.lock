@@ -4857,6 +4857,7 @@ dependencies = [
  "yokoku-config",
  "yokoku-db",
  "yokoku-domain",
+ "yokoku-download-clients",
  "yokoku-downloads",
  "yokoku-events",
  "yokoku-integrations",
@@ -4866,7 +4867,6 @@ dependencies = [
  "yokoku-metadata",
  "yokoku-naming",
  "yokoku-system",
- "yokoku-transmission",
  "yokoku-web",
 ]
 
@@ -4883,6 +4883,7 @@ dependencies = [
  "tokio",
  "tracing",
  "yokoku-domain",
+ "yokoku-download-clients",
  "yokoku-downloads",
  "yokoku-events",
  "yokoku-jobs",
@@ -4891,7 +4892,6 @@ dependencies = [
  "yokoku-metadata",
  "yokoku-naming",
  "yokoku-system",
- "yokoku-transmission",
 ]
 
 [[package]]
@@ -4947,6 +4947,28 @@ dependencies = [
  "thiserror",
  "toml",
  "uuid",
+]
+
+[[package]]
+name = "yokoku-download-clients"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "jiff",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "wiremock",
+ "yokoku-db",
+ "yokoku-domain",
+ "yokoku-downloads",
+ "yokoku-events",
+ "yokoku-system",
 ]
 
 [[package]]
@@ -5107,28 +5129,6 @@ dependencies = [
  "yokoku-events",
  "yokoku-integrations",
  "yokoku-media",
-]
-
-[[package]]
-name = "yokoku-transmission"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "base64 0.22.1",
- "jiff",
- "reqwest",
- "rstest",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tracing",
- "wiremock",
- "yokoku-db",
- "yokoku-domain",
- "yokoku-downloads",
- "yokoku-events",
- "yokoku-system",
 ]
 
 [[package]]

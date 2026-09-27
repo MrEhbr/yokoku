@@ -13,6 +13,7 @@ yokoku-config = { path = "crates/config" }
 yokoku-db = { path = "crates/db" }
 yokoku-detect = { path = "crates/detect" }
 yokoku-domain = { path = "crates/domain" }
+yokoku-download-clients = { path = "crates/download-clients" }
 yokoku-downloads = { path = "crates/downloads" }
 yokoku-events = { path = "crates/events" }
 yokoku-integrations = { path = "crates/integrations" }
@@ -22,7 +23,6 @@ yokoku-media = { path = "crates/media" }
 yokoku-metadata = { path = "crates/metadata" }
 yokoku-naming = { path = "crates/naming" }
 yokoku-system = { path = "crates/system" }
-yokoku-transmission = { path = "crates/transmission" }
 yokoku-web = { path = "crates/web" }
 
 anyhow = "1.0"

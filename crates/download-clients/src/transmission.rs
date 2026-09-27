@@ -15,7 +15,7 @@ use yokoku_downloads::{
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
 
-use crate::wire;
+use crate::transmission_wire as wire;
 
 const SESSION_HEADER: &str = "X-Transmission-Session-Id";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);

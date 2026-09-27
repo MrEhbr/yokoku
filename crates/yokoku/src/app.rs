@@ -8,6 +8,7 @@ use tracing::warn;
 use yokoku_config::{Config, Settings};
 use yokoku_db::Database;
 use yokoku_domain::{Clock, ItemId, Live, MovieMetadata, SeriesMetadata, title_with_year};
+use yokoku_download_clients::TransmissionClient;
 use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
 use yokoku_integrations::Rescans;
@@ -19,7 +20,6 @@ use yokoku_media::{
 use yokoku_metadata::{Sources, TmdbClient, TvdbClient};
 use yokoku_naming::Naming;
 use yokoku_system::{FfProbe, FileSpool, JellyfinClient, LocalFileSystem, LockFile, SystemClock};
-use yokoku_transmission::TransmissionClient;
 
 use crate::subscriptions;
 

@@ -5,11 +5,11 @@ use wiremock::{
     matchers::{basic_auth, body_partial_json, header, method, path},
 };
 use yokoku_domain::{Live, Secret};
+use yokoku_download_clients::{TransmissionClient, TransmissionSettings};
 use yokoku_downloads::{
     DownloadState,
     ports::{ClientError, DownloadClient, TorrentSource},
 };
-use yokoku_transmission::{TransmissionClient, TransmissionSettings};
 
 const RPC: &str = "/transmission/rpc";
 const SESSION: &str = "6qXR0iKsWG3NkpqOtgfvVFzN";

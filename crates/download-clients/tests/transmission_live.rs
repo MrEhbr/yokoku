@@ -11,13 +11,13 @@ use jiff::{Timestamp, Zoned, tz::TimeZone};
 use tokio::{process::Command, time::sleep};
 use yokoku_db::Database;
 use yokoku_domain::{Clock, Live};
+use yokoku_download_clients::{TransmissionClient, TransmissionSettings};
 use yokoku_downloads::{
     DownloadOptions, DownloadState, Downloads,
     ports::{DownloadClient, TorrentSource},
 };
 use yokoku_events::{DownloadCompleted, Event, EventLog, Publisher};
 use yokoku_system::FileSpool;
-use yokoku_transmission::{TransmissionClient, TransmissionSettings};
 
 const WAIT: Duration = Duration::from_secs(20);
 

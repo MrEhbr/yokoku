@@ -1,5 +1,5 @@
 [package]
-name = "yokoku-transmission"
+name = "yokoku-download-clients"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
