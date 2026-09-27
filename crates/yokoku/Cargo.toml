@@ -30,6 +30,7 @@ yokoku-naming.workspace = true
 yokoku-system.workspace = true
 yokoku-transmission.workspace = true
 
+anstream.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap-verbosity-flag.workspace = true
@@ -37,6 +38,7 @@ config.workspace = true
 console-subscriber = { workspace = true, optional = true }
 jiff.workspace = true
 jiff-cron.workspace = true
+owo-colors.workspace = true
 secrecy.workspace = true
 serde.workspace = true
 serde_json.workspace = true

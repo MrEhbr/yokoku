@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use clap::Parser;
+use owo_colors::OwoColorize;
 use yokoku_domain::{ExternalId, ItemId};
 use yokoku_media::{Rename, RenameScope, SkipReason, Skipped};
 
@@ -38,7 +39,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             ItemId::Movie(id) => RenameScope::Movie(id),
         },
     };
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
 
     if !args.apply {
         let plan = app.renamer.preview(scope).await?;
@@ -60,7 +61,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     writeln!(out, "Renamed {} files", report.renamed.len())?;
     print_skipped(&mut out, &report.skipped)?;
     for failure in &report.failed {
-        writeln!(out, "Failed {}: {}", failure.path.display(), failure.error)?;
+        writeln!(out, "{}", format!("Failed {}: {}", failure.path.display(), failure.error).red())?;
     }
     if !report.failed.is_empty() {
         bail!("{} files could not be renamed", report.failed.len());
@@ -72,7 +73,7 @@ fn print_rename(out: &mut impl Write, rename: &Rename) -> io::Result<()> {
     let relative = |path: &Path| path.strip_prefix(&rename.root).unwrap_or(path).display().to_string();
     let moves = std::iter::once(&rename.video).chain(&rename.subtitles).filter(|step| step.from != step.to);
     for step in moves {
-        writeln!(out, "{}\n  -> {}", relative(&step.from), relative(&step.to))?;
+        writeln!(out, "{}\n  {} {}", relative(&step.from), "->".dimmed(), relative(&step.to).green())?;
     }
     Ok(())
 }
@@ -84,7 +85,7 @@ fn print_skipped(out: &mut impl Write, skipped: &[Skipped]) -> io::Result<()> {
             SkipReason::NotInLibrary => "its item is no longer in the library",
             SkipReason::SharedTarget => "another file would get the same name",
         };
-        writeln!(out, "Skipped {}: {reason}", skipped.path.display())?;
+        writeln!(out, "{}", format!("Skipped {}: {reason}", skipped.path.display()).yellow())?;
     }
     Ok(())
 }

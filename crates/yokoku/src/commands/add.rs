@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Write},
+    io::Write,
     path::{self, PathBuf},
 };
 
@@ -71,7 +71,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     let sync = app.sync()?;
     let root_kind = match args.item.kind {
         Kind::Series => RootKind::Series,

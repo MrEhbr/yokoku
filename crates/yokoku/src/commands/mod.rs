@@ -7,6 +7,7 @@ pub mod greet;
 pub mod history;
 pub mod import;
 pub mod jellyfin;
+pub mod label;
 pub mod list;
 pub mod missing;
 pub mod monitor;
@@ -27,11 +28,11 @@ use std::io::{self, Write};
 
 use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
-use yokoku_domain::{
-    EpisodeSpan, ExternalId, FileStatus, FileTarget, ItemId, MediaKind, MovieStatus, ReleaseKind, SeriesStatus,
-};
-use yokoku_library::{Library, LibraryStatus};
+use yokoku_domain::{EpisodeSpan, ExternalId, FileTarget, ItemId, MediaKind};
+use yokoku_library::Library;
 use yokoku_media::MediaFile;
+
+use crate::commands::label::Label;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Kind {
@@ -60,7 +61,7 @@ impl ItemArgs {
             Kind::Series => library.find_series(self.source).await?.map(|series| ItemId::Series(series.id)),
             Kind::Movie => library.find_movie(self.source).await?.map(|movie| ItemId::Movie(movie.id)),
         };
-        id.with_context(|| format!("{} {} is not in the library", kind_label(self.kind.into()), self.source))
+        id.with_context(|| format!("{} {} is not in the library", MediaKind::from(self.kind).label(), self.source))
     }
 
     /// `episodes` of a series, or a movie; fails when `episodes` does not fit the item type.
@@ -88,7 +89,7 @@ pub fn confirm_deletion(files: &[MediaFile], yes: bool) -> Result<()> {
     if yes || files.is_empty() {
         return Ok(());
     }
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     for file in files {
         writeln!(out, "  {}", file.path.display())?;
     }
@@ -103,43 +104,23 @@ pub fn confirm_deletion(files: &[MediaFile], yes: bool) -> Result<()> {
     }
 }
 
-pub fn kind_label(kind: MediaKind) -> &'static str {
-    match kind {
-        MediaKind::Series => "series",
-        MediaKind::Movie => "movie",
-    }
-}
-
-pub fn status_label(status: LibraryStatus) -> &'static str {
-    match status {
-        LibraryStatus::Series(SeriesStatus::Continuing) => "continuing",
-        LibraryStatus::Series(SeriesStatus::OnBreak) => "on break",
-        LibraryStatus::Series(SeriesStatus::Ended) => "ended",
-        LibraryStatus::Movie(MovieStatus::Announced) => "announced",
-        LibraryStatus::Movie(MovieStatus::InCinemas) => "in cinemas",
-        LibraryStatus::Movie(MovieStatus::Released) => "released",
-    }
-}
-
-pub fn file_status_label(status: FileStatus) -> &'static str {
-    match status {
-        FileStatus::Downloaded => "downloaded",
-        FileStatus::Missing => "missing",
-        FileStatus::Upcoming => "upcoming",
-    }
-}
-
-pub fn release_label(kind: ReleaseKind) -> &'static str {
-    match kind {
-        ReleaseKind::Cinema => "cinema release",
-        ReleaseKind::Digital => "digital release",
-        ReleaseKind::Physical => "physical release",
-    }
-}
-
 pub fn title_with_year(title: &str, year: Option<i16>) -> String {
     match year {
         Some(year) => format!("{title} ({year})"),
         None => title.to_owned(),
+    }
+}
+
+/// The item's title with its year; `removed series` or `removed movie` once it left the library.
+pub async fn item_title(library: &Library, item: ItemId) -> String {
+    match item {
+        ItemId::Series(id) => library
+            .series(id)
+            .await
+            .map_or_else(|_| "removed series".into(), |series| title_with_year(&series.title, series.year)),
+        ItemId::Movie(id) => library
+            .movie(id)
+            .await
+            .map_or_else(|_| "removed movie".into(), |movie| title_with_year(&movie.title, movie.year)),
     }
 }

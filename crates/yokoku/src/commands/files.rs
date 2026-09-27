@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use yokoku_domain::SubtitleTags;
 use yokoku_media::{FileDetails, MediaError, MediaInfo, ports::ProbeError};
@@ -40,7 +41,7 @@ pub enum Command {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
 
     match args.command {
         Command::Show(item) => {
@@ -63,7 +64,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
             };
             writeln!(out, "Probed {} files", report.probed)?;
             for (path, reason) in &report.failed {
-                writeln!(out, "Could not probe {}: {reason}", path.display())?;
+                writeln!(out, "{}", format!("Could not probe {}: {reason}", path.display()).red())?;
             }
         },
     }
@@ -71,7 +72,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
 }
 
 fn write_details(out: &mut impl Write, details: &FileDetails) -> io::Result<()> {
-    writeln!(out, "{}", details.file.path.display())?;
+    writeln!(out, "{}", details.file.path.display().bold())?;
     let size = format!("{:.1} GB", details.file.size as f64 / 1_000_000_000.0);
     let Some(info) = &details.info else {
         writeln!(out, "  {size}, not probed yet; run `yokoku files probe`")?;

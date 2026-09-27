@@ -1,7 +1,8 @@
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 use yokoku_domain::{MovieStatus, SeriesStatus};
@@ -9,7 +10,7 @@ use yokoku_library::{LibraryFilter, LibrarySort, LibraryStatus};
 
 use crate::{
     app::App,
-    commands::{Kind, kind_label, status_label, title_with_year},
+    commands::{Kind, label::Label, title_with_year},
     config::Config,
 };
 
@@ -70,7 +71,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     let filter = LibraryFilter { kind: args.kind.map(Into::into), status: args.status.map(Into::into) };
     let entries = app.library.list(filter, settings.sort.into()).await?;
 
@@ -81,9 +82,9 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         writeln!(
             out,
             "{:<40} {:<6} {:<10} {:<5} {:<10} {}",
-            title_with_year(&entry.title, entry.year),
-            kind_label(entry.id.kind()),
-            status_label(entry.status),
+            title_with_year(&entry.title, entry.year).bold(),
+            entry.id.kind().label(),
+            entry.status.label(),
             if entry.has_files { "files" } else { "-" },
             entry.next_release.map_or_else(|| "-".to_owned(), |date| date.to_string()),
             entry.source,

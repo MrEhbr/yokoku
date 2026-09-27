@@ -1,5 +1,3 @@
-use std::io;
-
 use anyhow::Result;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -43,7 +41,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     debug!(?settings, "resolved command settings");
 
     let app = App::open(config).await?;
-    print_calendar(&mut io::stdout(), &app.schedule.upcoming(settings.days).await?)?;
+    print_calendar(&mut anstream::stdout(), &app.schedule.upcoming(settings.days).await?)?;
 
     Ok(())
 }

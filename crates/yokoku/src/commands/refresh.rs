@@ -1,12 +1,13 @@
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::{Result, bail};
 use clap::Parser;
+use owo_colors::OwoColorize;
 use yokoku_domain::{ExternalId, ItemId};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, Kind},
+    commands::{ItemArgs, Kind, item_title},
     config::Config,
 };
 
@@ -23,7 +24,7 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     let sync = app.sync()?;
     let item = ItemArgs::optional(args.kind, args.source);
 
@@ -31,11 +32,8 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         let report = sync.refresh_all().await?;
         writeln!(out, "Refreshed {} items", report.refreshed)?;
         for failure in &report.failures {
-            let name = match failure.item {
-                ItemId::Series(id) => app.library.series(id).await.map(|series| series.title),
-                ItemId::Movie(id) => app.library.movie(id).await.map(|movie| movie.title),
-            };
-            writeln!(out, "Failed {}: {}", name.unwrap_or_else(|_| "unknown item".into()), failure.error)?;
+            let name = item_title(&app.library, failure.item).await;
+            writeln!(out, "{}", format!("Failed {name}: {}", failure.error).red())?;
         }
         if !report.failures.is_empty() {
             bail!("{} items could not be refreshed", report.failures.len());

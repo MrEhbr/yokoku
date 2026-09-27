@@ -1860,6 +1860,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
+name = "owo-colors"
+version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13c45bb4a6ae1280ec0803b1ef9d3455eb50f01efbbe1447ab020f1d54fba9d8"
+
+[[package]]
 name = "page_size"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3918,6 +3924,7 @@ dependencies = [
 name = "yokoku"
 version = "0.0.1"
 dependencies = [
+ "anstream",
  "anyhow",
  "assert_cmd",
  "clap",
@@ -3927,6 +3934,7 @@ dependencies = [
  "criterion",
  "jiff",
  "jiff-cron",
+ "owo-colors",
  "predicates",
  "rstest",
  "secrecy",

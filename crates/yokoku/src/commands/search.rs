@@ -1,11 +1,12 @@
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::Result;
 use clap::Parser;
+use owo_colors::OwoColorize;
 
 use crate::{
     app::App,
-    commands::{kind_label, title_with_year},
+    commands::{label::Label, title_with_year},
     config::Config,
 };
 
@@ -18,7 +19,7 @@ pub struct Args {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     let hits = app.sync()?.search(&args.query.join(" ")).await?;
 
     if hits.is_empty() {
@@ -29,10 +30,10 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         writeln!(
             out,
             "{:<6} {:<50} {:<14} {}",
-            kind_label(result.kind),
-            title_with_year(&result.title, result.year),
+            result.kind.label(),
+            title_with_year(&result.title, result.year).bold(),
             result.source,
-            if hit.in_library { "in library" } else { "" },
+            if hit.in_library { "in library" } else { "" }.green(),
         )?;
     }
 

@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -32,7 +32,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
     let rescans =
         app.rescans.as_ref().context("No Jellyfin configured; set jellyfin.url and APP__JELLYFIN__API_KEY")?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     match args.command {
         Command::Test => writeln!(out, "Connected to {}", rescans.test_connection().await?)?,
         Command::Rescan => {

@@ -23,6 +23,7 @@ yokoku-naming = { path = "crates/naming" }
 yokoku-system = { path = "crates/system" }
 yokoku-transmission = { path = "crates/transmission" }
 
+anstream = "1.0"
 anyhow = "1.0"
 apalis = "1.0.0-rc.10"
 apalis-cron = { version = "1.0.0-rc.9", default-features = false, features = ["jiff"] }
@@ -36,6 +37,7 @@ hunch = { version = "2.0.2", default-features = false }
 isolang = { version = "2.4", features = ["lowercase_names"] }
 jiff = "0.2"
 jiff-cron = "0.3"
+owo-colors = "4.4"
 regex = "1.13"
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls"] }
 serde = { version = "1.0", features = ["derive"] }

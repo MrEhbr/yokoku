@@ -1,7 +1,8 @@
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::Result;
 use clap::Parser;
+use owo_colors::OwoColorize;
 use yokoku_domain::ExternalId;
 use yokoku_events::{
     DeleteReason, DownloadCompleted, Event, FileDeleted, FileRenamed, FilesFound, FilesImported, ImportFailed,
@@ -36,7 +37,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
         None => None,
     };
     let time_zone = config.clock.time_zone()?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
 
     let entries = app.history.page(item, None, args.limit).await?;
     if entries.is_empty() {
@@ -45,7 +46,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     for recorded in entries {
         let at = recorded.occurred_at.to_zoned(time_zone.clone()).strftime("%Y-%m-%d %H:%M");
         let mut lines = describe(&recorded.event).into_iter();
-        writeln!(out, "{at}  {}", lines.next().unwrap_or_default())?;
+        writeln!(out, "{}  {}", at.dimmed(), lines.next().unwrap_or_default())?;
         for line in lines {
             writeln!(out, "                  {line}")?;
         }

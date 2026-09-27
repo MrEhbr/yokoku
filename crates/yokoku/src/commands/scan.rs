@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::Result;
 use clap::Parser;
@@ -10,7 +10,7 @@ pub struct Args {}
 
 pub async fn run(config: &Config, _args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     if app.roots.list().await?.is_empty() {
         writeln!(out, "No root folders; add one with `yokoku root add`.")?;
         return Ok(());

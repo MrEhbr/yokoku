@@ -5,7 +5,7 @@
 //! 3. Add a variant to `Command` in `src/args.rs` and dispatch it in `route`.
 //! 4. Add its config section to `Config` in `src/config.rs`.
 
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::{Result, ensure};
 use clap::Parser;
@@ -62,7 +62,7 @@ pub fn run(config: &Config, args: Args) -> Result<()> {
     let settings = args.apply_overrides(&config.greet);
     debug!(?settings, "resolved command settings");
 
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     for _ in 0..settings.count {
         info!(name = %args.name, "greeting");
         writeln!(out, "{}, {}!", settings.greeting, args.name)?;

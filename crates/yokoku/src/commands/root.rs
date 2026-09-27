@@ -1,5 +1,5 @@
 use std::{
-    io::{self, Write},
+    io::Write,
     path::{self, PathBuf},
 };
 
@@ -7,7 +7,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use yokoku_media::RootKind;
 
-use crate::{app::App, config::Config};
+use crate::{app::App, commands::label::Label, config::Config};
 
 #[derive(Parser)]
 pub struct Args {
@@ -33,12 +33,12 @@ pub enum Kind {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
 
     match args.command {
         Command::Add { kind, path } => {
             let root = app.roots.add(kind.into(), &path::absolute(path)?).await?;
-            writeln!(out, "Added {} root {}", kind_label(root.kind), root.path.display())?;
+            writeln!(out, "Added {} root {}", root.kind.label(), root.path.display())?;
         },
         Command::List => {
             let roots = app.roots.list().await?;
@@ -46,7 +46,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                 writeln!(out, "No root folders; add one with `yokoku root add`.")?;
             }
             for root in roots {
-                writeln!(out, "{:<7} {}", kind_label(root.kind), root.path.display())?;
+                writeln!(out, "{:<7} {}", root.kind.label(), root.path.display())?;
             }
         },
         Command::Remove { path } => {
@@ -57,13 +57,6 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn kind_label(kind: RootKind) -> &'static str {
-    match kind {
-        RootKind::Series => "series",
-        RootKind::Movies => "movies",
-    }
 }
 
 impl From<Kind> for RootKind {

@@ -1,15 +1,16 @@
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use owo_colors::OwoColorize;
 use yokoku_detect::Conflict;
-use yokoku_domain::{Confidence, EpisodeSpan, FileTarget, ImportId};
+use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
 use yokoku_library::Library;
 use yokoku_media::{Approval, ReviewRow};
 
 use crate::{
     app::App,
-    commands::{ItemArgs, import::run_imports, title_with_year},
+    commands::{ItemArgs, import::run_imports, item_title, label::Label},
     config::Config,
 };
 
@@ -48,7 +49,7 @@ pub struct MatchArgs {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
 
     match args.command {
         Command::List => {
@@ -100,14 +101,10 @@ async fn target_label(library: &Library, row: &ReviewRow) -> String {
     }
     match row.row.target {
         None => "-".into(),
-        Some(FileTarget::Episodes { series, span }) => match library.series(series).await {
-            Ok(series) => format!("{} {span}", title_with_year(&series.title, series.year)),
-            Err(_) => format!("removed series {span}"),
+        Some(FileTarget::Episodes { series, span }) => {
+            format!("{} {span}", item_title(library, ItemId::Series(series)).await)
         },
-        Some(FileTarget::Movie(movie)) => match library.movie(movie).await {
-            Ok(movie) => title_with_year(&movie.title, movie.year),
-            Err(_) => "removed movie".into(),
-        },
+        Some(FileTarget::Movie(movie)) => item_title(library, ItemId::Movie(movie)).await,
     }
 }
 
@@ -115,15 +112,10 @@ fn details(row: &ReviewRow) -> String {
     if row.row.skipped {
         return String::new();
     }
-    let confidence = match row.row.confidence {
-        Confidence::Unknown => "unknown",
-        Confidence::Guess => "guess",
-        Confidence::Certain => "certain",
-    };
     let conflicts = row.conflicts.iter().map(|conflict| match conflict {
-        Conflict::SharedTarget => "same as another row",
-        Conflict::AlreadyHasFile => "already has a file",
+        Conflict::SharedTarget => "same as another row".yellow().to_string(),
+        Conflict::AlreadyHasFile => "already has a file".yellow().to_string(),
     });
-    let replaces = row.row.replace.then_some("replaces the library file");
-    [confidence].into_iter().chain(replaces).chain(conflicts).collect::<Vec<_>>().join(", ")
+    let replaces = row.row.replace.then(|| "replaces the library file".to_owned());
+    [row.row.confidence.label().to_string()].into_iter().chain(replaces).chain(conflicts).collect::<Vec<_>>().join(", ")
 }

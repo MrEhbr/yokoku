@@ -12,6 +12,7 @@ use std::io;
 
 use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
+use owo_colors::OwoColorize;
 
 use crate::args::Args;
 
@@ -28,7 +29,7 @@ async fn main() {
         if is_broken_pipe(&error) {
             return;
         }
-        eprintln!("Error: {:?}", error);
+        anstream::eprintln!("{} {:?}", "Error:".red().bold(), error);
         std::process::exit(1);
     }
 }

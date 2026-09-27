@@ -3,13 +3,10 @@ use std::io::{self, Write};
 use anyhow::Result;
 use clap::Parser;
 use jiff::civil::Date;
+use owo_colors::OwoColorize;
 use yokoku_library::{CalendarEntry, CalendarRelease, month_of, week_of};
 
-use crate::{
-    app::App,
-    commands::{file_status_label, release_label},
-    config::Config,
-};
+use crate::{app::App, commands::label::Label, config::Config};
 
 #[derive(Parser)]
 pub struct Args {
@@ -27,7 +24,7 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
     let day = args.date.unwrap_or_else(|| app.schedule.today());
     let (from, to) = if args.month { month_of(day) } else { week_of(day) };
 
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
     writeln!(out, "{from} to {to}")?;
     print_calendar(&mut out, &app.schedule.calendar(from, to).await?)?;
 
@@ -42,14 +39,14 @@ pub fn print_calendar(out: &mut impl Write, entries: &[CalendarEntry]) -> io::Re
     let mut current = None;
     for entry in entries {
         if current != Some(entry.date) {
-            writeln!(out, "{}", entry.date.strftime("%Y-%m-%d %a"))?;
+            writeln!(out, "{}", entry.date.strftime("%Y-%m-%d %a").bold())?;
             current = Some(entry.date);
         }
         let release = match &entry.release {
             CalendarRelease::Episode { reference, title } => format!("{reference}  {title}"),
-            CalendarRelease::Movie(kind) => release_label(*kind).to_owned(),
+            CalendarRelease::Movie(kind) => kind.label().to_string(),
         };
-        writeln!(out, "  {:<30} {:<40} {}", entry.title, release, file_status_label(entry.status))?;
+        writeln!(out, "  {:<30} {:<40} {}", entry.title, release, entry.status.label())?;
     }
     Ok(())
 }

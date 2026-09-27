@@ -1,7 +1,4 @@
-use std::{
-    io::{self, Write},
-    path::Path,
-};
+use std::{io::Write, path::Path};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -46,7 +43,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
     let path = &config.database.path;
     let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
     let stored = db.settings().await.context("Failed to read the stored settings")?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
 
     match args.command {
         Command::List => {

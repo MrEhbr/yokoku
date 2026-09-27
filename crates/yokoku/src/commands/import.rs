@@ -1,12 +1,13 @@
-use std::io::{self, Write};
+use std::io::Write;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use yokoku_domain::ImportId;
-use yokoku_media::{ImportMode, ImportStatus};
+use yokoku_media::ImportMode;
 
-use crate::{app::App, config::Config};
+use crate::{app::App, commands::label::Label, config::Config};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct ImportConfig {
@@ -44,7 +45,7 @@ pub enum Command {
 
 pub async fn run(config: &Config, args: Args) -> Result<()> {
     let app = App::open(config).await?;
-    let mut out = io::stdout();
+    let mut out = anstream::stdout();
 
     match args.command {
         Command::List => {
@@ -57,12 +58,12 @@ pub async fn run(config: &Config, args: Args) -> Result<()> {
                     out,
                     "{}  {:<9}  {:>3} files  {}",
                     import.id,
-                    status_label(import.status),
+                    import.status.label(),
                     import.rows.len(),
                     import.source.display()
                 )?;
                 if let Some(error) = &import.error {
-                    writeln!(out, "      {error}")?;
+                    writeln!(out, "      {}", error.red())?;
                 }
             }
         },
@@ -80,20 +81,10 @@ pub async fn run_imports(app: &App, out: &mut impl Write) -> Result<()> {
     for import in app.importer.run_pending().await? {
         match &import.error {
             None => writeln!(out, "Imported {}", import.source.display())?,
-            Some(error) => writeln!(out, "Import of {} failed: {error}", import.source.display())?,
+            Some(error) => writeln!(out, "{}", format!("Import of {} failed: {error}", import.source.display()).red())?,
         }
     }
     app.deliver_events().await
-}
-
-fn status_label(status: ImportStatus) -> &'static str {
-    match status {
-        ImportStatus::NeedsReview => "review",
-        ImportStatus::Approved => "approved",
-        ImportStatus::Importing => "importing",
-        ImportStatus::Done => "done",
-        ImportStatus::Failed => "failed",
-    }
 }
 
 impl From<Mode> for ImportMode {
