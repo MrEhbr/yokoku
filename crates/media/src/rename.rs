@@ -133,7 +133,8 @@ impl Renamer {
         Ok(plan)
     }
 
-    /// Carries out the plan file by file; a file that cannot be moved is reported and left alone.
+    /// Carries out the plan file by file; a file that cannot be moved is reported and left alone,
+    /// and an old folder that cannot be removed is only logged.
     pub async fn apply(&self, scope: RenameScope) -> Result<RenameReport, MediaError> {
         let _lock = self.lock.acquire().await?;
         let plan = self.preview(scope).await?;
@@ -166,8 +167,10 @@ impl Renamer {
                     report.failed.push(RenameFailure { path: subtitle.from.clone(), error: error.to_string() });
                 }
             }
-            if let Some(old_folder) = video.from.parent() {
-                self.fs.remove_empty_folders(old_folder, &rename.root).await?;
+            if let Some(old_folder) = video.from.parent()
+                && let Err(error) = self.fs.remove_empty_folders(old_folder, &rename.root).await
+            {
+                warn!(%error, "could not remove the old folder of a renamed file");
             }
             report.renamed.push(rename);
         }

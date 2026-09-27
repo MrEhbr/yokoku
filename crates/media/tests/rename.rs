@@ -1,6 +1,6 @@
 mod common;
 
-use std::fs;
+use std::{fs, os::unix::fs::PermissionsExt};
 
 use common::{App, now, relative};
 use yokoku_domain::MediaFileId;
@@ -149,4 +149,26 @@ async fn files_that_would_share_a_path_are_skipped() {
         plan.skipped.iter().map(|skipped| skipped.reason).collect::<Vec<_>>(),
         [SkipReason::SharedTarget, SkipReason::SharedTarget]
     );
+}
+
+#[tokio::test]
+async fn an_old_folder_that_cannot_be_removed_does_not_stop_the_other_renames() {
+    let app = App::new().await;
+    let second = "tv/Frieren (2023)/S2/Frieren (2023) - S02E01.mkv";
+    app.write(MESSY, 10);
+    app.write(second, 10);
+    app.scanner.scan().await.unwrap();
+    let series = app.path("tv/Frieren (2023)");
+    fs::create_dir_all(series.join("Season 01")).unwrap();
+    fs::create_dir_all(series.join("Season 02")).unwrap();
+    fs::set_permissions(&series, fs::Permissions::from_mode(0o555)).unwrap();
+
+    let result = app.renamer.apply(RenameScope::All).await;
+
+    fs::set_permissions(&series, fs::Permissions::from_mode(0o755)).unwrap();
+    let report = result.unwrap();
+    assert_eq!(report.renamed.len(), 2);
+    assert!(app.path(E01).exists());
+    assert!(app.path("tv/Frieren (2023)/Season 02/Frieren (2023) - S02E01 - Episode 1.mkv").exists());
+    assert!(app.path("tv/Frieren (2023)/S1").exists());
 }
