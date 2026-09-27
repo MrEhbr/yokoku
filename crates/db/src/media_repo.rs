@@ -4,13 +4,11 @@ use async_trait::async_trait;
 use jiff::Timestamp;
 use sqlx::{Sqlite, query::Query, sqlite::SqliteArguments};
 use yokoku_domain::{
-    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId,
-    StorageError,
+    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId, StorageError,
 };
-use yokoku_library::ports::MediaFiles;
 use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind,
-    ports::{Catalog, Changes, MediaRepo},
+    ports::{Changes, MediaRepo},
 };
 
 use crate::{
@@ -25,7 +23,7 @@ struct RootFolderRow {
 }
 
 #[derive(sqlx::FromRow)]
-struct MediaFileRow {
+pub(crate) struct MediaFileRow {
     id: Text<MediaFileId>,
     path: String,
     size: u64,
@@ -208,40 +206,6 @@ impl MediaRepo for Database {
 
     async fn save(&self, changes: &Changes) -> Result<(), StorageError> {
         Ok(self.save_changes(changes).await?)
-    }
-}
-
-#[async_trait]
-impl Catalog for Database {
-    async fn all_series(&self) -> Result<Vec<Series>, StorageError> {
-        Ok(self.load_all_series().await?)
-    }
-
-    async fn all_movies(&self) -> Result<Vec<Movie>, StorageError> {
-        Ok(self.load_all_movies().await?)
-    }
-
-    async fn series(&self, id: SeriesId) -> Result<Option<Series>, StorageError> {
-        Ok(self.load_series(id).await?)
-    }
-
-    async fn movie(&self, id: MovieId) -> Result<Option<Movie>, StorageError> {
-        Ok(self.load_movie(id).await?)
-    }
-}
-
-#[async_trait]
-impl MediaFiles for Database {
-    async fn target(&self, file: MediaFileId) -> Result<Option<FileTarget>, StorageError> {
-        let row: Option<MediaFileRow> = sqlx::query_as(
-            "SELECT id, path, size, series_id, season, first_episode, last_episode, movie_id, added_at
-             FROM media_files WHERE id = ?",
-        )
-        .bind(file.to_string())
-        .fetch_optional(self.pool())
-        .await
-        .map_err(DbError::from)?;
-        Ok(row.map(MediaFile::try_from).transpose()?.map(|file| file.target))
     }
 }
 

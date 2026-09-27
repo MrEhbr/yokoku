@@ -1,18 +1,15 @@
 use std::path::{Path, PathBuf};
 
-use jiff::{Timestamp, ToSpan, tz::TimeZone};
+use jiff::{Timestamp, ToSpan};
 use proptest::prelude::*;
 use rstest::{fixture, rstest};
 use uuid::Uuid;
 use yokoku_db::Database;
-use yokoku_domain::{
-    Confidence, DownloadId, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MediaFileId, MonitorPreset,
-    Movie, MovieId, MovieMetadata, Releases, Series, SeriesId, SeriesMetadata, SourceStatus,
-};
-use yokoku_library::ports::{MediaFiles, MovieRepo, SeriesRepo};
+use yokoku_domain::{Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId};
+use yokoku_library::ports::MediaFiles;
 use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind,
-    ports::{Catalog, Changes, MediaRepo},
+    ports::{Changes, MediaRepo},
 };
 
 #[fixture]
@@ -193,50 +190,6 @@ proptest! {
         prop_assert_eq!(stored_import, Some(pending));
         prop_assert_eq!(stored_files, vec![linked]);
     }
-}
-
-#[rstest]
-#[tokio::test]
-async fn the_catalog_reads_the_library(#[future] db: Database) {
-    let db = db.await;
-    let mut series = Series::add(
-        SeriesMetadata {
-            source: ExternalId::Tmdb(1),
-            title: "Frieren".into(),
-            original_title: "Sousou no Frieren".into(),
-            alternate_titles: Vec::new(),
-            year: Some(2023),
-            poster_path: None,
-            status: SourceStatus::Returning,
-            seasons: vec![],
-        },
-        ItemFolder::default(),
-        MonitorPreset::All,
-        now().to_zoned(TimeZone::UTC).date(),
-        now(),
-    );
-    let mut movie = Movie::add(
-        MovieMetadata {
-            source: ExternalId::Tmdb(2),
-            title: "Dune".into(),
-            original_title: "Dune".into(),
-            alternate_titles: Vec::new(),
-            year: Some(2021),
-            poster_path: None,
-            releases: Releases::default(),
-        },
-        ItemFolder::default(),
-        true,
-        now(),
-    );
-    SeriesRepo::save(&db, &mut series).await.unwrap();
-    MovieRepo::save(&db, &mut movie).await.unwrap();
-
-    assert_eq!(db.all_series().await.unwrap(), std::slice::from_ref(&series));
-    assert_eq!(db.all_movies().await.unwrap(), std::slice::from_ref(&movie));
-    assert_eq!(Catalog::series(&db, series.id).await.unwrap(), Some(series));
-    assert_eq!(Catalog::movie(&db, movie.id).await.unwrap(), Some(movie));
-    assert_eq!(Catalog::movie(&db, MovieId::generate()).await.unwrap(), None);
 }
 
 #[rstest]

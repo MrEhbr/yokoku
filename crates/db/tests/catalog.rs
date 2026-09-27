@@ -3,15 +3,17 @@ use std::collections::BTreeMap;
 use jiff::{
     Timestamp, ToSpan,
     civil::{Date, date},
+    tz::TimeZone,
 };
 use proptest::prelude::*;
 use rstest::{fixture, rstest};
 use yokoku_db::Database;
 use yokoku_domain::{
-    EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieMetadata, Numbering, Releases,
-    SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
+    EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Numbering,
+    Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
 };
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
+use yokoku_media::ports::Catalog;
 
 const TODAY: Date = date(2026, 9, 26);
 
@@ -287,4 +289,48 @@ async fn a_removed_item_is_not_saved_back(#[future] db: Database) {
 
     assert!(matches!(error, StorageError::Conflict), "{error}");
     assert_eq!(MovieRepo::get(&db, movie.id).await.unwrap(), None);
+}
+
+#[rstest]
+#[tokio::test]
+async fn the_catalog_reads_the_library(#[future] db: Database) {
+    let db = db.await;
+    let mut series = Series::add(
+        SeriesMetadata {
+            source: ExternalId::Tmdb(1),
+            title: "Frieren".into(),
+            original_title: "Sousou no Frieren".into(),
+            alternate_titles: Vec::new(),
+            year: Some(2023),
+            poster_path: None,
+            status: SourceStatus::Returning,
+            seasons: vec![],
+        },
+        ItemFolder::default(),
+        MonitorPreset::All,
+        now().to_zoned(TimeZone::UTC).date(),
+        now(),
+    );
+    let mut movie = Movie::add(
+        MovieMetadata {
+            source: ExternalId::Tmdb(2),
+            title: "Dune".into(),
+            original_title: "Dune".into(),
+            alternate_titles: Vec::new(),
+            year: Some(2021),
+            poster_path: None,
+            releases: Releases::default(),
+        },
+        ItemFolder::default(),
+        true,
+        now(),
+    );
+    SeriesRepo::save(&db, &mut series).await.unwrap();
+    MovieRepo::save(&db, &mut movie).await.unwrap();
+
+    assert_eq!(db.all_series().await.unwrap(), std::slice::from_ref(&series));
+    assert_eq!(db.all_movies().await.unwrap(), std::slice::from_ref(&movie));
+    assert_eq!(Catalog::series(&db, series.id).await.unwrap(), Some(series));
+    assert_eq!(Catalog::movie(&db, movie.id).await.unwrap(), Some(movie));
+    assert_eq!(Catalog::movie(&db, MovieId::generate()).await.unwrap(), None);
 }
