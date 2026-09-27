@@ -12,8 +12,13 @@ use crate::{
     logging::{self, LogOutput},
 };
 
+/// Attribution TMDB and TheTVDB require.
+const DATA_SOURCES: &str = "This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise \
+                            approved by TMDB (https://www.themoviedb.org).\nMetadata provided by TheTVDB \
+                            (https://thetvdb.com). Please consider adding missing information or subscribing.";
+
 #[derive(Parser)]
-#[command(version, about)]
+#[command(version, about, after_help = DATA_SOURCES)]
 pub struct Args {
     #[command(subcommand)]
     pub command: Command,

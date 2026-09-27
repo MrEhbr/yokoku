@@ -157,6 +157,7 @@ This document describes **what** the app must do, not how it is built.
 - **10.2** Used from a browser on the local network. There's no login in the MVP.
 - **10.3** Settings, library and history survive restarts.
 - **10.4** Optional: tell Jellyfin to rescan after an import.
+- **10.5** Attribution: the CLI help and the README show the TMDB notice ("This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.") and "Metadata provided by TheTVDB" with a link to thetvdb.com. The web UI shows both, with the TMDB logo less prominent than Yokoku's own, on every page that shows metadata.
 
 ---
 
