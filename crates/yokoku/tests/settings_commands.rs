@@ -1,9 +1,15 @@
-use std::{path::PathBuf, process::Command};
+use std::{
+    path::PathBuf,
+    process::{Command, Stdio},
+    time::{Duration, Instant},
+};
 
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use rstest::rstest;
 use tempfile::TempDir;
+use yokoku_db::Database;
+use yokoku_events::{EventLog, SettingsChanged};
 
 struct Setup {
     _dir: TempDir,
@@ -136,4 +142,52 @@ fn loading_the_configuration_does_not_create_the_database() {
         .stderr(predicate::str::contains("Invalid schedule"));
 
     assert!(!setup.database.exists());
+}
+
+impl Setup {
+    /// Sets `import.mode` to `mode` and waits until the service reloaded on its `SettingsChanged`.
+    async fn set_and_await_reload(&self, mode: &str) -> bool {
+        self.stdout(&["settings", "set", "import.mode", mode]);
+        let log = Database::open(&self.database).await.unwrap().event_log();
+        let changed = log
+            .read_after(None, 100)
+            .await
+            .unwrap()
+            .into_iter()
+            .rev()
+            .find_map(|recorded| recorded.event.get::<SettingsChanged>().is_some().then_some(recorded.id));
+        let deadline = Instant::now() + Duration::from_secs(15);
+        while Instant::now() < deadline {
+            if changed.is_some() && log.last_delivered("config.settings").await.unwrap() == changed {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        false
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_running_service_reloads_a_setting_changed_from_the_command_line() {
+    let setup = setup();
+    setup.stdout(&["settings", "list"]);
+    let assets = setup._dir.path().join("assets");
+    std::fs::create_dir(&assets).unwrap();
+    std::fs::write(assets.join("manifest.toml"), "version = 1\nassets = []\n").unwrap();
+    let mut serve = setup
+        .command()
+        .env("APP__WEB__ASSETS", &assets)
+        .env("PORT", "0")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+
+    let started = setup.set_and_await_reload("copy").await;
+    let reloaded = setup.set_and_await_reload("move").await;
+    let killed = Command::new("kill").args(["-TERM", &serve.id().to_string()]).status().unwrap();
+    let status = serve.wait().unwrap();
+
+    assert!(started && reloaded, "the service did not reload the settings in time");
+    assert!(killed.success() && status.success(), "{status}");
 }

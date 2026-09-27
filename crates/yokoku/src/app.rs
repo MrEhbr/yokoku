@@ -117,6 +117,7 @@ impl App {
                 &prober,
                 &scanner,
                 &rescans,
+                &settings,
             ),
             settings,
             deleter,

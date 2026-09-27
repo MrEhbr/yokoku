@@ -4883,6 +4883,7 @@ dependencies = [
  "tracing",
  "yokoku-domain",
  "yokoku-downloads",
+ "yokoku-events",
  "yokoku-jobs",
  "yokoku-library",
  "yokoku-media",

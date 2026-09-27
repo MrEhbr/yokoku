@@ -24,6 +24,6 @@ pub use yokoku_domain::{
     events::{
         DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, EventKind, FileDeleted, FileRenamed, FilesFound,
         FilesImported, ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, RenumberedFile,
-        SeriesAdded, SeriesRemoved, TorrentAdded, TorrentRemoved,
+        SeriesAdded, SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
     },
 };

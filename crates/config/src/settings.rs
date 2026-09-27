@@ -4,8 +4,10 @@ use std::{
 };
 
 use anyhow::Result;
+use async_trait::async_trait;
 use tracing::info;
 use yokoku_domain::{Live, SettingsStore};
+use yokoku_events::{Handler, HandlerError, SettingsChanged};
 
 use crate::{Config, load};
 
@@ -50,4 +52,11 @@ async fn read(path: Option<&PathBuf>, store: &dyn SettingsStore) -> Result<Confi
     let config: Config = load(path.map(PathBuf::as_path), &store.settings().await?)?;
     config.validate()?;
     Ok(config)
+}
+
+#[async_trait]
+impl Handler<SettingsChanged> for Settings {
+    async fn handle(&self, _: &SettingsChanged) -> Result<(), HandlerError> {
+        Ok(self.reload().await?)
+    }
 }

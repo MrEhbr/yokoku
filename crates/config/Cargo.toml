@@ -11,6 +11,7 @@ workspace = true
 [dependencies]
 yokoku-domain.workspace = true
 yokoku-downloads.workspace = true
+yokoku-events.workspace = true
 yokoku-jobs.workspace = true
 yokoku-library.workspace = true
 yokoku-media.workspace = true
@@ -20,11 +21,11 @@ yokoku-system.workspace = true
 yokoku-transmission.workspace = true
 
 anyhow.workspace = true
+async-trait.workspace = true
 config.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-async-trait.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }

@@ -3,16 +3,18 @@
 
 use std::sync::Arc;
 
+use yokoku_config::Settings;
 use yokoku_db::Database;
 use yokoku_downloads::Downloads;
 use yokoku_events::{
     DownloadCompleted, EpisodesRenumbered, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded,
-    MovieRemoved, SeriesAdded, SeriesRemoved, Subscriber, Subscription,
+    MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged, Subscriber, Subscription,
 };
 use yokoku_integrations::Rescans;
 use yokoku_library::FileTracker;
 use yokoku_media::{Deleter, ImportPlanner, Prober, Scanner};
 
+#[expect(clippy::too_many_arguments, reason = "one argument per subscriber")]
 pub fn subscribers(
     db: &Arc<Database>,
     planner: &Arc<ImportPlanner>,
@@ -21,6 +23,7 @@ pub fn subscribers(
     prober: &Arc<Prober>,
     scanner: &Arc<Scanner>,
     rescans: &Arc<Rescans>,
+    settings: &Settings,
 ) -> Vec<Arc<dyn Subscriber>> {
     let tracker = Arc::new(FileTracker::new(db.clone(), db.clone(), db.clone()));
     [
@@ -38,6 +41,7 @@ pub fn subscribers(
             .on::<FilesImported>(rescans.clone())
             .on::<FileRenamed>(rescans.clone())
             .on::<FileDeleted>(rescans.clone()),
+        Subscription::new("config.settings").on::<SettingsChanged>(Arc::new(settings.clone())),
     ]
     .into_iter()
     .map(|subscription| Arc::new(subscription) as Arc<dyn Subscriber>)

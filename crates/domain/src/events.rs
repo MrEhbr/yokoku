@@ -61,6 +61,7 @@ events!(
     DownloadCompleted,
     TorrentRemoved,
     EpisodesRenumbered,
+    SettingsChanged,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -175,6 +176,12 @@ pub struct TorrentRemoved {
     pub item: Option<ItemId>,
 }
 
+/// A stored setting was set or unset; the value is left out, since it may be a secret.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SettingsChanged {
+    pub key: String,
+}
+
 impl Event {
     /// `None` when the event is of another type.
     pub fn get<E: EventKind>(&self) -> Option<&E> {
@@ -200,7 +207,7 @@ impl Event {
             Self::TorrentAdded(TorrentAdded { item, .. })
             | Self::DownloadCompleted(DownloadCompleted { item, .. })
             | Self::TorrentRemoved(TorrentRemoved { item, .. }) => item.iter().copied().collect(),
-            Self::ImportNeedsReview(_) | Self::ImportFailed(_) => Vec::new(),
+            Self::ImportNeedsReview(_) | Self::ImportFailed(_) | Self::SettingsChanged(_) => Vec::new(),
         };
         let mut seen = HashSet::new();
         items.retain(|item| seen.insert(*item));
@@ -255,6 +262,7 @@ impl fmt::Display for Event {
             Self::TorrentAdded(TorrentAdded { name, .. }) => write!(f, "Added torrent {name}"),
             Self::DownloadCompleted(DownloadCompleted { name, .. }) => write!(f, "Finished downloading {name}"),
             Self::TorrentRemoved(TorrentRemoved { name, .. }) => write!(f, "Removed torrent {name} after seeding"),
+            Self::SettingsChanged(SettingsChanged { key }) => write!(f, "Changed setting {key}"),
         }
     }
 }
