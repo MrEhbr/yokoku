@@ -1,6 +1,9 @@
+use std::time::Instant;
+
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 use serde::de::DeserializeOwned;
+use tracing::debug;
 use yokoku_domain::{EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
@@ -44,6 +47,7 @@ impl TmdbClient {
         query: &[(&str, &str)],
         source: Option<ExternalId>,
     ) -> Result<T, MetadataError> {
+        let started = Instant::now();
         let response = self
             .http
             .get(format!("{}/{endpoint}", self.base_url))
@@ -53,6 +57,12 @@ impl TmdbClient {
             .send()
             .await
             .map_err(unavailable)?;
+        debug!(
+            endpoint,
+            status = response.status().as_u16(),
+            elapsed_ms = started.elapsed().as_millis(),
+            "TMDB request"
+        );
 
         if let Some(source) = source
             && response.status() == StatusCode::NOT_FOUND

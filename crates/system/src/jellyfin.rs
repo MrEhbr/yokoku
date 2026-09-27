@@ -1,6 +1,9 @@
+use std::time::Instant;
+
 use async_trait::async_trait;
 use reqwest::{RequestBuilder, StatusCode};
 use serde::Deserialize;
+use tracing::debug;
 use yokoku_integrations::ports::{MediaServer, MediaServerError};
 
 /// Jellyfin's HTTP API, authenticated with an administrator's API key.
@@ -27,7 +30,12 @@ impl JellyfinClient {
     }
 
     async fn send(&self, request: RequestBuilder) -> Result<reqwest::Response, MediaServerError> {
-        let response = self.authorized(request).send().await.map_err(unavailable)?;
+        let request = self.authorized(request).build().map_err(unavailable)?;
+        let (method, path) = (request.method().clone(), request.url().path().to_owned());
+        let started = Instant::now();
+        let response = self.http.execute(request).await.map_err(unavailable)?;
+        let elapsed_ms = started.elapsed().as_millis();
+        debug!(%method, path, status = response.status().as_u16(), elapsed_ms, "Jellyfin request");
         match response.status() {
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
                 Err(MediaServerError::Refused("the API key is missing, wrong or not an administrator's".into()))

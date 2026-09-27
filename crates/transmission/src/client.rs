@@ -1,10 +1,11 @@
-use std::sync::Mutex;
+use std::{sync::Mutex, time::Instant};
 
 use async_trait::async_trait;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use reqwest::{StatusCode, header::HeaderValue};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
+use tracing::debug;
 use yokoku_downloads::{
     DownloadState, DownloadStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
@@ -34,13 +35,21 @@ impl TransmissionClient {
 
     /// Sends one RPC call, repeating it once with the session id a 409 answer carries.
     async fn call<T: DeserializeOwned>(&self, method: &str, arguments: Value) -> Result<T, ClientError> {
+        let started = Instant::now();
         let body = json!({ "method": method, "arguments": arguments });
         let mut response = self.send(&body).await?;
         if response.status() == StatusCode::CONFLICT {
+            debug!("renewing the Transmission session id");
             let session = response.headers().get(SESSION_HEADER).cloned();
             *self.session.lock().expect("session lock") = session;
             response = self.send(&body).await?;
         }
+        debug!(
+            method,
+            status = response.status().as_u16(),
+            elapsed_ms = started.elapsed().as_millis(),
+            "Transmission call"
+        );
 
         match response.status() {
             StatusCode::UNAUTHORIZED => return Err(ClientError::Refused("wrong username or password".into())),

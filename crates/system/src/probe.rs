@@ -1,12 +1,13 @@
 use std::{
     io,
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::{process::Command, time::timeout};
+use tracing::debug;
 use yokoku_media::{
     AudioStream, MediaInfo, SubtitleStream, VideoStream,
     ports::{MediaProbe, ProbeError},
@@ -70,6 +71,7 @@ struct Disposition {
 impl MediaProbe for FfProbe {
     async fn probe(&self, path: &Path) -> Result<MediaInfo, ProbeError> {
         let failed = |reason: String| ProbeError::Failed { path: path.to_owned(), reason };
+        let started = Instant::now();
         let run = Command::new(&self.program)
             .args(["-v", "error", "-print_format", "json", "-show_format", "-show_streams"])
             .arg(path)
@@ -81,6 +83,7 @@ impl MediaProbe for FfProbe {
             Ok(Err(error)) => return Err(failed(error.to_string())),
             Ok(Ok(output)) => output,
         };
+        debug!(path = %path.display(), status = %output.status, elapsed_ms = started.elapsed().as_millis(), "ffprobe ran");
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let reason = stderr.lines().find(|line| !line.trim().is_empty()).unwrap_or("it failed");
