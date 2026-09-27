@@ -100,6 +100,37 @@ fn status_follows_source_and_schedule(
 }
 
 #[rstest]
+#[case::refreshed_recently(1, SourceStatus::Returning, 1, -100, "Pilot", false)]
+#[case::running(7, SourceStatus::Returning, 1, -100, "Pilot", true)]
+#[case::ended_long_ago(7, SourceStatus::Ended, 1, -100, "Pilot", false)]
+#[case::canceled_long_ago(7, SourceStatus::Canceled, 1, -100, "Pilot", false)]
+#[case::ended_this_month(7, SourceStatus::Ended, 1, -10, "Pilot", true)]
+#[case::stale(31 * 24, SourceStatus::Ended, 1, -100, "Pilot", true)]
+#[case::aired_but_untitled(1, SourceStatus::Ended, 1, -100, "TBA", true)]
+#[case::aired_without_title(1, SourceStatus::Ended, 1, -100, "", true)]
+#[case::untitled_but_not_aired(1, SourceStatus::Returning, 1, 10, "TBA", false)]
+#[case::untitled_special(7, SourceStatus::Ended, 0, -100, "TBA", false)]
+fn series_follow_sonarrs_refresh_rules(
+    #[case] hours_since_refresh: i64,
+    #[case] source_status: SourceStatus,
+    #[case] season: u16,
+    #[case] aired_days_from_today: i64,
+    #[case] title: &str,
+    #[case] expected: bool,
+) {
+    let mut series = Series::add(
+        metadata(source_status, &[(season, &[Some(TODAY + aired_days_from_today.days())])]),
+        ItemFolder::default(),
+        MonitorPreset::All,
+        TODAY,
+        now(),
+    );
+    title.clone_into(&mut series.seasons[0].episodes[0].title);
+
+    assert_eq!(series.needs_refresh(now() + hours_since_refresh.hours(), TODAY), expected);
+}
+
+#[rstest]
 #[case::aired_yesterday(Some(YESTERDAY), false, FileStatus::Missing)]
 #[case::airs_today(Some(TODAY), false, FileStatus::Upcoming)]
 #[case::no_date(None, false, FileStatus::Upcoming)]

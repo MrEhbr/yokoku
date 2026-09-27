@@ -47,6 +47,8 @@ sort = "title"
 sync_downloads = "*/30 * * * * *"
 execute_imports = "*/5 * * * * *"
 rescan_media_server = "*/10 * * * * *"
+# Refreshes only the items due, as Sonarr and Radarr decide it.
+refresh_metadata = "0 0 */12 * * *"
 scan_library = "0 0 5 * * *"
 
 # How finished downloads reach the library: hardlink, copy or move.

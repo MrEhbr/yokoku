@@ -1,7 +1,7 @@
 mod common;
 
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
-use jiff::ToSpan;
+use jiff::{SignedDuration, ToSpan};
 use rstest::{fixture, rstest};
 use yokoku_domain::{EpisodeRef, ExternalId, ItemFolder, ItemId, MonitorPreset, Releases, SourceStatus};
 use yokoku_events::{MovieAdded, SeriesAdded};
@@ -173,4 +173,25 @@ async fn refresh_all_continues_past_failures(#[future(awt)] app: App) {
     assert_eq!(report.failures.len(), 1);
     assert_eq!(report.failures[0].item, ItemId::Series(gone.id));
     assert!(matches!(report.failures[0].error, LibraryError::Metadata(MetadataError::NotFound(_))));
+}
+
+#[rstest]
+#[tokio::test]
+async fn refresh_due_refreshes_only_what_the_rules_pick(#[future(awt)] app: App) {
+    let long_ago = Some(TODAY - 100.days());
+    app.provider.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[long_ago])]));
+    app.provider.put_series(series_metadata(2, "Pluto", SourceStatus::Ended, &[(1, &[long_ago])]));
+    app.provider.put_movie(movie_metadata(438631, "Dune", Releases::default()));
+    let running = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    app.metadata.add_series(ExternalId::Tmdb(2), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    let announced = app.metadata.add_movie(ExternalId::Tmdb(438631), true, ROOT.into(), None).await.unwrap();
+
+    let fresh = app.metadata.refresh_due().await.unwrap();
+    app.clock.advance(SignedDuration::from_hours(13));
+    let due = app.metadata.refresh_due().await.unwrap();
+
+    assert_eq!((fresh.refreshed, fresh.failures.len()), (0, 0));
+    assert_eq!(due.refreshed, 2);
+    assert!(app.library.series(running.id).await.unwrap().refreshed_at > running.refreshed_at);
+    assert!(app.library.movie(announced.id).await.unwrap().refreshed_at > announced.refreshed_at);
 }

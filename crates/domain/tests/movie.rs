@@ -88,3 +88,23 @@ fn release_dates_are_listed_in_kind_order() {
 
     assert_eq!(dates, [(ReleaseKind::Cinema, TODAY - 30.days()), (ReleaseKind::Physical, TODAY + 10.days())]);
 }
+
+#[rstest]
+#[case::refreshed_recently(1, None, None, None, false)]
+#[case::announced(13, None, None, None, true)]
+#[case::in_cinemas(13, Some(-10), None, None, true)]
+#[case::released_long_ago(13, Some(-400), Some(-300), Some(-200), false)]
+#[case::physical_this_month(13, Some(-100), Some(-50), Some(-10), true)]
+#[case::physical_coming(13, Some(-100), Some(-10), Some(20), true)]
+#[case::stale(181 * 24, Some(-400), Some(-300), Some(-200), true)]
+fn movies_follow_radarrs_refresh_rules(
+    #[case] hours_since_refresh: i64,
+    #[case] cinema: Option<i64>,
+    #[case] digital: Option<i64>,
+    #[case] physical: Option<i64>,
+    #[case] expected: bool,
+) {
+    let movie = movie(cinema, digital, physical);
+
+    assert_eq!(movie.needs_refresh(Timestamp::UNIX_EPOCH + hours_since_refresh.hours(), TODAY), expected);
+}

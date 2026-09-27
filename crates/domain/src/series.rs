@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt, str::FromStr};
 
-use jiff::{Timestamp, civil::Date};
+use jiff::{SignedDuration, Timestamp, ToSpan, civil::Date};
 use serde::{Deserialize, Serialize};
 
 use crate::{EpisodeId, ExternalId, FileStatus, ItemFolder, MediaFileId, SeriesId};
@@ -343,6 +343,26 @@ impl Series {
             _ if self.next_episode(today).is_some() => SeriesStatus::Continuing,
             _ => SeriesStatus::OnBreak,
         }
+    }
+
+    /// Sonarr's rules: refreshed over 30 days ago, or an aired regular episode still untitled; else
+    /// not within 6 hours of the last refresh, and still running or with an episode in the last 30 days.
+    pub fn needs_refresh(&self, now: Timestamp, today: Date) -> bool {
+        let age = now.duration_since(self.refreshed_at);
+        let untitled = self.seasons.iter().filter(|season| season.number != SPECIALS).any(|season| {
+            season.episodes.iter().any(|episode| {
+                episode.air_date.is_some_and(|date| date < today) && matches!(episode.title.as_str(), "" | "TBA")
+            })
+        });
+        if age > SignedDuration::from_hours(30 * 24) || untitled {
+            return true;
+        }
+        if age < SignedDuration::from_hours(6) {
+            return false;
+        }
+        let recent = today.saturating_sub(30.days());
+        !matches!(self.source_status, SourceStatus::Ended | SourceStatus::Canceled)
+            || self.episodes().filter_map(|episode| episode.air_date).any(|date| date > recent)
     }
 
     pub fn episodes(&self) -> impl Iterator<Item = &Episode> {

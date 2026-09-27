@@ -1,4 +1,4 @@
-use jiff::{Timestamp, civil::Date};
+use jiff::{SignedDuration, Timestamp, ToSpan, civil::Date};
 
 use crate::{ExternalId, FileStatus, ItemFolder, MediaFileId, MovieId};
 
@@ -122,6 +122,20 @@ impl Movie {
         } else {
             MovieStatus::Announced
         }
+    }
+
+    /// Radarr's rules: refreshed over 180 days ago; else not within 12 hours of the last refresh,
+    /// and not yet released or with a physical release in the last 30 days or later.
+    pub fn needs_refresh(&self, now: Timestamp, today: Date) -> bool {
+        let age = now.duration_since(self.refreshed_at);
+        if age > SignedDuration::from_hours(180 * 24) {
+            return true;
+        }
+        if age < SignedDuration::from_hours(12) {
+            return false;
+        }
+        let recent = today.saturating_sub(30.days());
+        self.status(today) != MovieStatus::Released || self.releases.physical.is_some_and(|date| date > recent)
     }
 
     /// Missing only once a digital or physical release is out.

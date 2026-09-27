@@ -152,11 +152,29 @@ impl MetadataService {
     /// Refreshes every item; one item's failure does not stop the others.
     #[instrument(skip_all)]
     pub async fn refresh_all(&self) -> Result<RefreshReport, LibraryError> {
+        self.refresh_many(false).await
+    }
+
+    /// Refreshes the items whose `needs_refresh` holds; one item's failure does not stop the others.
+    #[instrument(skip_all)]
+    pub async fn refresh_due(&self) -> Result<RefreshReport, LibraryError> {
+        self.refresh_many(true).await
+    }
+
+    async fn refresh_many(&self, due_only: bool) -> Result<RefreshReport, LibraryError> {
+        let now = self.clock.now();
+        let (timestamp, today) = (now.timestamp(), now.date());
         let mut report = RefreshReport::default();
         for id in self.series.ids().await? {
+            if due_only && !self.series.get(id).await?.is_some_and(|series| series.needs_refresh(timestamp, today)) {
+                continue;
+            }
             report.record(ItemId::Series(id), self.refresh_series(id).await.map(drop));
         }
         for id in self.movies.ids().await? {
+            if due_only && !self.movies.get(id).await?.is_some_and(|movie| movie.needs_refresh(timestamp, today)) {
+                continue;
+            }
             report.record(ItemId::Movie(id), self.refresh_movie(id).await.map(drop));
         }
         Ok(report)

@@ -59,7 +59,7 @@ This document describes **what** the app must do, not how it is built.
   - Air date
   - File status: downloaded, missing, or not yet aired
 - **1.5** Movie detail shows cinema, digital and physical release dates, plus file status.
-- **1.6** Metadata (titles, dates, episode lists) refreshes on demand.
+- **1.6** Metadata (titles, dates, episode lists) refreshes on a schedule and on demand.
 - **1.7** The user can remove an item and choose whether to delete its files too.
 - **1.8** For each series, the user can choose which numbering it uses: standard season/episode, or absolute.
 

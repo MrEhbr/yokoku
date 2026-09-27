@@ -4148,6 +4148,7 @@ dependencies = [
  "yokoku-downloads",
  "yokoku-events",
  "yokoku-integrations",
+ "yokoku-library",
  "yokoku-media",
 ]
 

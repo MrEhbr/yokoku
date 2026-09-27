@@ -125,6 +125,8 @@ Value types and rules shared by all modules. Examples:
 | `Series::monitored_episodes()` | Monitored at series, season and episode level (FR-2.1, 2.3). |
 | `Series::add(metadata, preset, today, now)` | Applies the preset. Specials are never monitored by a preset. |
 | `Series::refresh(metadata, now)` | Matches episodes by source id, so renumbered episodes keep id, flags and file. New seasons follow the series flag (specials excepted); new episodes follow their season. Episodes gone from the source are dropped. |
+| `Series::needs_refresh(now, today)` | Sonarr's rules: refreshed over 30 days ago, or an aired regular episode titled `TBA` or untitled; otherwise not within 6 h of the last refresh, and not ended or with an episode airing in the last 30 days or later. |
+| `Movie::needs_refresh(now, today)` | Radarr's rules: refreshed over 180 days ago; otherwise not within 12 h of the last refresh, and not `Released` or with a physical release in the last 30 days or later. TMDB allows keeping its data 6 months at most. |
 | `Series::absolute_to_ref(n)` | Counts episodes in order, excluding specials, which matches Jellyfin's default TMDB order (FR-4.9, FR-5.8). |
 
 "Today" is the date in the user's configured time zone.
@@ -320,6 +322,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 |---|---|---|
 | `SyncDownloads` | cron, every 30 s, one tick at a time | `Downloads::sync` |
 | `ExecuteImports` | cron, every 5 s, one tick at a time | `Importer::run_pending` |
+| `RefreshMetadata` | cron, every 12 h; only with a TMDB token; everything on demand with `yokoku refresh` | `MetadataService::refresh_due` (one item's failure is logged and the rest continue) |
 | `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` | `Scanner::scan` (FR-8.7) |
 | `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
 
