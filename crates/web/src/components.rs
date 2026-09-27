@@ -1,6 +1,6 @@
 //! Yokoku's components, composed from the Paper-styled primitives in [`ui`].
 
-pub mod app_shell;
+pub mod attribution;
 pub mod document_head;
 pub mod empty_state;
 pub mod job_progress;

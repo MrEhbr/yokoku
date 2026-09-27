@@ -1,7 +1,7 @@
 use topcoat::{
     Result,
+    asset::asset,
     font::{Font, fontsource::fontsource_font},
-    tailwind,
     view::{View, component, view},
 };
 
@@ -19,6 +19,6 @@ pub async fn document_head() -> Result<impl View> {
     Ok(view! {
         topcoat::font::link(font: SANS)
         topcoat::font::link(font: MONO)
-        <link rel="stylesheet" href=(tailwind::stylesheet!())>
+        <link rel="stylesheet" href=(asset!("../tailwind.css"))>
     })
 }

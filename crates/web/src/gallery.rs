@@ -1,18 +1,13 @@
-//! Every Paper component on one page: `topcoat dev -p yokoku-web --bin gallery`.
-//!
-//! `?theme=light` or `?theme=dark` pins the scheme; otherwise the system preference applies.
+//! Every component, served inside the real app: `topcoat dev -p yokoku-web --bin gallery`, then /gallery.
 
 use topcoat::{
     Result,
-    asset::{AssetBundle, RouterBuilderAssetExt},
-    context::Cx,
+    asset::AssetBundle,
     icon::{icon, iconify::iconify_icon},
-    router::{Router, RouterBuilderDiscoverExt, page, request::uri},
+    router::page,
     view::{Child, View, attributes, component, view},
 };
 use yokoku_web::components::{
-    app_shell::{Destination, app_shell},
-    document_head::document_head,
     empty_state::empty_state,
     job_progress::job_progress,
     media_card::media_card,
@@ -69,37 +64,15 @@ use yokoku_web::components::{
 
 #[tokio::main]
 async fn main() {
-    let router = Router::builder().assets(AssetBundle::load().unwrap()).discover().build();
-    topcoat::start(router).await.unwrap();
-}
-
-fn theme(cx: &Cx) -> Option<&'static str> {
-    let query = uri(cx).query().unwrap_or("");
-    if query.contains("theme=dark") {
-        Some("dark")
-    } else if query.contains("theme=light") {
-        Some("light")
-    } else {
-        None
-    }
+    topcoat::start(yokoku_web::router(AssetBundle::load().unwrap())).await.unwrap();
 }
 
 #[component]
-async fn shell(cx: &Cx, title: &str, #[default] current: Option<Destination>, child: Child<'_>) -> Result<impl View> {
+async fn shell(title: &str, child: Child<'_>) -> Result<impl View> {
     Ok(view! {
-        app_shell(
-            title: title,
-            current: current,
-            theme: theme(cx),
-            <p class="flex gap-3 pt-4 text-caption">
-                "Appearance:"
-                <a href="?" class="underline">"System"</a>
-                <a href="?theme=light" class="underline">"Light"</a>
-                <a href="?theme=dark" class="underline">"Dark"</a>
-            </p>
-            (child)
-            <script>"for (const box of document.querySelectorAll('[data-indeterminate]')) box.indeterminate = true;"</script>
-        )
+        <p class="yk-kicker pt-8">"Gallery · " (title)</p>
+        (child)
+        <script>"for (const box of document.querySelectorAll('[data-indeterminate]')) box.indeterminate = true;"</script>
     })
 }
 
@@ -113,7 +86,7 @@ async fn section(title: &str, child: Child<'_>) -> Result<impl View> {
     })
 }
 
-#[page("/")]
+#[page("/gallery")]
 async fn index() -> Result<impl View> {
     Ok(view! {
         shell(title: "Paper components",
@@ -121,11 +94,11 @@ async fn index() -> Result<impl View> {
                 <p class="yk-kicker mb-4">"Design system"</p>
                 <h1 class="yk-page-title sm:text-display">"The " <mark class="yk-highlight">"Paper"</mark> " components."</h1>
                 <p class="mt-4 flex flex-wrap gap-3 text-body">
-                    <a class="underline" href="/dialog">"Dialog"</a>
-                    <a class="underline" href="/alert-dialog">"Alert dialog"</a>
-                    <a class="underline" href="/sheet">"Sheet"</a>
-                    <a class="underline" href="/sidebar">"Sidebar"</a>
-                    <a class="underline" href="/widgets">"Yokoku widgets"</a>
+                    <a class="underline" href="/gallery/dialog">"Dialog"</a>
+                    <a class="underline" href="/gallery/alert-dialog">"Alert dialog"</a>
+                    <a class="underline" href="/gallery/sheet">"Sheet"</a>
+                    <a class="underline" href="/gallery/sidebar">"Sidebar"</a>
+                    <a class="underline" href="/gallery/widgets">"Yokoku widgets"</a>
                 </p>
             </div>
 
@@ -142,7 +115,7 @@ async fn index() -> Result<impl View> {
                         attrs: attributes! { aria-label="Refresh" },
                         icon(data: iconify_icon!("lucide:refresh-cw"))
                     )
-                    <a href="/" class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))>"Link as button"</a>
+                    <a href="/gallery" class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))>"Link as button"</a>
                     button(
                         variant: ButtonVariant::Primary,
                         attrs: attributes! { aria-busy="true" disabled="" },
@@ -456,7 +429,7 @@ async fn index() -> Result<impl View> {
     })
 }
 
-#[page("/dialog")]
+#[page("/gallery/dialog")]
 async fn dialog_page() -> Result<impl View> {
     Ok(view! {
         shell(title: "Dialog",
@@ -474,7 +447,7 @@ async fn dialog_page() -> Result<impl View> {
                         <p class="yk-code">"The Expanse (2015) - S01E01 - Dulcinea.mkv"</p>
                     </div>
                     dialog_footer(
-                        <a href="/" class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))>"Cancel"</a>
+                        <a href="/gallery" class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))>"Cancel"</a>
                         button(variant: ButtonVariant::Primary, "Rename 8 files")
                     )
                 )
@@ -483,7 +456,7 @@ async fn dialog_page() -> Result<impl View> {
     })
 }
 
-#[page("/alert-dialog")]
+#[page("/gallery/alert-dialog")]
 async fn alert_dialog_page() -> Result<impl View> {
     Ok(view! {
         shell(title: "Alert dialog",
@@ -496,7 +469,7 @@ async fn alert_dialog_page() -> Result<impl View> {
                         dialog_description("The existing 1.2 GB file is deleted and replaced by the new 1.4 GB file.")
                     )
                     dialog_footer(
-                        <a href="/" class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))>"Keep both"</a>
+                        <a href="/gallery" class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))>"Keep both"</a>
                         button(variant: ButtonVariant::Danger, "Replace file")
                     )
                 )
@@ -505,7 +478,7 @@ async fn alert_dialog_page() -> Result<impl View> {
     })
 }
 
-#[page("/sheet")]
+#[page("/gallery/sheet")]
 async fn sheet_page() -> Result<impl View> {
     Ok(view! {
         shell(title: "Sheet",
@@ -519,26 +492,17 @@ async fn sheet_page() -> Result<impl View> {
                         checkbox(attrs: attributes! { id="only-missing" checked="" })
                         label(attrs: attributes! { for="only-missing" }, "Only missing")
                     </div>
-                    <a href="/" class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))>"Close"</a>
+                    <a href="/gallery" class=(button_variants(ButtonVariant::Secondary, ButtonSize::Md))>"Close"</a>
                 )
             )
         )
     })
 }
 
-#[page("/sidebar")]
-async fn sidebar_page(cx: &Cx) -> Result<impl View> {
+#[page("/gallery/sidebar")]
+async fn sidebar_page() -> Result<impl View> {
     Ok(view! {
-        <!DOCTYPE html>
-        <html lang="en" data-theme=(theme(cx))>
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>"Sidebar"</title>
-                topcoat::dev::script()
-                document_head()
-            </head>
-            <body>
+        shell(title: "Sidebar",
                 sidebar_provider(
                     sidebar(
                         open: true,
@@ -549,13 +513,13 @@ async fn sidebar_page(cx: &Cx) -> Result<impl View> {
                                 sidebar_group_label("Media")
                                 sidebar_group_content(
                                     sidebar_menu(
-                                        sidebar_menu_item(sidebar_menu_button(href: Some("/sidebar"), active: true, icon(data: iconify_icon!("lucide:library")) <span>"Library"</span>))
-                                        sidebar_menu_item(sidebar_menu_button(href: Some("/sidebar"), icon(data: iconify_icon!("lucide:calendar")) <span>"Upcoming"</span>))
+                                        sidebar_menu_item(sidebar_menu_button(href: Some("/gallery/sidebar"), active: true, icon(data: iconify_icon!("lucide:library")) <span>"Library"</span>))
+                                        sidebar_menu_item(sidebar_menu_button(href: Some("/gallery/sidebar"), icon(data: iconify_icon!("lucide:calendar")) <span>"Upcoming"</span>))
                                         sidebar_menu_item(
-                                            sidebar_menu_button(href: Some("/sidebar"), icon(data: iconify_icon!("lucide:download")) <span>"Downloads"</span>)
+                                            sidebar_menu_button(href: Some("/gallery/sidebar"), icon(data: iconify_icon!("lucide:download")) <span>"Downloads"</span>)
                                             sidebar_menu_badge("3")
                                         )
-                                        sidebar_menu_item(sidebar_menu_button(href: Some("/sidebar"), icon(data: iconify_icon!("lucide:activity")) <span>"Activity"</span>))
+                                        sidebar_menu_item(sidebar_menu_button(href: Some("/gallery/sidebar"), icon(data: iconify_icon!("lucide:activity")) <span>"Activity"</span>))
                                     )
                                 )
                             )
@@ -563,7 +527,7 @@ async fn sidebar_page(cx: &Cx) -> Result<impl View> {
                                 sidebar_group_label("System")
                                 sidebar_group_content(
                                     sidebar_menu(
-                                        sidebar_menu_item(sidebar_menu_button(href: Some("/sidebar"), icon(data: iconify_icon!("lucide:settings")) <span>"Settings"</span>))
+                                        sidebar_menu_item(sidebar_menu_button(href: Some("/gallery/sidebar"), icon(data: iconify_icon!("lucide:settings")) <span>"Settings"</span>))
                                     )
                                 )
                             )
@@ -576,17 +540,16 @@ async fn sidebar_page(cx: &Cx) -> Result<impl View> {
                         </div>
                     )
                 )
-            </body>
-        </html>
+        )
     })
 }
 
 const POSTER: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2 3'%3E%3Cdefs%3E%3ClinearGradient id='g' x2='0' y2='1'%3E%3Cstop stop-color='%23355e82'/%3E%3Cstop offset='1' stop-color='%23e99db4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='2' height='3' fill='url(%23g)'/%3E%3C/svg%3E";
 
-#[page("/widgets")]
+#[page("/gallery/widgets")]
 async fn widgets_page() -> Result<impl View> {
     Ok(view! {
-        shell(title: "Library", current: Some(Destination::Library),
+        shell(title: "Yokoku widgets",
             page_header(
                 title: "Library",
                 button("Rename files")
