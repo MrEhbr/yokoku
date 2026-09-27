@@ -3,8 +3,8 @@
 
 pub mod correlation;
 mod delivery;
+mod event_log;
 mod history;
-mod log;
 mod publisher;
 mod signal;
 mod spool;
@@ -12,8 +12,8 @@ mod subscriber;
 mod subscription;
 
 pub use delivery::{Delivery, DeliveryConfig};
+pub use event_log::{Correlated, DeliveryFailure, EventId, EventLog, Recorded};
 pub use history::History;
-pub use log::{Correlated, DeliveryFailure, EventId, EventLog, Recorded};
 pub use publisher::Publisher;
 pub use signal::{Listener, NewEvents};
 pub use spool::EventSpool;

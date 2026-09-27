@@ -10,7 +10,7 @@ mod media_repo;
 mod movie_repo;
 mod rescan_store;
 mod series_repo;
-mod settings;
+mod settings_store;
 
 pub use database::Database;
 pub use error::DbError;

@@ -10,8 +10,8 @@ use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 use crate::{
     MetadataSettings,
     http::{self, Http},
+    tmdb_wire,
     tvdb_wire::{self, Envelope, EpisodePage, Login, SearchItem, SeriesDetails, Token},
-    wire,
 };
 
 /// 500 episodes a page.
@@ -129,7 +129,7 @@ impl MetadataProvider for TvdbClient {
                     source: ExternalId::Tvdb(id),
                     title: item.translations.remove(language).unwrap_or_else(|| item.name.clone()),
                     original_title: item.name,
-                    year: wire::year(item.year.as_deref()),
+                    year: tmdb_wire::year(item.year.as_deref()),
                     poster_path: item.image_url,
                 })
             })
@@ -150,7 +150,7 @@ impl MetadataProvider for TvdbClient {
                 source_id: episode.id,
                 number: episode.number,
                 title: episode.name.unwrap_or_default(),
-                air_date: wire::date(episode.aired.as_deref()),
+                air_date: tmdb_wire::date(episode.aired.as_deref()),
             });
         }
         let seasons = seasons
@@ -171,7 +171,7 @@ impl MetadataProvider for TvdbClient {
 
         Ok(SeriesMetadata {
             source,
-            year: wire::year(details.year.as_deref()),
+            year: tmdb_wire::year(details.year.as_deref()),
             status: tvdb_wire::source_status(details.status.and_then(|status| status.name).as_deref()),
             title,
             original_title: details.name,
