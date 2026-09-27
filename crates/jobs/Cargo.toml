@@ -19,3 +19,7 @@ apalis-cron.workspace = true
 jiff.workspace = true
 jiff-cron.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
+tracing-subscriber.workspace = true

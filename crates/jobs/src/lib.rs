@@ -1,12 +1,12 @@
 //! apalis workers and schedules.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use apalis::prelude::{BoxDynError, Data, Monitor, WorkerBuilder, WorkerBuilderExt};
 use apalis_cron::{CronScheduler, Tick};
 use jiff::SignedDuration;
 use jiff_cron::{Schedule, jiff::tz::TimeZone};
-use tracing::{info, warn};
+use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_downloads::Downloads;
 use yokoku_integrations::Rescans;
 use yokoku_library::MetadataSync;
@@ -63,8 +63,27 @@ where
             .backend(CronScheduler::new(schedule.clone()).with_timezone(TimeZone::UTC))
             .concurrency(1)
             .data(data.clone())
-            .build(job.clone())
+            .build({
+                let job = job.clone();
+                move |tick: Tick<TimeZone>, data: Data<Arc<T>>| run(name, job(tick, data))
+            })
     })
+}
+
+/// Runs one tick in a `job` span, logging its duration and any failure.
+async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynError>>) -> Result<(), BoxDynError> {
+    async {
+        let started = Instant::now();
+        let result = job.await;
+        let elapsed_ms = started.elapsed().as_millis();
+        match &result {
+            Ok(()) => debug!(elapsed_ms, "job finished"),
+            Err(error) => error!(%error, elapsed_ms, "job failed"),
+        }
+        result
+    }
+    .instrument(info_span!("job", name))
+    .await
 }
 
 async fn sync_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) -> Result<(), BoxDynError> {
@@ -109,4 +128,43 @@ async fn rescan_media_server(_tick: Tick<TimeZone>, rescans: Data<Arc<Rescans>>)
         info!("media server rescanning");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        io,
+        sync::{Arc, Mutex},
+    };
+
+    use super::run;
+
+    #[derive(Clone, Default)]
+    struct Captured(Arc<Mutex<Vec<u8>>>);
+
+    impl io::Write for Captured {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn a_failed_job_is_logged_in_its_span() {
+        let captured = Captured::default();
+        let writer = captured.clone();
+        let subscriber = tracing_subscriber::fmt().with_writer(move || writer.clone()).with_ansi(false).finish();
+        let _default = tracing::subscriber::set_default(subscriber);
+
+        let result = run("sync-downloads", async { Err("transmission is unreachable".into()) }).await;
+
+        assert!(result.is_err());
+        let logs = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
+        assert!(logs.contains("ERROR job{name=\"sync-downloads\"}"), "{logs}");
+        assert!(logs.contains("job failed error=transmission is unreachable"), "{logs}");
+    }
 }
