@@ -1,5 +1,6 @@
 use std::{
-    fs, io,
+    fs,
+    io::{self, Read},
     os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
 };
@@ -50,6 +51,11 @@ impl FileSystem for LocalFileSystem {
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
             Err(source) => Err(FsError { path: path.to_owned(), source }),
         }
+    }
+
+    async fn same_contents(&self, a: &Path, b: &Path) -> Result<bool, FsError> {
+        let (a, b) = (a.to_owned(), b.to_owned());
+        blocking(move || same_contents(&a, &b)).await
     }
 
     async fn hard_link(&self, from: &Path, to: &Path) -> Result<(), FsError> {
@@ -149,6 +155,23 @@ fn copy(from: &Path, to: &Path) -> Result<(), FsError> {
     let partial = to.with_file_name(format!(".{}.part", to.file_name().unwrap_or_default().to_string_lossy()));
     fs::copy(from, &partial).map_err(at(from))?;
     fs::rename(&partial, to).map_err(at(to))
+}
+
+fn same_contents(a: &Path, b: &Path) -> Result<bool, FsError> {
+    let (mut a_file, mut b_file) = (fs::File::open(a).map_err(at(a))?, fs::File::open(b).map_err(at(b))?);
+    let (mut a_chunk, mut b_chunk) = (vec![0; 1 << 16], vec![0; 1 << 16]);
+    loop {
+        let read = a_file.read(&mut a_chunk).map_err(at(a))?;
+        if read == 0 {
+            return Ok(b_file.read(&mut b_chunk[..1]).map_err(at(b))? == 0);
+        }
+        match b_file.read_exact(&mut b_chunk[..read]) {
+            Ok(()) if a_chunk[..read] == b_chunk[..read] => {},
+            Ok(()) => return Ok(false),
+            Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => return Ok(false),
+            Err(source) => return Err(FsError { path: b.to_owned(), source }),
+        }
+    }
 }
 
 fn create_parent(path: &Path) -> Result<(), FsError> {

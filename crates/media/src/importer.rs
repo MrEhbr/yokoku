@@ -232,11 +232,13 @@ impl Importer {
             .collect())
     }
 
-    /// The destination already holds the source: the same data or size, or the moved file itself.
+    /// The destination already holds the source: the same data or bytes, or the moved file itself.
     async fn already_placed(&self, source: &Path, destination: &Path) -> Result<bool, MediaError> {
         let from = self.fs.stat(source).await?;
         Ok(match (from, self.fs.stat(destination).await?) {
-            (Some(from), Some(to)) => from.same_file(&to) || from.size == to.size,
+            (Some(from), Some(to)) => {
+                from.same_file(&to) || (from.size == to.size && self.fs.same_contents(source, destination).await?)
+            },
             (None, Some(_)) => self.mode == ImportMode::Move,
             (_, None) => false,
         })

@@ -244,3 +244,29 @@ async fn a_failed_replacement_records_the_file_it_removed() {
         FileDeleted { file: old_file.id, path: old, target: old_file.target, reason: DeleteReason::Replaced }.into();
     assert!(app.events().await.contains(&deleted));
 }
+
+#[tokio::test]
+async fn a_different_file_of_the_same_size_blocks_the_destination() {
+    let app = App::new().await;
+    approved(&app).await;
+    let blocker = app.path(E01);
+    fs::create_dir_all(blocker.parent().unwrap()).unwrap();
+    fs::write(&blocker, [1; 10]).unwrap();
+
+    let finished = app.importer(ImportMode::Copy).run_pending().await.unwrap();
+
+    assert_eq!(finished[0].status, ImportStatus::Failed);
+    assert_eq!(fs::read(&blocker).unwrap(), [1; 10]);
+}
+
+#[tokio::test]
+async fn an_interrupted_copy_completes_on_retry() {
+    let app = App::new().await;
+    approved(&app).await;
+    fs::create_dir_all(app.path(E01).parent().unwrap()).unwrap();
+    fs::copy(app.path(SOURCE), app.path(E01)).unwrap();
+
+    let finished = app.importer(ImportMode::Copy).run_pending().await.unwrap();
+
+    assert_eq!(finished[0].status, ImportStatus::Done);
+}

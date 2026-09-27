@@ -208,6 +208,23 @@ async fn stat_tells_sizes_and_linked_files_apart() {
 }
 
 #[tokio::test]
+async fn compares_contents_byte_for_byte() {
+    let dir = TempDir::new().unwrap();
+    let original = write(dir.path(), "Dune.mkv", 100_000);
+    let copy = write(dir.path(), "copy.mkv", 100_000);
+    let different = write(dir.path(), "different.mkv", 100_000);
+    let mut bytes = fs::read(&different).unwrap();
+    bytes[99_999] = 1;
+    fs::write(&different, bytes).unwrap();
+    let shorter = write(dir.path(), "shorter.mkv", 99_999);
+
+    assert!(LocalFileSystem.same_contents(&original, &copy).await.unwrap());
+    assert!(!LocalFileSystem.same_contents(&original, &different).await.unwrap());
+    assert!(!LocalFileSystem.same_contents(&original, &shorter).await.unwrap());
+    assert!(!LocalFileSystem.same_contents(&shorter, &original).await.unwrap());
+}
+
+#[tokio::test]
 async fn copies_into_new_folders_without_leaving_partial_files() {
     let dir = TempDir::new().unwrap();
     let from = write(dir.path(), "downloads/Dune.mkv", 9);

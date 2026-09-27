@@ -29,6 +29,9 @@ pub trait FileSystem: Send + Sync {
     /// `None` when nothing is at `path`.
     async fn stat(&self, path: &Path) -> Result<Option<FileStat>, FsError>;
 
+    /// Both files hold the same bytes.
+    async fn same_contents(&self, a: &Path, b: &Path) -> Result<bool, FsError>;
+
     /// Links `to` to the same data as `from`, creating missing folders. Fails when `to` exists, and
     /// with `io::ErrorKind::CrossesDevices` when the two are on different file systems.
     async fn hard_link(&self, from: &Path, to: &Path) -> Result<(), FsError>;
