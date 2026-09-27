@@ -5,16 +5,25 @@ use std::{
 };
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use tokio::task;
 use tracing::error;
 use yokoku_domain::StorageError;
-use yokoku_events::{Event, EventLog, EventSpool};
+use yokoku_events::{Correlated, CorrelationId, Event, EventLog, EventSpool};
 
 /// Spooled events as JSON lines in one file; every access holds an exclusive `flock` on it, in
 /// this process or another.
 #[derive(Debug, Clone)]
 pub struct FileSpool {
     path: PathBuf,
+}
+
+/// One spooled event: its JSON with a `correlation` key.
+#[derive(Serialize, Deserialize)]
+struct Line {
+    correlation: CorrelationId,
+    #[serde(flatten)]
+    event: Event,
 }
 
 impl FileSpool {
@@ -25,10 +34,11 @@ impl FileSpool {
 
 #[async_trait]
 impl EventSpool for FileSpool {
-    async fn push(&self, events: &[Event]) -> Result<(), StorageError> {
+    async fn push(&self, events: &[Correlated]) -> Result<(), StorageError> {
         let mut lines = String::new();
-        for event in events {
-            lines.push_str(&serde_json::to_string(event).map_err(StorageError::new)?);
+        for Correlated { correlation, event } in events {
+            let line = Line { correlation: *correlation, event: event.clone() };
+            lines.push_str(&serde_json::to_string(&line).map_err(StorageError::new)?);
             lines.push('\n');
         }
         let path = self.path.clone();
@@ -67,13 +77,14 @@ impl EventSpool for FileSpool {
 }
 
 /// Lines that are not an event, such as one torn by a stop mid-write, are logged and skipped.
-fn decode(text: &str) -> Vec<Event> {
+fn decode(text: &str) -> Vec<Correlated> {
     text.lines()
         .filter(|line| !line.is_empty())
         .filter_map(|line| {
-            serde_json::from_str(line)
+            serde_json::from_str::<Line>(line)
                 .inspect_err(|error| error!(%error, line, "skipping a spooled line that is not an event"))
                 .ok()
+                .map(|Line { correlation, event }| Correlated { correlation, event })
         })
         .collect()
 }

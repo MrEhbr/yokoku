@@ -48,7 +48,7 @@ impl Handler<SeriesAdded> for Failing {
 }
 
 fn recorded(event: impl Into<Event>) -> Recorded {
-    Recorded { id: EventId(1), occurred_at: Timestamp::UNIX_EPOCH, event: event.into() }
+    Recorded { id: EventId(1), occurred_at: Timestamp::UNIX_EPOCH, event: event.into(), correlation: None }
 }
 
 fn series_added(title: &str) -> Recorded {

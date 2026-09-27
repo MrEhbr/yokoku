@@ -13,7 +13,7 @@ yokoku-domain.workspace = true
 
 async-trait.workspace = true
 jiff.workspace = true
-tokio = { workspace = true, features = ["sync", "time", "macros"] }
+tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
 tokio-util.workspace = true
 tracing.workspace = true
 

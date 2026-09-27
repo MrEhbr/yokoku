@@ -11,13 +11,15 @@ mod subscriptions;
 use std::io;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches};
 
 use crate::args::Args;
 
 async fn run() -> Result<()> {
-    let args = Args::parse();
-    args::route(args).await
+    let matches = Args::command().get_matches();
+    let command = matches.subcommand_name().unwrap_or_default().to_owned();
+    let args = Args::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
+    args::route(args, &command).await
 }
 
 #[tokio::main]

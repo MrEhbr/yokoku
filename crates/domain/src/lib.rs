@@ -21,7 +21,7 @@ pub use external::{ExternalId, ParseExternalIdError};
 pub use file_status::FileStatus;
 pub use file_target::FileTarget;
 pub use folder::{InvalidFolderName, ItemFolder};
-pub use id::{DownloadId, EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
+pub use id::{CorrelationId, DownloadId, EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
 pub use item::{ItemId, MediaKind};
 pub use movie::{Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
 pub use series::{

@@ -1,21 +1,14 @@
 use async_trait::async_trait;
 use jiff::Timestamp;
-use sqlx::{SqliteConnection, SqlitePool, types::Json};
-use yokoku_domain::StorageError;
-use yokoku_events::{Event, EventId, EventLog, Failure, NewEvents, Recorded};
+use sqlx::{SqlitePool, types::Json};
+use yokoku_domain::{CorrelationId, StorageError};
+use yokoku_events::{Correlated, Event, EventId, EventLog, Failure, NewEvents, Recorded};
 
 use crate::{DbError, codec::Text};
 
 const UPSERT_POSITION: &str = "
     INSERT INTO subscriber_positions (subscriber, last_event_id) VALUES (?, ?)
     ON CONFLICT (subscriber) DO UPDATE SET last_event_id = excluded.last_event_id";
-
-pub(crate) async fn append(conn: &mut SqliteConnection, events: &[Event]) -> Result<(), DbError> {
-    for event in events {
-        sqlx::query("INSERT INTO events (payload) VALUES (?)").bind(Json(event)).execute(&mut *conn).await?;
-    }
-    Ok(())
-}
 
 #[derive(Debug, Clone)]
 pub struct SqliteEventLog {
@@ -45,9 +38,16 @@ impl SqliteEventLog {
 
 #[async_trait]
 impl EventLog for SqliteEventLog {
-    async fn append(&self, events: &[Event]) -> Result<(), StorageError> {
+    async fn append(&self, events: &[Correlated]) -> Result<(), StorageError> {
         let mut tx = self.pool.begin().await.map_err(StorageError::new)?;
-        append(&mut tx, events).await?;
+        for Correlated { correlation, event } in events {
+            sqlx::query("INSERT INTO events (payload, correlation) VALUES (?, ?)")
+                .bind(Json(event))
+                .bind(Text(correlation))
+                .execute(&mut *tx)
+                .await
+                .map_err(StorageError::new)?;
+        }
         tx.commit().await.map_err(StorageError::new)?;
         if !events.is_empty() {
             self.new_events.notify();
@@ -68,7 +68,7 @@ impl EventLog for SqliteEventLog {
 
     async fn read_after(&self, after: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, StorageError> {
         let rows: Vec<EventRow> =
-            sqlx::query_as("SELECT id, payload, occurred_at FROM events WHERE id > ? ORDER BY id LIMIT ?")
+            sqlx::query_as("SELECT id, payload, occurred_at, correlation FROM events WHERE id > ? ORDER BY id LIMIT ?")
                 .bind(after.map_or(0, |id| id.0))
                 .bind(limit)
                 .fetch_all(&self.pool)
@@ -79,13 +79,14 @@ impl EventLog for SqliteEventLog {
     }
 
     async fn read_before(&self, before: Option<EventId>, limit: u32) -> Result<Vec<Recorded>, StorageError> {
-        let rows: Vec<EventRow> =
-            sqlx::query_as("SELECT id, payload, occurred_at FROM events WHERE id < ? ORDER BY id DESC LIMIT ?")
-                .bind(before.map_or(i64::MAX, |id| id.0))
-                .bind(limit)
-                .fetch_all(&self.pool)
-                .await
-                .map_err(StorageError::new)?;
+        let rows: Vec<EventRow> = sqlx::query_as(
+            "SELECT id, payload, occurred_at, correlation FROM events WHERE id < ? ORDER BY id DESC LIMIT ?",
+        )
+        .bind(before.map_or(i64::MAX, |id| id.0))
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(StorageError::new)?;
         Ok(rows.into_iter().map(Recorded::from).collect())
     }
 
@@ -102,7 +103,7 @@ impl EventLog for SqliteEventLog {
 
     async fn failed(&self, subscriber: &str) -> Result<Vec<(Recorded, Failure)>, StorageError> {
         let rows: Vec<FailedRow> = sqlx::query_as(
-            "SELECT events.id, events.payload, events.occurred_at, failed_deliveries.error, failed_deliveries.attempts
+            "SELECT events.id, events.payload, events.occurred_at, events.correlation, failed_deliveries.error, failed_deliveries.attempts
              FROM failed_deliveries JOIN events ON events.id = failed_deliveries.event_id
              WHERE failed_deliveries.subscriber = ? ORDER BY events.id",
         )
@@ -178,6 +179,7 @@ struct EventRow {
     id: i64,
     payload: Json<Event>,
     occurred_at: Text<Timestamp>,
+    correlation: Option<Text<CorrelationId>>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -190,6 +192,11 @@ struct FailedRow {
 
 impl From<EventRow> for Recorded {
     fn from(row: EventRow) -> Self {
-        Self { id: EventId(row.id), occurred_at: row.occurred_at.0, event: row.payload.0 }
+        Self {
+            id: EventId(row.id),
+            occurred_at: row.occurred_at.0,
+            event: row.payload.0,
+            correlation: row.correlation.map(|text| text.0),
+        }
     }
 }

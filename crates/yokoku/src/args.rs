@@ -3,8 +3,14 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
+use tracing::{Instrument, error, info_span};
+use yokoku_events::{CorrelationId, correlation::correlate};
 
-use crate::{commands, config::Config, logging};
+use crate::{
+    commands,
+    config::Config,
+    logging::{self, LogOutput},
+};
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -93,36 +99,49 @@ impl Args {
     }
 }
 
-pub async fn route(args: Args) -> Result<()> {
-    use Command::*;
-
+/// Runs `command` in a `command` span under a new correlation id; a failure also goes to a log file.
+pub async fn route(args: Args, command: &str) -> Result<()> {
     let config = args.resolve_config().await?;
     let _guard = logging::setup(&config.log).context("Failed to initialize logging")?;
 
+    let correlation = CorrelationId::generate();
+    let span = info_span!("command", name = command, %correlation);
+    let result = correlate(correlation, dispatch(&config, args).instrument(span.clone())).await;
+    if let Err(failure) = &result
+        && matches!(config.log.output, LogOutput::File(_))
+    {
+        span.in_scope(|| error!(error = format!("{failure:#}"), "command failed"));
+    }
+    result
+}
+
+async fn dispatch(config: &Config, args: Args) -> Result<()> {
+    use Command::*;
+
     match args.command {
-        Greet(cmd_args) => commands::greet::run(&config, cmd_args),
-        Search(cmd_args) => commands::search::run(&config, cmd_args).await,
-        Add(cmd_args) => commands::add::run(&config, cmd_args).await,
-        Refresh(cmd_args) => commands::refresh::run(&config, cmd_args).await,
-        List(cmd_args) => commands::list::run(&config, cmd_args).await,
-        Show(cmd_args) => commands::show::run(&config, cmd_args).await,
-        Monitor(cmd_args) => commands::monitor::run(&config, cmd_args).await,
-        Numbering(cmd_args) => commands::numbering::run(&config, cmd_args).await,
-        Remove(cmd_args) => commands::remove::run(&config, cmd_args).await,
-        Upcoming(cmd_args) => commands::upcoming::run(&config, cmd_args).await,
-        Calendar(cmd_args) => commands::calendar::run(&config, cmd_args).await,
-        Missing(cmd_args) => commands::missing::run(&config, cmd_args).await,
-        Root(cmd_args) => commands::root::run(&config, cmd_args).await,
-        Scan(cmd_args) => commands::scan::run(&config, cmd_args).await,
-        Review(cmd_args) => commands::review::run(&config, cmd_args).await,
-        Rename(cmd_args) => commands::rename::run(&config, cmd_args).await,
-        Download(cmd_args) => commands::download::run(&config, cmd_args).await,
-        Import(cmd_args) => commands::import::run(&config, cmd_args).await,
-        History(cmd_args) => commands::history::run(&config, cmd_args).await,
-        Delete(cmd_args) => commands::delete::run(&config, cmd_args).await,
-        Files(cmd_args) => commands::files::run(&config, cmd_args).await,
-        Jellyfin(cmd_args) => commands::jellyfin::run(&config, cmd_args).await,
-        Settings(cmd_args) => commands::settings::run(&config, args.config.as_deref(), cmd_args).await,
-        Serve(cmd_args) => commands::serve::run(&config, cmd_args).await,
+        Greet(cmd_args) => commands::greet::run(config, cmd_args),
+        Search(cmd_args) => commands::search::run(config, cmd_args).await,
+        Add(cmd_args) => commands::add::run(config, cmd_args).await,
+        Refresh(cmd_args) => commands::refresh::run(config, cmd_args).await,
+        List(cmd_args) => commands::list::run(config, cmd_args).await,
+        Show(cmd_args) => commands::show::run(config, cmd_args).await,
+        Monitor(cmd_args) => commands::monitor::run(config, cmd_args).await,
+        Numbering(cmd_args) => commands::numbering::run(config, cmd_args).await,
+        Remove(cmd_args) => commands::remove::run(config, cmd_args).await,
+        Upcoming(cmd_args) => commands::upcoming::run(config, cmd_args).await,
+        Calendar(cmd_args) => commands::calendar::run(config, cmd_args).await,
+        Missing(cmd_args) => commands::missing::run(config, cmd_args).await,
+        Root(cmd_args) => commands::root::run(config, cmd_args).await,
+        Scan(cmd_args) => commands::scan::run(config, cmd_args).await,
+        Review(cmd_args) => commands::review::run(config, cmd_args).await,
+        Rename(cmd_args) => commands::rename::run(config, cmd_args).await,
+        Download(cmd_args) => commands::download::run(config, cmd_args).await,
+        Import(cmd_args) => commands::import::run(config, cmd_args).await,
+        History(cmd_args) => commands::history::run(config, cmd_args).await,
+        Delete(cmd_args) => commands::delete::run(config, cmd_args).await,
+        Files(cmd_args) => commands::files::run(config, cmd_args).await,
+        Jellyfin(cmd_args) => commands::jellyfin::run(config, cmd_args).await,
+        Settings(cmd_args) => commands::settings::run(config, args.config.as_deref(), cmd_args).await,
+        Serve(cmd_args) => commands::serve::run(config, cmd_args).await,
     }
 }

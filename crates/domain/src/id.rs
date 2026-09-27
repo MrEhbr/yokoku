@@ -38,3 +38,4 @@ id!(EpisodeId);
 id!(MediaFileId);
 id!(ImportId);
 id!(DownloadId);
+id!(CorrelationId);

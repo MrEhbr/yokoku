@@ -4063,6 +4063,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "yokoku-downloads",
+ "yokoku-events",
  "yokoku-integrations",
  "yokoku-library",
  "yokoku-media",

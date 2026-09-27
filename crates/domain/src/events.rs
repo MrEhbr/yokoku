@@ -13,6 +13,15 @@ macro_rules! events {
             $($name($name)),*
         }
 
+        impl Event {
+            /// The variant name, as stored in `type`.
+            pub fn name(&self) -> &'static str {
+                match self {
+                    $(Self::$name(_) => stringify!($name)),*
+                }
+            }
+        }
+
         $(
             impl From<$name> for Event {
                 fn from(event: $name) -> Self {

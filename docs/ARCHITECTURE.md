@@ -260,7 +260,7 @@ scan: unknown file ┘                                                  │
 The event log records **what happened**. It is not event sourcing: state tables remain the source of truth, and events are written next to them.
 
 ```
-events               (id INTEGER PRIMARY KEY AUTOINCREMENT, payload JSON, occurred_at)
+events               (id INTEGER PRIMARY KEY AUTOINCREMENT, payload JSON, occurred_at, correlation)
 subscriber_positions (subscriber TEXT PRIMARY KEY, last_event_id)
 failed_deliveries    (subscriber, event_id, error, attempts, failed_at)
 ```
@@ -274,6 +274,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 - **Failures.** Retried with exponential backoff. After N attempts the failure is recorded in `failed_deliveries` and the subscriber moves on. Recorded failures are tried again later: every `retry_interval` (10 min) in `serve`, and at the start of every CLI catch-up; each further attempt updates the record, success removes it, and the position never moves back. Handlers are idempotent, so an event retried after newer ones is safe. The CLI gives up after 3 quick attempts, since the retry comes later anyway.
 - **Wake-up.** `EventLog::append` signals a `tokio::sync::watch` channel after each append. A signal sent while a subscriber is busy is not lost. A slow periodic poll is the fallback, and it also picks up events written by CLI commands running in another process.
 - **Shutdown.** Delivery stops at the next await point. An event interrupted mid-handler is delivered again on the next run.
+- **Correlation.** Every CLI command and job tick runs under a new correlation id (a task-local, also a field of its `command` or `job` span). `Publisher` stores it with each event, in the log and in spooled lines, and a delivery restores it in its `deliver` span, so one id follows a command through its events, their handlers and the events those publish. Events stored before the column have none and get a new id per delivery.
 - **Rebuild.** A projection is rebuilt by deleting its row in `subscriber_positions`.
 - **History (FR-9.1)** is a query over the event log (`events::History`): newest first via `EventLog::read_before`, filtered by `Event::items()` when one series or movie is asked for. There is no separate history table. Failed imports show their reason and can be retried (FR-9.2, `import list` / `import retry`).
 

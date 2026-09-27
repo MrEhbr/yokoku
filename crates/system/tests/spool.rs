@@ -11,18 +11,18 @@ use async_trait::async_trait;
 use tempfile::TempDir;
 use tokio::sync::Notify;
 use yokoku_domain::{SeriesId, StorageError};
-use yokoku_events::{Event, EventId, EventLog, EventSpool, Failure, Recorded, SeriesAdded};
+use yokoku_events::{Correlated, CorrelationId, EventId, EventLog, EventSpool, Failure, Recorded, SeriesAdded};
 use yokoku_system::FileSpool;
 
 #[derive(Default)]
 struct MemoryLog {
-    events: Mutex<Vec<Event>>,
+    events: Mutex<Vec<Correlated>>,
     failing: AtomicBool,
 }
 
 #[async_trait]
 impl EventLog for MemoryLog {
-    async fn append(&self, events: &[Event]) -> Result<(), StorageError> {
+    async fn append(&self, events: &[Correlated]) -> Result<(), StorageError> {
         if self.failing.load(Ordering::SeqCst) {
             return Err(StorageError::new(std::io::Error::other("database is locked")));
         }
@@ -63,8 +63,9 @@ impl EventLog for MemoryLog {
     }
 }
 
-fn series_added(title: &str) -> Event {
-    SeriesAdded { series: SeriesId::generate(), title: title.into() }.into()
+fn series_added(title: &str) -> Correlated {
+    let event = SeriesAdded { series: SeriesId::generate(), title: title.into() }.into();
+    Correlated { correlation: CorrelationId::generate(), event }
 }
 
 #[tokio::test]
@@ -134,7 +135,7 @@ struct GatedLog {
 
 #[async_trait]
 impl EventLog for GatedLog {
-    async fn append(&self, events: &[Event]) -> Result<(), StorageError> {
+    async fn append(&self, events: &[Correlated]) -> Result<(), StorageError> {
         self.entered.notify_one();
         self.release.notified().await;
         self.inner.append(events).await

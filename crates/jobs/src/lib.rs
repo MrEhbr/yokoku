@@ -8,6 +8,7 @@ use jiff::SignedDuration;
 use jiff_cron::{Schedule, jiff::tz::TimeZone};
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_downloads::Downloads;
+use yokoku_events::{CorrelationId, correlation::correlate};
 use yokoku_integrations::Rescans;
 use yokoku_library::MetadataSync;
 use yokoku_media::{Importer, Scanner};
@@ -70,9 +71,10 @@ where
     })
 }
 
-/// Runs one tick in a `job` span, logging its duration and any failure.
+/// Runs one tick in a `job` span under a new correlation id, logging its duration and any failure.
 async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynError>>) -> Result<(), BoxDynError> {
-    async {
+    let correlation = CorrelationId::generate();
+    let work = async {
         let started = Instant::now();
         let result = job.await;
         let elapsed_ms = started.elapsed().as_millis();
@@ -81,9 +83,8 @@ async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynErro
             Err(error) => error!(%error, elapsed_ms, "job failed"),
         }
         result
-    }
-    .instrument(info_span!("job", name))
-    .await
+    };
+    correlate(correlation, work.instrument(info_span!("job", name, %correlation))).await
 }
 
 async fn sync_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) -> Result<(), BoxDynError> {
@@ -164,7 +165,7 @@ mod tests {
 
         assert!(result.is_err());
         let logs = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
-        assert!(logs.contains("ERROR job{name=\"sync-downloads\"}"), "{logs}");
+        assert!(logs.contains("ERROR job{name=\"sync-downloads\" correlation="), "{logs}");
         assert!(logs.contains("job failed error=transmission is unreachable"), "{logs}");
     }
 }

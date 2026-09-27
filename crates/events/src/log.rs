@@ -2,7 +2,7 @@ use std::fmt;
 
 use async_trait::async_trait;
 use jiff::Timestamp;
-use yokoku_domain::StorageError;
+use yokoku_domain::{CorrelationId, StorageError};
 
 use crate::Event;
 
@@ -20,6 +20,15 @@ pub struct Recorded {
     pub id: EventId,
     pub occurred_at: Timestamp,
     pub event: Event,
+    /// `None` for events stored before correlation ids.
+    pub correlation: Option<CorrelationId>,
+}
+
+/// An event with the correlation id of the command, job or delivery that caused it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Correlated {
+    pub correlation: CorrelationId,
+    pub event: Event,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,7 +41,7 @@ pub struct Failure {
 #[async_trait]
 pub trait EventLog: Send + Sync {
     /// Appends `events` in one transaction, in order, then wakes event deliveries.
-    async fn append(&self, events: &[Event]) -> Result<(), StorageError>;
+    async fn append(&self, events: &[Correlated]) -> Result<(), StorageError>;
 
     /// `None` until the subscriber's first delivery.
     async fn last_delivered(&self, subscriber: &str) -> Result<Option<EventId>, StorageError>;

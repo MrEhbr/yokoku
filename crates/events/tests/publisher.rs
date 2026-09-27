@@ -5,12 +5,15 @@ use std::sync::{
 
 use async_trait::async_trait;
 use yokoku_domain::{MovieId, SeriesId, StorageError};
-use yokoku_events::{Event, EventId, EventLog, EventSpool, Failure, MovieAdded, Publisher, Recorded, SeriesAdded};
+use yokoku_events::{
+    Correlated, CorrelationId, Event, EventId, EventLog, EventSpool, Failure, MovieAdded, Publisher, Recorded,
+    SeriesAdded, correlation::correlate,
+};
 
 /// Keeps appended events; refuses them while `failing`.
 #[derive(Default)]
 struct MemoryLog {
-    events: Mutex<Vec<Event>>,
+    events: Mutex<Vec<Correlated>>,
     failing: AtomicBool,
 }
 
@@ -24,13 +27,17 @@ impl MemoryLog {
     }
 
     fn events(&self) -> Vec<Event> {
-        self.events.lock().unwrap().clone()
+        self.events.lock().unwrap().iter().map(|stored| stored.event.clone()).collect()
+    }
+
+    fn correlations(&self) -> Vec<CorrelationId> {
+        self.events.lock().unwrap().iter().map(|stored| stored.correlation).collect()
     }
 }
 
 #[async_trait]
 impl EventLog for MemoryLog {
-    async fn append(&self, events: &[Event]) -> Result<(), StorageError> {
+    async fn append(&self, events: &[Correlated]) -> Result<(), StorageError> {
         if self.failing.load(Ordering::SeqCst) {
             return Err(StorageError::new(std::io::Error::other("database is locked")));
         }
@@ -74,19 +81,19 @@ impl EventLog for MemoryLog {
 /// Keeps spooled events in memory; refuses them while `failing`.
 #[derive(Default)]
 struct MemorySpool {
-    events: Mutex<Vec<Event>>,
+    events: Mutex<Vec<Correlated>>,
     failing: bool,
 }
 
 impl MemorySpool {
     fn events(&self) -> Vec<Event> {
-        self.events.lock().unwrap().clone()
+        self.events.lock().unwrap().iter().map(|stored| stored.event.clone()).collect()
     }
 }
 
 #[async_trait]
 impl EventSpool for MemorySpool {
-    async fn push(&self, events: &[Event]) -> Result<(), StorageError> {
+    async fn push(&self, events: &[Correlated]) -> Result<(), StorageError> {
         if self.failing {
             return Err(StorageError::new(std::io::Error::other("disk full")));
         }
@@ -95,7 +102,7 @@ impl EventSpool for MemorySpool {
     }
 
     async fn replay(&self, log: &dyn EventLog) -> Result<usize, StorageError> {
-        let spooled = self.events();
+        let spooled = self.events.lock().unwrap().clone();
         if spooled.is_empty() {
             return Ok(0);
         }
@@ -183,4 +190,26 @@ async fn events_are_lost_without_failing_when_neither_log_nor_spool_takes_them()
     publisher(&log, &spool).publish(series_added("Frieren")).await;
 
     assert!(log.events().is_empty() && spool.events().is_empty());
+}
+
+#[tokio::test]
+async fn events_carry_the_correlation_id_they_are_published_under() {
+    let (log, spool) = (Arc::new(MemoryLog::default()), Arc::new(MemorySpool::default()));
+    let correlation = CorrelationId::generate();
+
+    correlate(correlation, publisher(&log, &spool).publish_all(vec![series_added("a"), series_added("b")])).await;
+
+    assert_eq!(log.correlations(), [correlation; 2]);
+}
+
+#[tokio::test]
+async fn events_published_outside_a_correlation_share_a_new_one_per_publish() {
+    let (log, spool) = (Arc::new(MemoryLog::default()), Arc::new(MemorySpool::default()));
+
+    publisher(&log, &spool).publish_all(vec![series_added("a"), series_added("b")]).await;
+    publisher(&log, &spool).publish(series_added("c")).await;
+
+    let correlations = log.correlations();
+    assert_eq!(correlations[0], correlations[1]);
+    assert_ne!(correlations[1], correlations[2]);
 }

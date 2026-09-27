@@ -42,3 +42,12 @@ fn linked(target: FileTarget) -> LinkedFile {
 fn events_name_the_items_they_concern(#[case] event: Event, #[case] items: Vec<ItemId>) {
     assert_eq!(event.items(), items);
 }
+
+#[rstest]
+#[case(SeriesAdded { series: series(), title: "Frieren".into() }.into())]
+#[case(ImportNeedsReview { import: ImportId::generate(), source: "/x".into() }.into())]
+fn an_event_name_is_its_stored_type(#[case] event: Event) {
+    let stored = serde_json::to_value(&event).unwrap();
+
+    assert_eq!(stored["type"], event.name());
+}

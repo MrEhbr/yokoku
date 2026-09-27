@@ -1,6 +1,6 @@
 use yokoku_db::Database;
 use yokoku_domain::{ItemId, MovieId, SeriesId};
-use yokoku_events::{Event, EventId, EventLog, History, MovieAdded, Recorded, SeriesAdded};
+use yokoku_events::{Correlated, CorrelationId, EventId, EventLog, History, MovieAdded, Recorded, SeriesAdded};
 
 fn ids(entries: &[Recorded]) -> Vec<i64> {
     entries.iter().map(|recorded| recorded.id.0).collect()
@@ -8,11 +8,13 @@ fn ids(entries: &[Recorded]) -> Vec<i64> {
 
 /// Events 1..=count; odd ones concern `series`, even ones a different movie each.
 async fn logged(db: &Database, series: SeriesId, count: usize) {
-    let events: Vec<Event> = (1..=count)
+    let correlation = CorrelationId::generate();
+    let events: Vec<Correlated> = (1..=count)
         .map(|n| match n % 2 {
             1 => SeriesAdded { series, title: format!("Series {n}") }.into(),
             _ => MovieAdded { movie: MovieId::generate(), title: format!("Movie {n}") }.into(),
         })
+        .map(|event| Correlated { correlation, event })
         .collect();
     db.event_log().append(&events).await.unwrap();
 }

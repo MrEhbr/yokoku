@@ -2,7 +2,7 @@ use jiff::{SignedDuration, Timestamp};
 use rstest::{fixture, rstest};
 use yokoku_db::Database;
 use yokoku_domain::{MovieId, SeriesId};
-use yokoku_events::{Event, EventId, EventLog, Failure, MovieAdded, Recorded, SeriesAdded};
+use yokoku_events::{Correlated, CorrelationId, Event, EventId, EventLog, Failure, MovieAdded, Recorded, SeriesAdded};
 
 fn series_added(id: i64) -> Event {
     SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }.into()
@@ -17,8 +17,13 @@ async fn db() -> Database {
     Database::open_in_memory().await.unwrap()
 }
 
+/// Appends `events`, each under a new correlation id.
 async fn append(db: &Database, events: &[Event]) {
-    db.event_log().append(events).await.unwrap();
+    let events: Vec<Correlated> = events
+        .iter()
+        .map(|event| Correlated { correlation: CorrelationId::generate(), event: event.clone() })
+        .collect();
+    db.event_log().append(&events).await.unwrap();
 }
 
 #[rstest]
@@ -141,9 +146,22 @@ async fn append_adds_events_in_order_after_those_already_logged(#[future(awt)] d
     append(&db, &[series_added(1)]).await;
     let appended = [series_added(2), MovieAdded { movie: MovieId::generate(), title: "Dune".into() }.into()];
 
-    db.event_log().append(&appended).await.unwrap();
+    append(&db, &appended).await;
 
     let recorded = db.event_log().read_after(Some(EventId(1)), 10).await.unwrap();
     assert_eq!(ids(&recorded), [2, 3]);
     assert_eq!(recorded.into_iter().map(|recorded| recorded.event).collect::<Vec<_>>(), appended);
+}
+
+#[rstest]
+#[tokio::test]
+async fn events_are_read_with_their_correlation_id(#[future(awt)] db: Database) {
+    let correlation = CorrelationId::generate();
+    let events =
+        [Correlated { correlation, event: series_added(1) }, Correlated { correlation, event: series_added(2) }];
+
+    db.event_log().append(&events).await.unwrap();
+
+    let recorded = db.event_log().read_after(None, 10).await.unwrap();
+    assert_eq!(recorded.iter().map(|recorded| recorded.correlation).collect::<Vec<_>>(), [Some(correlation); 2]);
 }

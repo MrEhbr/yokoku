@@ -2,10 +2,10 @@ use std::{sync::Arc, time::Duration};
 
 use tokio::time::{Instant, sleep};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, warn};
-use yokoku_domain::StorageError;
+use tracing::{Instrument, debug, error, info, info_span, warn};
+use yokoku_domain::{CorrelationId, StorageError};
 
-use crate::{EventLog, Failure, Listener, Recorded, Subscriber};
+use crate::{EventLog, Failure, Listener, Recorded, Subscriber, correlation::correlate};
 
 #[derive(Debug, Clone)]
 pub struct DeliveryConfig {
@@ -106,16 +106,23 @@ impl Delivery {
         let subscriber = self.subscriber.name();
         let mut resolved = 0;
         for (recorded, failure) in self.log.failed(subscriber).await? {
-            match self.subscriber.handle(&recorded).await {
-                Ok(()) => {
-                    info!(subscriber, event_id = %recorded.id, "event handled on retry");
-                    self.log.resolve(subscriber, recorded.id).await?;
-                    resolved += 1;
-                },
-                Err(error) => {
-                    let failure = Failure { error: error.to_string(), attempts: failure.attempts + 1, ..failure };
-                    self.log.record_failure(subscriber, &failure).await?;
-                },
+            let retried = async {
+                match self.subscriber.handle(&recorded).await {
+                    Ok(()) => {
+                        info!("event handled on retry");
+                        self.log.resolve(subscriber, recorded.id).await?;
+                        Ok(true)
+                    },
+                    Err(error) => {
+                        warn!(attempt = failure.attempts + 1, %error, "event handler failed again");
+                        let failure = Failure { error: error.to_string(), attempts: failure.attempts + 1, ..failure };
+                        self.log.record_failure(subscriber, &failure).await?;
+                        Ok::<_, StorageError>(false)
+                    },
+                }
+            };
+            if self.scoped(&recorded, retried).await? {
+                resolved += 1;
             }
         }
         Ok(resolved)
@@ -131,23 +138,44 @@ impl Delivery {
     }
 
     async fn deliver(&self, recorded: &Recorded) -> Result<(), StorageError> {
+        self.scoped(recorded, self.deliver_attempts(recorded)).await
+    }
+
+    async fn deliver_attempts(&self, recorded: &Recorded) -> Result<(), StorageError> {
         let subscriber = self.subscriber.name();
         let mut attempt = 1;
         loop {
+            let started = Instant::now();
             match self.subscriber.handle(recorded).await {
-                Ok(()) => return self.log.mark_delivered(subscriber, recorded.id).await,
+                Ok(()) => {
+                    debug!(elapsed_ms = started.elapsed().as_millis(), "event handled");
+                    return self.log.mark_delivered(subscriber, recorded.id).await;
+                },
                 Err(error) if attempt >= self.config.max_attempts => {
-                    error!(subscriber, event_id = %recorded.id, attempt, %error, "giving up on event");
+                    error!(attempt, %error, "giving up on event");
                     let failure = Failure { event: recorded.id, error: error.to_string(), attempts: attempt };
                     return self.log.give_up(subscriber, &failure).await;
                 },
                 Err(error) => {
-                    warn!(subscriber, event_id = %recorded.id, attempt, %error, "event handler failed");
+                    warn!(attempt, %error, "event handler failed");
                     sleep(self.config.backoff(attempt)).await;
                     attempt += 1;
                 },
             }
         }
+    }
+
+    /// Runs `work` in a `deliver` span for `recorded`, under its correlation id or a new one.
+    async fn scoped<T>(&self, recorded: &Recorded, work: impl Future<Output = T>) -> T {
+        let correlation = recorded.correlation.unwrap_or_else(CorrelationId::generate);
+        let span = info_span!(
+            "deliver",
+            subscriber = self.subscriber.name(),
+            event_id = %recorded.id,
+            event = recorded.event.name(),
+            %correlation,
+        );
+        correlate(correlation, work.instrument(span)).await
     }
 
     async fn wait_for_events(&mut self) {

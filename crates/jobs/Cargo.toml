@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 yokoku-downloads.workspace = true
+yokoku-events.workspace = true
 yokoku-integrations.workspace = true
 yokoku-library.workspace = true
 yokoku-media.workspace = true

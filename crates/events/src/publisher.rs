@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
-use crate::{Event, EventLog, EventSpool};
+use crate::{Correlated, CorrelationId, Event, EventLog, EventSpool, correlation};
 
 /// Appends events after the change they describe was saved. Events the log refuses go to the spool
 /// and are appended, before any newer ones, once it takes them; events neither takes are logged
-/// and lost, so their handlers never run.
+/// and lost, so their handlers never run. Each event carries the current correlation id, or a new one
+/// outside any.
 #[derive(Clone)]
 pub struct Publisher {
     log: Arc<dyn EventLog>,
@@ -26,9 +27,14 @@ impl Publisher {
         if events.is_empty() {
             return;
         }
+        let correlation = correlation::current().unwrap_or_else(CorrelationId::generate);
+        let events: Vec<Correlated> = events.into_iter().map(|event| Correlated { correlation, event }).collect();
         if self.replay().await {
             match self.log.append(&events).await {
-                Ok(()) => return,
+                Ok(()) => {
+                    debug!(%correlation, events = ?events.iter().map(|event| event.event.name()).collect::<Vec<_>>(), "published");
+                    return;
+                },
                 Err(error) => warn!(%error, "event log unavailable; spooling events"),
             }
         }

@@ -15,7 +15,8 @@ use tokio_util::sync::CancellationToken;
 use yokoku_db::Database;
 use yokoku_domain::SeriesId;
 use yokoku_events::{
-    Delivery, DeliveryConfig, EventId, EventLog, Failure, HandlerError, Recorded, SeriesAdded, Subscriber,
+    Correlated, CorrelationId, Delivery, DeliveryConfig, EventId, EventLog, Failure, HandlerError, Recorded,
+    SeriesAdded, Subscriber, correlation,
 };
 
 const SUBSCRIBER: &str = "recorder";
@@ -105,10 +106,13 @@ impl Harness {
     }
 }
 
+fn series_added(title: &str) -> Correlated {
+    let event = SeriesAdded { series: SeriesId::generate(), title: title.into() }.into();
+    Correlated { correlation: CorrelationId::generate(), event }
+}
+
 async fn append(db: &Database, count: i64) {
-    let events: Vec<_> = (1..=count)
-        .map(|id| SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }.into())
-        .collect();
+    let events: Vec<_> = (1..=count).map(|id| series_added(&format!("Series {id}"))).collect();
     db.event_log().append(&events).await.unwrap();
 }
 
@@ -276,8 +280,37 @@ async fn wakes_up_when_events_are_appended(#[future(awt)] mut harness: Harness) 
     harness.start(NO_POLLING);
     sleep(Duration::from_millis(50)).await;
 
-    let event = SeriesAdded { series: SeriesId::generate(), title: "Series 1".into() }.into();
-    harness.db.event_log().append(&[event]).await.unwrap();
+    harness.db.event_log().append(&[series_added("Series 1")]).await.unwrap();
 
     assert_eq!(harness.next_handled().await, EventId(1));
+}
+
+/// Records the current correlation id of each event it handles.
+#[derive(Default)]
+struct CorrelationRecorder(Mutex<Vec<Option<CorrelationId>>>);
+
+#[async_trait]
+impl Subscriber for CorrelationRecorder {
+    fn name(&self) -> &'static str {
+        "correlations"
+    }
+
+    async fn handle(&self, _: &Recorded) -> Result<(), HandlerError> {
+        self.0.lock().unwrap().push(correlation::current());
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn handlers_run_under_the_correlation_id_of_their_event() {
+    let db = Database::open_in_memory().await.unwrap();
+    let event = series_added("Series 1");
+    db.event_log().append(std::slice::from_ref(&event)).await.unwrap();
+    let recorder = Arc::new(CorrelationRecorder::default());
+    let delivery =
+        Delivery::new(Arc::new(db.event_log()), recorder.clone(), db.new_events().listen(), DeliveryConfig::default());
+
+    delivery.catch_up().await.unwrap();
+
+    assert_eq!(*recorder.0.lock().unwrap(), [Some(event.correlation)]);
 }
