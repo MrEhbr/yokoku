@@ -187,15 +187,19 @@ fn torrent_files_that_cannot_be_read_are_reported() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn serve_syncs_and_imports_downloads_on_schedule_and_stops_on_sigterm() {
+async fn the_service_syncs_and_imports_downloads_on_schedule_and_stops_on_sigterm() {
     let setup = Setup::new().await;
     setup.torrent_at(1_000_000_000).await;
     setup.stdout(&["download", "add", &format!("magnet:?xt=urn:btih:{HASH}")]);
     setup.torrent_at(0).await;
+    let assets = setup.dir.path().join("assets");
+    std::fs::create_dir(&assets).unwrap();
+    std::fs::write(assets.join("manifest.toml"), "version = 1\nassets = []\n").unwrap();
 
     let mut serve = setup
         .command()
-        .arg("serve")
+        .env("APP__WEB__ASSETS", &assets)
+        .env("PORT", "0")
         .env("APP__SERVE__SYNC_DOWNLOADS", "* * * * * *")
         .env("APP__SERVE__EXECUTE_IMPORTS", "* * * * * *")
         .stdout(std::process::Stdio::null())

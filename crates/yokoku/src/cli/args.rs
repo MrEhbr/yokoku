@@ -18,10 +18,15 @@ const DATA_SOURCES: &str = "This product uses TMDB and the TMDB APIs but is not 
                             (https://thetvdb.com). Please consider adding missing information or subscribing.";
 
 #[derive(Parser)]
-#[command(version, about, after_help = DATA_SOURCES)]
+#[command(
+    version,
+    about,
+    before_help = "Without a command, serves the web interface and runs jobs until stopped.",
+    after_help = DATA_SOURCES
+)]
 pub struct Args {
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Option<Command>,
 
     #[arg(long, short = 'c', value_name = "FILE", global = true)]
     pub config: Option<PathBuf>,
@@ -74,15 +79,13 @@ pub enum Command {
     Jellyfin(commands::jellyfin::Args),
     /// Store settings in the database, over the config file
     Settings(commands::settings::Args),
-    /// Deliver events and run scheduled jobs until stopped
-    Serve(commands::serve::Args),
 }
 
 impl Args {
     async fn resolve_config(&self) -> Result<Config> {
         let path = self.config.as_deref();
         let mut config: Config = crate::config::load(path, &[]).context("Failed to load configuration")?;
-        if !matches!(self.command, Command::Settings(_)) {
+        if !matches!(self.command, Some(Command::Settings(_))) {
             let stored = commands::settings::stored_settings(&config.database.path).await?;
             if !stored.is_empty() {
                 config = crate::config::load(path, &stored)
@@ -119,7 +122,10 @@ pub async fn route(args: Args, command: &str) -> Result<()> {
 async fn dispatch(config: &Config, args: Args) -> Result<()> {
     use Command::*;
 
-    match args.command {
+    let Some(command) = args.command else {
+        return crate::service::run(config).await;
+    };
+    match command {
         Search(cmd_args) => commands::search::run(config, cmd_args).await,
         Add(cmd_args) => commands::add::run(config, cmd_args).await,
         Refresh(cmd_args) => commands::refresh::run(config, cmd_args).await,
@@ -141,6 +147,5 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
         Files(cmd_args) => commands::files::run(config, cmd_args).await,
         Jellyfin(cmd_args) => commands::jellyfin::run(config, cmd_args).await,
         Settings(cmd_args) => commands::settings::run(config, args.config.as_deref(), cmd_args).await,
-        Serve(cmd_args) => commands::serve::run(config, cmd_args).await,
     }
 }

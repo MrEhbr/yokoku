@@ -14,7 +14,7 @@ workspace = true
 
 [dependencies]
 serde.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
 topcoat = { workspace = true, features = ["default", "font-fontsource", "icon-iconify", "tailwind"] }
 
 [build-dependencies]

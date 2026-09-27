@@ -22,6 +22,7 @@ yokoku-metadata = { path = "crates/metadata" }
 yokoku-naming = { path = "crates/naming" }
 yokoku-system = { path = "crates/system" }
 yokoku-transmission = { path = "crates/transmission" }
+yokoku-web = { path = "crates/web" }
 
 anyhow = "1.0"
 apalis = "1.0.0-rc.10"

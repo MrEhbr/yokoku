@@ -130,7 +130,6 @@ fn loading_the_configuration_does_not_create_the_database() {
 
     setup
         .command()
-        .arg("serve")
         .env("APP__SERVE__SCAN_LIBRARY", "not a schedule")
         .assert()
         .failure()

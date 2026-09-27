@@ -4872,6 +4872,7 @@ dependencies = [
  "yokoku-naming",
  "yokoku-system",
  "yokoku-transmission",
+ "yokoku-web",
 ]
 
 [[package]]

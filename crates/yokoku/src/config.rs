@@ -9,9 +9,10 @@ use crate::{
     app::{ClockConfig, DatabaseConfig, MetadataConfig, NamingConfig, TransmissionConfig},
     cli::commands::{
         add::AddConfig, calendar::CalendarConfig, files::FilesConfig, import::ImportConfig, jellyfin::JellyfinConfig,
-        list::ListConfig, serve::ServeConfig,
+        list::ListConfig,
     },
     logging::LogConfig,
+    service::{ServeConfig, WebConfig},
 };
 
 const ENV_PREFIX: &str = "APP";
@@ -36,6 +37,8 @@ pub struct Config {
     pub calendar: CalendarConfig,
     #[serde(default)]
     pub serve: ServeConfig,
+    #[serde(default)]
+    pub web: WebConfig,
     #[serde(default)]
     pub import: ImportConfig,
     #[serde(default)]
