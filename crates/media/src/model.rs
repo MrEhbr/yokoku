@@ -1,7 +1,7 @@
-use std::{path::PathBuf, time::Duration};
+use std::{fmt, path::PathBuf, time::Duration};
 
 use jiff::Timestamp;
-use yokoku_domain::{Confidence, DownloadId, FileTarget, ImportId, MediaFileId};
+use yokoku_domain::{Confidence, DownloadId, FileTarget, ImportId, MediaFileId, SubtitleTags};
 use yokoku_events::LinkedFile;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,4 +115,32 @@ pub struct SubtitleStream {
     /// ISO 639-2, like `eng`.
     pub language: Option<String>,
     pub forced: bool,
+}
+
+/// E.g. `1920x1080 h264`.
+impl fmt::Display for VideoStream {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}x{} {}", self.width, self.height, self.codec)
+    }
+}
+
+/// E.g. `eng aac 5.1`.
+impl fmt::Display for AudioStream {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {} ", self.language.as_deref().unwrap_or("unknown"), self.codec)?;
+        match self.channels {
+            1 => f.write_str("mono"),
+            2 => f.write_str("stereo"),
+            6 => f.write_str("5.1"),
+            8 => f.write_str("7.1"),
+            count => write!(f, "{count} channels"),
+        }
+    }
+}
+
+/// The language, e.g. `eng (forced)`.
+impl fmt::Display for SubtitleStream {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        SubtitleTags { language: self.language.clone(), sdh: false, forced: self.forced }.fmt(f)
+    }
 }

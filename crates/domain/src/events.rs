@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::{collections::HashSet, fmt, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -190,6 +190,53 @@ impl Event {
     }
 }
 
+/// One line, followed by one line per file where the event holds several.
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let linked = |f: &mut fmt::Formatter<'_>, verb: &str, files: &[LinkedFile]| match files {
+            [file] => write!(f, "{verb} {}", file.path.display()),
+            files => {
+                write!(f, "{verb} {} files", files.len())?;
+                files.iter().try_for_each(|file| write!(f, "\n{}", file.path.display()))
+            },
+        };
+        let with_files = |delete_files: bool| if delete_files { " and its files" } else { "" };
+        match self {
+            Self::SeriesAdded(SeriesAdded { title, .. }) => write!(f, "Added series {title}"),
+            Self::MovieAdded(MovieAdded { title, .. }) => write!(f, "Added movie {title}"),
+            Self::SeriesRemoved(SeriesRemoved { title, delete_files, .. }) => {
+                write!(f, "Removed series {title}{}", with_files(*delete_files))
+            },
+            Self::MovieRemoved(MovieRemoved { title, delete_files, .. }) => {
+                write!(f, "Removed movie {title}{}", with_files(*delete_files))
+            },
+            Self::FilesFound(FilesFound { files }) => linked(f, "Found", files),
+            Self::FilesImported(FilesImported { files, .. }) => linked(f, "Imported", files),
+            Self::FileDeleted(FileDeleted { path, reason, .. }) => {
+                let reason = match reason {
+                    DeleteReason::External => "gone from disk",
+                    DeleteReason::Replaced => "replaced by an import",
+                    DeleteReason::User => "by request",
+                    DeleteReason::ItemRemoved => "its item was removed",
+                };
+                write!(f, "Deleted {} ({reason})", path.display())
+            },
+            Self::FileRenamed(FileRenamed { from, to, .. }) => {
+                write!(f, "Renamed {}\n-> {}", from.display(), to.display())
+            },
+            Self::ImportNeedsReview(ImportNeedsReview { source, .. }) => {
+                write!(f, "Import of {} needs review", source.display())
+            },
+            Self::ImportFailed(ImportFailed { source, reason, .. }) => {
+                write!(f, "Import of {} failed: {reason}", source.display())
+            },
+            Self::TorrentAdded(TorrentAdded { name, .. }) => write!(f, "Added torrent {name}"),
+            Self::DownloadCompleted(DownloadCompleted { name, .. }) => write!(f, "Finished downloading {name}"),
+            Self::TorrentRemoved(TorrentRemoved { name, .. }) => write!(f, "Removed torrent {name} after seeding"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LinkedFile {
     pub file: MediaFileId,
@@ -218,6 +265,29 @@ mod tests {
 
     use super::*;
     use crate::EpisodeSpan;
+
+    fn linked(path: &str) -> LinkedFile {
+        LinkedFile {
+            file: MediaFileId(Uuid::from_u128(5)),
+            path: path.into(),
+            target: FileTarget::Movie(MovieId(Uuid::from_u128(3))),
+        }
+    }
+
+    #[rstest]
+    #[case::one_line(TorrentAdded { download: DownloadId(Uuid::from_u128(4)), name: "Dune".into(), item: None }.into(), "Added torrent Dune")]
+    #[case::removed_with_files(
+        MovieRemoved { movie: MovieId(Uuid::from_u128(3)), title: "Dune".into(), delete_files: true }.into(),
+        "Removed movie Dune and its files",
+    )]
+    #[case::one_file(FilesFound { files: vec![linked("/movies/Dune.mkv")] }.into(), "Found /movies/Dune.mkv")]
+    #[case::a_line_per_file(
+        FilesFound { files: vec![linked("/a.mkv"), linked("/b.mkv")] }.into(),
+        "Found 2 files\n/a.mkv\n/b.mkv",
+    )]
+    fn describes_the_event(#[case] event: Event, #[case] expected: &str) {
+        assert_eq!(event.to_string(), expected);
+    }
 
     #[rstest]
     #[case::series_added(
