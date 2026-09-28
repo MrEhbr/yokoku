@@ -83,4 +83,4 @@ bench *opts="":
 # Run application.
 [positional-arguments]
 run +args="--help":
-    @cargo run {{ if profile == "release" { "--release" } else { "" } }} {{ if features != "" { "--features " + features } else { "" } }} -- "$@"
+    @cargo run --bin yokoku {{ if profile == "release" { "--release" } else { "" } }} {{ if features != "" { "--features " + features } else { "" } }} -- "$@"
