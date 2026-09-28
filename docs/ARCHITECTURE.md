@@ -123,19 +123,76 @@ naming rules make each hop predictable:
   web/src/
     route.rs      Route enum and App; the only file that names every page
     layout/       the shell around every page: Shell, DocumentHead
-    pages/        one file per route: series/index.rs, series/detail.rs, calendar.rs
+    pages/        one folder per route: library/, series_detail/, calendar/
     dialogs/      modal flows opened from several pages: import_review.rs, rename.rs
     api/          server functions, one file per feature module: library.rs, media.rs
     components/   Paper components (vendored with `just web add`) and Yokoku widgets, flat
-    server.rs     AppState and Server; server build only
+    format.rs     values as every page writes them: year, date
+    server.rs     Server: binds and serves the router; server build only
+    state.rs      AppState and the Dep extractor for server functions; server build only
     main.rs       browser entry
   ```
 
-  Only pages and dialogs call `api`, loading with `use_server_future`. Components take props and
-  send events, so the gallery shows each one with fixed data. A server function turns wire types
-  into one use-case call and back; its wire types sit in its file. Server data lives in the page
-  that loads it, with no global store; selection and sort order stay local. A file becomes a
+  A page is a folder named after its `Route` variant in snake case (`Route::SeriesDetail` is
+  `pages/series_detail/`), even when it has one file:
+
+  ```
+  pages/library/
+    mod.rs        the routed component: its state, the api call, loading, error and empty states
+    filters.rs    parts only this page renders, one file each, named after what they render,
+    grid.rs         `pub(super)`
+    table.rs
+    fields.rs     how the page's values render, shared by its parts
+  ```
+
+  A part a second page needs moves to `components/`, with a gallery story, and a formatting
+  helper a second page needs moves to `format.rs`. A file in `dialogs/` or `api/` becomes a
   folder when it grows, and there are no empty `hooks/` or `utils/` folders.
+
+  How web code is written:
+
+  - **Pages** are the only callers of `api` (with dialogs). Server data lives in the page that
+    loads it, with no global store.
+  - **State**, by what it is:
+    - Server data: `use_server_future`, reading the page's state signals so a change reloads it.
+      It renders on the server and hydrates without a second request.
+    - Page or component state: `use_signal`, one per concern, not per field. Values that change
+      together are one plain struct, `Filters { kind, status, sort }`, whose rules (a type change
+      clears a status of the other type) are its methods. View-only state, like grid or table,
+      is its own signal.
+    - Values computed from signals: `use_memo`, not a signal kept in sync by hand.
+    - Large nested state edited per item, like the rows of an import review: a store
+      (`#[derive(Store)]`, `use_store`), so a row re-renders alone.
+    - State a subtree shares: context (`use_context_provider` / `use_context`), as the sidebar
+      does; not for server data.
+    - A child that edits page state takes the signal as a prop (`FilterBar { filters }`); a
+      child that only shows it takes the value.
+  - **Page states** follow the design system (§6 of DESIGN-SYSTEM.md): loading (`Skeleton`),
+    failed (`Alert` with a generic message), empty (what to do next), and empty because of
+    filters (a Clear filters action) are separate.
+  - **Components** take props and send events, never call `api`, so the gallery shows each one
+    with fixed data. A server-rendered `Select` with a value passes that value's text as
+    `placeholder`, or the page shows "Select…" until the options register in the browser.
+  - **Navigation:** a main destination is one `NavItem` in `layout/` `Shell`, a router link in
+    the sidebar, which is a sheet below `md`.
+  - **Server functions:** a file in `api/` holds, compiled for both builds, its wire types and
+    its server function signatures, and in one `#[cfg(feature = "server")] mod server` everything
+    that needs the server build: the use-case call, error mapping, and the conversions between
+    wire and domain types. A server function names the use cases it calls as extractors,
+    `#[get("/api/library?kind&status&sort", library: Dep<Library>)]`, and its body is one call
+    into `mod server`.
+  - **Wire types** are the api file's own: enums with `#[serde(rename_all = "kebab-case")]`, a
+    `label()` for display and an `ALL` list for selects. A domain type crosses the wire only if
+    it already derives serde (`ItemId`); the browser build never depends on a feature module.
+  - **Errors:** `mod server` logs the use case's error and returns a generic `ServerFnError`
+    message; the page shows a generic alert. Internals never reach the browser.
+  - **Dependencies:** `Dep<T>` takes one use case from `AppState`, and one that `AppState` does
+    not provide fails to compile. A new use case is an `AppState` field (`state.rs`), a
+    `Provides<T>` impl for it, and its type in the `#[cfg(feature = "server")] use` of
+    `api/mod.rs`; api files take it with `#[cfg(feature = "server")] use super::{Dep, …}`.
+    `yokoku` fills `AppState` in `service.rs`.
+  - **Tests:** `yokoku/tests/service.rs` starts the binary on a seeded database and fetches pages
+    and api routes over HTTP; wire conversions and page rules are covered through it.
 
 Tests mirror sources: `crates/<crate>/tests/<module>.rs` tests `crates/<crate>/src/<module>.rs`.
 CLI commands are `yokoku/src/cli/commands/<verb>.rs` for `yokoku <verb>`; their tests are grouped

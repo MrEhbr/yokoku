@@ -22,7 +22,9 @@ const CONTAIN_ESCAPE: &str = r#"if (!window.ykSelectEscape) {
 /// A single-choice picker over typed values: `on_value_change` receives the chosen `T`.
 ///
 /// Controlled with `value`, or uncontrolled with `default_value`. `placeholder` shows while
-/// nothing is selected. Give it an `aria_label` when no visible label names it.
+/// nothing is selected, and also until the options register on the client, so a server-rendered
+/// select with a value passes that value's text as `placeholder`. Give it an `aria_label` when no
+/// visible label names it.
 #[component]
 pub fn Select<T: Clone + PartialEq + 'static>(
     #[props(default)] value: Option<ReadSignal<Option<T>>>,

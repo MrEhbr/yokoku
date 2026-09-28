@@ -8,11 +8,7 @@ use std::{
 use dioxus::server::axum::{self, Extension, Router};
 use tokio::net::TcpListener;
 
-/// What server functions read from the composition root.
-#[derive(Clone)]
-pub struct AppState {
-    pub version: &'static str,
-}
+use crate::AppState;
 
 /// The web UI, bound and ready to serve pages, assets and server functions.
 pub struct Server {

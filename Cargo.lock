@@ -6412,6 +6412,7 @@ dependencies = [
  "tokio",
  "uuid",
  "yokoku-domain",
+ "yokoku-library",
  "yokoku-naming",
 ]
 

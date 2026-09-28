@@ -12,10 +12,8 @@ use crate::app::App;
 pub async fn run(app: &App) -> Result<()> {
     let config = app.settings.current();
     let schedules = config.serve.schedules()?;
-    let web =
-        yokoku_web::Server::bind(config.web.address(), yokoku_web::AppState { version: env!("CARGO_PKG_VERSION") })
-            .await
-            .context("Failed to start the web server")?;
+    let state = yokoku_web::AppState { library: app.library.clone() };
+    let web = yokoku_web::Server::bind(config.web.address(), state).await.context("Failed to start the web server")?;
 
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);

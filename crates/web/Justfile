@@ -6,8 +6,9 @@ help:
     @just --list
 
 # Serve the app at http://127.0.0.1:8080: this crate in the browser, the yokoku service as its server
+[working-directory: '../..']
 serve:
-    @dx serve --port 8080 --open false @client --package yokoku-web --features web @server --package yokoku
+    @dx serve --port 8080 --open false @client --package yokoku-web --features web @server --package yokoku --args="--config config/app.toml"
 
 # Serve the component gallery at http://127.0.0.1:8080, rebuilding on changes
 gallery:

@@ -27,7 +27,7 @@ use crate::subscriptions;
 /// Use cases wired to their adapters, each reading the settings in effect when it runs.
 pub struct App {
     pub settings: Settings,
-    pub library: Library,
+    pub library: Arc<Library>,
     pub calendar: Calendar,
     pub roots: RootFolders,
     pub scanner: Arc<Scanner>,
@@ -91,7 +91,7 @@ impl App {
             Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone(), events.clone()));
 
         Ok(Self {
-            library: Library::new(db.clone(), db.clone(), clock.clone(), events.clone()),
+            library: Arc::new(Library::new(db.clone(), db.clone(), clock.clone(), events.clone())),
             calendar: Calendar::new(db.clone(), db.clone(), clock.clone()),
             roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
             scanner: scanner.clone(),
