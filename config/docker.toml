@@ -1,0 +1,79 @@
+[log]
+format = "console"
+output = "stderr"
+
+[database]
+path = "/data/yokoku.db"
+
+[web]
+host = "0.0.0.0"
+port = 8080
+
+[clock]
+# timezone = "Europe/Berlin"
+
+[metadata]
+language = "en-US"
+region = "US"
+
+# Secrets (token, api_key, pin, password) take a value or { file = "/run/secrets/name" };
+# APP__METADATA__TMDB__TOKEN or APP__METADATA__TMDB__TOKEN__FILE set them from the environment.
+[metadata.tmdb]
+# token = { file = "/run/secrets/tmdb_token" }
+
+# Series come from TVDB once api_key is set; it must be the source Jellyfin uses.
+[metadata.tvdb]
+# api_key = { file = "/run/secrets/tvdb_api_key" }
+# pin = { file = "/run/secrets/tvdb_pin" }
+
+# The password is a secret, like the TMDB token.
+[transmission]
+url = "http://localhost:9091/transmission/rpc"
+# username = "yokoku"
+
+[downloads]
+# Removes imported torrents with their data once Transmission finished seeding them.
+remove_after_seeding = false
+# Takes on torrents added directly in Transmission that carry one of these labels or download under the folder.
+pick_up_labels = []
+# pick_up_folder = "/downloads/tv"
+
+[add]
+monitor = "all"
+
+[list]
+sort = "title"
+
+[calendar]
+# Days ahead to show instead of the week; the week while unset.
+# days = 14
+
+# Cron schedules with seconds.
+[serve]
+sync_downloads = "*/30 * * * * *"
+execute_imports = "*/5 * * * * *"
+rescan_media_server = "*/10 * * * * *"
+# Refreshes only the items due, as Sonarr and Radarr decide it.
+refresh_metadata = "0 0 */12 * * *"
+scan_library = "0 0 5 * * *"
+
+# How finished downloads reach the library: hardlink, copy or move.
+[import]
+mode = "hardlink"
+
+# Rescans after library changes; api_key is a secret, like the TMDB token.
+[jellyfin]
+# url = "http://localhost:8096"
+
+# Path patterns for library files. Tokens: {title}, {year}, {season} (two digits), {episodes}
+# (S01E01 or S01E01-E02), {episode_title}; a [...] group is dropped when a token in it has no value.
+[naming]
+movie_folder = "{title}[ ({year})]"
+movie_file = "{title}[ ({year})]"
+series_folder = "{title}[ ({year})]"
+season_folder = "Season {season}"
+episode_file = "{title}[ ({year})] - {episodes}[ - {episode_title}]"
+
+# File details are read with ffprobe: its name on the PATH, or a path to it.
+[files]
+ffprobe = "ffprobe"

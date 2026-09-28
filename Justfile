@@ -2,7 +2,7 @@ APP := `basename $(pwd)`
 profile := env_var_or_default('PROFILE', 'debug')
 features := env_var_or_default('FEATURES', '')
 
-# Web UI: `just web gallery`, `just web fmt`, `just web lint`, `just web add <component>`
+# Web UI: `just web serve`, `just web gallery`, `just web fmt`, `just web lint`, `just web add <component>`
 mod web 'crates/web'
 
 # Show available targets

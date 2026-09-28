@@ -130,7 +130,7 @@ GitHub Actions workflows:
 
 - **Checks**: Runs on every PR (build, test, lint, format)
 - **Prepare Release**: Manual workflow to create version tags
-- **Publish Release**: Automatic binary releases on tags
+- **Publish Release**: On tags, GoReleaser builds Linux x86_64 and arm64 archives (binary and web assets) and a multi-arch Docker image
 
 ## Data sources
 
