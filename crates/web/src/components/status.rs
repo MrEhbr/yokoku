@@ -1,37 +1,28 @@
-use topcoat::{
-    Result,
-    view::{Attributes, StaticClass, View, class, component, view},
-};
+use dioxus::prelude::*;
 
-/// The color and symbol of a [`status`]. Pick it from the status taxonomy in
-/// DESIGN-SYSTEM.md; keep file availability, lifecycle, monitoring, confidence, and
-/// operation state as separate statuses.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[allow(dead_code)]
+/// A status category's tone. Each category (file availability, lifecycle, monitoring,
+/// confidence, operation) maps its own values to tones; never merge categories into one badge.
+#[derive(Clone, Copy, PartialEq)]
 pub enum Tone {
-    /// A present file, a certain match, a completed operation.
     Success,
-    /// Missing, a guess, or awaiting review.
     Warning,
-    /// A failure or conflict.
     Danger,
-    /// Upcoming, running, or informational.
     Info,
-    /// Unmonitored, ended, or otherwise inactive.
     Muted,
 }
 
 impl Tone {
-    fn classes(self) -> StaticClass {
+    fn class(self) -> &'static str {
         match self {
-            Self::Success => class!("text-success"),
-            Self::Warning => class!("text-warning"),
-            Self::Danger => class!("text-danger"),
-            Self::Info => class!("text-info"),
-            Self::Muted => class!("text-muted"),
+            Self::Success => "text-success",
+            Self::Warning => "text-warning",
+            Self::Danger => "text-danger",
+            Self::Info => "text-info",
+            Self::Muted => "text-muted",
         }
     }
 
+    /// A symbol that keeps the status readable without color.
     fn symbol(self) -> &'static str {
         match self {
             Self::Success => "✓",
@@ -43,24 +34,14 @@ impl Tone {
     }
 }
 
-/// A status as symbol, label, and color, readable without the color.
-///
-/// ```ignore
-/// view! { status(tone: Tone::Warning, label: "Missing") }
-/// ```
+/// A status: symbol and label in the tone's color.
 #[component]
-pub async fn status(tone: Tone, label: &str, #[default] mut attrs: Attributes) -> Result<impl View> {
-    Ok(view! {
-        <span
-            class=(class!(
-                "inline-flex items-center gap-1.5 text-caption font-medium",
-                tone.classes(),
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            <span aria-hidden="true">(tone.symbol())</span>
-            (label)
-        </span>
-    })
+pub fn Status(tone: Tone, label: String) -> Element {
+    let (class, symbol) = (tone.class(), tone.symbol());
+    rsx! {
+        span { class: "inline-flex items-center gap-1.5 text-caption font-medium {class}",
+            span { aria_hidden: "true", "{symbol}" }
+            "{label}"
+        }
+    }
 }

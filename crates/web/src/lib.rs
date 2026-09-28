@@ -1,7 +1,3 @@
-mod app;
-pub mod components;
-mod server;
-pub mod theme;
+//! Yokoku's web UI: Paper components, restyled from Dioxus Components.
 
-pub use app::router;
-pub use server::Server;
+pub mod components;

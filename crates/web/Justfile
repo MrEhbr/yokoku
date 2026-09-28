@@ -1,15 +1,46 @@
+# The dioxus-primitives revision in Cargo.toml; components are vendored from the same one
+rev := `sed -n 's/.*dioxus-primitives = .*rev = "\([0-9a-f]*\)".*/\1/p' Cargo.toml`
+
 # Show available recipes
 help:
     @just --list
 
-# Run the app (web UI, events, jobs) at http://127.0.0.1:3000 from the repo root, rebuilding on changes
-dev:
-    @cd ../.. && topcoat dev -p yokoku
-
-# Serve the component gallery at http://127.0.0.1:3000, rebuilding on changes
+# Serve the component gallery at http://127.0.0.1:8080, rebuilding on changes
 gallery:
-    @topcoat dev -p yokoku-web --bin gallery
+    @dx serve --bin gallery --platform web --fullstack --port 8080 --open false
 
-# Format topcoat macro bodies (view!, class!, attributes!)
+# Format Rust and rsx! bodies
 fmt:
-    @topcoat fmt src
+    @dx fmt
+    @cargo fmt
+
+# Lint the browser (wasm) and server builds
+lint:
+    cargo clippy --bin gallery --features web --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy --bin gallery --features server -- -D warnings
+
+# Vendor Dioxus Components into src/components/ui/<name>.rs, e.g. `just web add tabs toggle`; restyle each to Paper afterwards
+add +components:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # A fresh HOME skips ~/.gitconfig, whose https-to-ssh rewrite breaks the registry download.
+    cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+    HOME="$(mktemp -d)" CARGO_HOME="$cargo_home" dx components add {{ components }} \
+        --module-path src/components/ui --rev {{ rev }}
+    # dx rewrites the dependency without its rev; pin it back.
+    sed -i 's|^dioxus-primitives = .*|dioxus-primitives = { git = "https://github.com/DioxusLabs/components", rev = "{{ rev }}", default-features = false }|' Cargo.toml
+    rm -f assets/dx-components-theme.css
+    cd src/components/ui
+    for dir in */; do
+        name="${dir%/}"
+        [ -f "$name/component.rs" ] || continue
+        if [ -f "$name.rs" ]; then
+            rm -r "$name"
+            continue
+        fi
+        mv "$name/component.rs" "$name.rs"
+        rm "$name/mod.rs"
+        sed -i "s|/src/components/$name/style.css|/src/components/ui/$name/style.css|" "$name.rs"
+        echo "Added $name.rs; its CSS module is in $name/style.css until the restyle"
+    done
+    sort -u -o mod.rs mod.rs

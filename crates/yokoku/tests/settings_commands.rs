@@ -171,17 +171,7 @@ impl Setup {
 async fn a_running_service_reloads_a_setting_changed_from_the_command_line() {
     let setup = setup();
     setup.stdout(&["settings", "list"]);
-    let assets = setup._dir.path().join("assets");
-    std::fs::create_dir(&assets).unwrap();
-    std::fs::write(assets.join("manifest.toml"), "version = 1\nassets = []\n").unwrap();
-    let mut serve = setup
-        .command()
-        .env("APP__WEB__ASSETS", &assets)
-        .env("PORT", "0")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
+    let mut serve = setup.command().stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap();
 
     let started = setup.set_and_await_reload("copy").await;
     let reloaded = setup.set_and_await_reload("move").await;

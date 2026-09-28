@@ -1,56 +1,67 @@
-use topcoat::{
-    Result,
-    view::{Attributes, Child, StaticClass, View, class, component, view},
+use dioxus::prelude::*;
+use dioxus_primitives::{
+    dioxus_attributes::attributes,
+    hover_card::{self, HoverCardContentProps, HoverCardProps, HoverCardTriggerProps},
+    merge_attributes,
 };
 
-/// Extra information shown when its trigger is hovered or focused.
-///
-/// Pass the trigger and a `hover_card_content` panel as children. The panel appears and
-/// disappears after a short delay to avoid flickering as the pointer moves. Keep
-/// essential information available elsewhere, since touch users may not see the card.
-///
-/// ```ignore
-/// view! {
-///     hover_card(
-///         <a href="/people/ada" class="font-medium underline">"@ada"</a>
-///         hover_card_content(
-///             <p class="text-body font-medium">"Ada Lovelace"</p>
-///             <p class="text-body text-muted">"Owner, joined in 2024."</p>
-///         )
-///     )
-/// }
-/// ```
 #[component]
-pub async fn hover_card(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <span
-            class=(class!("group relative inline-flex", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </span>
-    })
+pub fn HoverCard(props: HoverCardProps) -> Element {
+    let base = attributes!(div { class: "group relative inline-block" });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        hover_card::HoverCard {
+            open: props.open,
+            default_open: props.default_open,
+            on_open_change: props.on_open_change,
+            disabled: props.disabled,
+            attributes: merged,
+            {props.children}
+        }
+    }
 }
 
-/// Classes for the panel below the trigger. Delayed opacity and visibility transitions
-/// let the pointer reach the panel before it closes.
-const PANEL: StaticClass = class!(
-    "invisible absolute top-full left-0 z-50 mt-2 w-64 border \
-     border-control bg-surface p-4 text-ink opacity-0 shadow-popover \
-     [transition:opacity_150ms_ease-out_300ms,visibility_150ms_allow-discrete_300ms] \
-     group-hover:visible group-hover:opacity-100 \
-     group-focus-within:visible group-focus-within:opacity-100",
-);
-
-/// The view a [`hover_card`] shows, in a panel below its trigger.
 #[component]
-pub async fn hover_card_content(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <span
-            class=(class!("flex flex-col gap-2", PANEL, attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </span>
-    })
+pub fn HoverCardTrigger(props: HoverCardTriggerProps) -> Element {
+    let base = attributes!(div {
+        class: "inline-block group-data-[disabled=true]:cursor-default group-data-[disabled=true]:text-muted",
+    });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        hover_card::HoverCardTrigger { id: props.id, attributes: merged, {props.children} }
+    }
+}
+
+#[component]
+pub fn HoverCardContent(props: HoverCardContentProps) -> Element {
+    let base = attributes!(div {
+        class: "absolute z-50 w-64 border border-control bg-surface p-4 text-ink shadow-popover \
+                data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out \
+                data-[side=top]:bottom-full data-[side=top]:mb-2 \
+                data-[side=bottom]:top-full data-[side=bottom]:mt-2 \
+                data-[side=left]:right-full data-[side=left]:mr-2 \
+                data-[side=right]:left-full data-[side=right]:ml-2 \
+                data-[side=top]:data-[align=center]:left-1/2 data-[side=top]:data-[align=center]:-translate-x-1/2 \
+                data-[side=bottom]:data-[align=center]:left-1/2 data-[side=bottom]:data-[align=center]:-translate-x-1/2 \
+                data-[side=top]:data-[align=start]:left-0 data-[side=bottom]:data-[align=start]:left-0 \
+                data-[side=top]:data-[align=end]:right-0 data-[side=bottom]:data-[align=end]:right-0 \
+                data-[side=left]:data-[align=center]:top-1/2 data-[side=left]:data-[align=center]:-translate-y-1/2 \
+                data-[side=right]:data-[align=center]:top-1/2 data-[side=right]:data-[align=center]:-translate-y-1/2 \
+                data-[side=left]:data-[align=start]:top-0 data-[side=right]:data-[align=start]:top-0 \
+                data-[side=left]:data-[align=end]:bottom-0 data-[side=right]:data-[align=end]:bottom-0",
+    });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        hover_card::HoverCardContent {
+            id: props.id,
+            side: props.side,
+            align: props.align,
+            force_mount: props.force_mount,
+            attributes: merged,
+            {props.children}
+        }
+    }
 }

@@ -12,8 +12,8 @@ TBD
 # Build
 just build
 
-# Run the app: web UI at http://127.0.0.1:3000, events, scheduled jobs
-just web dev
+# Run the service: events and scheduled jobs
+cargo run
 
 # Command-line interface
 just run --help
@@ -39,11 +39,16 @@ just test       # Run tests
 just lint       # Run linters
 just fmt        # Format code
 just run [ARGS] # Run a CLI command
-just web dev     # Run the app, rebuilding on changes
-just web gallery # Browse the UI components
 ```
 
-`just setup` also installs `topcoat-cli` at the locked version; `just web …` needs it.
+The web UI is being rebuilt on Dioxus in `crates/web`, outside the workspace:
+
+```bash
+just web gallery        # Browse the UI components at http://127.0.0.1:8080
+just web fmt            # Format Rust and rsx!
+just web lint           # Clippy for the browser and server builds
+just web add <name>...  # Vendor a Dioxus component into src/components/ui/, then restyle it
+```
 
 
 
@@ -64,7 +69,7 @@ crates/
   yokoku/             # Binary: composition root, service and CLI
     src/
       app.rs          # Wires the adapters into use cases
-      service.rs      # The service: web server, events, scheduled jobs
+      service.rs      # The service: events, scheduled jobs
       subscriptions.rs  # Every event subscription
       logging.rs      # tracing setup
       cli/
@@ -73,7 +78,7 @@ crates/
     benches/          # Criterion benchmarks
     tests/            # Integration tests
   config/             # Configuration crate: layered settings
-  web/                # Web UI on Topcoat, see crates/web/CLAUDE.md
+  web/                # Web UI on Dioxus (components and gallery so far), outside the workspace
   <name>/             # Library crates, see docs/ARCHITECTURE.md §3
 config/               # Configuration files
 docs/                 # Requirements and architecture

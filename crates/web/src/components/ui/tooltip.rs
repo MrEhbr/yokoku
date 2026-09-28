@@ -1,58 +1,65 @@
-use topcoat::{
-    Result,
-    view::{Attributes, Child, StaticClass, View, class, component, view},
+use dioxus::prelude::*;
+use dioxus_primitives::{
+    dioxus_attributes::attributes,
+    merge_attributes,
+    tooltip::{self, TooltipContentProps, TooltipProps, TooltipTriggerProps},
 };
 
-/// A short hint shown when its trigger is hovered or focused.
-///
-/// Pass the trigger and `tooltip_content` as children. Positioning does not adjust to
-/// the viewport edges, so keep the hint short and leave room for it.
-///
-/// Give the trigger its own text or accessible label. The tooltip must not be the only
-/// way to learn what the trigger does. To associate the hint with the trigger, give
-/// `tooltip_content` an `id` and reference it with the trigger's `aria-describedby`.
-///
-/// ```ignore
-/// view! {
-///     tooltip(
-///         button(
-///             size: ButtonSize::Icon,
-///             variant: ButtonVariant::Secondary,
-///             icon(data: iconify_icon!("lucide:copy"), label: "Copy link")
-///         )
-///         tooltip_content("Copy link")
-///     )
-/// }
-/// ```
 #[component]
-pub async fn tooltip(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <span
-            class=(class!("group relative inline-flex", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </span>
-    })
+pub fn Tooltip(props: TooltipProps) -> Element {
+    let base = attributes!(div { class: "group relative inline-block" });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        tooltip::Tooltip {
+            disabled: props.disabled,
+            open: props.open,
+            default_open: props.default_open,
+            on_open_change: props.on_open_change,
+            attributes: merged,
+            {props.children}
+        }
+    }
 }
 
-/// Classes for a tooltip above its trigger. The bubble ignores pointer events. Opacity
-/// and visibility transitions let it fade in and out.
-const BUBBLE: StaticClass = class!(
-    "pointer-events-none invisible absolute bottom-full left-1/2 z-50 mb-2 \
-     -translate-x-1/2 bg-ink px-2.5 py-1 text-caption font-medium text-canvas \
-     opacity-0 whitespace-nowrap \
-     [transition:opacity_150ms_ease-out,visibility_150ms_allow-discrete] \
-     group-hover:visible group-hover:opacity-100 \
-     group-focus-within:visible group-focus-within:opacity-100",
-);
-
-/// The hint a [`tooltip`] shows, in a bubble above its trigger.
 #[component]
-pub async fn tooltip_content(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <span role="tooltip" class=(class!(BUBBLE, attrs.remove("class"))) (attrs)>
-            (child)
-        </span>
-    })
+pub fn TooltipTrigger(props: TooltipTriggerProps) -> Element {
+    let base = attributes!(div { class: "inline-block group-data-[disabled=true]:cursor-default" });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        tooltip::TooltipTrigger { id: props.id, r#as: props.r#as, attributes: merged, {props.children} }
+    }
+}
+
+#[component]
+pub fn TooltipContent(props: TooltipContentProps) -> Element {
+    let base = attributes!(div {
+        class: "pointer-events-none absolute z-50 max-w-60 bg-ink px-2.5 py-1 text-caption font-medium text-canvas \
+                whitespace-nowrap \
+                data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out \
+                data-[side=top]:bottom-full data-[side=top]:mb-2 \
+                data-[side=bottom]:top-full data-[side=bottom]:mt-2 \
+                data-[side=left]:right-full data-[side=left]:mr-2 \
+                data-[side=right]:left-full data-[side=right]:ml-2 \
+                data-[side=top]:data-[align=center]:left-1/2 data-[side=top]:data-[align=center]:-translate-x-1/2 \
+                data-[side=bottom]:data-[align=center]:left-1/2 data-[side=bottom]:data-[align=center]:-translate-x-1/2 \
+                data-[side=top]:data-[align=start]:left-0 data-[side=bottom]:data-[align=start]:left-0 \
+                data-[side=top]:data-[align=end]:right-0 data-[side=bottom]:data-[align=end]:right-0 \
+                data-[side=left]:data-[align=center]:top-1/2 data-[side=left]:data-[align=center]:-translate-y-1/2 \
+                data-[side=right]:data-[align=center]:top-1/2 data-[side=right]:data-[align=center]:-translate-y-1/2 \
+                data-[side=left]:data-[align=start]:top-0 data-[side=right]:data-[align=start]:top-0 \
+                data-[side=left]:data-[align=end]:bottom-0 data-[side=right]:data-[align=end]:bottom-0",
+    });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        tooltip::TooltipContent {
+            id: props.id,
+            side: props.side,
+            align: props.align,
+            attributes: merged,
+            {props.children}
+        }
+    }
 }

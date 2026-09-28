@@ -1,142 +1,107 @@
-use topcoat::{
-    Result,
-    view::{Attributes, Child, View, class, component, view},
-};
+//! Dense data rows with quiet rules. Select rows with checkboxes, never by clicking the row.
 
-/// A table inside a horizontally scrollable container.
-///
-/// Pass table sections as children. `attrs` are forwarded to the `<table>`, with extra
-/// classes added to its classes.
-///
-/// ```ignore
-/// view! {
-///     table(
-///         table_header(
-///             table_row(
-///                 table_head("Environment")
-///                 table_head("Status")
-///             )
-///         )
-///         table_body(
-///             table_row(
-///                 table_cell("production")
-///                 table_cell("Live")
-///             )
-///         )
-///     )
-/// }
-/// ```
+use dioxus::prelude::*;
+use dioxus_primitives::{dioxus_attributes::attributes, merge_attributes};
+
+/// Scrolls sideways inside its own box when the columns don't fit.
 #[component]
-pub async fn table(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div class="w-full overflow-x-auto">
-            <table
-                class=(class!(
-                    "w-full caption-bottom border-collapse text-body",
-                    attrs.remove("class"),
-                ))
-                (attrs)
-            >
-                (child)
-            </table>
-        </div>
-    })
+pub fn Table(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(table { class: "w-full caption-bottom border-collapse text-left text-body" });
+    let merged = merge_attributes(vec![base, attributes]);
+    rsx! {
+        div { class: "w-full overflow-x-auto",
+            table { ..merged,{children} }
+        }
+    }
 }
 
-/// The heading section of a [`table`], holding the row of column headers.
 #[component]
-pub async fn table_header(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <thead class=(class!("[&_tr]:border-b", attrs.remove("class"))) (attrs)>
-            (child)
-        </thead>
-    })
+pub fn TableHeader(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    rsx! {
+        thead { ..attributes,{children} }
+    }
 }
 
-/// The body of a table, containing data rows.
 #[component]
-pub async fn table_body(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <tbody
-            class=(class!("[&_tr:last-child]:border-0", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </tbody>
-    })
+pub fn TableBody(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    rsx! {
+        tbody { ..attributes,{children} }
+    }
 }
 
-/// The closing section of a [`table`], for totals and other summaries.
+/// Set `"data-selected": true` on a checked row.
 #[component]
-pub async fn table_footer(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <tfoot
-            class=(class!(
-                "border-t border-line bg-subtle font-medium [&>tr]:last:border-b-0",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </tfoot>
-    })
+pub fn TableRow(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(tr { class: "border-b border-line data-[selected=true]:bg-subtle" });
+    let merged = merge_attributes(vec![base, attributes]);
+    rsx! {
+        tr { ..merged,{children} }
+    }
 }
 
-/// A table row with a separator and hover styling.
 #[component]
-pub async fn table_row(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <tr
-            class=(class!(
-                "border-b border-line aria-selected:bg-subtle data-[selected=true]:bg-subtle",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </tr>
-    })
+pub fn TableHead(
+    #[props(extends = GlobalAttributes)]
+    #[props(extends = th)]
+    attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let base = attributes!(th {
+        class: "px-3 py-2 text-left align-middle text-caption font-medium whitespace-nowrap text-muted",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+    rsx! {
+        th { ..merged,{children} }
+    }
 }
 
-/// A column header in a [`table_header`]'s row.
 #[component]
-pub async fn table_head(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <th
-            class=(class!(
-                "px-3 py-2 text-left align-middle text-caption font-medium whitespace-nowrap \
-                 text-muted",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </th>
-    })
+pub fn TableCell(
+    #[props(extends = GlobalAttributes)]
+    #[props(extends = td)]
+    attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let base = attributes!(td { class: "px-3 py-3 align-middle" });
+    let merged = merge_attributes(vec![base, attributes]);
+    rsx! {
+        td { ..merged,{children} }
+    }
 }
 
-/// One cell of a [`table_row`].
 #[component]
-pub async fn table_cell(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <td
-            class=(class!("px-3 py-3 align-middle", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </td>
-    })
+pub fn TableCaption(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(caption { class: "mt-4 text-body text-muted" });
+    let merged = merge_attributes(vec![base, attributes]);
+    rsx! {
+        caption { ..merged,{children} }
+    }
 }
 
-/// A caption describing the table.
+/// Where a sortable column stands; `None` while another column sorts the table.
+#[derive(Clone, Copy, PartialEq)]
+pub enum SortDirection {
+    Ascending,
+    Descending,
+}
+
+/// A column header whose button sorts the table. It announces the direction with `aria-sort`.
 #[component]
-pub async fn table_caption(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <caption
-            class=(class!("mt-4 text-body text-muted", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </caption>
-    })
+pub fn TableSortHead(label: String, direction: Option<SortDirection>, onclick: EventHandler<MouseEvent>) -> Element {
+    let (aria_sort, arrow) = match direction {
+        Some(SortDirection::Ascending) => (Some("ascending"), "↑"),
+        Some(SortDirection::Descending) => (Some("descending"), "↓"),
+        None => (None, ""),
+    };
+    rsx! {
+        TableHead { aria_sort,
+            button {
+                r#type: "button",
+                class: "inline-flex cursor-pointer items-center gap-1 hover:text-ink",
+                onclick: move |event| onclick.call(event),
+                "{label}"
+                span { aria_hidden: "true", "{arrow}" }
+            }
+        }
+    }
 }

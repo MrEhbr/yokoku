@@ -1,102 +1,81 @@
-use topcoat::{
-    Result,
-    runtime::Expr,
-    view::{Attributes, Child, StaticClass, View, class, component, view},
+use dioxus::prelude::*;
+use dioxus_primitives::{
+    dioxus_attributes::attributes,
+    merge_attributes,
+    tabs::{self, TabContentProps, TabListProps, TabTriggerProps, TabsProps},
 };
 
-/// A group of panels with controls for selecting the visible panel.
+/// A group of panels with buttons that switch the visible panel.
 ///
-/// Triggers can navigate to a server-rendered panel or update a signal. For browser
-/// updates, bind each trigger's `active` prop and each panel's `hidden` attribute to
-/// the selected-tab signal. Triggers are ordinary links and do not implement the ARIA
-/// tab pattern's arrow-key navigation.
-///
-/// `attrs` are forwarded to the outer `<div>`, with extra classes added to its classes.
-///
-/// ```ignore
-/// view! {
-///     tabs(
-///         tabs_list(
-///             for (value, text) in TABS {
-///                 tabs_trigger(
-///                     active: value == tab,
-///                     attrs: attributes! { href=(format!("?tab={value}")) },
-///                     (text)
-///                 )
-///             }
-///         )
-///         tabs_content((panel))
-///     )
-/// }
-/// ```
+/// Pass `horizontal: true` for a left-to-right row of tabs; it also picks the arrow-key
+/// direction for keyboard navigation.
 #[component]
-pub async fn tabs(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div class=(class!("flex flex-col gap-4", attrs.remove("class"))) (attrs)>
-            (child)
-        </div>
-    })
+pub fn Tabs(props: TabsProps) -> Element {
+    let base = attributes!(div { class: "flex flex-col gap-4" });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        tabs::Tabs {
+            value: props.value,
+            default_value: props.default_value,
+            on_value_change: props.on_value_change,
+            disabled: props.disabled,
+            horizontal: props.horizontal,
+            roving_loop: props.roving_loop,
+            attributes: merged,
+            {props.children}
+        }
+    }
 }
 
-/// A row of controls for selecting a panel.
 #[component]
-pub async fn tabs_list(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            class=(class!(
-                "flex flex-wrap border-b border-line",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn TabList(props: TabListProps) -> Element {
+    let base = attributes!(div { class: "flex flex-wrap border-b border-line" });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        tabs::TabList { attributes: merged, {props.children} }
+    }
 }
 
-/// Classes for a tab trigger's active and hover states.
-const TRIGGER: StaticClass = class!(
-    "-mb-px inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-2 \
-     border-b-2 border-transparent px-3 py-2 text-body whitespace-nowrap text-muted \
-     transition-colors hover:bg-subtle hover:text-ink \
-     aria-[current=page]:border-ink aria-[current=page]:text-ink",
-);
-
-/// A link that selects a panel.
-///
-/// `active` accepts a boolean or runtime expression and controls the selected styling
-/// and `aria-current="page"`. Pass the destination as `href` in `attrs`. To select a
-/// panel locally, handle the click, prevent navigation, and update the selected-tab
-/// signal.
+/// A tab button. Selected styling follows the kit's `.yk-tab` recipe: an ink underline.
 #[component]
-pub async fn tabs_trigger(
-    /// Whether this trigger selects the visible panel.
-    #[into]
-    #[default(false.into())]
-    active: Expr<bool>,
-    /// Extra attributes for the `<a>` element.
-    #[default]
-    mut attrs: Attributes,
-    /// The trigger's label.
-    #[default]
-    child: Child<'_>,
-) -> Result<impl View> {
-    Ok(view! {
-        <a
-            :aria-current=$(active.then_some("page"))
-            class=(class!(TRIGGER, attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </a>
-    })
+pub fn TabTrigger(props: TabTriggerProps) -> Element {
+    let base = attributes!(button {
+        class: "inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-2 \
+                border-b-2 border-transparent px-3 py-2 text-body whitespace-nowrap text-muted \
+                transition-colors hover:bg-subtle aria-selected:border-ink aria-selected:text-ink \
+                disabled:cursor-not-allowed disabled:opacity-45",
+    });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        tabs::TabTrigger {
+            class: None,
+            id: props.id,
+            value: props.value,
+            index: props.index,
+            disabled: props.disabled,
+            attributes: merged,
+            {props.children}
+        }
+    }
 }
 
-/// A panel selected by a tab trigger.
-///
-/// Render only the selected panel on the server, or render all panels with `:hidden`
-/// bindings to switch between them in the browser.
+/// The panel shown for the selected [`TabTrigger`].
 #[component]
-pub async fn tabs_content(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! { <div class=(attrs.remove("class")) (attrs)>(child)</div> })
+pub fn TabContent(props: TabContentProps) -> Element {
+    let base = attributes!(div { class: "pt-4" });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        tabs::TabContent {
+            class: None,
+            value: props.value,
+            id: props.id,
+            index: props.index,
+            attributes: merged,
+            {props.children}
+        }
+    }
 }

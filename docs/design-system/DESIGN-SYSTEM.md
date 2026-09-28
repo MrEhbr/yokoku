@@ -97,9 +97,9 @@ Functional headings use direct language: “Review import”, “Rename existing
 
 Use `yk-field`, `yk-label`, `yk-input`/`yk-select`, and `yk-hint`. Every control needs a programmatic label. Invalid controls use `aria-invalid="true"` and `aria-describedby` pointing to their error. Errors explain a correction, not only “invalid”.
 
-Selects use native HTML semantics with `appearance: base-select` where supported. The picker renders inside the page's top layer, including above modal dialogs, with semantic theme colors, wrapped labels, a selected checkmark, and bounded scrolling. Older browsers retain their native picker. Keep options as native `<option>` elements; no JavaScript dropdown replacement is required. See [MDN's customizable select guidance](https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Forms/Customizable_select).
+Selects use the Dioxus Components select: a button trigger with `aria-haspopup="listbox"` and a `role="listbox"` picker with typeahead, arrow-key navigation, a selected checkmark, and bounded scrolling. The picker is positioned under its trigger, so it stays inside a scrolling dialog. Escape closes only the picker, never the dialog around it. Values are typed; the select never stores display strings as values.
 
-Use native checkbox semantics. Header selection supports indeterminate state. Monitoring and operation selection are different controls with different labels; selecting files must not change monitoring.
+Checkboxes use the Dioxus Components checkbox: `role="checkbox"` with `aria-checked` of `true`, `false`, or `mixed`. Header selection uses the mixed state. Monitoring and operation selection are different controls with different labels; selecting files must not change monitoring.
 
 For long episode lists, an accessible searchable combobox may replace the native select while preserving the same field tokens and keyboard contract. Do not build an inaccessible custom dropdown for visual consistency.
 
@@ -136,7 +136,7 @@ Empty library: explain “Add a movie or series” and provide that action. Empt
 
 ### Dialogs
 
-Use a native `<dialog>` with `showModal()` or a mature accessible dialog primitive in the chosen framework. Label it, keep focus inside, restore focus on close, and support Escape. Closing a preview discards uncommitted changes; closing progress never claims to cancel a running job. Avoid nested dialogs: replace the dialog body for a conflict or ordered-assignment step.
+Use the Dioxus Components dialog. Label it with its title, keep focus inside, restore focus on close, and support Escape and a click outside. Closing a preview discards uncommitted changes; closing progress never claims to cancel a running job. Avoid nested dialogs: replace the dialog body for a conflict or ordered-assignment step.
 
 Small operations use compact headings and one footer. Keep the agreed old → new layout. Do not put a hero heading or large decorative illustration into file dialogs.
 
@@ -188,7 +188,9 @@ Library: poster or compact list, type/status filters, title/date-added/next-rele
 
 ## 11. Implementation
 
-The kit uses Tailwind CSS 4.3.3, pinned in `package.json` and `package-lock.json`. The official Tailwind compiler is a development dependency. No runtime UI library is added. The framework choice remains open.
+The kit uses Tailwind CSS 4.3.3, pinned in `package.json` and `package-lock.json`. The official Tailwind compiler is a development dependency.
+
+The app uses Dioxus 0.7 (fullstack). Interactive primitives come from [Dioxus Components](https://github.com/DioxusLabs/components): `dx components add <name> --module-path src/components/ui --rev <commit>` copies a component into the app as a folder. Its `component.rs` moves to `src/components/ui/<name>.rs`, the folder and CSS module are deleted, and the component is restyled to Paper with Tailwind classes. Behavior and accessibility come from `dioxus-primitives`. Primitives without an upstream component (table, field, alert, …) are written in the same style.
 
 Open `index.html` directly for the precompiled offline reference. To rebuild:
 
@@ -209,7 +211,7 @@ Let the app's normal Tailwind source discovery scan its components. The kit's `t
 
 The component classes are CSS recipes. Framework components should own semantics and behavior while reusing those recipes; do not copy a second palette or wrap every native control in an extra integration layer. `specimen.js` is illustrative and must not become the production file-management codepath.
 
-Load `theme.js` before the stylesheet in the standalone reference to avoid a theme flash. In the app, resolve System/Light/Dark using its existing settings mechanism and set `data-theme="light|dark"` on `<html>`. Preserve native control color-scheme. App pages using the custom `dark:` variant require that resolved attribute.
+Load `theme.js` before the stylesheet in the standalone reference to avoid a theme flash. In the app, an inline script in the document head sets `data-theme="light|dark"` on `<html>` before first paint: the system scheme until the user toggles, then the saved light or dark choice (per browser). The theme switch is one light/dark toggle. Preserve native control color-scheme. App pages using the custom `dark:` variant require that resolved attribute.
 
 ## 12. References
 

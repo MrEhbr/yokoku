@@ -21,7 +21,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 |---|---|---|
 | Language | Rust, edition 2024 | |
 | Async runtime | `tokio` | |
-| Web / UI | `topcoat` | Experimental ("expect breaking changes"). Full-stack: pages render on the server and call use cases directly; there is no JSON API. Kept in one adapter crate. |
+| Web / UI | Dioxus 0.7 (fullstack) | Pre-1.0. Pages render on the server and hydrate in the browser (WASM); server functions call use cases. Components are Dioxus Components restyled to Paper (`docs/design-system`). Kept in one adapter crate, `web`, outside the workspace and not yet served by the binary. |
 | Database | SQLite through `sqlx` (0.9) | Version set by `apalis-sqlite`. WAL mode, `foreign_keys=ON`, `busy_timeout`. |
 | Migrations | `sqlx::migrate!` | One ordered set, owned by `db`. |
 | Background jobs, cron | `apalis`, `apalis-sqlite`, `apalis-cron` | Jobs share the app's SQLite database. `apalis-workflow` is not used (see §10). |
@@ -63,7 +63,7 @@ crates/
   media-servers/     yokoku-media-servers     MediaServer impls (Jellyfin)
   jobs/              yokoku-jobs              apalis workers and cron; queue port impls
   system/            yokoku-system            FileSystem, LibraryLock, Clock, MediaProbe (ffprobe), EventSpool
-  web/               yokoku-web               Web UI on Topcoat: pages, components, component gallery
+  web/               yokoku-web               Web UI on Dioxus: components, component gallery (outside the workspace)
 
   config/            yokoku-config            Configuration: composes every crate's settings section, layers and validates them
 
@@ -91,7 +91,7 @@ crates/
 | `domain` | std, `serde`, `serde_json`, `jiff`, `thiserror`, `async-trait`, `secrecy` | anything else in the workspace |
 | `detect`, `naming` | `domain` | IO, async, any module |
 | `events` | `domain` | any module or adapter |
-| Feature module | `domain`, `events`, pure crates it needs | other modules, any adapter, sqlx/reqwest/apalis/topcoat |
+| Feature module | `domain`, `events`, pure crates it needs | other modules, any adapter, sqlx/reqwest/apalis/dioxus |
 | Adapter | modules whose ports it implements | other adapters |
 | `web` (driving adapter) | modules whose use cases it calls | other adapters, sqlx/reqwest/apalis |
 | `config` | modules and adapters whose settings it composes | `db`, `web` |
@@ -120,22 +120,22 @@ hop predictable:
 
 Tests mirror sources: `crates/<crate>/tests/<module>.rs` tests `crates/<crate>/src/<module>.rs`.
 CLI commands are `yokoku/src/cli/commands/<verb>.rs` for `yokoku <verb>`; their tests are grouped
-by module in `yokoku/tests/<module>_commands.rs`. Web pages follow their URL (`crates/web/CLAUDE.md`).
+by module in `yokoku/tests/<module>_commands.rs`.
 
 | Feature | Use case (entry point) | Rules / pure logic | Storage (`db/src`) | Outside world | Driven from |
 |---|---|---|---|---|---|
 | Search and add (FR-1.1) | `library/src/metadata.rs` `MetadataService::search`, `add_series`, `add_movie` | `domain/src/series.rs` `Series::add`, `movie.rs`; folder name `naming/src/naming.rs` via `yokoku/src/app.rs` `NamedFolders` | `series_repo.rs`, `movie_repo.rs` | `metadata/src/sources.rs`, `tmdb.rs`, `tvdb.rs` | `cli/commands/search.rs`, `add.rs` |
-| List, detail, monitoring, numbering, remove (FR-1, FR-2) | `library/src/library.rs` `Library` | `domain/src/series.rs` (monitoring, numbering), `library/src/listing.rs` | `series_repo.rs`, `movie_repo.rs` | none | `list.rs`, `show.rs`, `monitor.rs`, `numbering.rs`, `remove.rs`; web `app.rs` |
+| List, detail, monitoring, numbering, remove (FR-1, FR-2) | `library/src/library.rs` `Library` | `domain/src/series.rs` (monitoring, numbering), `library/src/listing.rs` | `series_repo.rs`, `movie_repo.rs` | none | `list.rs`, `show.rs`, `monitor.rs`, `numbering.rs`, `remove.rs` |
 | Metadata refresh (FR-1.6) | `library/src/metadata.rs` `refresh_*` | `Series::refresh`, `needs_refresh` in `domain/src/series.rs`; `movie.rs` | as above | `metadata` | job `refresh-metadata` (`jobs/src/lib.rs`); `refresh.rs` |
 | Next / last aired (FR-6.1, 6.2) | `library/src/listing.rs` | `domain/src/series.rs` `next_episode`, `last_aired` | as above | none | `list.rs`, `show.rs` |
-| Calendar and missing (FR-6.3, 6.4, FR-7) | `library/src/calendar.rs` `Calendar::entries`, `missing` | `domain/src/series.rs`, `movie.rs` | as above | none | `calendar.rs`, `missing.rs`; web `app/upcoming.rs` |
+| Calendar and missing (FR-6.3, 6.4, FR-7) | `library/src/calendar.rs` `Calendar::entries`, `missing` | `domain/src/series.rs`, `movie.rs` | as above | none | `calendar.rs`, `missing.rs` |
 | File projection on items | `library/src/files.rs` `FileTracker` (`library.files`) | none | `media_files.rs` | none | `yokoku/src/subscriptions.rs` |
 | Downloads: add, sync, pick up, seeding cleanup (FR-3) | `downloads/src/downloads.rs` `Downloads` | `downloads/src/model.rs` | `download_repo.rs` | `download-clients/src/transmission.rs` | job `sync-downloads`; `download.rs` |
 | Detection (FR-4.1–4.10, 4.13) | `detect` `ImportPlan::new` (`plan.rs`) | `classify.rs`, `parse.rs`, `titles.rs` (title and year), `plan.rs` (episodes) | none | none | `media/src/planner.rs`, `scan.rs` |
 | Import: plan, review, execute, retry (FR-3.5, 3.6, 4.11, 4.12, 9.2) | `media/src/planner.rs` `ImportPlanner` → `review.rs` `Reviewer` → `importer.rs` `Importer` | `detect`, `naming` | `media_repo.rs` | `system/src/fs.rs` | job `execute-imports`; `review.rs`, `import.rs` |
 | Episode spans (`S01E01-E03`) | none | `domain/src/episode_span.rs` | none | none | none |
 | Naming (FR-5.1–5.6) | none | `naming/src/naming.rs`, `template.rs`, `sanitize.rs`, `subtitle.rs` | none | none | `media` |
-| Rename with preview (FR-5.7) | `media/src/rename.rs` `Renamer` | `naming` | `media_repo.rs` | `system/src/fs.rs` | `rename.rs`; web `components/rename_row.rs` |
+| Rename with preview (FR-5.7) | `media/src/rename.rs` `Renamer` | `naming` | `media_repo.rs` | `system/src/fs.rs` | `rename.rs` |
 | Root folders (FR-8.1) | `media/src/roots.rs` `RootFolders` | `media/src/model.rs` `RootFolder` | `media_repo.rs` | `system/src/fs.rs` | `root.rs` |
 | Scan (FR-8.2, 8.3, 8.7, 8.8) | `media/src/scan.rs` `Scanner` | `detect` | `media_repo.rs`, `catalog.rs` | `system/src/fs.rs` | job `scan-library`; `media.scan_added`; `scan.rs` |
 | Retarget files on renumber | `media/src/scan/renumber.rs` (`media.renumbered`) | `domain/src/series.rs` `Series::refresh` | `media_repo.rs` | none | `subscriptions.rs` |
@@ -143,11 +143,11 @@ by module in `yokoku/tests/<module>_commands.rs`. Web pages follow their URL (`c
 | File details (FR-8.6) | `media/src/prober.rs` `Prober` (`media.probe`) | `media/src/model.rs` `MediaInfo` | `media_info.rs` | `system/src/probe.rs` | `files.rs` |
 | Library lock | `media/src/ports.rs` `LibraryLock` | none | none | `system/src/lock.rs` | every media use case |
 | Jellyfin rescan (FR-10.4) | `integrations/src/rescans.rs` `Rescans` | none | `rescan_store.rs` | `media-servers/src/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
-| History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display` | `event_log.rs` | none | `history.rs`; web `app/activity.rs` |
+| History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display` | `event_log.rs` | none | `history.rs` |
 | Event contract, delivery | `domain/src/events.rs`; `events/src/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `event_log.rs` | `system/src/spool.rs` | `yokoku/src/subscriptions.rs`, `app.rs` |
-| Settings (FR-10.3) | `config/src/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `config/src/lib.rs` (layering) | `settings_store.rs` | none | `settings.rs`; web `app/settings.rs` |
+| Settings (FR-10.3) | `config/src/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `config/src/lib.rs` (layering) | `settings_store.rs` | none | `settings.rs` |
 | Jobs and schedules | `jobs/src/lib.rs` | none | none | none | `yokoku/src/service.rs` |
-| Attribution (FR-10.5) | none | none | none | none | `cli/args.rs` `DATA_SOURCES`; web `components/attribution.rs` |
+| Attribution (FR-10.5) | none | none | none | none | `cli/args.rs` `DATA_SOURCES` |
 
 ---
 
@@ -396,7 +396,7 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 ### Runtime
 
 One binary; the service is the application, and the CLI is a second interface to it.
-- `yokoku` without a command runs the service: the web interface, the event subscribers and the apalis `Monitor`. The web server listens on `HOST`/`PORT` (127.0.0.1:3000 by default) and serves the asset bundle beside the binary, or from `web.assets`. Each subscriber gets its own `Delivery` loop. A signal, or the web server failing, stops the monitor and the web server first; then the deliveries are cancelled and awaited.
+- `yokoku` without a command runs the service: the event subscribers and the apalis `Monitor`. It serves no web interface until the Dioxus app is wired in. Each subscriber gets its own `Delivery` loop. A signal stops the monitor first; then the deliveries are cancelled and awaited.
 - Subcommands are the command-line interface for setup and operations: `settings`, `root`, `scan`, `refresh`, `files`, `jellyfin`. They call the same use cases against the same database, so they need no running service. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits.
 - The feature commands (`search`, `add`, `list`, `show`, `monitor`, `numbering`, `remove`, `calendar`, `missing`, `review`, `rename`, `download`, `import`, `history`, `delete`) predate the web interface. Each is removed in the change that ships its page, together with its CLI tests.
 - `delete` and `remove --delete-files` list the files and ask on stdin before deleting (FR-8.5); no answer counts as no, and `--yes` skips the question.
@@ -452,7 +452,7 @@ Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modu
 | Own TMDB client | `tmdb-api` crate | Few endpoints needed; low adoption. |
 | `Arc<dyn Port>` + `async-trait` | Generic `App<I: Infra>` | Generics would spread through every signature. |
 | SQLite | PostgreSQL | Single user, self-hosted, one file to back up. |
-| Topcoat behind a thin web crate | — | Experimental; a breaking upgrade affects only `web`. |
+| Dioxus behind a thin web crate | topcoat, Leptos | Client-side state in Rust for selection-heavy dialogs, and the same crates (such as `naming`) on server and browser. Pre-1.0; a breaking upgrade affects only the web crate. |
 
 ---
 
@@ -485,4 +485,4 @@ Follows REQUIREMENTS §5, with the foundation first.
 5. **Transmission:** `downloads`, `download-clients`, `jobs` (`SyncDownloads`).
 6. **Detection + review + auto import:** full `detect` corpus, the import pipeline.
 7. **History, Jellyfin:** history query, `integrations`.
-8. **Web UI:** `web` on Topcoat.
+8. **Web UI:** `web` on Dioxus.

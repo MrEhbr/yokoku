@@ -1,122 +1,89 @@
-use topcoat::{
-    Result,
-    icon::{icon, iconify::iconify_icon},
-    view::{Attributes, Child, View, attributes, class, component, view},
-};
+//! Navigation links showing the path to the current page. No upstream primitive; written
+//! in the same style as the other plain-markup components.
 
-/// Navigation links showing the path to the current page.
-///
-/// Place links in a `breadcrumb_list` and use `breadcrumb_page` for the current page.
-/// `attrs` are forwarded to the `<nav>`, with extra classes added to its classes.
-///
-/// ```ignore
-/// view! {
-///     breadcrumb(
-///         breadcrumb_list(
-///             breadcrumb_item(
-///                 breadcrumb_link(attrs: attributes! { href="/" }, "Home")
-///             )
-///             breadcrumb_separator()
-///             breadcrumb_item(breadcrumb_page("Settings"))
-///         )
-///     )
-/// }
-/// ```
+use dioxus::prelude::*;
+use dioxus_icons::lucide::{ChevronRight, Ellipsis};
+use dioxus_primitives::{dioxus_attributes::attributes, merge_attributes};
+
+/// Place links in a [`BreadcrumbList`] and give the current page a [`BreadcrumbPage`]
+/// instead of a link.
 #[component]
-pub async fn breadcrumb(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <nav aria-label="breadcrumb" class=(attrs.remove("class")) (attrs)>(child)</nav>
-    })
+pub fn Breadcrumb(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    rsx! {
+        nav { aria_label: "breadcrumb", ..attributes, {children} }
+    }
 }
 
-/// The ordered list of steps in a [`breadcrumb`].
-///
-/// The steps wrap onto another line rather than overflowing when the trail
-/// outgrows its container.
+/// The ordered list of steps in a [`Breadcrumb`]. Wraps onto another line rather than
+/// overflowing when the trail outgrows its container.
 #[component]
-pub async fn breadcrumb_list(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <ol
-            class=(class!(
-                "flex flex-wrap items-center gap-2 text-body text-muted",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </ol>
-    })
+pub fn BreadcrumbList(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(ol { class: "flex flex-wrap items-center gap-2 text-body text-muted" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        ol { ..merged,{children} }
+    }
 }
 
-/// One step of a [`breadcrumb_list`], holding a [`breadcrumb_link`] or a
-/// [`breadcrumb_page`].
+/// One step of a [`BreadcrumbList`], holding a [`BreadcrumbLink`] or a [`BreadcrumbPage`].
 #[component]
-pub async fn breadcrumb_item(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <li
-            class=(class!("inline-flex items-center gap-2", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </li>
-    })
+pub fn BreadcrumbItem(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(li { class: "inline-flex items-center gap-2" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        li { ..merged,{children} }
+    }
 }
 
-/// A link to an ancestor page. Pass its destination as `href` in `attrs`.
+/// A link to an ancestor page. Pass its destination as `href` in `attributes`.
 #[component]
-pub async fn breadcrumb_link(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <a
-            class=(class!(
-                "transition-colors hover:text-ink",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </a>
-    })
+pub fn BreadcrumbLink(
+    #[props(extends = GlobalAttributes)]
+    #[props(extends = a)]
+    attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let base = attributes!(a { class: "transition-colors hover:text-ink" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        a { ..merged,{children} }
+    }
 }
 
-/// The current page label.
-///
-/// Renders with `aria-current="page"` and does not navigate.
+/// The current page's label. Renders with `aria-current="page"` and does not navigate.
 #[component]
-pub async fn breadcrumb_page(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <span
-            aria-current="page"
-            class=(class!("font-medium text-ink", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </span>
-    })
+pub fn BreadcrumbPage(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(span { class: "font-medium text-ink" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        span { aria_current: "page", ..merged, {children} }
+    }
 }
 
 /// A decorative chevron between breadcrumb items, hidden from assistive technology.
 #[component]
-pub async fn breadcrumb_separator(#[default] mut attrs: Attributes) -> Result<impl View> {
-    Ok(view! {
-        <li aria-hidden="true" class=(attrs.remove("class")) (attrs)>
-            icon(
-                data: iconify_icon!("lucide:chevron-right"),
-                attrs: attributes! { class="size-3.5" }
-            )
-        </li>
-    })
+pub fn BreadcrumbSeparator(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>) -> Element {
+    rsx! {
+        li { aria_hidden: "true", ..attributes,
+            ChevronRight { size: "0.875rem" }
+        }
+    }
 }
 
 /// An ellipsis representing omitted breadcrumb items, with an accessible text label.
 #[component]
-pub async fn breadcrumb_ellipsis(#[default] mut attrs: Attributes) -> Result<impl View> {
-    Ok(view! {
-        <span class=(class!("flex items-center", attrs.remove("class"))) (attrs)>
-            icon(
-                data: iconify_icon!("lucide:ellipsis"),
-                attrs: attributes! { class="size-4" }
-            )
-            <span class="sr-only">"More"</span>
-        </span>
-    })
+pub fn BreadcrumbEllipsis(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>) -> Element {
+    let base = attributes!(span { class: "flex items-center" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        span {..merged,
+            Ellipsis { size: "1rem" }
+            span { class: "sr-only", "More" }
+        }
+    }
 }

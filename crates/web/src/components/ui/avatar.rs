@@ -1,13 +1,11 @@
-use topcoat::{
-    Result,
-    view::{Attributes, Child, StaticClass, View, class, component, view},
+use dioxus::prelude::*;
+use dioxus_primitives::{
+    avatar::{self, AvatarState},
+    dioxus_attributes::attributes,
+    merge_attributes,
 };
 
-/// The size of an [`avatar`].
-///
-/// [`Default`] is `AvatarSize::Md`, used when no size is given.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[allow(dead_code)]
+#[derive(Clone, Copy, PartialEq, Default)]
 pub enum AvatarSize {
     /// A compact avatar for dense lists.
     Sm,
@@ -19,99 +17,156 @@ pub enum AvatarSize {
 }
 
 impl AvatarSize {
-    /// Classes for the avatar dimensions and fallback text size.
-    fn classes(self) -> StaticClass {
+    fn class(self) -> &'static str {
         match self {
-            Self::Sm => class!("size-8 text-caption"),
-            Self::Md => class!("size-10 text-body"),
-            Self::Lg => class!("size-12 text-body"),
+            Self::Sm => "size-8 text-caption",
+            Self::Md => "size-10 text-body",
+            Self::Lg => "size-12 text-body",
         }
     }
 }
 
-/// Classes that clip the avatar to a circle and position its image over the fallback.
-const AVATAR: StaticClass = class!("relative flex shrink-0 overflow-hidden");
+/// The props for the [`Avatar`] root component.
+#[derive(Props, Clone, PartialEq)]
+pub struct AvatarProps {
+    /// Callback when image loads successfully.
+    #[props(default)]
+    pub on_load: Option<EventHandler<()>>,
 
-/// A circular image with optional fallback content.
-///
-/// Add an `avatar_image`, an `avatar_fallback`, or both. The fallback sits behind the
-/// image and remains visible if the image cannot load. `size` defaults to `Md`.
-///
-/// `attrs` are forwarded to the outer `<span>`. Extra classes are added to its classes.
-///
-/// ```ignore
-/// view! {
-///     avatar(
-///         avatar_image(attrs: attributes! { src="/avatars/ada.jpg" })
-///         avatar_fallback("AL")
-///     )
-/// }
-/// ```
-#[component]
-pub async fn avatar(
-    /// The dimensions of the circle.
-    #[default]
-    size: AvatarSize,
-    /// Extra attributes for the `<span>` element.
-    #[default]
-    mut attrs: Attributes,
-    /// The avatar's image, fallback, or both.
-    #[default]
-    child: Child<'_>,
-) -> Result<impl View> {
-    Ok(view! {
-        <span class=(class!(AVATAR, size.classes(), attrs.remove("class"))) (attrs)>
-            (child)
-        </span>
-    })
+    /// Callback when image fails to load.
+    #[props(default)]
+    pub on_error: Option<EventHandler<()>>,
+
+    /// Callback when the avatar state changes.
+    #[props(default)]
+    pub on_state_change: Option<EventHandler<AvatarState>>,
+
+    #[props(default)]
+    pub size: AvatarSize,
+
+    /// Additional attributes for the avatar element.
+    #[props(extends = GlobalAttributes)]
+    pub attributes: Vec<Attribute>,
+
+    /// The fallback content shown while the image is loading or if it fails to load.
+    pub children: Element,
 }
 
-/// An image that fills the avatar and covers its fallback.
-///
-/// Pass `src` in `attrs`. The image is cropped to fit without changing its aspect
-/// ratio.
+/// A circular image with an optional fallback. Corners stay square, per Paper.
 #[component]
-pub async fn avatar_image(
-    /// Alternative text for the image.
-    ///
-    /// Defaults to empty text, suitable when an adjacent name already identifies the
-    /// person. Empty text also prevents a failed image from drawing text over the
-    /// fallback.
-    #[into]
-    #[default]
-    alt: String,
-    /// Extra attributes for the `<img>` element.
-    #[default]
-    mut attrs: Attributes,
-) -> Result<impl View> {
-    Ok(view! {
-        <img
-            alt=(alt)
-            class=(class!(
-                "absolute inset-0 size-full object-cover",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-    })
+pub fn Avatar(props: AvatarProps) -> Element {
+    let size = props.size.class();
+    let class = format!(
+        "relative flex shrink-0 overflow-hidden data-[state=loading]:bg-subtle data-[state=empty]:bg-subtle {size}"
+    );
+    let base = attributes!(span { class });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        avatar::Avatar {
+            on_load: props.on_load,
+            on_error: props.on_error,
+            on_state_change: props.on_state_change,
+            attributes: merged,
+            {props.children}
+        }
+    }
 }
 
-/// Content displayed behind the avatar image while it loads or when no image is
-/// available.
-///
-/// Pass initials or another small view as children.
+#[derive(Props, Clone, PartialEq)]
+pub struct AvatarImageProps {
+    #[props(default)]
+    pub id: ReadSignal<Option<String>>,
+
+    pub src: String,
+
+    #[props(default)]
+    pub alt: String,
+
+    #[props(extends = GlobalAttributes)]
+    pub attributes: Vec<Attribute>,
+}
+
 #[component]
-pub async fn avatar_fallback(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <span
-            class=(class!(
-                "flex size-full items-center justify-center bg-subtle font-medium \
-                 text-ink select-none",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </span>
-    })
+pub fn AvatarImage(props: AvatarImageProps) -> Element {
+    let base = attributes!(img { class: "absolute inset-0 size-full object-cover", draggable: "false" });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        avatar::AvatarImage {
+            id: props.id,
+            src: props.src,
+            alt: props.alt,
+            attributes: merged,
+        }
+    }
+}
+
+#[derive(Props, Clone, PartialEq)]
+pub struct AvatarFallbackProps {
+    #[props(extends = GlobalAttributes)]
+    pub attributes: Vec<Attribute>,
+
+    pub children: Element,
+}
+
+#[component]
+pub fn AvatarFallback(props: AvatarFallbackProps) -> Element {
+    let base = attributes!(span {
+        class: "flex size-full items-center justify-center bg-subtle font-medium text-ink select-none",
+    });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        avatar::AvatarFallback { attributes: merged, {props.children} }
+    }
+}
+
+/// The props for the [`ImageAvatar`] convenience component.
+#[derive(Props, Clone, PartialEq)]
+pub struct ImageAvatarProps {
+    /// The image source URL.
+    pub src: String,
+
+    /// The image alt text.
+    #[props(default)]
+    pub alt: String,
+
+    /// Callback when image loads successfully.
+    #[props(default)]
+    pub on_load: Option<EventHandler<()>>,
+
+    /// Callback when image fails to load.
+    #[props(default)]
+    pub on_error: Option<EventHandler<()>>,
+
+    /// Callback when the avatar state changes.
+    #[props(default)]
+    pub on_state_change: Option<EventHandler<AvatarState>>,
+
+    #[props(default)]
+    pub size: AvatarSize,
+
+    /// Additional attributes for the avatar element.
+    #[props(extends = GlobalAttributes)]
+    pub attributes: Vec<Attribute>,
+
+    /// The fallback content shown while the image is loading or if it fails to load.
+    pub children: Element,
+}
+
+/// An [`Avatar`] with an [`AvatarImage`]; pass the fallback (usually initials) as children.
+#[component]
+pub fn ImageAvatar(props: ImageAvatarProps) -> Element {
+    rsx! {
+        Avatar {
+            on_load: props.on_load,
+            on_error: props.on_error,
+            on_state_change: props.on_state_change,
+            size: props.size,
+            attributes: props.attributes,
+            AvatarImage { src: props.src, alt: props.alt }
+            AvatarFallback { {props.children} }
+        }
+    }
 }

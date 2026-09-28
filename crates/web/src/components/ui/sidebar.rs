@@ -1,21 +1,39 @@
-use topcoat::{
-    Result,
-    icon::{icon, iconify::iconify_icon},
-    runtime::Expr,
-    view::{Attributes, Child, Class, StaticClass, View, attributes, class, component, view},
+use dioxus::{core::use_drop, prelude::*};
+use dioxus_icons::lucide::PanelLeft;
+use dioxus_primitives::{dioxus_attributes::attributes, merge_attributes, use_controlled};
+
+use crate::components::ui::{
+    button::{Button, ButtonSize, ButtonVariant},
+    separator::Separator,
+    sheet::{Sheet, SheetContentClose, SheetDescription, SheetHeader, SheetSide, SheetTitle},
+    skeleton::Skeleton,
+    tooltip::{Tooltip, TooltipContent, TooltipTrigger},
 };
 
-use super::{
-    button::{ButtonSize, ButtonVariant, button},
-    input::input,
-    separator::separator,
-    sheet::{SheetSide, sheet, sheet_content},
-    skeleton::skeleton,
-};
+// constants
+const SIDEBAR_WIDTH: &str = "16rem";
+const SIDEBAR_WIDTH_MOBILE: &str = "18rem";
+const SIDEBAR_WIDTH_ICON: &str = "3rem";
+const SIDEBAR_KEYBOARD_SHORTCUT: &str = "b";
+const MOBILE_BREAKPOINT: u32 = 768;
 
-/// The edge of the page occupied by a sidebar.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub enum SidebarState {
+    #[default]
+    Expanded,
+    Collapsed,
+}
+
+impl SidebarState {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SidebarState::Expanded => "expanded",
+            SidebarState::Collapsed => "collapsed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub enum SidebarSide {
     #[default]
     Left,
@@ -23,417 +41,539 @@ pub enum SidebarSide {
 }
 
 impl SidebarSide {
-    fn name(self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Left => "left",
-            Self::Right => "right",
-        }
-    }
-
-    fn sheet(self) -> SheetSide {
-        match self {
-            Self::Left => SheetSide::Left,
-            Self::Right => SheetSide::Right,
+            SidebarSide::Left => "left",
+            SidebarSide::Right => "right",
         }
     }
 }
 
-/// The desktop sidebar's surface and its relationship to the page.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub enum SidebarVariant {
-    /// A panel separated from the page by a border.
     #[default]
     Sidebar,
-    /// A rounded panel with space around it.
     Floating,
-    /// A sidebar beside a rounded [`sidebar_inset`] content surface.
     Inset,
 }
 
 impl SidebarVariant {
-    fn name(self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Sidebar => "sidebar",
-            Self::Floating => "floating",
-            Self::Inset => "inset",
+            SidebarVariant::Sidebar => "sidebar",
+            SidebarVariant::Floating => "floating",
+            SidebarVariant::Inset => "inset",
         }
     }
 }
 
-/// How the desktop sidebar behaves when its `open` expression is false.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub enum SidebarCollapsible {
-    /// Hide the panel and release its space to the page.
     #[default]
     Offcanvas,
-    /// Keep a narrow strip of menu icons visible.
     Icon,
-    /// Keep the desktop panel expanded.
     None,
 }
 
 impl SidebarCollapsible {
-    fn name(self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Offcanvas => "offcanvas",
-            Self::Icon => "icon",
-            Self::None => "none",
+            SidebarCollapsible::Offcanvas => "offcanvas",
+            SidebarCollapsible::Icon => "icon",
+            SidebarCollapsible::None => "none",
         }
     }
 }
 
-/// The flex layout surrounding a sidebar and the page content.
-///
-/// On desktop, the page content scrolls within the viewport-height layout.
-///
-/// Set `--sidebar-width`, `--sidebar-width-mobile` and `--sidebar-width-icon`
-/// through `attrs` to customize the widths. Place a right sidebar after the
-/// page content. State belongs to the caller, which passes expressions to
-/// [`sidebar`] and event handlers to [`sidebar_trigger`] and [`sidebar_rail`].
-#[component]
-pub async fn sidebar_provider(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            data-sidebar="provider"
-            class=(class!(
-                "flex min-h-svh w-full md:h-svh md:overflow-hidden [--sidebar-width:16rem] [--sidebar-width-mobile:18rem] [--sidebar-width-icon:3rem] md:has-[[data-variant=inset]]:bg-canvas",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+#[derive(Clone, Copy)]
+#[allow(dead_code)]
+pub struct SidebarCtx {
+    pub state: Memo<SidebarState>,
+    pub side: Signal<SidebarSide>,
+    pub is_mobile: Signal<bool>,
+    // From use_controlled:
+    open: Memo<bool>,
+    set_open: Callback<bool>,
+    // Mobile state:
+    open_mobile: Signal<bool>,
 }
 
-/// A desktop panel that becomes a sheet over the page below `md` (48rem).
-///
-/// `open` controls desktop expansion. `mobile_open` independently controls
-/// the mobile sheet, so it can start closed while desktop starts expanded.
-/// Pass runtime expressions reading the caller's signals to make both live.
-/// Header, content and footer children are rendered once and shared between
-/// viewport sizes, preserving their inputs and signal identities.
-///
-/// `attrs` apply to the outer wrapper. `sheet_attrs` apply to the sheet and
-/// accept a label, an ID, and event handlers for Escape or backdrop dismissal.
-/// Include a close button in the mobile header. Like [`sheet`], this is a
-/// visual overlay; focus trapping requires additional application scripting.
-#[component]
-pub async fn sidebar(
-    #[into]
-    #[default(true.into())]
-    open: Expr<bool>,
-    #[into]
-    #[default(false.into())]
-    mobile_open: Expr<bool>,
-    #[default] side: SidebarSide,
-    #[default] variant: SidebarVariant,
-    #[default] collapsible: SidebarCollapsible,
-    #[default] mut attrs: Attributes,
-    #[default] mut sheet_attrs: Attributes,
-    #[default] child: Child<'_>,
-) -> Result<impl View> {
-    let open = if collapsible == SidebarCollapsible::None { true.into() } else { open };
-    let collapse = collapsible.name();
+impl SidebarCtx {
+    /// Toggle the sidebar open/closed state
+    pub fn toggle(&self) {
+        if (self.is_mobile)() {
+            let current = (self.open_mobile)();
+            let mut open_mobile = self.open_mobile;
+            open_mobile.set(!current);
+        } else {
+            self.set_open.call(!self.open());
+        }
+    }
 
-    Ok(view! {
-        <aside
-            data-sidebar="sidebar"
-            data-side=(side.name())
-            data-variant=(variant.name())
-            :data-state=$(if open { "expanded" } else { "collapsed" })
-            :data-collapsible=$(if open { "" } else { collapse })
-            class=(class!(
-                "group/sidebar relative w-0 shrink-0 text-ink md:sticky md:top-0 md:h-svh md:w-(--sidebar-width) md:self-start md:transition-[width] md:duration-200 md:data-[collapsible=offcanvas]:w-0 motion-reduce:transition-none",
-                if variant == SidebarVariant::Floating {
-                    "md:p-2 md:data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+1rem+2px)] md:data-[collapsible=offcanvas]:px-0"
-                } else {
-                    "md:data-[collapsible=icon]:w-(--sidebar-width-icon)"
-                },
-                "md:py-2" if variant == SidebarVariant::Inset,
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            sheet(
-                open: mobile_open,
-                attrs: attributes! {
-                    role="navigation"
-                    aria-label="Sidebar"
-                    class=(class!(
-                        "md:relative md:inset-auto md:flex md:overflow-visible md:bg-transparent md:opacity-100 md:backdrop-blur-none md:starting:open:opacity-100 md:transition-none md:group-data-[collapsible=offcanvas]/sidebar:invisible motion-reduce:transition-none",
-                        sheet_attrs.remove("class"),
-                    ))
-                    (sheet_attrs)
-                },
-                sheet_content(
-                    side: side.sheet(),
-                    attrs: attributes! {
-                        data-sidebar="panel"
-                        class=(class!(
-                            "relative [&]:w-(--sidebar-width-mobile) [&]:max-w-[calc(100vw-3rem)] [&]:gap-0 [&]:border-line [&]:overflow-hidden [&]:p-0 md:[&]:w-full md:[&]:max-w-none md:[&]:translate-x-0 md:[&]:transition-none motion-reduce:transition-none",
-                            match variant {
-                                SidebarVariant::Sidebar => "md:shadow-none",
-                                SidebarVariant::Floating => "md:border md:border-line",
-                                SidebarVariant::Inset => "md:border-0 md:bg-transparent md:shadow-none",
-                            },
-                        ))
-                    },
-                    (child)
-                )
-            )
-        </aside>
-    })
+    /// Set the mobile sidebar open state
+    pub fn set_open_mobile(&self, value: bool) {
+        let mut open_mobile = self.open_mobile;
+        open_mobile.set(value);
+    }
+
+    /// Get the current open state (desktop)
+    pub fn open(&self) -> bool {
+        self.open.cloned()
+    }
 }
 
-/// A sidebar toggle button. Pass its signal update as an `@click` attribute.
-///
-/// `open` controls the accessible expanded state. Set `aria-controls` in
-/// `attrs` to the controlled panel's ID. Responsive triggers can use separate
-/// desktop and mobile expressions and handlers.
+pub fn use_sidebar() -> SidebarCtx {
+    use_context::<SidebarCtx>()
+}
+
+pub fn use_is_mobile() -> Signal<bool> {
+    let mut is_mobile = use_signal(|| false);
+
+    use_effect(move || {
+        spawn(async move {
+            let js_code = format!(
+                r#"
+                function checkMobile() {{
+                    return window.innerWidth < {MOBILE_BREAKPOINT};
+                }}
+                function handleResize() {{
+                    dioxus.send(checkMobile());
+                }}
+                window.__sidebarResizeHandler = handleResize;
+                window.addEventListener('resize', window.__sidebarResizeHandler);
+                dioxus.send(checkMobile());
+                "#
+            );
+            let mut eval = document::eval(&js_code);
+
+            while let Ok(result) = eval.recv::<bool>().await {
+                is_mobile.set(result);
+            }
+        });
+    });
+
+    use_drop(|| {
+        _ = document::eval(
+            r#"
+            window.removeEventListener('resize', window.__sidebarResizeHandler);
+            delete window.__sidebarResizeHandler;
+            "#,
+        );
+    });
+
+    is_mobile
+}
+
 #[component]
-pub async fn sidebar_trigger(
-    #[into]
-    #[default(true.into())]
-    open: Expr<bool>,
-    #[default] attrs: Attributes,
-) -> Result<impl View> {
-    Ok(view! {
-        button(
+pub fn SidebarProvider(
+    #[props(default = true)] default_open: bool,
+    #[props(default)] open: ReadSignal<Option<bool>>,
+    #[props(default)] on_open_change: Callback<bool>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let is_mobile = use_is_mobile();
+    let side = use_signal(|| SidebarSide::Left);
+    let open_mobile = use_signal(|| false);
+
+    let (open, set_open) = use_controlled(open, default_open, on_open_change);
+
+    let state = use_memo(move || if open() { SidebarState::Expanded } else { SidebarState::Collapsed });
+
+    let ctx = SidebarCtx { state, side, is_mobile, open, set_open, open_mobile };
+
+    use_context_provider(|| ctx);
+
+    use_effect(move || {
+        spawn(async move {
+            let js_code = format!(
+                r#"
+                function sidebarKeyHandler(event) {{
+                    if (event.key === '{SIDEBAR_KEYBOARD_SHORTCUT}' && (event.metaKey || event.ctrlKey)) {{
+                        event.preventDefault();
+                        dioxus.send(true);
+                    }}
+                }}
+                window.__sidebarKeyHandler = sidebarKeyHandler;
+                window.addEventListener('keydown', window.__sidebarKeyHandler);
+                "#
+            );
+            let mut eval = document::eval(&js_code);
+
+            loop {
+                if eval.recv::<bool>().await.is_ok() {
+                    ctx.toggle();
+                }
+            }
+        });
+    });
+
+    use_drop(|| {
+        _ = document::eval(
+            r#"
+            window.removeEventListener('keydown', window.__sidebarKeyHandler);
+            delete window.__sidebarKeyHandler;
+            "#,
+        );
+    });
+
+    let sidebar_style = format!(
+        r#"--sidebar-width: {SIDEBAR_WIDTH}; --sidebar-width-mobile: {SIDEBAR_WIDTH_MOBILE}; --sidebar-width-icon: {SIDEBAR_WIDTH_ICON}"#
+    );
+
+    let base = attributes!(div {
+        class: "flex h-svh min-h-svh w-full overflow-hidden \
+                has-[[data-side=right]]:flex-row-reverse has-[[data-variant=inset]]:bg-canvas",
+        "data-slot": "sidebar-wrapper",
+        "data-sidebar": "provider",
+        style: sidebar_style,
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { ..merged,{children} }
+    }
+}
+
+#[component]
+pub fn Sidebar(
+    #[props(default)] side: SidebarSide,
+    #[props(default)] variant: SidebarVariant,
+    #[props(default)] collapsible: SidebarCollapsible,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let ctx = use_sidebar();
+    let mut ctx_side = ctx.side;
+    if *ctx_side.peek() != side {
+        ctx_side.set(side);
+    }
+
+    let is_mobile = ctx.is_mobile;
+    let state = ctx.state;
+    let open_mobile = ctx.open_mobile;
+
+    if collapsible == SidebarCollapsible::None {
+        let border = if side == SidebarSide::Right { "border-l" } else { "border-r" };
+        let base = attributes!(div {
+            class: "flex h-full w-(--sidebar-width) flex-col border-line bg-canvas text-ink {border}",
+            "data-slot": "sidebar",
+        });
+        let merged = merge_attributes(vec![base, attributes]);
+
+        return rsx! {
+            div { ..merged,{children} }
+        };
+    }
+
+    if is_mobile() {
+        let sheet_side = match side {
+            SidebarSide::Left => SheetSide::Left,
+            SidebarSide::Right => SheetSide::Right,
+        };
+
+        return rsx! {
+            Sheet {
+                open: open_mobile(),
+                on_open_change: move |v| ctx.set_open_mobile(v),
+                "data-side": sheet_side.as_str(),
+                class: "!w-(--sidebar-width-mobile) !max-w-[calc(100vw-3rem)] !gap-0 !p-0".to_string(),
+                "data-sidebar": "sidebar",
+                "data-slot": "sidebar",
+                "data-mobile": "true",
+                SheetContentClose { class: "hidden" }
+                SheetHeader { class: "sr-only",
+                    SheetTitle { "Sidebar" }
+                    SheetDescription { "Displays the mobile sidebar." }
+                }
+                div { class: "flex h-full w-full flex-col", {children} }
+            }
+        };
+    }
+
+    let collapsible_str = if state() == SidebarState::Collapsed { collapsible.as_str() } else { "" };
+
+    let container_base = attributes!(div {
+        class: "fixed inset-y-0 z-10 hidden w-(--sidebar-width) transition-[left,right,width] duration-200 ease-interface md:flex \
+                group-data-[side=left]/sidebar:left-0 group-data-[side=left]/sidebar:border-r group-data-[side=left]/sidebar:border-line \
+                group-[[data-side=left][data-collapsible=offcanvas]]/sidebar:left-[calc(var(--sidebar-width)*-1)] \
+                group-data-[side=right]/sidebar:right-0 group-data-[side=right]/sidebar:border-l group-data-[side=right]/sidebar:border-line \
+                group-[[data-side=right][data-collapsible=offcanvas]]/sidebar:right-[calc(var(--sidebar-width)*-1)] \
+                group-data-[collapsible=icon]/sidebar:w-(--sidebar-width-icon) \
+                group-data-[variant=floating]/sidebar:p-2 group-data-[variant=inset]/sidebar:p-2",
+        "data-slot": "sidebar-container",
+    });
+    let container_attrs = merge_attributes(vec![container_base, attributes]);
+
+    rsx! {
+        div {
+            class: "group/sidebar relative hidden text-ink md:block",
+            "data-state": state().as_str(),
+            "data-collapsible": collapsible_str,
+            "data-variant": variant.as_str(),
+            "data-side": side.as_str(),
+            "data-slot": "sidebar",
+            div {
+                class: "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-interface \
+                        group-data-[collapsible=offcanvas]/sidebar:w-0 group-data-[collapsible=icon]/sidebar:w-(--sidebar-width-icon)",
+                "data-slot": "sidebar-gap",
+            }
+            div {..container_attrs,
+                div {
+                    class: "flex h-full w-full flex-col bg-canvas \
+                            group-data-[variant=floating]/sidebar:border group-data-[variant=floating]/sidebar:border-line",
+                    "data-sidebar": "sidebar",
+                    "data-slot": "sidebar-inner",
+                    {children}
+                }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn SidebarTrigger(
+    #[props(default)] onclick: Option<EventHandler<MouseEvent>>,
+    #[props(extends = GlobalAttributes)]
+    #[props(extends = button)]
+    attributes: Vec<Attribute>,
+) -> Element {
+    let ctx = use_sidebar();
+
+    let base = attributes!(button {
+        "data-sidebar": "trigger",
+        "data-slot": "sidebar-trigger",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        Button {
             variant: ButtonVariant::Quiet,
             size: ButtonSize::Icon,
-            attrs: attributes! {
-                type="button"
-                data-sidebar="trigger"
-                aria-label="Toggle sidebar"
-                :aria-expanded=$(if open { "true" } else { "false" })
-                (attrs)
+            onclick: move |e| {
+                if let Some(handler) = &onclick {
+                    handler.call(e);
+                }
+                ctx.toggle();
             },
-            icon(data: iconify_icon!("lucide:panel-left"))
-        )
-    })
+            attributes: merged,
+            PanelLeft { size: "1rem" }
+            span { class: "sr-only", "Toggle Sidebar" }
+        }
+    }
 }
 
-/// A desktop edge button that toggles the sidebar on click.
-///
-/// Pass its signal update as an `@click` attribute.
 #[component]
-pub async fn sidebar_rail(
-    #[into]
-    #[default(true.into())]
-    open: Expr<bool>,
-    #[default] mut attrs: Attributes,
-) -> Result<impl View> {
-    Ok(view! {
-        <button
-            type="button"
-            data-sidebar="rail"
-            aria-label="Toggle sidebar"
-            title="Toggle sidebar"
-            :aria-expanded=$(if open { "true" } else { "false" })
-            class=(class!(
-                "absolute inset-y-0 z-10 hidden w-2 cursor-pointer after:absolute after:inset-y-0 after:w-px hover:after:bg-line focus-visible:after:bg-ink md:block group-data-[side=left]/sidebar:right-0 group-data-[side=left]/sidebar:after:right-0 group-data-[side=right]/sidebar:left-0 group-data-[side=right]/sidebar:after:left-0",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        ></button>
-    })
+pub fn SidebarRail(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>) -> Element {
+    let ctx = use_sidebar();
+
+    let base = attributes!(button {
+        class: "absolute inset-y-0 z-20 hidden w-2 cursor-pointer after:absolute after:inset-y-0 after:w-px \
+                hover:after:bg-line focus-visible:after:bg-ink sm:flex \
+                group-data-[side=left]/sidebar:right-0 group-data-[side=left]/sidebar:after:right-0 \
+                group-data-[side=right]/sidebar:left-0 group-data-[side=right]/sidebar:after:left-0",
+        "data-sidebar": "rail",
+        "data-slot": "sidebar-rail",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        button {
+            aria_label: "Toggle Sidebar",
+            tabindex: -1,
+            onclick: move |_| ctx.toggle(),
+            title: "Toggle Sidebar",
+            ..merged,
+        }
+    }
 }
 
-/// The page content beside a sidebar, scrollable independently on desktop.
-///
-/// An immediate [`sidebar_header`] child becomes a sticky toolbar. Its height
-/// and bottom border match the sidebar header without extra classes.
 #[component]
-pub async fn sidebar_inset(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <main
-            data-sidebar="inset"
-            class=(class!(
-                "relative flex min-w-0 flex-1 flex-col bg-canvas md:min-h-0 md:overflow-y-auto [&>[data-sidebar=header]]:sticky [&>[data-sidebar=header]]:top-0 [&>[data-sidebar=header]]:z-20 [&>[data-sidebar=header]]:flex-row [&>[data-sidebar=header]]:items-center [&>[data-sidebar=header]]:justify-start [&>[data-sidebar=header]]:gap-3 [&>[data-sidebar=header]]:bg-canvas [&>[data-sidebar=header]]:px-4 [&>[data-sidebar=header]>[aria-orientation=vertical]]:h-4 md:in-[[data-sidebar=provider]:has([data-variant=floating])]:my-[calc(--spacing(2)+1px)] md:in-[[data-sidebar=provider]:has([data-variant=inset])]:m-2 md:in-[[data-sidebar=provider]:has([data-variant=inset][data-side=left])]:ml-0 md:in-[[data-sidebar=provider]:has([data-variant=inset][data-side=right])]:mr-0 md:in-[[data-sidebar=provider]:has([data-variant=inset])]:border md:in-[[data-sidebar=provider]:has([data-variant=inset])]:border-line",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </main>
-    })
+pub fn SidebarInset(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(main {
+        class: "relative flex min-w-0 flex-1 flex-col bg-canvas md:min-h-0 md:overflow-y-auto \
+                in-[[data-sidebar=provider]:has([data-variant=inset])]:m-2 \
+                in-[[data-sidebar=provider]:has([data-variant=inset][data-side=left])]:ml-0 \
+                in-[[data-sidebar=provider]:has([data-variant=inset][data-side=right])]:mr-0 \
+                in-[[data-sidebar=provider]:has([data-variant=inset])]:border in-[[data-sidebar=provider]:has([data-variant=inset])]:border-line",
+        "data-slot": "sidebar-inset",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        main { ..merged,{children} }
+    }
 }
 
-/// A header for the sidebar or its page content.
-///
-/// Its height and divider stay fixed when menu buttons collapse to icons.
-/// Inside [`sidebar_inset`], it lays out its children as a sticky toolbar.
 #[component]
-pub async fn sidebar_header(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            data-sidebar="header"
-            class=(class!(
-                "flex h-14 shrink-0 flex-col justify-center gap-2 border-b border-line px-2",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn SidebarHeader(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div {
+        class: "flex h-14 shrink-0 flex-col justify-center gap-2 border-b border-line px-2",
+        "data-slot": "sidebar-header",
+        "data-sidebar": "header",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { ..merged,{children} }
+    }
 }
 
-/// The fixed footer below the sidebar's scrolling content.
 #[component]
-pub async fn sidebar_footer(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            data-sidebar="footer"
-            class=(class!("flex shrink-0 flex-col gap-2 p-2", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn SidebarContent(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div {
+        class: "flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain",
+        "data-slot": "sidebar-content",
+        "data-sidebar": "content",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { ..merged,{children} }
+    }
 }
 
-/// The scrollable region between the header and footer.
 #[component]
-pub async fn sidebar_content(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            data-sidebar="content"
-            class=(class!(
-                "flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn SidebarFooter(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div {
+        class: "flex shrink-0 flex-col gap-2 p-2",
+        "data-slot": "sidebar-footer",
+        "data-sidebar": "footer",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { ..merged,{children} }
+    }
 }
 
-/// A section containing a label, an optional action and related menu items.
 #[component]
-pub async fn sidebar_group(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            data-sidebar="group"
-            class=(class!(
-                "relative flex min-w-0 flex-col gap-1 p-2",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn SidebarSeparator(
+    #[props(default = true)] horizontal: bool,
+    #[props(default = true)] decorative: bool,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
+    let base = attributes!(div {
+        "data-slot": "sidebar-separator",
+        "data-sidebar": "separator",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        Separator { horizontal, decorative, attributes: merged }
+    }
 }
 
-/// A group's caption, hidden when the desktop sidebar collapses to icons.
 #[component]
-pub async fn sidebar_group_label(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            data-sidebar="group-label"
-            class=(class!(
-                "flex h-8 shrink-0 items-center px-2 text-caption font-medium text-muted md:group-data-[collapsible=icon]/sidebar:hidden",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn SidebarGroup(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div {
+        class: "relative flex min-w-0 flex-col gap-1 p-2",
+        "data-slot": "sidebar-group",
+        "data-sidebar": "group",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { ..merged,{children} }
+    }
 }
 
-// Shared button styles for group and menu actions. Each sets its own position.
-const ACTION: StaticClass = class!(
-    "absolute flex size-6 items-center justify-center text-muted hover:bg-subtle hover:text-ink disabled:pointer-events-none disabled:opacity-45 md:group-data-[collapsible=icon]/sidebar:hidden [&_svg]:size-4",
-);
-
-/// An icon button beside the group label. Give it an accessible label.
 #[component]
-pub async fn sidebar_group_action(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <button
-            type="button"
-            data-sidebar="group-action"
-            class=(class!(ACTION, "top-3 right-3", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </button>
-    })
+pub fn SidebarGroupLabel(
+    r#as: Option<Callback<Vec<Attribute>, Element>>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let base = attributes!(div {
+        class: "flex h-8 shrink-0 items-center px-2 text-caption font-medium text-muted \
+                group-data-[collapsible=icon]/sidebar:hidden",
+        "data-slot": "sidebar-group-label",
+        "data-sidebar": "group-label",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    if let Some(dynamic) = r#as {
+        dynamic.call(merged)
+    } else {
+        rsx! {
+            div { ..merged,{children} }
+        }
+    }
 }
 
-/// The body of a sidebar group.
+/// Shared position for [`SidebarGroupAction`] and [`SidebarMenuAction`]; each sets its own offset.
+const ACTION: &str = "absolute flex size-6 items-center justify-center text-muted \
+    hover:bg-subtle hover:text-ink disabled:pointer-events-none disabled:opacity-45 \
+    group-data-[collapsible=icon]/sidebar:hidden [&_svg]:size-4";
+
 #[component]
-pub async fn sidebar_group_content(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            data-sidebar="group-content"
-            class=(class!("w-full text-body", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn SidebarGroupAction(
+    r#as: Option<Callback<Vec<Attribute>, Element>>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let base = attributes!(button {
+        class: "{ACTION} top-3 right-3",
+        "data-slot": "sidebar-group-action",
+        "data-sidebar": "group-action",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    if let Some(dynamic) = r#as {
+        dynamic.call(merged)
+    } else {
+        rsx! {
+            button { ..merged,{children} }
+        }
+    }
 }
 
-/// A list of sidebar menu items.
 #[component]
-pub async fn sidebar_menu(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <ul
-            data-sidebar="menu"
-            class=(class!("flex min-w-0 flex-col gap-1", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </ul>
-    })
+pub fn SidebarGroupContent(
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let base = attributes!(div {
+        class: "w-full text-body",
+        "data-slot": "sidebar-group-content",
+        "data-sidebar": "group-content",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { ..merged,{children} }
+    }
 }
 
-/// One menu row containing a button or link and optional actions or submenus.
 #[component]
-pub async fn sidebar_menu_item(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <li
-            data-sidebar="menu-item"
-            class=(class!("group/menu-item relative", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </li>
-    })
+pub fn SidebarMenu(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(ul {
+        class: "flex w-full min-w-0 flex-col gap-1",
+        "data-slot": "sidebar-menu",
+        "data-sidebar": "menu",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        ul { ..merged,{children} }
+    }
 }
 
-/// A text input styled for a sidebar header or group.
 #[component]
-pub async fn sidebar_input(#[default] mut attrs: Attributes) -> Result<impl View> {
-    Ok(view! {
-        input(
-            attrs: attributes! {
-                data-sidebar="input"
-                class=(class!(
-                    "bg-canvas md:group-data-[collapsible=icon]/sidebar:hidden",
-                    attrs.remove("class"),
-                ))
-                (attrs)
-            }
-        )
-    })
+pub fn SidebarMenuItem(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(li {
+        class: "group/menu-item relative",
+        "data-slot": "sidebar-menu-item",
+        "data-sidebar": "menu-item",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        li { ..merged,{children} }
+    }
 }
 
-/// A rule between sidebar sections.
-#[component]
-pub async fn sidebar_separator(#[default] attrs: Attributes) -> Result<impl View> {
-    Ok(view! { separator(attrs: attributes! { data-sidebar="separator" (attrs) }) })
-}
-
-/// The visual style of a sidebar menu button.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 #[allow(dead_code)]
 pub enum SidebarMenuButtonVariant {
     #[default]
@@ -442,207 +582,274 @@ pub enum SidebarMenuButtonVariant {
 }
 
 impl SidebarMenuButtonVariant {
-    fn classes(self) -> StaticClass {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Default => class!("border-transparent"),
-            Self::Outline => class!("border-line bg-canvas"),
+            SidebarMenuButtonVariant::Default => "default",
+            SidebarMenuButtonVariant::Outline => "outline",
+        }
+    }
+
+    fn class(&self) -> &'static str {
+        match self {
+            SidebarMenuButtonVariant::Default => "border-transparent",
+            SidebarMenuButtonVariant::Outline => "border-line bg-canvas",
         }
     }
 }
 
-/// The size of a sidebar menu button.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 #[allow(dead_code)]
 pub enum SidebarMenuButtonSize {
-    Sm,
     #[default]
-    Md,
+    Default,
+    Sm,
     Lg,
 }
 
 impl SidebarMenuButtonSize {
-    fn classes(self) -> StaticClass {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Sm => class!("h-7 text-caption"),
-            Self::Md => class!("h-8 text-body"),
-            Self::Lg => class!("h-12 text-body"),
+            SidebarMenuButtonSize::Default => "default",
+            SidebarMenuButtonSize::Sm => "sm",
+            SidebarMenuButtonSize::Lg => "lg",
+        }
+    }
+
+    fn class(&self) -> &'static str {
+        match self {
+            SidebarMenuButtonSize::Default => "h-8 text-body",
+            SidebarMenuButtonSize::Sm => "h-7 text-caption",
+            SidebarMenuButtonSize::Lg => "h-12 text-body",
         }
     }
 }
 
-const MENU_BUTTON: StaticClass = class!(
-    "flex w-full min-w-0 items-center gap-2 overflow-hidden border px-2 text-left transition-colors hover:bg-subtle hover:text-ink active:bg-subtle active:text-ink disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 data-[active=true]:bg-subtle data-[active=true]:text-ink data-[active=true]:font-medium has-[+[data-sidebar=menu-action]]:pr-8 has-[+[data-sidebar=menu-badge]]:pr-8 [&>svg]:size-4 [&>svg]:shrink-0 [&>span:last-child]:truncate md:group-data-[collapsible=icon]/sidebar:size-8 md:group-data-[collapsible=icon]/sidebar:justify-center md:group-data-[collapsible=icon]/sidebar:p-0 md:group-data-[collapsible=icon]/sidebar:[&>span:last-child]:sr-only",
-);
+/// Base classes for a sidebar menu button; `group-data-[collapsible=icon]/sidebar` shrinks it
+/// to a square icon slot when the nearest `group/sidebar` ancestor collapses to icons.
+const MENU_BUTTON: &str = "flex w-full min-w-0 items-center gap-2 overflow-hidden border px-2 text-left \
+    transition-colors hover:bg-subtle hover:text-ink active:bg-subtle active:text-ink \
+    disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 \
+    data-[active=true]:bg-subtle data-[active=true]:text-ink data-[active=true]:font-medium \
+    has-[+[data-sidebar=menu-action]]:pr-8 has-[+[data-sidebar=menu-badge]]:pr-8 \
+    [&>svg]:size-4 [&>svg]:shrink-0 [&>span:last-child]:truncate \
+    group-data-[collapsible=icon]/sidebar:size-8 group-data-[collapsible=icon]/sidebar:justify-center \
+    group-data-[collapsible=icon]/sidebar:p-0 group-data-[collapsible=icon]/sidebar:[&>span:last-child]:sr-only";
 
-/// Classes for styling another element as a sidebar menu button.
-///
-/// Set `data-active="true"` for active styling. Put the label in a `<span>`
-/// after the icon so it remains accessible when the sidebar collapses.
-#[must_use]
-pub fn sidebar_menu_button_variants(
-    variant: SidebarMenuButtonVariant,
-    size: SidebarMenuButtonSize,
-) -> Class<(StaticClass, StaticClass, StaticClass)> {
-    class!(MENU_BUTTON, variant.classes(), size.classes())
-}
-
-/// A menu action, or a navigation link when `href` is supplied.
-///
-/// Put an icon before a `<span>` containing the label. `tooltip` supplies a
-/// native title hint for the icon-only state. `active` accepts a boolean or
-/// runtime expression. Event handlers and other attributes are forwarded.
 #[component]
-pub async fn sidebar_menu_button(
-    #[default] variant: SidebarMenuButtonVariant,
-    #[default] size: SidebarMenuButtonSize,
-    #[into]
-    #[default(false.into())]
-    active: Expr<bool>,
-    #[default] href: Option<&str>,
-    #[default] tooltip: Option<&str>,
-    #[default] mut attrs: Attributes,
-    #[default] child: Child<'_>,
-) -> Result<impl View> {
-    let attrs = attributes! {
-        data-sidebar="menu-button"
-        :data-active=$(if active { "true" } else { "false" })
-        :aria-current=$(active.then_some("page"))
-        title=(tooltip)
-        class=(class!(
-            sidebar_menu_button_variants(variant, size),
-            attrs.remove("class"),
-        ))
-        (attrs)
+pub fn SidebarMenuButton(
+    #[props(default = false)] is_active: bool,
+    #[props(default)] variant: SidebarMenuButtonVariant,
+    #[props(default)] size: SidebarMenuButtonSize,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    #[props(default)] tooltip: Option<Element>,
+    r#as: Option<Callback<Vec<Attribute>, Element>>,
+    children: Element,
+) -> Element {
+    let ctx = use_sidebar();
+    let is_mobile = ctx.is_mobile;
+    let state = ctx.state;
+
+    let (variant_class, size_class) = (variant.class(), size.class());
+    let base = attributes!(button {
+        class: "{MENU_BUTTON} {variant_class} {size_class}",
+        "data-slot": "sidebar-menu-button",
+        "data-sidebar": "menu-button",
+        "data-size": size.as_str(),
+        "data-variant": variant.as_str(),
+        "data-active": if is_active { "true" } else { "false" },
+        aria_current: if is_active { "page" } else { "false" },
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    let Some(tooltip_content) = tooltip else {
+        return if let Some(dynamic) = r#as {
+            dynamic.call(merged)
+        } else {
+            rsx! {
+                button { ..merged,{children} }
+            }
+        };
     };
 
-    Ok(view! {
-        if let Some(href) = href {
-            <a href=(href) (attrs)>(child)</a>
-        } else {
-            <button type="button" (attrs)>(child)</button>
-        }
-    })
-}
+    let hidden = state() != SidebarState::Collapsed || is_mobile();
+    let sidebar_side = ctx.side;
 
-/// An independent action beside a menu button. Give it an accessible label.
-#[component]
-pub async fn sidebar_menu_action(
-    #[default] show_on_hover: bool,
-    #[default] mut attrs: Attributes,
-    #[default] child: Child<'_>,
-) -> Result<impl View> {
-    Ok(view! {
-        <button
-            type="button"
-            data-sidebar="menu-action"
-            class=(class!(
-                ACTION,
-                "top-1 right-1",
-                "md:opacity-0 md:group-hover/menu-item:opacity-100 md:group-focus-within/menu-item:opacity-100" if show_on_hover,
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </button>
-    })
-}
-
-/// A count or status beside a menu button.
-#[component]
-pub async fn sidebar_menu_badge(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <span
-            data-sidebar="menu-badge"
-            class=(class!(
-                "pointer-events-none absolute top-1 right-1 flex h-6 min-w-6 items-center justify-center px-1 text-caption tabular-nums text-muted md:group-data-[collapsible=icon]/sidebar:hidden",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </span>
-    })
-}
-
-/// A placeholder matching a menu row, optionally including an icon.
-#[component]
-pub async fn sidebar_menu_skeleton(#[default] show_icon: bool, #[default] mut attrs: Attributes) -> Result<impl View> {
-    Ok(view! {
-        <div
-            data-sidebar="menu-skeleton"
-            aria-hidden="true"
-            class=(class!(
-                "flex h-8 items-center gap-2 px-2",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            if show_icon {
-                skeleton(attrs: attributes! { class="size-4 shrink-0" })
+    rsx! {
+        Tooltip { class: "block w-full", disabled: hidden,
+            TooltipTrigger {
+                r#as: move |tooltip_attrs: Vec<Attribute>| {
+                    let final_attrs = merge_attributes(vec![tooltip_attrs, merged.clone()]);
+                    let children = children.clone();
+                    if let Some(dynamic) = &r#as {
+                        dynamic.call(final_attrs)
+                    } else {
+                        rsx! {
+                            button { ..final_attrs,{children} }
+                        }
+                    }
+                },
             }
-            skeleton(
-                attrs: attributes! {
-                    class="h-4 w-3/4 md:group-data-[collapsible=icon]/sidebar:hidden"
-                }
-            )
-        </div>
-    })
+            TooltipContent {
+                side: match sidebar_side() {
+                    SidebarSide::Left => dioxus_primitives::ContentSide::Right,
+                    SidebarSide::Right => dioxus_primitives::ContentSide::Left,
+                },
+                {tooltip_content}
+            }
+        }
+    }
 }
 
-/// A nested menu, hidden when the sidebar collapses to icons.
 #[component]
-pub async fn sidebar_menu_sub(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <ul
-            data-sidebar="menu-sub"
-            class=(class!(
-                "mx-3.5 flex min-w-0 flex-col gap-1 border-l border-line px-2.5 py-1 md:group-data-[collapsible=icon]/sidebar:hidden",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </ul>
-    })
+pub fn SidebarMenuAction(
+    #[props(default = false)] show_on_hover: bool,
+    r#as: Option<Callback<Vec<Attribute>, Element>>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let hover_class = if show_on_hover {
+        "opacity-0 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100"
+    } else {
+        ""
+    };
+    let base = attributes!(button {
+        class: "{ACTION} top-1 right-1 {hover_class}",
+        "data-slot": "sidebar-menu-action",
+        "data-sidebar": "menu-action",
+        "data-show-on-hover": if show_on_hover { "true" } else { "false" },
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    if let Some(dynamic) = r#as {
+        dynamic.call(merged)
+    } else {
+        rsx! {
+            button { ..merged,{children} }
+        }
+    }
 }
 
-/// One row of a nested sidebar menu.
 #[component]
-pub async fn sidebar_menu_sub_item(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <li
-            data-sidebar="menu-sub-item"
-            class=(class!("relative", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </li>
-    })
+pub fn SidebarMenuBadge(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div {
+        class: "pointer-events-none absolute top-1 right-1 flex h-6 min-w-6 items-center justify-center \
+                px-1 text-caption tabular-nums text-muted group-data-[collapsible=icon]/sidebar:hidden",
+        "data-slot": "sidebar-menu-badge",
+        "data-sidebar": "menu-badge",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { ..merged,{children} }
+    }
 }
 
-/// A nested menu link. Pass its destination through the `href` attribute.
 #[component]
-pub async fn sidebar_menu_sub_button(
-    #[into]
-    #[default(false.into())]
-    active: Expr<bool>,
-    #[default] size: SidebarMenuButtonSize,
-    #[default] mut attrs: Attributes,
-    #[default] child: Child<'_>,
-) -> Result<impl View> {
-    Ok(view! {
-        <a
-            data-sidebar="menu-sub-button"
-            :aria-current=$(active.then_some("page"))
-            class=(class!(
-                "flex min-w-0 items-center gap-2 px-2 text-muted hover:bg-subtle hover:text-ink aria-[current=page]:bg-subtle aria-[current=page]:text-ink aria-disabled:pointer-events-none aria-disabled:opacity-45 [&>svg]:size-4 [&>svg]:shrink-0 [&>span:last-child]:truncate",
-                size.classes(),
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </a>
-    })
+pub fn SidebarMenuSkeleton(
+    #[props(default = false)] show_icon: bool,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
+    let base = attributes!(div {
+        class: "flex h-8 items-center gap-2 px-2",
+        "data-slot": "sidebar-menu-skeleton",
+        "data-sidebar": "menu-skeleton",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div {..merged,
+            if show_icon {
+                Skeleton { class: "size-4 shrink-0" }
+            }
+            Skeleton { class: "h-4 w-3/4 group-data-[collapsible=icon]/sidebar:hidden" }
+        }
+    }
+}
+
+#[component]
+pub fn SidebarMenuSub(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(ul {
+        class: "mx-3.5 flex min-w-0 flex-col gap-1 border-l border-line px-2.5 py-1 \
+                group-data-[collapsible=icon]/sidebar:hidden",
+        "data-slot": "sidebar-menu-sub",
+        "data-sidebar": "menu-sub",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        ul { ..merged,{children} }
+    }
+}
+
+#[component]
+pub fn SidebarMenuSubItem(
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let base = attributes!(li {
+        class: "relative",
+        "data-slot": "sidebar-menu-sub-item",
+        "data-sidebar": "menu-sub-item",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        li { ..merged,{children} }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[allow(dead_code)]
+pub enum SidebarMenuSubButtonSize {
+    Sm,
+    #[default]
+    Md,
+}
+
+impl SidebarMenuSubButtonSize {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SidebarMenuSubButtonSize::Sm => "sm",
+            SidebarMenuSubButtonSize::Md => "md",
+        }
+    }
+
+    fn class(&self) -> &'static str {
+        match self {
+            SidebarMenuSubButtonSize::Sm => "h-7 text-caption",
+            SidebarMenuSubButtonSize::Md => "h-8 text-body",
+        }
+    }
+}
+
+#[component]
+pub fn SidebarMenuSubButton(
+    #[props(default = false)] is_active: bool,
+    #[props(default)] size: SidebarMenuSubButtonSize,
+    r#as: Option<Callback<Vec<Attribute>, Element>>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let size_class = size.class();
+    let base = attributes!(a {
+        class: "flex min-w-0 items-center gap-2 px-2 text-muted hover:bg-subtle hover:text-ink \
+                data-[active=true]:bg-subtle data-[active=true]:text-ink \
+                aria-disabled:pointer-events-none aria-disabled:opacity-45 \
+                [&>svg]:size-4 [&>svg]:shrink-0 [&>span:last-child]:truncate \
+                group-data-[collapsible=icon]/sidebar:hidden {size_class}",
+        "data-slot": "sidebar-menu-sub-button",
+        "data-sidebar": "menu-sub-button",
+        "data-size": size.as_str(),
+        "data-active": if is_active { "true" } else { "false" },
+        aria_current: if is_active { "page" } else { "false" },
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    if let Some(dynamic) = r#as {
+        dynamic.call(merged)
+    } else {
+        rsx! {
+            a { ..merged,{children} }
+        }
+    }
 }

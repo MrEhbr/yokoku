@@ -1,15 +1,6 @@
-use topcoat::{
-    Result,
-    view::{Attributes, Child, Class, StaticClass, View, class, component, view},
-};
+use dioxus::prelude::*;
 
-/// The visual style of a [`badge`].
-///
-/// Pair a status variant with a label and an icon.
-///
-/// [`Default`] is `BadgeVariant::Neutral`, used when no variant is given.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[allow(dead_code)]
+#[derive(Copy, Clone, PartialEq, Default)]
 pub enum BadgeVariant {
     /// A quiet tag for neutral labels and counts.
     #[default]
@@ -27,60 +18,41 @@ pub enum BadgeVariant {
 }
 
 impl BadgeVariant {
-    /// Classes for the variant, including its border color. Keep border colors out of
-    /// the shared base to avoid conflicting classes.
-    fn classes(self) -> StaticClass {
+    fn class(self) -> &'static str {
         match self {
-            Self::Neutral => class!("border-line bg-subtle text-ink"),
-            Self::Outline => class!("border-control text-ink"),
-            Self::Success => class!("border-transparent bg-success-soft text-success"),
-            Self::Warning => class!("border-transparent bg-warning-soft text-warning"),
-            Self::Danger => class!("border-transparent bg-danger-soft text-danger"),
-            Self::Info => class!("border-transparent bg-info-soft text-info"),
+            Self::Neutral => "border-line bg-subtle text-ink",
+            Self::Outline => "border-control text-ink",
+            Self::Success => "border-transparent bg-success-soft text-success",
+            Self::Warning => "border-transparent bg-warning-soft text-warning",
+            Self::Danger => "border-transparent bg-danger-soft text-danger",
+            Self::Info => "border-transparent bg-info-soft text-info",
         }
     }
 }
 
-/// Classes shared by badge variants. A border reserves the same space in every variant.
-const BASE: StaticClass = class!(
-    "inline-flex w-fit shrink-0 items-center justify-center gap-1 \
-     border px-2 py-0.5 text-caption font-medium whitespace-nowrap [&>svg]:size-3",
-);
+#[derive(Props, Clone, PartialEq)]
+pub struct BadgeProps {
+    #[props(default)]
+    pub variant: BadgeVariant,
 
-/// Builds the full class list for a badge of the given `variant`.
-///
-/// Use it to give badge styling to another element, such as a link:
-///
-/// ```ignore
-/// view! {
-///     <a href="/releases/v2" class=(badge_variants(BadgeVariant::Outline))>"v2.0"</a>
-/// }
-/// ```
-#[must_use]
-pub fn badge_variants(variant: BadgeVariant) -> Class<(StaticClass, StaticClass)> {
-    class!(BASE, variant.classes())
+    /// Additional attributes to extend the badge element
+    #[props(extends = GlobalAttributes)]
+    pub attributes: Vec<Attribute>,
+
+    /// The children of the badge element
+    pub children: Element,
 }
 
-/// A small label for a status or count.
-///
-/// `variant` defaults to `Neutral`. Pass the label as children and extra attributes
-/// through `attrs`. Attributes go on the `<span>`, with classes added to its classes.
-/// Use [`badge_variants`] to apply the same styling to another element.
-///
-/// ```ignore
-/// view! {
-///     badge(variant: BadgeVariant::Danger, "Failed")
-/// }
-/// ```
+/// A small label. Pair a status color with words; color alone never carries the meaning.
 #[component]
-pub async fn badge(
-    #[default] variant: BadgeVariant,
-    #[default] mut attrs: Attributes,
-    #[default] child: Child<'_>,
-) -> Result<impl View> {
-    Ok(view! {
-        <span class=(class!(BASE, variant.classes(), attrs.remove("class"))) (attrs)>
-            (child)
-        </span>
-    })
+pub fn Badge(props: BadgeProps) -> Element {
+    let variant = props.variant.class();
+    rsx! {
+        span {
+            class: "inline-flex w-fit shrink-0 items-center justify-center gap-1 border px-2 py-0.5 text-caption \
+                    font-medium whitespace-nowrap [&>svg]:size-3 {variant}",
+            ..props.attributes,
+            {props.children}
+        }
+    }
 }

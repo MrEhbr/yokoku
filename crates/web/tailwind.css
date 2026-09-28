@@ -1,0 +1,62 @@
+/* Paper, Yokoku's design system. Specification: docs/design-system/DESIGN-SYSTEM.md.
+   Tokens and base styles come from the kit in docs/design-system; this file adds what the
+   components here need on top. `dx` renders it to assets/tailwind.css. */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@import "tailwindcss";
+@import "../../docs/design-system/tokens.css";
+@import "../../docs/design-system/components.css";
+
+@source "./src/**/*.rs";
+@source "./gallery/**/*.rs";
+
+@theme {
+  --shadow-popover: 3px 3px 0 var(--yk-line);
+  --animate-fade-in: fade-in 150ms var(--ease-interface);
+  --animate-fade-out: fade-out 100ms ease-in forwards;
+  --animate-popover-in: popover-in 120ms var(--ease-interface);
+  --animate-popover-out: popover-out 80ms ease-in forwards;
+  --animate-progress-indeterminate: progress-indeterminate 1.4s var(--ease-interface) infinite;
+  --animate-slide-in-left: slide-in-left 200ms var(--ease-interface);
+  --animate-slide-in-right: slide-in-right 200ms var(--ease-interface);
+  --animate-slide-in-top: slide-in-top 200ms var(--ease-interface);
+  --animate-slide-in-bottom: slide-in-bottom 200ms var(--ease-interface);
+  --animate-slide-out-left: slide-out-left 150ms ease-in forwards;
+  --animate-slide-out-right: slide-out-right 150ms ease-in forwards;
+  --animate-slide-out-top: slide-out-top 150ms ease-in forwards;
+  --animate-slide-out-bottom: slide-out-bottom 150ms ease-in forwards;
+
+  @keyframes fade-in { from { opacity: 0; } }
+  @keyframes fade-out { to { opacity: 0; } }
+  @keyframes popover-in { from { opacity: 0; translate: 0 -2px; } }
+  @keyframes popover-out { to { opacity: 0; translate: 0 -2px; } }
+  @keyframes progress-indeterminate {
+    from { translate: -100%; }
+    to { translate: 200%; }
+  }
+  @keyframes slide-in-left { from { translate: -100% 0; } }
+  @keyframes slide-in-right { from { translate: 100% 0; } }
+  @keyframes slide-in-top { from { translate: 0 -100%; } }
+  @keyframes slide-in-bottom { from { translate: 0 100%; } }
+  @keyframes slide-out-left { to { translate: -100% 0; } }
+  @keyframes slide-out-right { to { translate: 100% 0; } }
+  @keyframes slide-out-top { to { translate: 0 -100%; } }
+  @keyframes slide-out-bottom { to { translate: 0 100%; } }
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--yk-ink);
+    outline-offset: 3px;
+  }
+}
+
+@media (max-width: 39.999rem) {
+  :where(input, textarea) { font-size: 1rem; }
+}
+@media (pointer: coarse) {
+  :where(button:not([role="checkbox"]), input:not([type="checkbox"], [type="radio"]), [data-control]) {
+    min-height: 2.75rem;
+  }
+}

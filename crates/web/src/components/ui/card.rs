@@ -1,95 +1,84 @@
-use topcoat::{
-    Result,
-    view::{Attributes, Child, StaticClass, View, class, component, view},
-};
+use dioxus::prelude::*;
+use dioxus_primitives::{dioxus_attributes::attributes, merge_attributes};
 
-/// Classes for a card with vertically stacked sections. Each section supplies its own
-/// horizontal padding so other content can span the full width.
-const CARD: StaticClass = class!(
-    "flex flex-col gap-4 border border-line bg-surface py-5 \
-     text-ink",
-);
-
-/// A bordered panel that groups related content.
-///
-/// Pass sections as children. Use a header, body, or footer as needed. `attrs` are
-/// forwarded to the `<div>`, with extra classes added to its classes.
-///
-/// ```ignore
-/// view! {
-///     card(
-///         attrs: attributes! { class="max-w-sm" },
-///         card_header(
-///             card_title("Delete workspace")
-///             card_description("This cannot be undone.")
-///         )
-///         card_footer(
-///             attrs: attributes! { class="justify-end" },
-///             button(variant: ButtonVariant::Danger, "Delete")
-///         )
-///     )
-/// }
-/// ```
+/// A bordered panel that groups related content. Compose a [`CardHeader`], [`CardContent`], and
+/// [`CardFooter`] as needed.
 #[component]
-pub async fn card(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! { <div class=(class!(CARD, attrs.remove("class"))) (attrs)>(child)</div> })
+pub fn Card(#[props(extends=GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div { class: "flex flex-col gap-4 border border-line bg-surface py-5 text-ink" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { "data-slot": "card", ..merged, {children} }
+    }
 }
 
-/// The opening section of a [`card`], stacking a [`card_title`] and an
-/// optional [`card_description`].
+/// The opening section of a [`Card`], stacking a [`CardTitle`] and an optional
+/// [`CardDescription`]. Widens to a two-column grid when it holds a [`CardAction`].
 #[component]
-pub async fn card_header(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            class=(class!("flex flex-col gap-1.5 px-5", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn CardHeader(#[props(extends=GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div {
+        class: "grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-5 \
+                has-data-[slot=card-action]:grid-cols-[1fr_auto]",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { "data-slot": "card-header", ..merged, {children} }
+    }
 }
 
-/// The heading of a [`card`], rendered as an `<h3>`.
+/// The heading of a [`Card`], rendered as an `<h3>`.
 #[component]
-pub async fn card_title(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <h3
-            class=(class!("text-section font-medium", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </h3>
-    })
+pub fn CardTitle(#[props(extends=GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(h3 { class: "text-section font-medium" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        h3 { "data-slot": "card-title", ..merged, {children} }
+    }
 }
 
-/// The supporting text under a [`card_title`].
+/// The supporting text under a [`CardTitle`].
 #[component]
-pub async fn card_description(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <p
-            class=(class!("text-body text-muted", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </p>
-    })
+pub fn CardDescription(#[props(extends=GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(p { class: "text-body text-muted" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        p { "data-slot": "card-description", ..merged, {children} }
+    }
 }
 
-/// The main body of a [`card`].
+/// An action anchored to the top right of a [`CardHeader`], beside its title and description.
 #[component]
-pub async fn card_content(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! { <div class=(class!("px-5", attrs.remove("class"))) (attrs)>(child)</div> })
+pub fn CardAction(#[props(extends=GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div { class: "col-start-2 row-span-2 row-start-1 self-start justify-self-end" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { "data-slot": "card-action", ..merged, {children} }
+    }
 }
 
-/// The closing section of a [`card`], a horizontal row for actions.
+/// The main body of a [`Card`].
 #[component]
-pub async fn card_footer(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            class=(class!("flex flex-wrap items-center gap-2 px-5", attrs.remove("class")))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
+pub fn CardContent(#[props(extends=GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div { class: "px-5" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { "data-slot": "card-content", ..merged, {children} }
+    }
+}
+
+/// The closing section of a [`Card`], a horizontal row for actions.
+#[component]
+pub fn CardFooter(#[props(extends=GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(div { class: "flex flex-wrap items-center gap-2 px-5" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        div { "data-slot": "card-footer", ..merged, {children} }
+    }
 }

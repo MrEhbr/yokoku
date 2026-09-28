@@ -30,9 +30,3 @@ pub struct CalendarConfig {
     /// Days ahead to show instead of the week; the week while unset.
     pub days: Option<u16>,
 }
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct WebConfig {
-    /// Asset bundle directory; `assets/` beside the executable when unset.
-    pub assets: Option<PathBuf>,
-}

@@ -2,7 +2,7 @@ APP := `basename $(pwd)`
 profile := env_var_or_default('PROFILE', 'debug')
 features := env_var_or_default('FEATURES', '')
 
-# Web UI: `just web dev`, `just web gallery`, `just web fmt`
+# Web UI: `just web gallery`, `just web fmt`, `just web lint`, `just web add <component>`
 mod web 'crates/web'
 
 # Show available targets
@@ -19,7 +19,6 @@ setup:
     @cargo install --locked cargo-deny
     @cargo install --locked cargo-shear
     @cargo install --locked typos-cli
-    @cargo install --locked topcoat-cli --version "$(grep -A1 '^name = "topcoat-asset"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')"
     @echo "✓ Development tools installed"
 
 # Rust

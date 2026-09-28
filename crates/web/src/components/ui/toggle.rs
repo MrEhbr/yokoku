@@ -1,142 +1,26 @@
-use topcoat::{
-    Result,
-    view::{Attributes, Child, PromotedStr, StaticClass, View, class, component, view},
-};
+use dioxus::prelude::*;
+use dioxus_primitives::toggle::{self, ToggleProps};
 
-/// How a [`toggle`] relates to the others sharing its `name`.
-///
-/// [`Default`] is `ToggleKind::Independent`, used when no kind is given.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum ToggleKind {
-    /// A toggle that presses and unpresses on its own, like a checkbox.
-    #[default]
-    Independent,
-    /// A radio-style toggle. Only one toggle with the same name can be selected.
-    Exclusive,
-}
-
-impl ToggleKind {
-    /// The native input type that manages this toggle's selection behavior.
-    fn input_type(self) -> PromotedStr {
-        match self {
-            Self::Independent => PromotedStr(&"checkbox"),
-            Self::Exclusive => PromotedStr(&"radio"),
+/// A control that stays pressed when selected. Give it an `aria_label` if its children are icon-only.
+#[component]
+pub fn Toggle(props: ToggleProps) -> Element {
+    rsx! {
+        toggle::Toggle {
+            class: "inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-2 border \
+                    border-transparent px-3 text-body font-medium whitespace-nowrap transition-colors \
+                    duration-120 ease-interface motion-reduce:transition-none select-none text-muted \
+                    hover:not-disabled:bg-subtle hover:not-disabled:text-ink \
+                    data-[state=on]:bg-subtle data-[state=on]:text-ink \
+                    disabled:pointer-events-none disabled:opacity-45",
+            pressed: props.pressed,
+            default_pressed: props.default_pressed,
+            disabled: props.disabled,
+            on_pressed_change: props.on_pressed_change,
+            onmounted: props.onmounted,
+            onfocus: props.onfocus,
+            onkeydown: props.onkeydown,
+            attributes: props.attributes,
+            {props.children}
         }
     }
-}
-
-/// The size of a [`toggle`].
-///
-/// [`Default`] is `ToggleSize::Md`, used when no size is given.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum ToggleSize {
-    /// A compact toggle.
-    Sm,
-    /// The standard toggle size.
-    #[default]
-    Md,
-    /// A prominent toggle.
-    Lg,
-}
-
-impl ToggleSize {
-    /// Classes for the toggle dimensions.
-    fn classes(self) -> StaticClass {
-        match self {
-            Self::Sm => class!("h-8 gap-1.5 px-2"),
-            Self::Md => class!("h-9 gap-2 px-3"),
-            Self::Lg => class!("h-10 gap-2 px-4"),
-        }
-    }
-}
-
-/// Classes that style the label from its input's checked, focused, and disabled states.
-const BASE: StaticClass = class!(
-    "inline-flex shrink-0 cursor-pointer items-center justify-center border \
-     border-transparent text-body font-medium whitespace-nowrap transition-colors select-none \
-     text-muted hover:bg-subtle hover:text-ink \
-     has-[:checked]:bg-subtle has-[:checked]:text-ink \
-     has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 \
-     has-[:focus-visible]:outline-ink \
-     has-[:disabled]:pointer-events-none has-[:disabled]:opacity-45",
-);
-
-/// A control that stays pressed when selected.
-///
-/// The native input manages selection without JavaScript and submits its value with the
-/// surrounding form. Use `kind` to choose independent or exclusive selection. Exclusive
-/// toggles form a group through a shared `name` attribute.
-///
-/// Pass the label as children and input attributes through `attrs`. Classes apply to
-/// the wrapping label, while other attributes go on the `<input>`.
-///
-/// ```ignore
-/// view! {
-///     toggle(
-///         attrs: attributes! { name="bold" checked="" },
-///         icon(data: iconify_icon!("lucide:bold"), label: "Bold")
-///     )
-/// }
-/// ```
-#[component]
-pub async fn toggle(
-    /// Whether the toggle presses on its own or as one of a group.
-    #[default]
-    kind: ToggleKind,
-    /// The dimensions of the toggle.
-    #[default]
-    size: ToggleSize,
-    /// Extra attributes for the `<input>` element.
-    #[default]
-    mut attrs: Attributes,
-    /// The toggle's content.
-    #[default]
-    child: Child<'_>,
-) -> Result<impl View> {
-    // The input is taken out of the layout rather than hidden outright: a
-    // `display: none` control is neither focusable nor announced, while an
-    // `sr-only` one still takes keyboard focus and reads as the checkbox or
-    // radio button it is, named by the label around it.
-    Ok(view! {
-        <label class=(class!(BASE, size.classes(), attrs.remove("class")))>
-            <input type=(kind.input_type()) class="sr-only" (attrs)>
-            (child)
-        </label>
-    })
-}
-
-/// A row of related toggles.
-///
-/// This component only arranges the controls. Give exclusive toggles the same `name`
-/// attribute to make them a selection group.
-///
-/// ```ignore
-/// view! {
-///     toggle_group(
-///         for (value, text) in [("day", "Day"), ("week", "Week")] {
-///             toggle(
-///                 kind: ToggleKind::Exclusive,
-///                 size: ToggleSize::Sm,
-///                 attrs: attributes! { name="range" value=(value) },
-///                 (text)
-///             )
-///         }
-///     )
-/// }
-/// ```
-#[component]
-pub async fn toggle_group(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <div
-            class=(class!(
-                "inline-flex w-fit items-center gap-1 border border-control p-1",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </div>
-    })
 }

@@ -1,42 +1,28 @@
-use topcoat::{
-    Result,
-    view::{Attributes, Child, StaticClass, View, class, component, view},
-};
+use dioxus::prelude::*;
+use dioxus_primitives::{dioxus_attributes::attributes, merge_attributes};
 
-/// Classes that draw a key label in a bordered box.
-const KBD: StaticClass = class!(
-    "inline-flex h-5 w-fit min-w-5 shrink-0 items-center justify-center gap-1 \
-     border border-line bg-subtle px-1.5 font-mono text-caption font-medium \
-     text-muted",
-);
-
-/// A keyboard key label rendered as `<kbd>`.
-///
-/// Pass the key name as children and use [`kbd_group`] for a shortcut with several
-/// keys. `attrs` are forwarded to the `<kbd>`, with extra classes added to its classes.
-///
-/// ```ignore
-/// view! {
-///     kbd_group(kbd("Ctrl") kbd("K"))
-/// }
-/// ```
+/// A keyboard key label rendered as `<kbd>`. Pass the key name as children and use [`KbdGroup`]
+/// for a shortcut with several keys.
 #[component]
-pub async fn kbd(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! { <kbd class=(class!(KBD, attrs.remove("class"))) (attrs)>(child)</kbd> })
+pub fn Kbd(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(kbd {
+        class: "inline-flex h-5 w-fit min-w-5 shrink-0 items-center justify-center gap-1 border \
+                border-line bg-subtle px-1.5 font-mono text-caption font-medium text-muted",
+    });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        kbd { ..merged,{children} }
+    }
 }
 
 /// A row of key labels for one keyboard shortcut. The keys stay on one line.
 #[component]
-pub async fn kbd_group(#[default] mut attrs: Attributes, #[default] child: Child<'_>) -> Result<impl View> {
-    Ok(view! {
-        <span
-            class=(class!(
-                "inline-flex items-center gap-1 whitespace-nowrap",
-                attrs.remove("class"),
-            ))
-            (attrs)
-        >
-            (child)
-        </span>
-    })
+pub fn KbdGroup(#[props(extends = GlobalAttributes)] attributes: Vec<Attribute>, children: Element) -> Element {
+    let base = attributes!(span { class: "inline-flex items-center gap-1 whitespace-nowrap" });
+    let merged = merge_attributes(vec![base, attributes]);
+
+    rsx! {
+        span { ..merged,{children} }
+    }
 }

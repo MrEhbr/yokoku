@@ -42,6 +42,7 @@
             targets.aarch64-apple-darwin.stable.rust-std
             targets.x86_64-unknown-linux-gnu.stable.rust-std
             targets.aarch64-unknown-linux-gnu.stable.rust-std
+            targets.wasm32-unknown-unknown.stable.rust-std
           ]);
       };
 

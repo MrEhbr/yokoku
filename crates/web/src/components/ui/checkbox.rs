@@ -1,58 +1,44 @@
-use topcoat::{
-    Result,
-    icon::{icon, iconify::iconify_icon},
-    view::{Attributes, StaticClass, View, attributes, class, component, view},
+use dioxus::prelude::*;
+use dioxus_icons::lucide::{Check, Minus};
+pub use dioxus_primitives::checkbox::CheckboxState;
+use dioxus_primitives::{
+    checkbox::{self, CheckboxProps},
+    dioxus_attributes::attributes,
+    merge_attributes,
 };
 
-/// Classes for the native checkbox input and its checked and indeterminate states.
-const CHECKBOX: StaticClass = class!(
-    "peer size-4 shrink-0 cursor-pointer appearance-none border border-control \
-     bg-surface transition-colors \
-     checked:border-ink checked:bg-ink \
-     indeterminate:border-ink indeterminate:bg-ink \
-     disabled:cursor-not-allowed",
-);
-
-/// Classes shared by the overlaid check and dash marks.
-const MARK: &str = "pointer-events-none absolute inset-0 m-auto size-3.5 text-canvas opacity-0";
-
-/// A styled native checkbox.
-///
-/// Pass input attributes and event handlers through `attrs`. Classes apply to the
-/// wrapper, while other attributes go on the `<input>`. Use `checked` for the initial
-/// state. The indeterminate state is a DOM property, set from script; it shows a dash.
-///
-/// ```ignore
-/// view! {
-///     <div class="flex items-center gap-2">
-///         checkbox(attrs: attributes! { id="terms" name="terms" checked="" })
-///         label(attrs: attributes! { for="terms" }, "Accept terms")
-///     </div>
-/// }
-/// ```
+/// Give it an `aria_label`, or wrap it in a `Label`.
 #[component]
-pub async fn checkbox(#[default] mut attrs: Attributes) -> Result<impl View> {
-    // The checkmark cannot be drawn by the `<input>` itself, which renders no
-    // children or pseudo-elements: it is a sibling icon overlaid on the
-    // control, revealed by the input's `peer` state while checked.
-    Ok(view! {
-        <span
-            class=(class!(
-                "peer relative inline-flex shrink-0 has-[:disabled]:opacity-45",
-                attrs.remove("class"),
-            ))
-        >
-            <input type="checkbox" class=(CHECKBOX) (attrs)>
-            icon(
-                data: iconify_icon!("lucide:check"),
-                attrs: attributes! {
-                    class=(class!(MARK, "peer-[:checked:not(:indeterminate)]:opacity-100"))
+pub fn Checkbox(props: CheckboxProps) -> Element {
+    let base = attributes!(button {
+        class: "inline-flex size-4 shrink-0 cursor-pointer items-center justify-center border border-control \
+                bg-surface p-0 text-canvas transition-colors \
+                data-[state=checked]:border-ink data-[state=checked]:bg-ink \
+                data-[state=indeterminate]:border-ink data-[state=indeterminate]:bg-ink \
+                data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-45",
+    });
+    let merged = merge_attributes(vec![base, props.attributes]);
+
+    rsx! {
+        checkbox::Checkbox {
+            checked: props.checked,
+            default_checked: props.default_checked,
+            required: props.required,
+            disabled: props.disabled,
+            name: props.name,
+            value: props.value,
+            on_checked_change: props.on_checked_change,
+            attributes: merged,
+            checkbox::CheckboxIndicator { class: "group flex items-center justify-center",
+                Check {
+                    size: "0.875rem",
+                    class: "group-data-[state=indeterminate]:hidden",
                 }
-            )
-            icon(
-                data: iconify_icon!("lucide:minus"),
-                attrs: attributes! { class=(class!(MARK, "peer-indeterminate:opacity-100")) }
-            )
-        </span>
-    })
+                Minus {
+                    size: "0.875rem",
+                    class: "hidden group-data-[state=indeterminate]:block",
+                }
+            }
+        }
+    }
 }
