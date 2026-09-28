@@ -45,6 +45,8 @@ pub struct Entry {
     pub status: Status,
     pub has_files: bool,
     pub next_release: Option<Date>,
+    /// The poster's URL; `None` when the item has no poster.
+    pub poster: Option<String>,
 }
 
 impl Kind {
@@ -105,10 +107,11 @@ pub async fn library(
 #[cfg(feature = "server")]
 mod server {
     use dioxus::{logger::tracing::error, prelude::*};
-    use yokoku_domain::{MediaKind, MovieStatus, SeriesStatus};
-    use yokoku_library::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
+    use yokoku_domain::{ArtworkKind, MediaKind, MovieStatus, SeriesStatus};
+    use yokoku_library::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus, artwork_name};
 
     use super::{Entry, Kind, Library, Sort, Status};
+    use crate::api::artwork;
 
     pub(super) async fn library(
         library: &Library,
@@ -171,7 +174,13 @@ mod server {
 
     impl From<LibraryEntry> for Entry {
         fn from(entry: LibraryEntry) -> Self {
+            let poster = entry
+                .poster_path
+                .as_deref()
+                .and_then(artwork_name)
+                .map(|name| artwork::url(entry.id, ArtworkKind::Poster, name));
             Self {
+                poster,
                 id: entry.id,
                 title: entry.title,
                 year: entry.year,

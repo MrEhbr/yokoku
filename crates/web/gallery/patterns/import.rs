@@ -11,8 +11,8 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
 use jiff::Timestamp;
 use yokoku_domain::{
-    EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series, SeriesMetadata,
-    SourceStatus,
+    Artwork, EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
+    SeriesMetadata, SourceStatus,
 };
 use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_web::components::{
@@ -168,7 +168,7 @@ fn to_series(info: &SeriesInfo) -> Series {
         original_title: info.title.clone(),
         alternate_titles: Vec::new(),
         year: info.year,
-        poster_path: None,
+        artwork: Artwork::default(),
         status: SourceStatus::Returning,
         seasons,
     };

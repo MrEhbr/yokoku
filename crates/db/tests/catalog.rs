@@ -9,8 +9,8 @@ use proptest::prelude::*;
 use rstest::{fixture, rstest};
 use yokoku_db::Database;
 use yokoku_domain::{
-    EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Numbering,
-    Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
+    Artwork, EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata,
+    Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
 };
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::ports::Catalog;
@@ -39,7 +39,11 @@ fn series_metadata(source: u64, seasons: &[(u16, &[Option<Date>])]) -> SeriesMet
         original_title: "Sousou no Frieren".into(),
         alternate_titles: vec!["Frieren: Beyond Journey's End".into(), "葬送のフリーレン".into()],
         year: Some(2023),
-        poster_path: Some("/frieren.jpg".into()),
+        artwork: Artwork {
+            poster: Some("/frieren.jpg".into()),
+            backdrop: Some("/frieren-backdrop.jpg".into()),
+            logo: Some("https://artworks.thetvdb.com/banners/v4/series/424536/clearlogo/1.png".into()),
+        },
         status: SourceStatus::Returning,
         seasons: seasons
             .iter()
@@ -70,7 +74,7 @@ fn movie_metadata(source: u64) -> MovieMetadata {
         original_title: "Dune".into(),
         alternate_titles: vec!["Dune: Part One".into()],
         year: None,
-        poster_path: None,
+        artwork: Artwork::default(),
         releases: Releases { cinema: Some(TODAY), digital: None, physical: Some(TODAY + 90.days()) },
     }
 }
@@ -302,7 +306,7 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
             original_title: "Sousou no Frieren".into(),
             alternate_titles: Vec::new(),
             year: Some(2023),
-            poster_path: None,
+            artwork: Artwork::default(),
             status: SourceStatus::Returning,
             seasons: vec![],
         },
@@ -318,7 +322,7 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
             original_title: "Dune".into(),
             alternate_titles: Vec::new(),
             year: Some(2021),
-            poster_path: None,
+            artwork: Artwork::default(),
             releases: Releases::default(),
         },
         ItemFolder::default(),

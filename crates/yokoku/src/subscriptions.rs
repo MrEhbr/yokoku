@@ -11,7 +11,7 @@ use yokoku_events::{
     MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged, Subscriber, Subscription,
 };
 use yokoku_integrations::Rescans;
-use yokoku_library::FileTracker;
+use yokoku_library::{Artworks, FileTracker};
 use yokoku_media::{Deleter, ImportPlanner, Prober, Scanner};
 
 #[expect(clippy::too_many_arguments, reason = "one argument per subscriber")]
@@ -23,6 +23,7 @@ pub fn subscribers(
     prober: &Arc<Prober>,
     scanner: &Arc<Scanner>,
     rescans: &Arc<Rescans>,
+    artworks: &Arc<Artworks>,
     settings: &Settings,
 ) -> Vec<Arc<dyn Subscriber>> {
     let tracker = Arc::new(FileTracker::new(db.clone(), db.clone(), db.clone()));
@@ -32,6 +33,7 @@ pub fn subscribers(
             .on::<FilesFound>(tracker.clone())
             .on::<FilesImported>(tracker.clone())
             .on::<FileDeleted>(tracker),
+        Subscription::new("library.artwork").on::<SeriesRemoved>(artworks.clone()).on::<MovieRemoved>(artworks.clone()),
         Subscription::new("media.imports").on::<DownloadCompleted>(planner.clone()),
         Subscription::new("media.removals").on::<SeriesRemoved>(deleter.clone()).on::<MovieRemoved>(deleter.clone()),
         Subscription::new("media.renumbered").on::<EpisodesRenumbered>(scanner.clone()),

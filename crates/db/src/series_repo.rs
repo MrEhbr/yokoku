@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
 use yokoku_domain::{
-    Episode, EpisodeId, ExternalId, ItemFolder, MediaFileId, Numbering, Season, Series, SeriesId, SourceStatus,
-    StorageError,
+    Artwork, Episode, EpisodeId, ExternalId, ItemFolder, MediaFileId, Numbering, Season, Series, SeriesId,
+    SourceStatus, StorageError,
 };
 use yokoku_library::ports::SeriesRepo;
 
@@ -26,7 +26,7 @@ struct SeriesRow {
     original_title: String,
     alternate_titles: Json<Vec<String>>,
     year: Option<i16>,
-    poster_path: Option<String>,
+    artwork: Json<Artwork>,
     source_status: Text<SourceStatus>,
     numbering: Text<Numbering>,
     root: String,
@@ -122,7 +122,7 @@ impl Database {
     pub(crate) async fn load_series(&self, id: SeriesId) -> Result<Option<Series>, DbError> {
         let id = id.to_string();
         let Some(row) = sqlx::query_as::<_, SeriesRow>(
-            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path, source_status,
+            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork, source_status,
                     numbering, root, folder, monitored, added_at, refreshed_at, revision
              FROM series WHERE id = ?",
         )
@@ -152,7 +152,7 @@ impl Database {
     /// Every series in three queries, ordered by id.
     pub(crate) async fn load_all_series(&self) -> Result<Vec<Series>, DbError> {
         let rows: Vec<SeriesRow> = sqlx::query_as(
-            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path, source_status,
+            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork, source_status,
                     numbering, root, folder, monitored, added_at, refreshed_at, revision
              FROM series ORDER BY id",
         )
@@ -193,13 +193,13 @@ impl Database {
         let mut tx = self.begin_save("series", &id, series.revision).await?;
 
         sqlx::query(
-            "INSERT INTO series (id, source_kind, source_id, title, original_title, alternate_titles, year, poster_path,
+            "INSERT INTO series (id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
                                  source_status, numbering, root, folder, monitored, added_at, refreshed_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                  title = excluded.title, original_title = excluded.original_title,
                  alternate_titles = excluded.alternate_titles, year = excluded.year,
-                 poster_path = excluded.poster_path, source_status = excluded.source_status,
+                 artwork = excluded.artwork, source_status = excluded.source_status,
                  numbering = excluded.numbering, monitored = excluded.monitored,
                  refreshed_at = excluded.refreshed_at",
         )
@@ -210,7 +210,7 @@ impl Database {
         .bind(&series.original_title)
         .bind(Json(&series.alternate_titles))
         .bind(series.year)
-        .bind(&series.poster_path)
+        .bind(Json(&series.artwork))
         .bind(series.source_status.as_str())
         .bind(series.numbering.as_str())
         .bind(PathText(&series.folder.root))
@@ -313,7 +313,7 @@ impl SeriesRow {
             original_title: self.original_title,
             alternate_titles: self.alternate_titles.0,
             year: self.year,
-            poster_path: self.poster_path,
+            artwork: self.artwork.0,
             source_status: self.source_status.0,
             numbering: self.numbering.0,
             folder: ItemFolder { root: PathBuf::from(self.root), name: self.folder },

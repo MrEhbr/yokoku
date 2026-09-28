@@ -7,7 +7,7 @@ use jiff::{
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::{
-    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId, MonitorPreset,
+    Artwork, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId, MonitorPreset,
     SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus, events::RenumberedFile,
 };
 
@@ -47,7 +47,7 @@ fn metadata(status: SourceStatus, seasons: &[(u16, &[Option<Date>])]) -> SeriesM
         original_title: "Sousou no Frieren".into(),
         alternate_titles: Vec::new(),
         year: Some(2023),
-        poster_path: None,
+        artwork: Artwork::default(),
         status,
         seasons,
     }

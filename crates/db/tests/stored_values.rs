@@ -5,8 +5,8 @@ use rstest::rstest;
 use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 use yokoku_db::Database;
 use yokoku_domain::{
-    DownloadId, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series, SeriesMetadata,
-    SourceStatus,
+    Artwork, DownloadId, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
+    SeriesMetadata, SourceStatus,
 };
 use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
 use yokoku_library::ports::SeriesRepo;
@@ -22,7 +22,7 @@ fn series(episode_source_id: u64) -> Series {
         original_title: "Sousou no Frieren".into(),
         alternate_titles: vec![],
         year: None,
-        poster_path: None,
+        artwork: Artwork::default(),
         status: SourceStatus::Returning,
         seasons: vec![SeasonMetadata {
             number: 1,

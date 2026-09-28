@@ -114,3 +114,39 @@ pub(crate) fn source_status(value: Option<&str>) -> SourceStatus {
         _ => SourceStatus::Unknown,
     }
 }
+
+/// Series artwork type ids from `artwork/types`.
+pub(crate) const SERIES_BACKGROUND: u32 = 3;
+pub(crate) const SERIES_CLEAR_LOGO: u32 = 23;
+
+/// `series/{id}/artworks`: every artwork of the series.
+#[derive(Debug, Deserialize)]
+pub(crate) struct SeriesArtworks {
+    #[serde(default)]
+    pub artworks: Vec<ArtworkItem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ArtworkItem {
+    pub image: String,
+    #[serde(rename = "type")]
+    pub kind: u32,
+    /// Three-letter language code; `None` for artwork without text.
+    pub language: Option<String>,
+    #[serde(default)]
+    pub score: f64,
+}
+
+impl SeriesArtworks {
+    /// The best-scored artwork of `kind` in the first of `languages` that has one; `None` stands
+    /// for artwork without text.
+    pub(crate) fn best(&self, kind: u32, languages: [Option<&str>; 2]) -> Option<String> {
+        languages.into_iter().find_map(|language| {
+            self.artworks
+                .iter()
+                .filter(|artwork| artwork.kind == kind && artwork.language.as_deref() == language)
+                .max_by(|a, b| a.score.total_cmp(&b.score))
+                .map(|artwork| artwork.image.clone())
+        })
+    }
+}

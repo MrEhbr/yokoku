@@ -4,7 +4,7 @@ use jiff::{
 };
 use rstest::rstest;
 use yokoku_domain::{
-    ExternalId, FileStatus, ItemFolder, MediaFileId, Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases,
+    Artwork, ExternalId, FileStatus, ItemFolder, MediaFileId, Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -17,7 +17,7 @@ fn movie(cinema: Option<i64>, digital: Option<i64>, physical: Option<i64>) -> Mo
         original_title: "Dune".into(),
         alternate_titles: Vec::new(),
         year: Some(2021),
-        poster_path: None,
+        artwork: Artwork::default(),
         releases: Releases { cinema: from_today(cinema), digital: from_today(digital), physical: from_today(physical) },
     };
     Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
@@ -68,7 +68,7 @@ fn refresh_updates_metadata_and_keeps_identity() {
             original_title: "Dune".into(),
             alternate_titles: Vec::new(),
             year: Some(2021),
-            poster_path: Some("/poster.jpg".into()),
+            artwork: Artwork { poster: Some("/poster.jpg".into()), ..Artwork::default() },
             releases: Releases { cinema: Some(TODAY), ..Releases::default() },
         },
         later,

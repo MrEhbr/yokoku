@@ -33,10 +33,14 @@ pub struct TvdbSettings {
 pub struct UnknownLanguage(String);
 
 impl MetadataSettings {
+    /// `language` as the two-letter code TMDB images carry, e.g. `en` for `en-US`.
+    pub fn image_language(&self) -> &str {
+        self.language.split('-').next().unwrap_or_default()
+    }
+
     /// `language` as the three-letter code TVDB takes, e.g. `eng` for `en-US`.
     pub fn tvdb_language(&self) -> Result<&'static str, UnknownLanguage> {
-        let code = self.language.split('-').next().unwrap_or_default();
-        isolang::Language::from_639_1(code)
+        isolang::Language::from_639_1(self.image_language())
             .map(|language| language.to_639_3())
             .ok_or_else(|| UnknownLanguage(self.language.clone()))
     }

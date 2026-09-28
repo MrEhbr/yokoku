@@ -4,13 +4,18 @@ use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 use tracing::debug;
-use yokoku_domain::{EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
+use yokoku_domain::{
+    Artwork, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
+};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 use crate::{
     MetadataSettings,
     http::{self, Http},
-    tvdb_wire::{self, Envelope, EpisodePage, Login, SearchItem, SeriesDetails, Token},
+    tvdb_wire::{
+        self, Envelope, EpisodePage, Login, SERIES_BACKGROUND, SERIES_CLEAR_LOGO, SearchItem, SeriesArtworks,
+        SeriesDetails, Token,
+    },
 };
 
 /// 500 episodes a page.
@@ -142,6 +147,7 @@ impl MetadataProvider for TvdbClient {
             .get(&format!("series/{id}/extended"), &[("meta", "translations"), ("short", "true")], Some(source))
             .await?
             .data;
+        let artworks: SeriesArtworks = self.get(&format!("series/{id}/artworks"), &[], Some(source)).await?.data;
 
         let mut seasons: BTreeMap<u16, Vec<EpisodeMetadata>> = BTreeMap::new();
         for episode in self.episodes(id, source, language).await? {
@@ -175,7 +181,11 @@ impl MetadataProvider for TvdbClient {
             title,
             original_title: details.name,
             alternate_titles,
-            poster_path: details.image,
+            artwork: Artwork {
+                poster: details.image,
+                backdrop: artworks.best(SERIES_BACKGROUND, [None, Some(language)]),
+                logo: artworks.best(SERIES_CLEAR_LOGO, [Some(language), None]),
+            },
             seasons,
         })
     }

@@ -6,7 +6,7 @@ use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use yokoku_db::Database;
 use yokoku_domain::{
-    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, Live, MediaFileId,
+    Artwork, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, Live, MediaFileId,
     MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::Publisher;
@@ -96,7 +96,7 @@ fn series_metadata(number: usize) -> SeriesMetadata {
         original_title: format!("Series {number:04}"),
         alternate_titles: Vec::new(),
         year: Some(2020),
-        poster_path: None,
+        artwork: Artwork::default(),
         status: SourceStatus::Returning,
         seasons: (1..=SEASONS)
             .map(|season| SeasonMetadata {
@@ -121,7 +121,7 @@ fn movie_metadata(number: usize) -> MovieMetadata {
         original_title: format!("Movie {number:04}"),
         alternate_titles: Vec::new(),
         year: Some(2020),
-        poster_path: None,
+        artwork: Artwork::default(),
         releases: Releases::default(),
     }
 }

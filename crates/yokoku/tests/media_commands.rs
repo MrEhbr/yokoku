@@ -11,8 +11,8 @@ use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Confidence, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, MonitorPreset,
-    SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
+    Artwork, Confidence, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder,
+    MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
 };
 use yokoku_library::ports::SeriesRepo;
 use yokoku_media::{
@@ -47,7 +47,7 @@ impl Setup {
             original_title: "Sousou no Frieren".into(),
             alternate_titles: Vec::new(),
             year: Some(2023),
-            poster_path: None,
+            artwork: Artwork::default(),
             status: SourceStatus::Returning,
             seasons: vec![SeasonMetadata { number: 1, episodes: vec![episode(1), episode(2)] }],
         };

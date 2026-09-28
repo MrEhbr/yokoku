@@ -5,10 +5,10 @@ use std::{
     path::PathBuf,
 };
 
-use dioxus::server::axum::{self, Extension, Router};
+use dioxus::server::axum::{self, Extension, Router, routing::get};
 use tokio::net::TcpListener;
 
-use crate::AppState;
+use crate::{AppState, api::artwork};
 
 /// The web UI, bound and ready to serve pages, assets and server functions.
 pub struct Server {
@@ -30,7 +30,8 @@ impl Server {
                 ),
             ));
         }
-        let router = dioxus::server::router(crate::App).layer(Extension(state));
+        let router =
+            dioxus::server::router(crate::App).route(artwork::ROUTE, get(artwork::image)).layer(Extension(state));
         let address = if dioxus::cli_config::is_cli_enabled() {
             dioxus::cli_config::fullstack_address_or_localhost()
         } else {

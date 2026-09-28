@@ -14,8 +14,8 @@ use jiff::{
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Clock, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ItemFolder, Live, MonitorPreset, Movie,
-    MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Clock, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ItemFolder, Live, MonitorPreset,
+    Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog, Publisher};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
@@ -174,7 +174,7 @@ pub fn frieren_metadata() -> SeriesMetadata {
         original_title: "Sousou no Frieren".into(),
         alternate_titles: Vec::new(),
         year: Some(2023),
-        poster_path: None,
+        artwork: Artwork::default(),
         status: SourceStatus::Returning,
         seasons: vec![season(1), season(2)],
     }
@@ -187,7 +187,7 @@ fn dune_metadata() -> MovieMetadata {
         original_title: "Dune".into(),
         alternate_titles: Vec::new(),
         year: Some(2021),
-        poster_path: None,
+        artwork: Artwork::default(),
         releases: Releases::default(),
     }
 }

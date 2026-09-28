@@ -6,8 +6,8 @@ use predicates::prelude::*;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series,
-    SeriesMetadata, SourceStatus,
+    Artwork, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata,
+    Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog, SeriesRemoved};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
@@ -63,7 +63,7 @@ async fn seeded_library() -> Library {
         original_title: "Sousou no Frieren".into(),
         alternate_titles: Vec::new(),
         year: Some(2023),
-        poster_path: None,
+        artwork: Artwork::default(),
         status: SourceStatus::Returning,
         seasons: vec![SeasonMetadata {
             number: 1,
@@ -76,7 +76,7 @@ async fn seeded_library() -> Library {
         original_title: "Dune".into(),
         alternate_titles: Vec::new(),
         year: Some(2021),
-        poster_path: None,
+        artwork: Artwork::default(),
         releases: Releases { digital: Some(today() - 30.days()), ..Releases::default() },
     };
 

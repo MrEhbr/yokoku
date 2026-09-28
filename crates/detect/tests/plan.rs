@@ -7,8 +7,8 @@ use jiff::{
 use rstest::rstest;
 use yokoku_detect::{Conflict, ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{
-    Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MediaFileId, MonitorPreset, Movie,
-    MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MediaFileId, MonitorPreset,
+    Movie, MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -30,7 +30,7 @@ fn series(spec: SeriesSpec<'_>) -> Series {
         original_title: spec.original_title.into(),
         alternate_titles: Vec::new(),
         year: Some(spec.year),
-        poster_path: None,
+        artwork: Artwork::default(),
         status: SourceStatus::Returning,
         seasons: spec
             .seasons
@@ -62,7 +62,7 @@ fn movie(source: u64, title: &str, original_title: &str, year: i16) -> Movie {
         original_title: original_title.into(),
         alternate_titles: Vec::new(),
         year: Some(year),
-        poster_path: None,
+        artwork: Artwork::default(),
         releases: Releases::default(),
     };
     Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)

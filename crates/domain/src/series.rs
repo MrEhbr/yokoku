@@ -4,7 +4,7 @@ use jiff::{SignedDuration, Timestamp, ToSpan, civil::Date};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    EpisodeId, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId, SeriesId,
+    Artwork, EpisodeId, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId, SeriesId,
     events::RenumberedFile,
 };
 
@@ -86,7 +86,7 @@ pub struct SeriesMetadata {
     /// Other names the item is known by, such as romanisations.
     pub alternate_titles: Vec<String>,
     pub year: Option<i16>,
-    pub poster_path: Option<String>,
+    pub artwork: Artwork,
     pub status: SourceStatus,
     pub seasons: Vec<SeasonMetadata>,
 }
@@ -115,7 +115,7 @@ pub struct Series {
     /// Other names the item is known by, such as romanisations.
     pub alternate_titles: Vec<String>,
     pub year: Option<i16>,
-    pub poster_path: Option<String>,
+    pub artwork: Artwork,
     pub source_status: SourceStatus,
     pub numbering: Numbering,
     /// Set when the series is added; never changes.
@@ -186,7 +186,7 @@ impl Series {
             original_title: metadata.original_title,
             alternate_titles: metadata.alternate_titles,
             year: metadata.year,
-            poster_path: metadata.poster_path,
+            artwork: metadata.artwork,
             source_status: metadata.status,
             numbering: Numbering::default(),
             folder,
@@ -242,7 +242,7 @@ impl Series {
         self.original_title = metadata.original_title;
         self.alternate_titles = metadata.alternate_titles;
         self.year = metadata.year;
-        self.poster_path = metadata.poster_path;
+        self.artwork = metadata.artwork;
         self.source_status = metadata.status;
         self.refreshed_at = now;
         self.sort();

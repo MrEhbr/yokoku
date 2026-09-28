@@ -2,8 +2,8 @@ use jiff::{Timestamp, civil::date};
 use proptest::prelude::*;
 use yokoku_detect::{ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{
-    Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset, Movie, MovieMetadata,
-    Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset, Movie,
+    MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_naming::Naming;
 
@@ -21,7 +21,7 @@ fn series(title: String, year: i16, episode_titles: Vec<String>) -> Series {
         original_title: title,
         alternate_titles: Vec::new(),
         year: Some(year),
-        poster_path: None,
+        artwork: Artwork::default(),
         status: SourceStatus::Returning,
         seasons: vec![SeasonMetadata { number: 1, episodes }],
     };
@@ -35,7 +35,7 @@ fn movie(title: String, year: i16) -> Movie {
         original_title: title,
         alternate_titles: Vec::new(),
         year: Some(year),
-        poster_path: None,
+        artwork: Artwork::default(),
         releases: Releases::default(),
     };
     Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)

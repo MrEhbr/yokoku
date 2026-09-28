@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
-use yokoku_domain::{EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata};
+use yokoku_domain::{
+    Artwork, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
+};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 use crate::{
@@ -74,8 +76,9 @@ impl MetadataProvider for TmdbClient {
     async fn series(&self, source: ExternalId) -> Result<SeriesMetadata, MetadataError> {
         let id = tmdb_id(source)?;
         let endpoint = format!("tv/{id}");
-        let details: TvDetails =
-            self.get(&endpoint, &[("append_to_response", "alternative_titles")], Some(source)).await?;
+        let images = images_query(&self.settings.current());
+        let query = [("append_to_response", "alternative_titles,images"), ("include_image_language", images.as_str())];
+        let details: TvDetails = self.get(&endpoint, &query, Some(source)).await?;
         let numbers: Vec<u16> = details.seasons.iter().map(|season| season.season_number).collect();
 
         let mut seasons = Vec::new();
@@ -108,15 +111,23 @@ impl MetadataProvider for TmdbClient {
             status: tmdb_wire::source_status(details.status.as_deref()),
             title: details.name,
             original_title: details.original_name,
-            poster_path: details.poster_path,
+            artwork: Artwork {
+                logo: details.images.logo(self.settings.current().image_language()),
+                poster: details.poster_path,
+                backdrop: details.backdrop_path,
+            },
             seasons,
         })
     }
 
     async fn movie(&self, source: ExternalId) -> Result<MovieMetadata, MetadataError> {
         let id = tmdb_id(source)?;
-        let append = [("append_to_response", "release_dates,alternative_titles")];
-        let details: MovieDetails = self.get(&format!("movie/{id}"), &append, Some(source)).await?;
+        let images = images_query(&self.settings.current());
+        let query = [
+            ("append_to_response", "release_dates,alternative_titles,images"),
+            ("include_image_language", images.as_str()),
+        ];
+        let details: MovieDetails = self.get(&format!("movie/{id}"), &query, Some(source)).await?;
 
         Ok(MovieMetadata {
             source,
@@ -125,9 +136,18 @@ impl MetadataProvider for TmdbClient {
             alternate_titles: details.alternative_titles.into_distinct(&details.title, &details.original_title),
             title: details.title,
             original_title: details.original_title,
-            poster_path: details.poster_path,
+            artwork: Artwork {
+                logo: details.images.logo(self.settings.current().image_language()),
+                poster: details.poster_path,
+                backdrop: details.backdrop_path,
+            },
         })
     }
+}
+
+/// Images in the metadata language and images without text, for `include_image_language`.
+fn images_query(settings: &MetadataSettings) -> String {
+    format!("{},null", settings.image_language())
 }
 
 fn tmdb_id(source: ExternalId) -> Result<u64, MetadataError> {

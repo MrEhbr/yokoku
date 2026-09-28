@@ -32,9 +32,9 @@ async fn tmdb() -> Tmdb {
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture("search_dune.json")))
         .mount(&server)
         .await;
-    respond(&server, "/tv/209867", "alternative_titles", "tv_209867.json").await;
+    respond(&server, "/tv/209867", "alternative_titles,images", "tv_209867.json").await;
     respond(&server, "/tv/209867", "season/0,season/1", "tv_209867_seasons.json").await;
-    respond(&server, "/movie/438631", "release_dates,alternative_titles", "movie_438631.json").await;
+    respond(&server, "/movie/438631", "release_dates,alternative_titles,images", "movie_438631.json").await;
 
     let dir = tempfile::tempdir().unwrap();
     let database = dir.path().join("yokoku.db");
@@ -198,6 +198,10 @@ async fn add_takes_tvdb_series_from_tvdb_once_its_key_is_set() {
         .await;
     Mock::given(path("/series/424536/extended"))
         .respond_with(ok(serde_json::json!({ "name": "Frieren", "year": "2023", "status": { "name": "Continuing" } })))
+        .mount(&tmdb.server)
+        .await;
+    Mock::given(path("/series/424536/artworks"))
+        .respond_with(ok(serde_json::json!({ "artworks": [] })))
         .mount(&tmdb.server)
         .await;
     let episode = serde_json::json!({ "id": 1, "seasonNumber": 1, "number": 1, "name": "The Journey's End", "aired": "2023-09-29" });

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use yokoku_domain::{ExternalId, Live, MediaKind, MovieMetadata, Releases, SeriesMetadata, SourceStatus};
+use yokoku_domain::{Artwork, ExternalId, Live, MediaKind, MovieMetadata, Releases, SeriesMetadata, SourceStatus};
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_metadata::Sources;
 
@@ -25,7 +25,7 @@ impl MetadataProvider for Stub {
             original_title: String::new(),
             alternate_titles: Vec::new(),
             year: None,
-            poster_path: None,
+            artwork: Artwork::default(),
             status: SourceStatus::Unknown,
             seasons: Vec::new(),
         })
@@ -38,7 +38,7 @@ impl MetadataProvider for Stub {
             original_title: String::new(),
             alternate_titles: Vec::new(),
             year: None,
-            poster_path: None,
+            artwork: Artwork::default(),
             releases: Releases::default(),
         })
     }

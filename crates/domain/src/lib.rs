@@ -1,5 +1,6 @@
 //! Shared value types, domain rules and the event contract.
 
+mod artwork;
 mod clock;
 mod confidence;
 mod episode_span;
@@ -19,6 +20,7 @@ mod storage_error;
 mod string_enum;
 mod subtitle;
 
+pub use artwork::{Artwork, ArtworkKind};
 pub use clock::Clock;
 pub use confidence::Confidence;
 pub use episode_span::{EpisodeRef, EpisodeSpan, ParseEpisodeSpanError};

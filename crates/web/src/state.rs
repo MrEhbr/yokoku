@@ -5,12 +5,13 @@ use dioxus::server::axum::{
     extract::{FromRequestParts, rejection::ExtensionRejection},
     http::request::Parts,
 };
-use yokoku_library::Library;
+use yokoku_library::{Artworks, Library};
 
 /// The use cases server functions call, wired by the composition root.
 #[derive(Clone)]
 pub struct AppState {
     pub library: Arc<Library>,
+    pub artworks: Arc<Artworks>,
 }
 
 /// `AppState` holds a `T`.
@@ -21,6 +22,12 @@ pub trait Provides<T: ?Sized> {
 impl Provides<Library> for AppState {
     fn provide(&self) -> Arc<Library> {
         self.library.clone()
+    }
+}
+
+impl Provides<Artworks> for AppState {
+    fn provide(&self) -> Arc<Artworks> {
+        self.artworks.clone()
     }
 }
 

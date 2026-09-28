@@ -12,7 +12,8 @@ use jiff::Timestamp;
 use predicates::prelude::*;
 use yokoku_db::Database;
 use yokoku_domain::{
-    ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases, Series, SeriesMetadata, SourceStatus,
+    Artwork, ExternalId, ItemFolder, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, Series, SeriesId,
+    SeriesMetadata, SourceStatus,
 };
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 
@@ -23,19 +24,26 @@ struct Service {
 }
 
 impl Service {
+    /// Serves the database in `dir` with empty web assets in `dir/public`; its log goes to
+    /// `dir/service.log`.
     fn start(dir: &Path) -> Self {
         let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        std::fs::create_dir_all(dir.join("public")).unwrap();
+        let log = dir.join("service.log");
         let child = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
             .env("APP__DATABASE__PATH", dir.join("yokoku.db"))
-            .env("DIOXUS_PUBLIC_PATH", dir)
+            .env("DIOXUS_PUBLIC_PATH", dir.join("public"))
             .env("APP__WEB__PORT", port.to_string())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(std::fs::File::create(&log).unwrap())
             .spawn()
             .unwrap();
-        let service = Self { child, port };
+        let mut service = Self { child, port };
         let deadline = Instant::now() + Duration::from_secs(30);
         while TcpStream::connect(("127.0.0.1", port)).is_err() {
+            if let Some(status) = service.child.try_wait().unwrap() {
+                panic!("the service exited with {status}:\n{}", std::fs::read_to_string(&log).unwrap());
+            }
             assert!(Instant::now() < deadline, "the service did not start listening");
             sleep(Duration::from_millis(50));
         }
@@ -59,8 +67,9 @@ impl Drop for Service {
     }
 }
 
-/// "Frieren" (tmdb:1), a series, and "Dune" (tmdb:10), a movie.
-async fn seed(path: &Path) {
+/// "Frieren" (tmdb:1), a series without a poster, and "Dune" (tmdb:10), a movie with the poster
+/// `/dune.jpg`.
+async fn seed(path: &Path) -> (SeriesId, MovieId) {
     let db = Database::open(path).await.unwrap();
     let now = Timestamp::now();
     let frieren = SeriesMetadata {
@@ -69,7 +78,7 @@ async fn seed(path: &Path) {
         original_title: "Sousou no Frieren".into(),
         alternate_titles: Vec::new(),
         year: Some(2023),
-        poster_path: None,
+        artwork: Artwork::default(),
         status: SourceStatus::Returning,
         seasons: Vec::new(),
     };
@@ -79,13 +88,15 @@ async fn seed(path: &Path) {
         original_title: "Dune".into(),
         alternate_titles: Vec::new(),
         year: Some(2021),
-        poster_path: None,
+        artwork: Artwork { poster: Some("/dune.jpg".into()), ..Artwork::default() },
         releases: Releases::default(),
     };
     let today = now.to_zoned(jiff::tz::TimeZone::UTC).date();
     let mut series = Series::add(frieren, ItemFolder::default(), MonitorPreset::All, today, now);
     SeriesRepo::save(&db, &mut series).await.unwrap();
-    MovieRepo::save(&db, &mut Movie::add(dune, ItemFolder::default(), true, now)).await.unwrap();
+    let mut movie = Movie::add(dune, ItemFolder::default(), true, now);
+    MovieRepo::save(&db, &mut movie).await.unwrap();
+    (series.id, movie.id)
 }
 
 #[tokio::test]
@@ -110,6 +121,44 @@ async fn the_library_api_filters_by_type() {
 
     assert!(movies.starts_with("HTTP/1.1 200"), "{movies}");
     assert!(movies.contains("Dune") && !movies.contains("Frieren"), "{movies}");
+}
+
+#[tokio::test]
+async fn a_cached_poster_is_served_at_the_url_the_library_lists() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let cached = dir.path().join(format!("artwork/movie/{dune}"));
+    std::fs::create_dir_all(&cached).unwrap();
+    std::fs::write(cached.join("poster-dune.jpg"), "dune poster").unwrap();
+    let service = Service::start(dir.path());
+    let url = format!("/artwork/movie/{dune}/poster/dune.jpg");
+
+    let movies = service.get("/api/library?kind=movie");
+    let poster = service.get(&url);
+
+    assert!(movies.contains(&url), "{movies}");
+    assert!(poster.starts_with("HTTP/1.1 200"), "{poster}");
+    let headers = poster.to_ascii_lowercase();
+    assert!(headers.contains("content-type: image/jpeg") && headers.contains("immutable"), "{poster}");
+    assert!(poster.ends_with("dune poster"), "{poster}");
+}
+
+#[tokio::test]
+async fn missing_artwork_unknown_items_and_unknown_kinds_are_not_found() {
+    let dir = tempfile::tempdir().unwrap();
+    let (frieren, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+
+    for url in [
+        format!("/artwork/series/{frieren}/poster/a.jpg"),
+        format!("/artwork/movie/{dune}/logo/a.png"),
+        format!("/artwork/movie/{frieren}/poster/a.jpg"),
+        format!("/artwork/movie/{dune}/banner/a.jpg"),
+        "/artwork/show/1/poster/a.jpg".into(),
+    ] {
+        let response = service.get(&url);
+        assert!(response.starts_with("HTTP/1.1 404"), "{url}: {response}");
+    }
 }
 
 #[test]

@@ -6,7 +6,8 @@ use crate::{
     format::{date, year},
 };
 
-/// Poster cards; a title placeholder stands in for the artwork.
+/// Poster cards. The poster covers a title placeholder, which shows while the poster loads, when
+/// it fails (its empty `alt` draws nothing), and for items without one.
 #[component]
 pub(super) fn PosterGrid(entries: Vec<Entry>) -> Element {
     rsx! {
@@ -15,9 +16,18 @@ pub(super) fn PosterGrid(entries: Vec<Entry>) -> Element {
                 li { key: "{entry.id:?}", class: "flex flex-col",
                     div {
                         aria_hidden: "true",
-                        class: "flex aspect-[2/3] items-end border border-ink bg-subtle p-3 shadow-paper",
+                        class: "relative flex aspect-[2/3] items-end border border-ink bg-subtle p-3 shadow-paper",
                         span { class: "line-clamp-5 text-section font-medium break-words",
                             "{entry.title}"
+                        }
+                        if let Some(poster) = &entry.poster {
+                            img {
+                                class: "absolute inset-0 size-full object-cover",
+                                src: "{poster}",
+                                alt: "",
+                                loading: "lazy",
+                                decoding: "async",
+                            }
                         }
                     }
                     h2 {

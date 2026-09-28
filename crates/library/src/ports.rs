@@ -2,8 +2,8 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use yokoku_domain::{
-    ExternalId, FileTarget, ItemFolder, MediaFileId, MediaKind, Movie, MovieId, MovieMetadata, Series, SeriesId,
-    SeriesMetadata, StorageError,
+    ArtworkKind, ExternalId, FileTarget, ItemFolder, ItemId, MediaFileId, MediaKind, Movie, MovieId, MovieMetadata,
+    Series, SeriesId, SeriesMetadata, StorageError,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +21,23 @@ pub trait MetadataProvider: Send + Sync {
     async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError>;
     async fn series(&self, source: ExternalId) -> Result<SeriesMetadata, MetadataError>;
     async fn movie(&self, source: ExternalId) -> Result<MovieMetadata, MetadataError>;
+}
+
+/// Artwork images at the metadata sources.
+#[async_trait]
+pub trait ArtworkSource: Send + Sync {
+    /// The image at `path` as the item's source stored it: a TMDB path or a TVDB URL.
+    async fn fetch(&self, source: ExternalId, kind: ArtworkKind, path: &str) -> Result<Vec<u8>, MetadataError>;
+}
+
+/// Artwork images kept on this host, at most one of each kind per item.
+#[async_trait]
+pub trait ArtworkCache: Send + Sync {
+    async fn get(&self, item: ItemId, kind: ArtworkKind, name: &str) -> Result<Option<Vec<u8>>, StorageError>;
+    /// Stores `image` as the item's `kind` image `name`, replacing its other image of that kind.
+    async fn put(&self, item: ItemId, kind: ArtworkKind, name: &str, image: &[u8]) -> Result<(), StorageError>;
+    /// Removes every image of the item.
+    async fn remove(&self, item: ItemId) -> Result<(), StorageError>;
 }
 
 /// The folder name a new item gets in its root folder when the user gives none (FR-5.1).

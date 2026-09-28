@@ -6396,6 +6396,7 @@ dependencies = [
  "yokoku-detect",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-library",
  "yokoku-media",
 ]
 

@@ -1,5 +1,6 @@
 //! Catalog, monitoring, metadata refresh and calendar queries.
 
+mod artwork;
 mod calendar;
 mod error;
 mod files;
@@ -10,6 +11,7 @@ pub mod ports;
 mod retry;
 mod snapshot;
 
+pub use artwork::{Artworks, Image, artwork_name};
 pub use calendar::{
     Calendar, CalendarEntry, CalendarRelease, Missing, MissingEpisode, MissingMovie, MissingSeries, month_of, week_of,
 };

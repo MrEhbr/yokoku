@@ -30,7 +30,7 @@ async fn mount_series(server: &MockServer, id: u64, append: &str) {
     let endpoint = format!("/tv/{id}");
     Mock::given(method("GET"))
         .and(path(&endpoint))
-        .and(query_param("append_to_response", "alternative_titles"))
+        .and(query_param("append_to_response", "alternative_titles,images"))
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture(&format!("tv_{id}.json"))))
         .mount(server)
         .await;
@@ -135,7 +135,7 @@ async fn long_series_load_seasons_twenty_at_a_time() {
     };
     let append = |chunk: &[u16]| chunk.iter().map(|n| format!("season/{n}")).collect::<Vec<_>>().join(",");
     Mock::given(path("/tv/1"))
-        .and(query_param("append_to_response", "alternative_titles"))
+        .and(query_param("append_to_response", "alternative_titles,images"))
         .respond_with(ResponseTemplate::new(200).set_body_json(details.clone()))
         .mount(&server)
         .await;
@@ -165,7 +165,7 @@ async fn movies_take_release_dates_for_the_region(
 ) {
     let server = server().await;
     Mock::given(path("/movie/438631"))
-        .and(query_param("append_to_response", "release_dates,alternative_titles"))
+        .and(query_param("append_to_response", "release_dates,alternative_titles,images"))
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture("movie_438631.json")))
         .mount(&server)
         .await;
@@ -174,6 +174,48 @@ async fn movies_take_release_dates_for_the_region(
 
     assert_eq!((dune.title.as_str(), dune.year), ("Dune", Some(2021)));
     assert_eq!((dune.releases.cinema, dune.releases.digital, dune.releases.physical), (cinema, digital, physical));
+}
+
+#[tokio::test]
+async fn movies_take_the_backdrop_and_the_best_voted_logo_in_the_language() {
+    let server = server().await;
+    let mut movie = fixture("movie_438631.json");
+    let logo = |path: &str, language: Option<&str>, votes: f64| json!({ "file_path": path, "iso_639_1": language, "vote_average": votes });
+    movie["images"] = json!({ "logos": [
+        logo("/de.png", Some("de"), 9.0),
+        logo("/en-worse.png", Some("en"), 5.0),
+        logo("/en.png", Some("en"), 7.5),
+        logo("/textless.png", None, 8.0),
+    ]});
+    Mock::given(path("/movie/438631"))
+        .and(query_param("include_image_language", "en,null"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(movie))
+        .mount(&server)
+        .await;
+
+    let dune = client(&server, "US").movie(ExternalId::Tmdb(438631)).await.unwrap();
+
+    assert_eq!(dune.artwork.poster.as_deref(), Some("/v1tRXZ4JtD2Iv6fjkPvT4GiwslV.jpg"));
+    assert_eq!(dune.artwork.backdrop.as_deref(), Some("/zRKQW58MBEY078AxkHxEJzUskCl.jpg"));
+    assert_eq!(dune.artwork.logo.as_deref(), Some("/en.png"));
+}
+
+#[tokio::test]
+async fn a_logo_without_text_stands_in_for_one_in_the_language() {
+    let server = server().await;
+    let mut movie = fixture("movie_438631.json");
+    movie["images"] = json!({ "logos": [
+        { "file_path": "/de.png", "iso_639_1": "de", "vote_average": 9.0 },
+        { "file_path": "/textless.png", "iso_639_1": null, "vote_average": 1.0 },
+    ]});
+    Mock::given(path("/movie/438631"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(movie))
+        .mount(&server)
+        .await;
+
+    let dune = client(&server, "US").movie(ExternalId::Tmdb(438631)).await.unwrap();
+
+    assert_eq!(dune.artwork.logo.as_deref(), Some("/textless.png"));
 }
 
 #[tokio::test]
@@ -277,7 +319,7 @@ async fn series_keep_other_titles_once() {
 async fn movies_keep_other_titles_once() {
     let server = server().await;
     Mock::given(path("/movie/438631"))
-        .and(query_param("append_to_response", "release_dates,alternative_titles"))
+        .and(query_param("append_to_response", "release_dates,alternative_titles,images"))
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture("movie_438631.json")))
         .mount(&server)
         .await;

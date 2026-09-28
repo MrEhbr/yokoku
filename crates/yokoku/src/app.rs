@@ -12,15 +12,15 @@ use yokoku_download_clients::TransmissionClient;
 use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
 use yokoku_integrations::Rescans;
-use yokoku_library::{Calendar, Library, MetadataService, ports::FolderNames};
+use yokoku_library::{Artworks, Calendar, Library, MetadataService, ports::FolderNames};
 use yokoku_media::{
     Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
     ports::{FileSystem, LibraryLock},
 };
 use yokoku_media_servers::JellyfinClient;
-use yokoku_metadata::{Sources, TmdbClient, TvdbClient};
+use yokoku_metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient};
 use yokoku_naming::Naming;
-use yokoku_system::{FfProbe, FileSpool, LocalFileSystem, LockFile, SystemClock};
+use yokoku_system::{ArtworkFiles, FfProbe, FileSpool, LocalFileSystem, LockFile, SystemClock};
 
 use crate::subscriptions;
 
@@ -28,6 +28,7 @@ use crate::subscriptions;
 pub struct App {
     pub settings: Settings,
     pub library: Arc<Library>,
+    pub artworks: Arc<Artworks>,
     pub calendar: Calendar,
     pub roots: RootFolders,
     pub scanner: Arc<Scanner>,
@@ -89,6 +90,12 @@ impl App {
         ));
         let scanner =
             Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone(), events.clone()));
+        let artworks = Arc::new(Artworks::new(
+            db.clone(),
+            db.clone(),
+            Arc::new(ArtworkFetcher::new()),
+            Arc::new(ArtworkFiles::new(path.with_file_name("artwork"))),
+        ));
 
         Ok(Self {
             library: Arc::new(Library::new(db.clone(), db.clone(), clock.clone(), events.clone())),
@@ -118,6 +125,7 @@ impl App {
                 &prober,
                 &scanner,
                 &rescans,
+                &artworks,
                 &settings,
             ),
             settings,
@@ -125,6 +133,7 @@ impl App {
             prober,
             rescans,
             metadata,
+            artworks,
             db,
         })
     }

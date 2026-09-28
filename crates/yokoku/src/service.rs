@@ -12,7 +12,7 @@ use crate::app::App;
 pub async fn run(app: &App) -> Result<()> {
     let config = app.settings.current();
     let schedules = config.serve.schedules()?;
-    let state = yokoku_web::AppState { library: app.library.clone() };
+    let state = yokoku_web::AppState { library: app.library.clone(), artworks: app.artworks.clone() };
     let web = yokoku_web::Server::bind(config.web.address(), state).await.context("Failed to start the web server")?;
 
     let shutdown = CancellationToken::new();

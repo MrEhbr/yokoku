@@ -45,6 +45,9 @@ pub(crate) struct TvDetails {
     pub original_name: String,
     pub first_air_date: Option<String>,
     pub poster_path: Option<String>,
+    pub backdrop_path: Option<String>,
+    #[serde(default)]
+    pub images: Images,
     pub status: Option<String>,
     pub seasons: Vec<SeasonSummary>,
     #[serde(default)]
@@ -79,6 +82,9 @@ pub(crate) struct MovieDetails {
     pub original_title: String,
     pub release_date: Option<String>,
     pub poster_path: Option<String>,
+    pub backdrop_path: Option<String>,
+    #[serde(default)]
+    pub images: Images,
     pub release_dates: Option<ReleaseDatesByCountry>,
     #[serde(default)]
     pub alternative_titles: AlternativeTitles,
@@ -160,5 +166,35 @@ pub(crate) fn source_status(value: Option<&str>) -> SourceStatus {
         Some("Ended") => SourceStatus::Ended,
         Some("Canceled" | "Cancelled") => SourceStatus::Canceled,
         _ => SourceStatus::Unknown,
+    }
+}
+
+/// Appended `images`, in the languages the request names.
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct Images {
+    #[serde(default)]
+    pub logos: Vec<Image>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct Image {
+    pub file_path: String,
+    /// Two-letter language code; `None` for images without text.
+    pub iso_639_1: Option<String>,
+    #[serde(default)]
+    pub vote_average: f64,
+}
+
+impl Images {
+    /// The best-voted logo in `language` (two letters), else the best-voted one without a language.
+    pub(crate) fn logo(&self, language: &str) -> Option<String> {
+        let best = |in_language: &dyn Fn(Option<&str>) -> bool| {
+            self.logos
+                .iter()
+                .filter(|logo| in_language(logo.iso_639_1.as_deref()))
+                .max_by(|a, b| a.vote_average.total_cmp(&b.vote_average))
+                .map(|logo| logo.file_path.clone())
+        };
+        best(&|code| code == Some(language)).or_else(|| best(&|code| code.is_none()))
     }
 }

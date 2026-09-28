@@ -63,6 +63,22 @@ async fn mount_frieren(server: &MockServer) {
         })))
         .mount(server)
         .await;
+    let artwork = |file: &str, kind: u32, language: Option<&str>, score: u32| {
+        let image = format!("https://artworks.thetvdb.com/banners/v4/series/424536/{file}");
+        json!({ "image": image, "type": kind, "language": language, "score": score })
+    };
+    Mock::given(path("/series/424536/artworks"))
+        .respond_with(ok(json!({ "id": 424536, "artworks": [
+            artwork("posters/2.jpg", 2, Some("eng"), 900),
+            artwork("backgrounds/eng.jpg", 3, Some("eng"), 800),
+            artwork("backgrounds/textless-worse.jpg", 3, None, 100),
+            artwork("backgrounds/textless.jpg", 3, None, 200),
+            artwork("clearlogo/jpn.png", 23, Some("jpn"), 900),
+            artwork("clearlogo/eng.png", 23, Some("eng"), 300),
+            artwork("clearlogo/textless.png", 23, None, 500),
+        ]})))
+        .mount(server)
+        .await;
     let page = |episodes: Vec<Value>, next: Option<&str>| {
         ResponseTemplate::new(200).set_body_json(json!({
             "status": "success",
@@ -146,6 +162,20 @@ async fn series_gather_every_episode_page_into_seasons() {
         (8_000_001, 1, "The Journey's End", Some(date(2023, 9, 29)))
     );
     assert_eq!(frieren.seasons[1].episodes.len(), 2);
+}
+
+#[tokio::test]
+async fn series_take_a_textless_background_and_a_logo_in_the_language() {
+    let server = MockServer::start().await;
+    mount_login(&server, TOKEN).await;
+    mount_frieren(&server).await;
+
+    let artwork = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap().artwork;
+
+    let url = |file: &str| format!("https://artworks.thetvdb.com/banners/v4/series/424536/{file}");
+    assert_eq!(artwork.poster, Some(url("posters/1.jpg")));
+    assert_eq!(artwork.backdrop, Some(url("backgrounds/textless.jpg")));
+    assert_eq!(artwork.logo, Some(url("clearlogo/eng.png")));
 }
 
 #[tokio::test]
