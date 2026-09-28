@@ -50,7 +50,9 @@ build.rs                stages lucide icons, renders Tailwind
 
 ## Interactivity
 
-Full page loads between pages, partial updates inside one. No SPA. The working reference is `gallery/patterns.rs` (Patterns → Interactivity in the gallery).
+Full page loads between pages, partial updates inside one. No SPA. The working references are `gallery/patterns.rs` (Patterns → Interactivity) and `gallery/review.rs` (Patterns → Import review) in the gallery.
+
+A screen with many interdependent controls (import review, bulk edits) keeps its state on the server: each edit is a procedure, then the one shard re-renders everything derived from it (names, conflicts, counts, whether Import is enabled). An edit costs one round trip, about 25 ms on a LAN. `$()` then only wires events.
 
 | Interaction | Mechanism |
 |---|---|
@@ -77,14 +79,17 @@ Full page loads between pages, partial updates inside one. No SPA. The working r
 - One shard per list or section, rows keyed with `#[key(item.id)]`, never a shard per row.
 - The runtime doesn't intercept links or forms, never changes the URL, and has no debounce. Keep URL state in links and GET forms, and trigger searches on `@change` or Enter, not `@input`. A submit handler can't read the form's fields (the event target exposes only `value`, `checked`, `name`, `id`, `text_content`). A redirect from a shard or rerun becomes a full navigation.
 - `signal(cx, || v)` + `$(...)` for client-only state (dialogs, toggles). The `$()` vocabulary is small: no iterators, no `Vec::contains`/`push`, no paths such as `String::new()` (write `"".to_owned()`).
+- Handler closures need the event type even when unused: `@click=$(async |_e: Event| …)`.
+- A `$()` that reads no signal renders once and never binds. `:indeterminate`, `:checked`, `:value`, and `:selected` set DOM properties, but only when the expression reads a signal; read the shard's `version` in it (`$({ let _rendered = version.get(); partial })`).
+- `view!` loop bodies render concurrently, so they can't mutate captured state (`map.remove(…)`); look values up read-only.
 - `$()` captures are sent to the browser; never capture secrets. Unsuffixed integers are `usize`, and overflow panics.
 - No built-in browser storage. `raw!("js ${binding}", rust_fallback)` reaches JS such as `localStorage` from an event handler, but the server can't read it at render time, so the first paint uses the server value. Prefer, in order: cookies read on the server (theme), query params (view mode, sort, filters), then `localStorage` for client-only memory.
 - `#[shard]`: server re-render on argument change (filters, search, an import-review row). A tracked `.get()` in a page body re-renders the whole page; keep tracked reads inside shards.
 - `#[procedure]`: typed RPC from an event handler. Return `Ok(Result<T, String>)` when the page must handle the failure. `T` must be a vocabulary type; `()` isn't, so return the new value or a `bool`.
 - Shard and procedure paths change between builds unless set explicitly. Their args are user input; authorize and validate inside.
-- Live job progress: `live!` + `connected(cx)`, looping on a broadcast/watch receiver from app context. The body restarts on reconnect, so start jobs in a POST or procedure, never in the live body.
+- Live job progress: `live!` + `connected(cx)`, looping on a receiver from app context. Prefer a `watch` channel: the body restarts on reconnect (including after a server restart, with no page reload) and `borrow_and_update()` shows the current value at once. Start jobs in a POST or procedure, never in the live body.
 - Don't use the htmx/datastar/alpine integrations. The runtime hydrates only content it renders itself (no `MutationObserver`, no public API), so runtime markup swapped in by another library stays inert, and runtime re-renders skip that library's attributes.
-- Large lists: plain markup rows, paginate through a shard, no per-row signals or `live!`. Select-all can't iterate N row signals in `$()`; keep selection server-side or count-based.
+- Large lists: plain markup rows, paginate through a shard, no per-row signals or `live!`. Select-all can't iterate N row signals in `$()`; keep selection server-side (as `gallery/review.rs` does) or count-based.
 
 ## Assets, build, run
 
