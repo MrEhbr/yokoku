@@ -25,7 +25,7 @@ pub struct Args {
     #[command(subcommand)]
     pub command: Option<Command>,
 
-    #[arg(long, short = 'c', value_name = "FILE", global = true)]
+    #[arg(long, short = 'c', value_name = "FILE", global = true, default_value = "config/app.toml")]
     pub config: Option<PathBuf>,
 
     #[command(flatten)]

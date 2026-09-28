@@ -94,6 +94,5 @@ dist/
 .claude/
 .serena/
 
-# Local database and library lock from running the service
-/yokoku.db*
-/yokoku.lock
+# Local database, library lock and spool from running the service
+/data/

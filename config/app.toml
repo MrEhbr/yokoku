@@ -3,7 +3,7 @@ format = "console"
 output = "stderr"
 
 [database]
-path = "yokoku.db"
+path = "data/yokoku.db"
 
 [web]
 host = "127.0.0.1"

@@ -18,8 +18,11 @@ pub struct Database {
 }
 
 impl Database {
-    /// Opens or creates the database file and applies pending migrations.
+    /// Opens or creates the database file and its folder, and applies pending migrations.
     pub async fn open(path: &Path) -> Result<Self, DbError> {
+        if let Some(folder) = path.parent() {
+            std::fs::create_dir_all(folder)?;
+        }
         let options =
             SqliteConnectOptions::new().filename(path).create_if_missing(true).journal_mode(SqliteJournalMode::Wal);
         Self::connect(options, SqlitePoolOptions::new()).await
