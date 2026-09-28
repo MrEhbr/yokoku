@@ -4,6 +4,7 @@
 pub(crate) mod components;
 pub(crate) mod frames;
 pub(crate) mod patterns;
+pub(crate) mod review;
 pub(crate) mod ui;
 
 use topcoat::{
@@ -47,7 +48,13 @@ const NAV: &[Group] = &[
             ("Status", |cx| href!(components::status_story).resolve(cx)),
         ],
     ),
-    ("Patterns", &[("Interactivity", |cx| href!(patterns::interactivity_story).resolve(cx))]),
+    (
+        "Patterns",
+        &[
+            ("Interactivity", |cx| href!(patterns::interactivity_story).resolve(cx)),
+            ("Import review", |cx| href!(review::import_review_story).resolve(cx)),
+        ],
+    ),
     (
         "Primitives",
         &[
@@ -91,6 +98,7 @@ async fn main() {
     let router: Router = Router::builder()
         .discover()
         .app_context(patterns::Demo::new())
+        .app_context(review::Review::new())
         .assets(AssetBundle::load().unwrap())
         .cookies()
         .runtime()

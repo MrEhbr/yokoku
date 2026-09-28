@@ -1,7 +1,11 @@
-//! Interaction patterns against in-memory demo state: partial updates, validated forms, bulk forms.
+//! Interaction patterns against in-memory demo state: partial updates, validated forms, bulk forms, live progress.
 
-use std::sync::Mutex;
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
+use tokio::sync::watch;
 use topcoat::{
     Result,
     context::{Cx, app_context, try_request_context},
@@ -11,10 +15,13 @@ use topcoat::{
         error::{SeeOther, bad_request, rewrite, see_other},
         href, page, route,
     },
-    runtime::{Event, procedure, shard, signal},
-    view::{View, attributes, view},
+    runtime::{Event, connected, procedure, shard, signal},
+    view::{View, attributes, emit, live, view},
 };
-use yokoku_web::components::ui::{alert::*, button::*, checkbox::*, field::*, input::*, label::*};
+use yokoku_web::components::{
+    job_progress::*,
+    ui::{alert::*, button::*, checkbox::*, field::*, input::*, label::*},
+};
 
 use crate::{story, story_page};
 
@@ -22,6 +29,8 @@ use crate::{story, story_page};
 pub(crate) struct Demo {
     episodes: Mutex<Vec<Episode>>,
     address: Mutex<String>,
+    /// The running job's percentage; `None` while idle.
+    progress: Arc<watch::Sender<Option<u32>>>,
 }
 
 #[derive(Clone)]
@@ -38,7 +47,22 @@ impl Demo {
             .zip(1..)
             .map(|(title, id)| Episode { id, title, monitored: id % 2 == 1 })
             .collect();
-        Self { episodes: Mutex::new(episodes), address: Mutex::new("localhost:9091".to_owned()) }
+        Self {
+            episodes: Mutex::new(episodes),
+            address: Mutex::new("localhost:9091".to_owned()),
+            progress: Arc::new(watch::channel(None).0),
+        }
+    }
+
+    /// Publishes progress from 0 to 100 over a few seconds.
+    fn run_job(&self) {
+        let progress = Arc::clone(&self.progress);
+        tokio::spawn(async move {
+            for percent in (0..=100).step_by(5) {
+                progress.send_replace(Some(percent));
+                tokio::time::sleep(Duration::from_millis(150)).await;
+            }
+        });
     }
 
     fn episodes(&self) -> Vec<Episode> {
@@ -91,6 +115,7 @@ pub(crate) async fn interactivity_story(cx: &Cx) -> Result<impl View> {
             path: "…",
             summary: "Full page loads between pages; partial updates inside one. Every example here changes server state.",
             story(title: "Procedure, then shard re-render", episode_toggles())
+            story(title: "Live progress over the page's connection", live_progress())
             story(
                 title: "POST form, 422 re-render on invalid input",
                 <form method="post" class="flex flex-col gap-3">
@@ -197,6 +222,51 @@ async fn set_monitored(cx: &Cx, episode: u64, monitored: bool) -> Result<Result<
         .set_monitored(episode, monitored)
         .then_some(monitored)
         .ok_or_else(|| format!("Episode {episode} no longer exists.")))
+}
+
+#[procedure]
+async fn start_job(cx: &Cx) -> Result<bool> {
+    app_context::<Demo>(cx).run_job();
+    Ok(true)
+}
+
+/// The job's progress, pushed over the connection this shard opens.
+#[shard]
+async fn live_progress(cx: &Cx) -> Result<impl View> {
+    Ok(view! {
+        <div class="flex flex-col gap-3">
+            (live! {
+                let mut updates = app_context::<Demo>(cx).progress.subscribe();
+                loop {
+                    let percent = *updates.borrow_and_update();
+                    let detail = percent.map_or_else(
+                        || "Idle".to_owned(),
+                        |percent| format!("{percent}%"),
+                    );
+                    let token = emit! {
+                        job_progress(
+                            title: "Import · Orbital Season 1",
+                            detail: detail.as_str(),
+                            value: percent.map(|percent| percent as f32)
+                        )
+                    }?;
+                    if !connected(cx) || updates.changed().await.is_err() {
+                        break Ok(token);
+                    }
+                }
+            })
+            <div>
+                button(
+                    attrs: attributes! {
+                        @click=$(async |_e: Event| {
+                            let _started = start_job().await;
+                        })
+                    },
+                    "Start import"
+                )
+            </div>
+        </div>
+    })
 }
 
 /// Episode rows whose toggles save through [`set_monitored`], then re-render this shard.
