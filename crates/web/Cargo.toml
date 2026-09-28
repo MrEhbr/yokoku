@@ -1,8 +1,16 @@
 [package]
 name = "yokoku-web"
-version = "0.0.1"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
 publish = false
+
+[package.metadata.cargo-shear]
+ignored = ["uuid"]
+
+[lints]
+workspace = true
 
 [lib]
 path = "src/lib.rs"
@@ -12,28 +20,25 @@ name = "gallery"
 path = "gallery/main.rs"
 
 [dependencies]
+yokoku-domain.workspace = true
+yokoku-naming.workspace = true
+
+jiff.workspace = true
+serde.workspace = true
+
 dioxus = { version = "=0.7.10", features = ["fullstack", "router"] }
 dioxus-icons = { version = "0.1.0", default-features = false }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", rev = "9a758255ea26e2b20c8cecf4c1c946feb9e71da7", default-features = false }
-futures = "0.3"
-jiff = "0.2"
-serde = { version = "1", features = ["derive"] }
-tokio = { version = "1", features = ["sync", "time"], optional = true }
-yokoku-domain = { path = "../domain" }
-yokoku-naming = { path = "../naming" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["sync", "time"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { workspace = true, features = ["js"] }
+
 gloo-timers = { version = "0.3", features = ["futures"] }
-uuid = { version = "1.26", features = ["js"] }
 
 [features]
 default = []
 web = ["dioxus/web"]
-server = ["dioxus/server", "dep:tokio"]
-
-[profile.release]
-opt-level = "z"
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = true
+server = ["dioxus/server"]
