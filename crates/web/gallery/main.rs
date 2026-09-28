@@ -3,6 +3,7 @@
 
 pub(crate) mod components;
 pub(crate) mod frames;
+pub(crate) mod patterns;
 pub(crate) mod ui;
 
 use topcoat::{
@@ -18,6 +19,7 @@ use topcoat::{
         request::uri,
         route,
     },
+    runtime::RouterBuilderRuntimeExt,
     view::{Child, View, class, component, view},
 };
 use yokoku_web::{
@@ -45,6 +47,7 @@ const NAV: &[Group] = &[
             ("Status", |cx| href!(components::status_story).resolve(cx)),
         ],
     ),
+    ("Patterns", &[("Interactivity", |cx| href!(patterns::interactivity_story).resolve(cx))]),
     (
         "Primitives",
         &[
@@ -85,7 +88,13 @@ const NAV: &[Group] = &[
 
 #[tokio::main]
 async fn main() {
-    let router: Router = Router::builder().discover().assets(AssetBundle::load().unwrap()).cookies().build();
+    let router: Router = Router::builder()
+        .discover()
+        .app_context(patterns::Demo::new())
+        .assets(AssetBundle::load().unwrap())
+        .cookies()
+        .runtime()
+        .build();
     topcoat::start(router).await.unwrap();
 }
 
@@ -108,6 +117,7 @@ async fn chrome(cx: &Cx, child: Child<'_>) -> Result<impl View> {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>"Yokoku components"</title>
                 topcoat::dev::script()
+                topcoat::runtime::script()
                 document_head()
             </head>
             <body class="md:flex">
