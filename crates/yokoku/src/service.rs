@@ -8,10 +8,13 @@ use yokoku_jobs::Jobs;
 
 use crate::app::App;
 
-/// Delivers events and runs scheduled jobs until SIGINT or SIGTERM.
+/// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App) -> Result<()> {
     let config = app.settings.current();
     let schedules = config.serve.schedules()?;
+    let web = yokoku_web::Server::bind(yokoku_web::AppState { version: env!("CARGO_PKG_VERSION") })
+        .await
+        .context("Failed to start the web server")?;
 
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);
@@ -25,6 +28,7 @@ pub async fn run(app: &App) -> Result<()> {
         },
         schedules,
     );
+    let web = tokio::spawn(web.serve(shutdown.clone().cancelled_owned()));
     info!("running");
     let result = monitor.run_with_signal(stop_signal()).await;
 
@@ -32,6 +36,7 @@ pub async fn run(app: &App) -> Result<()> {
     for delivery in deliveries {
         delivery.await.context("Event delivery failed")?;
     }
+    web.await.context("Web server failed")?.context("Web server failed")?;
     info!("stopped");
     result.context("Jobs failed")
 }

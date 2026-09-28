@@ -29,6 +29,7 @@ yokoku-media-servers.workspace = true
 yokoku-metadata.workspace = true
 yokoku-naming.workspace = true
 yokoku-system.workspace = true
+yokoku-web = { workspace = true, features = ["server"] }
 
 anyhow.workspace = true
 jiff.workspace = true

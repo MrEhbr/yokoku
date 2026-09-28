@@ -5,6 +5,10 @@ rev := `sed -n 's/.*dioxus-primitives = .*rev = "\([0-9a-f]*\)".*/\1/p' Cargo.to
 help:
     @just --list
 
+# Serve the app at http://127.0.0.1:8080: this crate in the browser, the yokoku service as its server
+serve:
+    @dx serve --port 8080 --open false @client --package yokoku-web --features web @server --package yokoku
+
 # Serve the component gallery at http://127.0.0.1:8080, rebuilding on changes
 gallery:
     @dx serve --bin gallery --platform web --fullstack --port 8080 --open false
@@ -16,8 +20,8 @@ fmt:
 
 # Lint the browser (wasm) and server builds
 lint:
-    cargo clippy --bin gallery --features web --target wasm32-unknown-unknown -- -D warnings
-    cargo clippy --bin gallery --features server -- -D warnings
+    cargo clippy --bins --features web --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy --bins --features server -- -D warnings
 
 # Vendor Dioxus Components into src/components/<name>.rs, e.g. `just web add tabs toggle`; restyle each to Paper afterwards
 add +components:

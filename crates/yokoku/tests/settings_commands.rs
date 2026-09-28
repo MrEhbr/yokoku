@@ -171,7 +171,15 @@ impl Setup {
 async fn a_running_service_reloads_a_setting_changed_from_the_command_line() {
     let setup = setup();
     setup.stdout(&["settings", "list"]);
-    let mut serve = setup.command().stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap();
+    let assets = tempfile::tempdir().unwrap();
+    let mut serve = setup
+        .command()
+        .env("DIOXUS_PUBLIC_PATH", assets.path())
+        .env("PORT", "0")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
 
     let started = setup.set_and_await_reload("copy").await;
     let reloaded = setup.set_and_await_reload("move").await;
