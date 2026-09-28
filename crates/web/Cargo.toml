@@ -15,10 +15,10 @@ workspace = true
 [dependencies]
 serde.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
-topcoat = { workspace = true, features = ["default", "font-fontsource", "icon-iconify", "tailwind"] }
+topcoat = { version = "0.9", default-features = false, features = ["default", "font-fontsource", "icon-iconify", "tailwind"] }
 
 [build-dependencies]
-topcoat = { workspace = true, features = ["icon-iconify", "tailwind"] }
+topcoat = { version = "0.9", default-features = false, features = ["icon-iconify", "tailwind"] }
 
 [dev-dependencies]
 rstest.workspace = true

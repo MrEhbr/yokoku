@@ -15,10 +15,10 @@ yokoku-integrations.workspace = true
 yokoku-library.workspace = true
 yokoku-media.workspace = true
 
-apalis.workspace = true
-apalis-cron.workspace = true
+apalis = "1.0.0-rc.10"
+apalis-cron = { version = "1.0.0-rc.9", default-features = false, features = ["jiff"] }
 jiff.workspace = true
-jiff-cron.workspace = true
+jiff-cron = "0.3"
 serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
