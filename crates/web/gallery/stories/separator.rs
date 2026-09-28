@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::separator::Separator;
+use yokoku_web::components::separator::Separator;
 
 use crate::{Story, StoryPage};
 
@@ -8,7 +8,7 @@ pub fn SeparatorStory() -> Element {
     rsx! {
         StoryPage {
             name: "Separator",
-            path: "ui::separator",
+            path: "separator",
             summary: "A thin rule between groups of content.",
             Story { title: "Horizontal", Separator {} }
             Story { title: "Vertical",

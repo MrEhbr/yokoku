@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use dioxus::prelude::*;
-use yokoku_web::components::ui::{
+use yokoku_web::components::{
     button::{Button, ButtonVariant},
     progress::Progress,
 };

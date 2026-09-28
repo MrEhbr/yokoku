@@ -47,7 +47,7 @@ The web UI is being rebuilt on Dioxus in `crates/web`, outside the workspace:
 just web gallery        # Browse the UI components at http://127.0.0.1:8080
 just web fmt            # Format Rust and rsx!
 just web lint           # Clippy for the browser and server builds
-just web add <name>...  # Vendor a Dioxus component into src/components/ui/, then restyle it
+just web add <name>...  # Vendor a Dioxus component into src/components/, then restyle it
 ```
 
 

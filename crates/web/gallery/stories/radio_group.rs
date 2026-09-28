@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::radio_group::{RadioGroup, RadioItem};
+use yokoku_web::components::radio_group::{RadioGroup, RadioItem};
 
 use crate::{Story, StoryPage};
 
@@ -9,7 +9,7 @@ pub fn RadioGroupStory() -> Element {
     rsx! {
         StoryPage {
             name: "Radio group",
-            path: "ui::radio_group",
+            path: "radio_group",
             summary: "One choice from a short list of options, such as an import mode.",
             Story { title: "Import mode",
                 div { class: "flex flex-col gap-3",

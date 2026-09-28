@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::Copy;
-use yokoku_web::components::ui::{
+use yokoku_web::components::{
     button::{Button, ButtonSize},
     tooltip::{Tooltip, TooltipContent, TooltipTrigger},
 };
@@ -12,7 +12,7 @@ pub fn TooltipStory() -> Element {
     rsx! {
         StoryPage {
             name: "Tooltip",
-            path: "ui::tooltip",
+            path: "tooltip",
             summary: "A short hint shown on hover or focus. The trigger needs its own accessible label too.",
             Story { title: "Icon button (hover it)",
                 div { class: "pt-10",

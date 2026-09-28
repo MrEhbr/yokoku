@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::{
+use yokoku_web::components::{
     button::Button,
     checkbox::{Checkbox, CheckboxState},
     label::Label,
@@ -15,7 +15,7 @@ pub fn SheetStory() -> Element {
     rsx! {
         StoryPage {
             name: "Sheet",
-            path: "ui::sheet",
+            path: "sheet",
             summary: "A panel that slides in from an edge of the viewport, for filters and side content.",
             Story { title: "Filters from the right",
                 Button { onclick: move |_| open_right.set(true), "Filters…" }

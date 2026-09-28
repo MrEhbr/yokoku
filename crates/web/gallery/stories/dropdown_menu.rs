@@ -1,8 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::ChevronDown;
-use yokoku_web::components::ui::dropdown_menu::{
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-};
+use yokoku_web::components::dropdown_menu::{DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger};
 
 use crate::{Story, StoryPage};
 
@@ -11,7 +9,7 @@ pub fn DropdownMenuStory() -> Element {
     rsx! {
         StoryPage {
             name: "Dropdown menu",
-            path: "ui::dropdown_menu",
+            path: "dropdown_menu",
             summary: "A menu of actions opened from a trigger. Items apply only to the current selection.",
             Story { title: "Bulk actions",
                 div { class: "h-48",

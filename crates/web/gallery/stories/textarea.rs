@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::{
+use yokoku_web::components::{
     field::{Field, FieldError},
     label::Label,
     textarea::Textarea,
@@ -12,7 +12,7 @@ pub fn TextareaStory() -> Element {
     rsx! {
         StoryPage {
             name: "Textarea",
-            path: "ui::textarea",
+            path: "textarea",
             summary: "A multi-line text field that grows with its content up to its container.",
             Story { title: "Placeholder",
                 div { class: "max-w-md",

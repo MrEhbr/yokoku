@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::breadcrumb::{
+use yokoku_web::components::breadcrumb::{
     Breadcrumb, BreadcrumbEllipsis, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 };
 
@@ -10,7 +10,7 @@ pub fn BreadcrumbStory() -> Element {
     rsx! {
         StoryPage {
             name: "Breadcrumb",
-            path: "ui::breadcrumb",
+            path: "breadcrumb",
             summary: "The path from a top-level page to the current one.",
             Story { title: "With ellipsis",
                 Breadcrumb {

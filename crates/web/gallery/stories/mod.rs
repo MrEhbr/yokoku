@@ -24,20 +24,18 @@ mod tooltip;
 
 use dioxus::prelude::*;
 use yokoku_web::components::{
+    badge::{Badge, BadgeVariant},
+    button::{Button, ButtonSize, ButtonVariant},
+    checkbox::{Checkbox, CheckboxState},
+    dialog::{Dialog, DialogDescription, DialogFooter, DialogTitle},
+    field::{Field, FieldError, FieldHint},
+    input::Input,
+    label::Label,
+    progress::Progress,
+    select::{Select, SelectGroup, SelectGroupLabel, SelectOption},
     status::{Status, Tone},
-    ui::{
-        badge::{Badge, BadgeVariant},
-        button::{Button, ButtonSize, ButtonVariant},
-        checkbox::{Checkbox, CheckboxState},
-        dialog::{Dialog, DialogDescription, DialogFooter, DialogTitle},
-        field::{Field, FieldError, FieldHint},
-        input::Input,
-        label::Label,
-        progress::Progress,
-        select::{Select, SelectGroup, SelectGroupLabel, SelectOption},
-        table::{
-            SortDirection, Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableSortHead,
-        },
+    table::{
+        SortDirection, Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableSortHead,
     },
 };
 
@@ -53,7 +51,7 @@ pub fn BadgeStory() -> Element {
     rsx! {
         StoryPage {
             name: "Badge",
-            path: "ui::badge",
+            path: "badge",
             summary: "Small labels for counts and states. Words carry the meaning; color only supports it.",
             Story { title: "Variants",
                 div { class: "flex flex-wrap gap-2",
@@ -74,7 +72,7 @@ pub fn ButtonStory() -> Element {
     rsx! {
         StoryPage {
             name: "Button",
-            path: "ui::button",
+            path: "button",
             summary: "One pink primary action per local context, named with its count. Destructive actions are never pink.",
             Story { title: "Variants",
                 div { class: "flex flex-wrap gap-2",
@@ -112,7 +110,7 @@ pub fn CheckboxStory() -> Element {
     rsx! {
         StoryPage {
             name: "Checkbox",
-            path: "ui::checkbox",
+            path: "checkbox",
             summary: "Row and header selection. A header shows the mixed state while some rows are selected.",
             Story { title: "States",
                 div { class: "flex flex-col gap-3",
@@ -166,7 +164,7 @@ pub fn DialogStory() -> Element {
     rsx! {
         StoryPage {
             name: "Dialog",
-            path: "ui::dialog",
+            path: "dialog",
             summary: "Modal operations with one footer. Escape and a click outside close it; closing a preview discards it.",
             Story { title: "Rename preview",
                 Button { onclick: move |_| open.set(true), "Rename 2 files…" }
@@ -206,7 +204,7 @@ pub fn FieldStory() -> Element {
     rsx! {
         StoryPage {
             name: "Field",
-            path: "ui::field",
+            path: "field",
             summary: "A label, one control, and a hint or an error that says how to fix the value.",
             Story { title: "Hint",
                 Field {
@@ -250,7 +248,7 @@ pub fn ProgressStory() -> Element {
     rsx! {
         StoryPage {
             name: "Progress",
-            path: "ui::progress",
+            path: "progress",
             summary: "Known progress shows a value. Unknown progress is indeterminate, never 0%.",
             Story { title: "Known",
                 Progress { value: Some(40.0), aria_label: "Import progress" }
@@ -269,7 +267,7 @@ pub fn SelectStory() -> Element {
     rsx! {
         StoryPage {
             name: "Select",
-            path: "ui::select",
+            path: "select",
             summary: "A single choice over typed values, with a placeholder until one is picked.",
             Story { title: "Episode",
                 div { class: "flex max-w-sm flex-col gap-2",
@@ -352,7 +350,7 @@ pub fn TableStory() -> Element {
     rsx! {
         StoryPage {
             name: "Table",
-            path: "ui::table",
+            path: "table",
             summary: "Dense rows with quiet rules. Select rows with checkboxes; sort buttons announce their direction.",
             Story { title: "Episodes",
                 Table {

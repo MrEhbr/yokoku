@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::skeleton::Skeleton;
+use yokoku_web::components::skeleton::Skeleton;
 
 use crate::{Story, StoryPage};
 
@@ -8,7 +8,7 @@ pub fn SkeletonStory() -> Element {
     rsx! {
         StoryPage {
             name: "Skeleton",
-            path: "ui::skeleton",
+            path: "skeleton",
             summary: "A placeholder with the shape of content that is loading.",
             Story { title: "Media card",
                 div { class: "flex items-center gap-3",

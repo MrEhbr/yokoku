@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::tabs::{TabContent, TabList, TabTrigger, Tabs};
+use yokoku_web::components::tabs::{TabContent, TabList, TabTrigger, Tabs};
 
 use crate::{Story, StoryPage};
 
@@ -8,7 +8,7 @@ pub fn TabsStory() -> Element {
     rsx! {
         StoryPage {
             name: "Tabs",
-            path: "ui::tabs",
+            path: "tabs",
             summary: "Panels reached by keyboard-navigable buttons, underlined when selected.",
             Story { title: "Views",
                 Tabs { default_value: "list".to_string(), horizontal: true,

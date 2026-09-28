@@ -5,7 +5,7 @@ mod patterns;
 mod stories;
 
 use dioxus::prelude::*;
-use yokoku_web::components::{document_head::DocumentHead, theme_switch::ThemeSwitch};
+use yokoku_web::{components::theme_switch::ThemeSwitch, layout::document_head::DocumentHead};
 
 use crate::{
     patterns::{import::ManualImport, live::LiveProgress},

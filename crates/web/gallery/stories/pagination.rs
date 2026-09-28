@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::pagination::{
+use yokoku_web::components::pagination::{
     Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext,
     PaginationPrevious,
 };
@@ -11,7 +11,7 @@ pub fn PaginationStory() -> Element {
     rsx! {
         StoryPage {
             name: "Pagination",
-            path: "ui::pagination",
+            path: "pagination",
             summary: "Page links for a list too long to show on one screen.",
             Story { title: "Middle page",
                 Pagination {

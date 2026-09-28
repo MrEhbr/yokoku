@@ -16,14 +16,12 @@ use yokoku_domain::{
 };
 use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_web::components::{
+    button::{Button, ButtonSize, ButtonVariant},
+    checkbox::{Checkbox, CheckboxState},
+    dialog::{Dialog, DialogTitle},
+    select::{Select, SelectOption},
     status::{Status, Tone},
-    ui::{
-        button::{Button, ButtonSize, ButtonVariant},
-        checkbox::{Checkbox, CheckboxState},
-        dialog::{Dialog, DialogTitle},
-        select::{Select, SelectOption},
-        table::{SortDirection, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead},
-    },
+    table::{SortDirection, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead},
 };
 
 use crate::patterns::backend::{FileRow, Match, SeriesInfo, import_files, library, pending_files, reset_demo};

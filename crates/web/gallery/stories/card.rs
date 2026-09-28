@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::{
+use yokoku_web::components::{
     button::{Button, ButtonSize, ButtonVariant},
     card::{Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle},
 };
@@ -11,7 +11,7 @@ pub fn CardStory() -> Element {
     rsx! {
         StoryPage {
             name: "Card",
-            path: "ui::card",
+            path: "card",
             summary: "A bordered panel with header, content, and footer.",
             Story { title: "Connection",
                 div { class: "max-w-sm",

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::{Moon, Sun};
 
-use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 
 /// Toggles light and dark. Until the first toggle the theme follows the system; the choice is per browser.
 #[component]

@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::{label::Label, switch::Switch};
+use yokoku_web::components::{label::Label, switch::Switch};
 
 use crate::{Story, StoryPage};
 
@@ -8,7 +8,7 @@ pub fn SwitchStory() -> Element {
     rsx! {
         StoryPage {
             name: "Switch",
-            path: "ui::switch",
+            path: "switch",
             summary: "An on/off setting that applies immediately, without a separate save action.",
             Story { title: "States",
                 div { class: "flex flex-col gap-3",

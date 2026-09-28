@@ -190,7 +190,7 @@ Library: poster or compact list, type/status filters, title/date-added/next-rele
 
 The kit uses Tailwind CSS 4.3.3, pinned in `package.json` and `package-lock.json`. The official Tailwind compiler is a development dependency.
 
-The app uses Dioxus 0.7 (fullstack). Interactive primitives come from [Dioxus Components](https://github.com/DioxusLabs/components): `dx components add <name> --module-path src/components/ui --rev <commit>` copies a component into the app as a folder. Its `component.rs` moves to `src/components/ui/<name>.rs`, the folder and CSS module are deleted, and the component is restyled to Paper with Tailwind classes. Behavior and accessibility come from `dioxus-primitives`. Primitives without an upstream component (table, field, alert, …) are written in the same style.
+The app uses Dioxus 0.7 (fullstack). Interactive primitives come from [Dioxus Components](https://github.com/DioxusLabs/components): `dx components add <name> --module-path src/components --rev <commit>` copies a component into the app as a folder. Its `component.rs` moves to `src/components/<name>.rs`, the folder and CSS module are deleted, and the component is restyled to Paper with Tailwind classes. Behavior and accessibility come from `dioxus-primitives`. Primitives without an upstream component (table, field, alert, …) are written in the same style.
 
 Open `index.html` directly for the precompiled offline reference. To rebuild:
 

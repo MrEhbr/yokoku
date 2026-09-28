@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::{
+use yokoku_web::components::{
     button::{Button, ButtonVariant},
     spinner::Spinner,
 };
@@ -11,7 +11,7 @@ pub fn SpinnerStory() -> Element {
     rsx! {
         StoryPage {
             name: "Spinner",
-            path: "ui::spinner",
+            path: "spinner",
             summary: "An indeterminate loading indicator with an accessible label, for work with no known progress.",
             Story { title: "Inline",
                 div { class: "flex items-center gap-2 text-muted",

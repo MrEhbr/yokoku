@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::{Calendar, Download, Library, Settings};
-use yokoku_web::components::ui::sidebar::{
+use yokoku_web::components::sidebar::{
     Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset,
     SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger,
 };
@@ -12,7 +12,7 @@ pub fn SidebarStory() -> Element {
     rsx! {
         StoryPage {
             name: "Sidebar",
-            path: "ui::sidebar",
+            path: "sidebar",
             summary: "A desktop navigation panel that becomes a sliding sheet below md; bounded to the canvas here.",
             Story { title: "Navigation",
                 SidebarProvider { class: "!h-[28rem] !min-h-0 transform-gpu overflow-hidden border border-line",

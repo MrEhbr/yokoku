@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::{
+use yokoku_web::components::{
     alert_dialog::{
         AlertDialog, AlertDialogAction, AlertDialogActions, AlertDialogCancel, AlertDialogDescription, AlertDialogTitle,
     },
@@ -14,7 +14,7 @@ pub fn AlertDialogStory() -> Element {
     rsx! {
         StoryPage {
             name: "Alert dialog",
-            path: "ui::alert_dialog",
+            path: "alert_dialog",
             summary: "A dialog that interrupts to confirm a consequential action.",
             Story { title: "Confirm replacement",
                 Button { onclick: move |_| open.set(true), "Replace file…" }

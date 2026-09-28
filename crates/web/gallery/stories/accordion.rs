@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::accordion::{Accordion, AccordionContent, AccordionItem, AccordionTrigger};
+use yokoku_web::components::accordion::{Accordion, AccordionContent, AccordionItem, AccordionTrigger};
 
 use crate::{Story, StoryPage};
 
@@ -8,7 +8,7 @@ pub fn AccordionStory() -> Element {
     rsx! {
         StoryPage {
             name: "Accordion",
-            path: "ui::accordion",
+            path: "accordion",
             summary: "Disclosure sections. Set `collapsible: false` to keep one item open at all times.",
             Story { title: "Exclusive items",
                 Accordion {

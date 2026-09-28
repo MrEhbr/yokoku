@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::toggle::Toggle;
+use yokoku_web::components::toggle::Toggle;
 
 use crate::{Story, StoryPage};
 
@@ -9,7 +9,7 @@ pub fn ToggleStory() -> Element {
     rsx! {
         StoryPage {
             name: "Toggle",
-            path: "ui::toggle",
+            path: "toggle",
             summary: "A button that stays pressed when selected. Give it an `aria_label` if its children are icon-only.",
             Story { title: "Independent",
                 div { class: "flex items-center gap-1",

@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::hover_card::{HoverCard, HoverCardContent, HoverCardTrigger};
+use yokoku_web::components::hover_card::{HoverCard, HoverCardContent, HoverCardTrigger};
 
 use crate::{Story, StoryPage};
 
@@ -8,7 +8,7 @@ pub fn HoverCardStory() -> Element {
     rsx! {
         StoryPage {
             name: "Hover card",
-            path: "ui::hover_card",
+            path: "hover_card",
             summary: "Supplementary details shown while hovering or focusing a trigger. Keep essentials elsewhere for touch.",
             Story { title: "Series preview (hover or focus the title)",
                 div { class: "h-32",

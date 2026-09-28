@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::{Calendar, CircleAlert, Info, TriangleAlert};
-use yokoku_web::components::ui::alert::{Alert, AlertDescription, AlertTitle, AlertVariant};
+use yokoku_web::components::alert::{Alert, AlertDescription, AlertTitle, AlertVariant};
 
 use crate::{Story, StoryPage};
 
@@ -9,7 +9,7 @@ pub fn AlertStory() -> Element {
     rsx! {
         StoryPage {
             name: "Alert",
-            path: "ui::alert",
+            path: "alert",
             summary: "A notice within the page: a rule and a soft fill in the status color.",
             Story { title: "Neutral",
                 Alert {

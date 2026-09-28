@@ -19,18 +19,18 @@ lint:
     cargo clippy --bin gallery --features web --target wasm32-unknown-unknown -- -D warnings
     cargo clippy --bin gallery --features server -- -D warnings
 
-# Vendor Dioxus Components into src/components/ui/<name>.rs, e.g. `just web add tabs toggle`; restyle each to Paper afterwards
+# Vendor Dioxus Components into src/components/<name>.rs, e.g. `just web add tabs toggle`; restyle each to Paper afterwards
 add +components:
     #!/usr/bin/env bash
     set -euo pipefail
     # A fresh HOME skips ~/.gitconfig, whose https-to-ssh rewrite breaks the registry download.
     cargo_home="${CARGO_HOME:-$HOME/.cargo}"
     HOME="$(mktemp -d)" CARGO_HOME="$cargo_home" dx components add {{ components }} \
-        --module-path src/components/ui --rev {{ rev }}
+        --module-path src/components --rev {{ rev }}
     # dx rewrites the dependency without its rev; pin it back.
     sed -i 's|^dioxus-primitives = .*|dioxus-primitives = { git = "https://github.com/DioxusLabs/components", rev = "{{ rev }}", default-features = false }|' Cargo.toml
     rm -f assets/dx-components-theme.css
-    cd src/components/ui
+    cd src/components
     for dir in */; do
         name="${dir%/}"
         [ -f "$name/component.rs" ] || continue
@@ -40,7 +40,6 @@ add +components:
         fi
         mv "$name/component.rs" "$name.rs"
         rm "$name/mod.rs"
-        sed -i "s|/src/components/$name/style.css|/src/components/ui/$name/style.css|" "$name.rs"
         echo "Added $name.rs; its CSS module is in $name/style.css until the restyle"
     done
     sort -u -o mod.rs mod.rs

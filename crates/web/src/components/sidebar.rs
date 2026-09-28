@@ -2,7 +2,7 @@ use dioxus::{core::use_drop, prelude::*};
 use dioxus_icons::lucide::PanelLeft;
 use dioxus_primitives::{dioxus_attributes::attributes, merge_attributes, use_controlled};
 
-use crate::components::ui::{
+use crate::components::{
     button::{Button, ButtonSize, ButtonVariant},
     separator::Separator,
     sheet::{Sheet, SheetContentClose, SheetDescription, SheetHeader, SheetSide, SheetTitle},

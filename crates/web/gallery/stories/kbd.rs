@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_web::components::ui::kbd::{Kbd, KbdGroup};
+use yokoku_web::components::kbd::{Kbd, KbdGroup};
 
 use crate::{Story, StoryPage};
 
@@ -8,7 +8,7 @@ pub fn KbdStory() -> Element {
     rsx! {
         StoryPage {
             name: "Kbd",
-            path: "ui::kbd",
+            path: "kbd",
             summary: "A keyboard key or shortcut.",
             Story { title: "Shortcut",
                 KbdGroup {
