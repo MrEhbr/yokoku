@@ -21,7 +21,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 |---|---|---|
 | Language | Rust, edition 2024 | |
 | Async runtime | `tokio` | |
-| Web / UI | Dioxus 0.7 (fullstack) | Pre-1.0. Pages render on the server and hydrate in the browser (WASM); server functions call use cases. Components are Dioxus Components restyled to Paper (`docs/design-system`). Kept in one adapter crate, `web`, outside the workspace and not yet served by the binary. |
+| Web / UI | Dioxus 0.7 (fullstack) | Pre-1.0. Pages render on the server and hydrate in the browser (WASM); server functions call use cases. Components are Dioxus Components restyled to Paper (`docs/design-system`). Kept in one adapter crate, `web`, which the service serves (§9, Runtime). |
 | Database | SQLite through `sqlx` (0.9) | Version set by `apalis-sqlite`. WAL mode, `foreign_keys=ON`, `busy_timeout`. |
 | Migrations | `sqlx::migrate!` | One ordered set, owned by `db`. |
 | Background jobs, cron | `apalis`, `apalis-sqlite`, `apalis-cron` | Jobs share the app's SQLite database. `apalis-workflow` is not used (see §10). |
@@ -63,7 +63,7 @@ crates/
   media-servers/     yokoku-media-servers     MediaServer impls (Jellyfin)
   jobs/              yokoku-jobs              apalis workers and cron; queue port impls
   system/            yokoku-system            FileSystem, LibraryLock, Clock, MediaProbe (ffprobe), EventSpool
-  web/               yokoku-web               Web UI on Dioxus: components, component gallery (outside the workspace)
+  web/               yokoku-web               Web UI on Dioxus: pages, server functions, components, component gallery
 
   config/            yokoku-config            Configuration: composes every crate's settings section, layers and validates them
 
@@ -104,8 +104,8 @@ When a module needs another module's data, it declares its own narrow **read por
 ### 3.1 Where things live
 
 A feature's code spans crates by design (§3): its use case in a feature module, its storage in
-`db`, its outside services in an adapter crate, its wiring in `yokoku`. Three naming rules make each
-hop predictable:
+`db`, its outside services in an adapter crate, its wiring in `yokoku`, its screens in `web`. Four
+naming rules make each hop predictable:
 
 - **Feature modules:** one file per use case, named after it: `media/src/scan.rs` holds `Scanner`,
   `library/src/calendar.rs` holds `Calendar`. Event handlers sit next to the use case they call.
@@ -117,6 +117,25 @@ hop predictable:
   the product: `download-clients/src/transmission.rs`, `media-servers/src/jellyfin.rs`,
   `metadata/src/tmdb.rs` and `tvdb.rs`. Response shapes live in `<product>_wire.rs`.
   `system` holds only local-host adapters: filesystem, library lock, clock, ffprobe, event spool.
+- **`web`:** one folder per role a file plays in the UI:
+
+  ```
+  web/src/
+    route.rs      Route enum and App; the only file that names every page
+    layout/       the shell around every page: Shell, DocumentHead
+    pages/        one file per route: series/index.rs, series/detail.rs, calendar.rs
+    dialogs/      modal flows opened from several pages: import_review.rs, rename.rs
+    api/          server functions, one file per feature module: library.rs, media.rs
+    components/   Paper components (vendored with `just web add`) and Yokoku widgets, flat
+    server.rs     AppState and Server; server build only
+    main.rs       browser entry
+  ```
+
+  Only pages and dialogs call `api`, loading with `use_server_future`. Components take props and
+  send events, so the gallery shows each one with fixed data. A server function turns wire types
+  into one use-case call and back; its wire types sit in its file. Server data lives in the page
+  that loads it, with no global store; selection and sort order stay local. A file becomes a
+  folder when it grows, and there are no empty `hooks/` or `utils/` folders.
 
 Tests mirror sources: `crates/<crate>/tests/<module>.rs` tests `crates/<crate>/src/<module>.rs`.
 CLI commands are `yokoku/src/cli/commands/<verb>.rs` for `yokoku <verb>`; their tests are grouped
@@ -266,9 +285,9 @@ Owns library files, root folders, naming settings and imports.
 
 ### 5.5 Settings
 
-Each crate owns the settings its code reads, as a serde type next to that code: `MetadataSettings` in `metadata`, `TransmissionSettings` in `download-clients`, `DownloadOptions` (`[downloads]`) in `downloads`, `ImportSettings` in `media`, `Naming` (parsed from `[naming]`, so a bad pattern fails when the configuration loads) in `naming`, `JellyfinSettings` in `media-servers`, `ClockSettings` and `ProbeSettings` (`[files]`) in `system`, `ScheduleSettings` (`[serve]`) in `jobs`. `yokoku-config` composes them into `Config`, next to the sections only the binary reads (`database`, `log`, `web`, and the CLI defaults `add`, `list`, `calendar`). Stored settings are reached through the `SettingsStore` port in `domain`, which `db` implements, so `config` does not depend on `db`.
+Each crate owns the settings its code reads, as a serde type next to that code: `MetadataSettings` in `metadata`, `TransmissionSettings` in `download-clients`, `DownloadOptions` (`[downloads]`) in `downloads`, `ImportSettings` in `media`, `Naming` (parsed from `[naming]`, so a bad pattern fails when the configuration loads) in `naming`, `JellyfinSettings` in `media-servers`, `ClockSettings` and `ProbeSettings` (`[files]`) in `system`, `ScheduleSettings` (`[serve]`) in `jobs`. `yokoku-config` composes them into `Config`, next to the sections only the binary reads (`database`, `log`, and the CLI defaults `add`, `list`, `calendar`). Stored settings are reached through the `SettingsStore` port in `domain`, which `db` implements, so `config` does not depend on `db`.
 
-No use case or adapter keeps a copy of its settings. Each takes a `Live<T>` (`domain`), which `Settings::live` projects from the configuration in effect and which it reads each time it is used: `Importer` reads the naming patterns and import mode per file, the TMDB, TVDB, Transmission and Jellyfin clients read their URL and credentials per request (TVDB logs in again once the API key or PIN changes), `SystemClock` reads the time zone. A missing TMDB token, TVDB API key or Jellyfin URL is checked when a call needs it, so every service and job is wired even while it is not configured: a rescan stays pending until Jellyfin is set up. `database`, `log`, `serve` and `web` are read once at start.
+No use case or adapter keeps a copy of its settings. Each takes a `Live<T>` (`domain`), which `Settings::live` projects from the configuration in effect and which it reads each time it is used: `Importer` reads the naming patterns and import mode per file, the TMDB, TVDB, Transmission and Jellyfin clients read their URL and credentials per request (TVDB logs in again once the API key or PIN changes), `SystemClock` reads the time zone. A missing TMDB token, TVDB API key or Jellyfin URL is checked when a call needs it, so every service and job is wired even while it is not configured: a rescan stays pending until Jellyfin is set up. `database`, `log` and `serve` are read once at start.
 
 Settings are layered, later over earlier: defaults, the TOML file, values stored in the database (FR-10.3), then `APP__*` environment variables. Stored values live in `settings (key, value)` by dotted key (`import.mode`) as JSON; `yokoku settings set|unset|list|get` edits them, and the settings screen will too. `set` loads the whole configuration with the new value and validates it (types, naming patterns, schedules, time zone) before storing, so a stored value cannot stop the app. `set` and `unset` publish `SettingsChanged { key }` (without the value, which may be a secret); the `config.settings` subscription reloads `Settings` in every process that delivers events, so a running `serve` applies a change made from the CLI within a delivery poll (5 s), except the settings read once at start. A reload that fails keeps the settings in effect. A stored value that no longer loads fails every command except `settings`, which can unset it.
 
@@ -396,7 +415,8 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 ### Runtime
 
 One binary; the service is the application, and the CLI is a second interface to it.
-- `yokoku` without a command runs the service: the event subscribers and the apalis `Monitor`. It serves no web interface until the Dioxus app is wired in. Each subscriber gets its own `Delivery` loop. A signal stops the monitor first; then the deliveries are cancelled and awaited.
+- `yokoku` without a command runs the service: the web UI, the event subscribers and the apalis `Monitor`. The web server binds first, on `IP`/`PORT` (default `127.0.0.1:8080`), and the service stops at startup when the address is taken or the web assets are missing (`public/` next to the binary, or `DIOXUS_PUBLIC_PATH`). Server functions reach the use cases through `yokoku_web::AppState`, which `yokoku` builds. Each subscriber gets its own `Delivery` loop. A signal stops the monitor first; then the deliveries and the web server are cancelled and awaited.
+- `just web serve` runs the whole app in development: `dx` builds `yokoku-web` for the browser and runs the `yokoku` service as its server (`dx serve @client --package yokoku-web @server --package yokoku`), and it provides the web assets.
 - Subcommands are the command-line interface for setup and operations: `settings`, `root`, `scan`, `refresh`, `files`, `jellyfin`. They call the same use cases against the same database, so they need no running service. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits.
 - The feature commands (`search`, `add`, `list`, `show`, `monitor`, `numbering`, `remove`, `calendar`, `missing`, `review`, `rename`, `download`, `import`, `history`, `delete`) predate the web interface. Each is removed in the change that ships its page, together with its CLI tests.
 - `delete` and `remove --delete-files` list the files and ask on stdin before deleting (FR-8.5); no answer counts as no, and `--yes` skips the question.

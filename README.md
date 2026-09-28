@@ -41,9 +41,10 @@ just fmt        # Format code
 just run [ARGS] # Run a CLI command
 ```
 
-The web UI is being rebuilt on Dioxus in `crates/web`, outside the workspace:
+The web UI is built on Dioxus in `crates/web` and served by the service:
 
 ```bash
+just web serve          # Run the app (browser build + service) at http://127.0.0.1:8080
 just web gallery        # Browse the UI components at http://127.0.0.1:8080
 just web fmt            # Format Rust and rsx!
 just web lint           # Clippy for the browser and server builds
@@ -69,7 +70,7 @@ crates/
   yokoku/             # Binary: composition root, service and CLI
     src/
       app.rs          # Wires the adapters into use cases
-      service.rs      # The service: events, scheduled jobs
+      service.rs      # The service: web UI, events, scheduled jobs
       subscriptions.rs  # Every event subscription
       logging.rs      # tracing setup
       cli/
@@ -78,7 +79,7 @@ crates/
     benches/          # Criterion benchmarks
     tests/            # Integration tests
   config/             # Configuration crate: layered settings
-  web/                # Web UI on Dioxus (components and gallery so far), outside the workspace
+  web/                # Web UI on Dioxus: pages, server functions, components, gallery
   <name>/             # Library crates, see docs/ARCHITECTURE.md §3
 config/               # Configuration files
 docs/                 # Requirements and architecture
