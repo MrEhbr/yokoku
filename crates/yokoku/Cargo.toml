@@ -16,7 +16,6 @@ default = []
 tokio-console = ["dep:console-subscriber"]
 
 [dependencies]
-yokoku-config = { path = "../config" }
 yokoku-db.workspace = true
 yokoku-domain.workspace = true
 yokoku-download-clients.workspace = true
@@ -30,7 +29,6 @@ yokoku-media-servers.workspace = true
 yokoku-metadata.workspace = true
 yokoku-naming.workspace = true
 yokoku-system.workspace = true
-yokoku-web = { path = "../web" }
 
 anyhow.workspace = true
 jiff.workspace = true
@@ -45,6 +43,8 @@ clap-verbosity-flag = { version = "3.0", default-features = false, features = ["
 console-subscriber = { version = "0.5", optional = true }
 owo-colors = { version = "4.4", features = ["supports-colors"] }
 tracing-appender = "0.2"
+yokoku-config = { path = "../config" }
+yokoku-web = { path = "../web" }
 
 [dev-dependencies]
 rstest.workspace = true
