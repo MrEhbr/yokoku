@@ -23,7 +23,7 @@ use yokoku_system::{ClockSettings, ProbeSettings};
 
 pub use crate::{
     log::{LogConfig, LogFormat, LogOutput},
-    sections::{AddConfig, CalendarConfig, DatabaseConfig, ListConfig},
+    sections::{AddConfig, CalendarConfig, DatabaseConfig, ListConfig, WebConfig},
     settings::Settings,
 };
 
@@ -34,6 +34,7 @@ const ENV_PREFIX: &str = "APP";
 pub struct Config {
     pub log: LogConfig,
     pub database: DatabaseConfig,
+    pub web: WebConfig,
     pub clock: ClockSettings,
     pub metadata: MetadataSettings,
     pub transmission: TransmissionSettings,

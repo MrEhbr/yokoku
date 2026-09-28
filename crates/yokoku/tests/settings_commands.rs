@@ -175,7 +175,7 @@ async fn a_running_service_reloads_a_setting_changed_from_the_command_line() {
     let mut serve = setup
         .command()
         .env("DIOXUS_PUBLIC_PATH", assets.path())
-        .env("PORT", "0")
+        .env("APP__WEB__PORT", "0")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()

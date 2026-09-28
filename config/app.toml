@@ -5,6 +5,10 @@ output = "stderr"
 [database]
 path = "yokoku.db"
 
+[web]
+host = "127.0.0.1"
+port = 8080
+
 [clock]
 # timezone = "Europe/Berlin"
 

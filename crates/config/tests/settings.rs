@@ -73,3 +73,15 @@ async fn a_reload_that_fails_keeps_the_settings_in_effect() {
     assert!(format!("{error:#}").contains("Invalid schedule"), "{error:#}");
     assert_eq!(settings.current().import.mode, ImportMode::Copy);
 }
+
+#[tokio::test]
+async fn the_web_address_defaults_to_localhost_and_takes_stored_values() {
+    let store = Arc::new(MemoryStore::default());
+    let default = open(&store).await.current().web.address();
+    store.set_setting("web.host", &json!("0.0.0.0")).await.unwrap();
+    store.set_setting("web.port", &json!(9000)).await.unwrap();
+
+    let stored = open(&store).await.current().web.address();
+
+    assert_eq!((default.to_string(), stored.to_string()), ("127.0.0.1:8080".into(), "0.0.0.0:9000".into()));
+}

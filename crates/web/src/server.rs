@@ -1,6 +1,7 @@
 use std::{
     future::Future,
     io::{self, ErrorKind},
+    net::SocketAddr,
     path::PathBuf,
 };
 
@@ -20,8 +21,9 @@ pub struct Server {
 }
 
 impl Server {
-    /// Binds `IP`/`PORT` (default 127.0.0.1:8080). Fails when the web assets or the address are unavailable.
-    pub async fn bind(state: AppState) -> io::Result<Self> {
+    /// Binds `address`, or the address `dx` assigns when it runs the service. Fails when the web
+    /// assets or the address are unavailable.
+    pub async fn bind(address: SocketAddr, state: AppState) -> io::Result<Self> {
         let assets = public_dir()?;
         if !assets.is_dir() {
             return Err(io::Error::new(
@@ -33,7 +35,12 @@ impl Server {
             ));
         }
         let router = dioxus::server::router(crate::App).layer(Extension(state));
-        let listener = TcpListener::bind(dioxus::cli_config::fullstack_address_or_localhost()).await?;
+        let address = if dioxus::cli_config::is_cli_enabled() {
+            dioxus::cli_config::fullstack_address_or_localhost()
+        } else {
+            address
+        };
+        let listener = TcpListener::bind(address).await?;
         Ok(Self { listener, router })
     }
 

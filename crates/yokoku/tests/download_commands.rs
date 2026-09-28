@@ -199,7 +199,7 @@ async fn the_service_syncs_and_imports_downloads_on_schedule_and_stops_on_sigter
         .env("APP__SERVE__SYNC_DOWNLOADS", "* * * * * *")
         .env("APP__SERVE__EXECUTE_IMPORTS", "* * * * * *")
         .env("DIOXUS_PUBLIC_PATH", assets.path())
-        .env("PORT", "0")
+        .env("APP__WEB__PORT", "0")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
