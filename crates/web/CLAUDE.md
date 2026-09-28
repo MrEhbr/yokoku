@@ -13,7 +13,7 @@ src/app.rs              module_router!() root: #[layout] (document, nav, error b
 src/app/<page>.rs       one module per URL segment; path params via path_param! in their own module
 src/components/         Yokoku components (media_card, rename_row, selection_bar, ...)
 src/components/ui/      topcoat-ui primitives, tracked by components.toml
-gallery/                dev-only bin: one page per component (stories), iframe frames for overlays; own router, not the app
+gallery/                dev-only bin: one page per component (stories), iframe frames for overlays, interaction patterns; own router, not the app
 styles.css              Tailwind input: Paper tokens, @source, base layer
 build.rs                stages lucide icons, renders Tailwind
 ```
@@ -48,23 +48,42 @@ build.rs                stages lucide icons, renders Tailwind
 - Components render concurrently in unspecified order; no side effects in render.
 - `(StatusCode::X)` in node position sets the status. After streaming starts (`suspense`, `live!`), status and cookies can't change.
 
-## Mutations
+## Interactivity
 
-- Forms: a real `<form method="post">` + `#[route(POST "./action")]` taking `Form<T>`, then `Ok(see_other(href!(page).resolve(cx)))` (Post/Redirect/Get). Works without JS.
-- Validation errors: a `#[page(POST …)]` that re-renders with `(StatusCode::UNPROCESSABLE_ENTITY)`, or `rewrite` to the GET page with the errors in request context.
+Full page loads between pages, partial updates inside one. No SPA. The working reference is `gallery/patterns.rs` (Patterns → Interactivity in the gallery).
+
+| Interaction | Mechanism |
+|---|---|
+| Navigation and URL state (filters, sort, view, search) | Links and GET forms, `#[query_params]` |
+| Page-level form (settings, add item, upload, import, apply renames) | POST form to the page's own URL (see Forms) |
+| Repeated in-page action (toggle, row edit, row delete, retry) | `#[procedure]` writes, then a signal bump re-renders the `#[shard]` |
+| Server-pushed progress | `live!` + `connected(cx)` |
+| Client-only state (dialog, sidebar, counts) | Signals |
+
+## Forms
+
+- The GET `#[page]` and its `#[route(POST)]` live in one module, so they share one URL. Success: `Ok(see_other(href!(page).resolve(cx)))`; add `.fragment(id)` to land on the row. Invalid: `Err(rewrite(href!(page).resolve(cx), Body::empty()).method(Method::GET).with(Rejected { .. }).into())`. The page reads `try_request_context::<Rejected>(cx)`, refills the inputs, and emits `(StatusCode::UNPROCESSABLE_ENTITY)`.
+- A `Vec<T>` field in `Form<T>` never parses. Read multi-value forms (checkbox lists, review rows) as `Form<Vec<(String, String)>>`.
+- A checkbox needs `value="true"` and a `#[serde(default)] bool` field; the browser's default `on` fails to parse.
+- A field that fails to parse is a bare 400, not a re-render. User-typed fields are `String`, validated in the handler. A blank input deserializes to `None` for `Option<T>`.
+- Several actions in one form: buttons with `name="action" value=…`, or `formaction`. File uploads need the `multipart` feature.
 - A same-origin policy rejects cross-origin writes (403). There are no CSRF tokens.
 - Mutations use stable IDs (file, episode), never row positions. Validate again on the server.
 
 ## Browser runtime (experimental)
 
-- `signal(cx, || v)` + `$(...)` for client-only state (dialogs, toggles). The `$()` vocabulary is small: no iterators, no `Vec::contains`/`push`.
+- Setup: the router calls `.runtime()` after its own layers, and the document head renders `topcoat::runtime::script()`. The gallery has both; the app gets them with its first interactive page.
+- Partial update: the shard creates `let version = signal(cx, || 0usize);` and reads it tracked (`let _ = version.get();`). The handler awaits the procedure, then calls `version.increment()`, also on failure: the re-render restores a control the browser already toggled to the server's state.
+- One shard per list or section, rows keyed with `#[key(item.id)]`, never a shard per row.
+- The runtime doesn't intercept links or forms, never changes the URL, and has no debounce. Keep URL state in links and GET forms, and trigger searches on `@change` or Enter, not `@input`. A submit handler can't read the form's fields (the event target exposes only `value`, `checked`, `name`, `id`, `text_content`). A redirect from a shard or rerun becomes a full navigation.
+- `signal(cx, || v)` + `$(...)` for client-only state (dialogs, toggles). The `$()` vocabulary is small: no iterators, no `Vec::contains`/`push`, no paths such as `String::new()` (write `"".to_owned()`).
 - `$()` captures are sent to the browser; never capture secrets. Unsuffixed integers are `usize`, and overflow panics.
 - No built-in browser storage. `raw!("js ${binding}", rust_fallback)` reaches JS such as `localStorage` from an event handler, but the server can't read it at render time, so the first paint uses the server value. Prefer, in order: cookies read on the server (theme), query params (view mode, sort, filters), then `localStorage` for client-only memory.
 - `#[shard]`: server re-render on argument change (filters, search, an import-review row). A tracked `.get()` in a page body re-renders the whole page; keep tracked reads inside shards.
-- `#[procedure]`: typed RPC from an event handler. Return `Ok(Result<T, String>)` when the page must handle the failure.
+- `#[procedure]`: typed RPC from an event handler. Return `Ok(Result<T, String>)` when the page must handle the failure. `T` must be a vocabulary type; `()` isn't, so return the new value or a `bool`.
 - Shard and procedure paths change between builds unless set explicitly. Their args are user input; authorize and validate inside.
 - Live job progress: `live!` + `connected(cx)`, looping on a broadcast/watch receiver from app context. The body restarts on reconnect, so start jobs in a POST or procedure, never in the live body.
-- Don't use the htmx/datastar/alpine integrations; one DOM-morphing system only.
+- Don't use the htmx/datastar/alpine integrations. The runtime hydrates only content it renders itself (no `MutationObserver`, no public API), so runtime markup swapped in by another library stays inert, and runtime re-renders skip that library's attributes.
 - Large lists: plain markup rows, paginate through a shard, no per-row signals or `live!`. Select-all can't iterate N row signals in `$()`; keep selection server-side or count-based.
 
 ## Assets, build, run
