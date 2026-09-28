@@ -9,3 +9,4 @@ extend-exclude = ["**/tests/fixtures/**"]
 # example = "example"
 fre = "fre"
 wel = "wel"
+hel = "hel"
