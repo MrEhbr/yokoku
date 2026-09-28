@@ -13,7 +13,6 @@ yokoku-domain.workspace = true
 yokoku-library.workspace = true
 
 async-trait.workspace = true
-governor = { version = "0.10", default-features = false, features = ["std"] }
 isolang.workspace = true
 jiff.workspace = true
 reqwest.workspace = true
@@ -22,6 +21,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "time"] }
 tracing.workspace = true
+
+governor = { version = "0.10", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 rstest.workspace = true

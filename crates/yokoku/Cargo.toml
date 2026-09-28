@@ -33,25 +33,27 @@ yokoku-system.workspace = true
 yokoku-web = { path = "../web" }
 
 anyhow.workspace = true
-clap = { version = "4.5", features = ["derive"] }
-clap-verbosity-flag = { version = "3.0", default-features = false, features = ["tracing"] }
-console-subscriber = { version = "0.5", optional = true }
 jiff.workspace = true
-owo-colors = { version = "4.4", features = ["supports-colors"] }
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "signal"] }
 tokio-util.workspace = true
 tracing.workspace = true
-tracing-appender = "0.2"
 tracing-subscriber.workspace = true
 
+clap = { version = "4.5", features = ["derive"] }
+clap-verbosity-flag = { version = "3.0", default-features = false, features = ["tracing"] }
+console-subscriber = { version = "0.5", optional = true }
+owo-colors = { version = "4.4", features = ["supports-colors"] }
+tracing-appender = "0.2"
+
 [dev-dependencies]
-assert_cmd = "2.1"
-criterion = "0.8"
-predicates = "3.1"
 rstest.workspace = true
 tempfile.workspace = true
 wiremock.workspace = true
+
+assert_cmd = "2.1"
+criterion = "0.8"
+predicates = "3.1"
 
 [[bench]]
 name = "benchmark"
