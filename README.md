@@ -95,8 +95,8 @@ Configuration and logging are resolved once in `route`, so a command only
 receives `&Config` and its own parsed `Args`. `--config` and `--verbosity`
 are global and work on either side of the subcommand.
 
-A command owns its own config section next to its code, the way
-`logging.rs` owns `LogConfig`. Declare optional flags and layer them over
+A command's config section lives in `crates/config`, the way
+`crates/config/src/log.rs` owns `LogConfig`. Declare optional flags and layer them over
 the loaded values in `apply_overrides`:
 
 ```rust
