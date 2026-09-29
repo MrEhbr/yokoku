@@ -267,6 +267,20 @@ async fn an_unmonitored_episode_is_no_longer_missing() {
 }
 
 #[tokio::test]
+async fn refreshing_says_why_it_cannot() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+
+    let untokened = service.post_json("/api/items/refresh", &format!(r#"{{"item":{{"Movie":"{dune}"}}}}"#));
+    let removed =
+        service.post_json("/api/items/refresh", &format!(r#"{{"item":{{"Movie":"{}"}}}}"#, MovieId::generate()));
+
+    assert!(untokened.contains("check the token"), "{untokened}");
+    assert!(removed.contains("no longer in the library"), "{removed}");
+}
+
+#[tokio::test]
 async fn a_cached_poster_is_served_at_the_url_the_library_lists() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
@@ -652,6 +666,8 @@ async fn a_search_result_can_be_added_to_a_root_folder() {
     let added = service.post_json("/api/items", &item);
     let after = service.get("/api/search?query=dune&kind=movie");
     let again = service.post_json("/api/items", &item);
+    let id = added.split_once("\r\n\r\n").map(|(_, body)| body).unwrap_or_default();
+    let refreshed = service.post_json("/api/items/refresh", &format!(r#"{{"item":{id}}}"#));
 
     assert!(
         page.starts_with("HTTP/1.1 200") && page.contains("Dune: Part Two") && page.contains("Paul Atreides"),
@@ -672,6 +688,7 @@ async fn a_search_result_can_be_added_to_a_root_folder() {
     assert_eq!(in_library(&after, "tmdb:841"), "null");
     assert!(service.get("/api/library?kind=movie").contains("Dune"));
     assert!(!again.starts_with("HTTP/1.1 200") && again.contains("It is already in the library"), "{again}");
+    assert!(refreshed.starts_with("HTTP/1.1 200"), "{id}: {refreshed}");
 }
 
 #[tokio::test]

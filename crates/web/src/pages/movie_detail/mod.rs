@@ -14,6 +14,7 @@ use crate::{
         item_hero::ItemHero,
         item_status::{FileState, Lifecycle},
         monitor_toggle::MonitorToggle,
+        refresh_button::RefreshButton,
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
@@ -100,7 +101,7 @@ fn Page(movie: detail::MovieDetail) -> Element {
                 Lifecycle { status: movie.status }
                 FileState { status: movie.file, monitored: movie.monitored }
             }
-            div { class: "flex flex-wrap items-center gap-2",
+            div { class: "flex flex-wrap items-center gap-x-6 gap-y-2",
                 MonitorToggle {
                     target: MonitorTarget::Movie { id },
                     monitored: movie.monitored,
@@ -108,6 +109,7 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     labelled: true,
                     on_change: reload,
                 }
+                RefreshButton { item: ItemId::Movie(id), on_change: reload }
             }
             ItemDescription { description: movie.description.clone() }
             div { class: "mt-2 grid gap-6 lg:grid-cols-2",

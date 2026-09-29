@@ -1,11 +1,11 @@
-//! Changes to a library item from its page: monitoring (FR-2.1).
+//! Changes to a library item from its page: monitoring (FR-2.1) and refresh (FR-1.6).
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
-use yokoku_domain::{MovieId, SeriesId};
+use yokoku_domain::{ItemId, MovieId, SeriesId};
 
 #[cfg(feature = "server")]
-use crate::api::{Dep, Library};
+use crate::api::{Dep, Library, MetadataService};
 
 /// What a monitoring change applies to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,13 +22,27 @@ pub async fn set_monitored(target: MonitorTarget, monitored: bool) -> Result<(),
     server::set_monitored(&library, target, monitored).await
 }
 
+/// Reads the item's metadata from its source again (FR-1.6).
+#[post("/api/items/refresh", metadata: Dep<MetadataService>)]
+pub async fn refresh(item: ItemId) -> Result<(), ServerFnError> {
+    server::refresh(&metadata, item).await
+}
+
 #[cfg(feature = "server")]
 mod server {
     use dioxus::prelude::*;
-    use yokoku_domain::EpisodeRef;
+    use yokoku_domain::{EpisodeRef, ItemId};
 
-    use super::{Library, MonitorTarget};
+    use super::{Library, MetadataService, MonitorTarget};
     use crate::api::library_failure;
+
+    pub(super) async fn refresh(metadata: &MetadataService, item: ItemId) -> Result<(), ServerFnError> {
+        let refreshed = match item {
+            ItemId::Series(id) => metadata.refresh_series(id).await.map(drop),
+            ItemId::Movie(id) => metadata.refresh_movie(id).await.map(drop),
+        };
+        refreshed.map_err(|error| library_failure(error, "refreshing the item"))
+    }
 
     pub(super) async fn set_monitored(
         library: &Library,

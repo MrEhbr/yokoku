@@ -17,6 +17,7 @@ use crate::{
         item_hero::ItemHero,
         item_status::Lifecycle,
         monitor_toggle::MonitorToggle,
+        refresh_button::RefreshButton,
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
@@ -105,7 +106,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     span { class: "text-caption text-muted", "Absolute numbering" }
                 }
             }
-            div { class: "flex flex-wrap items-center gap-2",
+            div { class: "flex flex-wrap items-center gap-x-6 gap-y-2",
                 MonitorToggle {
                     target: MonitorTarget::Series { id },
                     monitored: series.monitored,
@@ -113,6 +114,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     labelled: true,
                     on_change: reload,
                 }
+                RefreshButton { item: ItemId::Series(id), on_change: reload }
             }
             ItemDescription { description: series.description.clone(), per_episode: true }
             div { class: "mt-2 grid gap-3 lg:grid-cols-2",

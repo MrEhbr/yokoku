@@ -24,6 +24,7 @@ pub mod monitor_toggle;
 pub mod pagination;
 pub mod progress;
 pub mod radio_group;
+pub mod refresh_button;
 pub mod select;
 pub mod separator;
 pub mod sheet;
