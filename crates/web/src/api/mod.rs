@@ -27,3 +27,32 @@ pub fn failure(error: &ServerFnError) -> String {
         _ => "The server could not be reached; try again".to_owned(),
     }
 }
+
+/// A library use case's error as a message for the user; unexpected ones go to the log.
+#[cfg(feature = "server")]
+fn library_failure(error: yokoku_library::LibraryError, doing: &str) -> ServerFnError {
+    use dioxus::logger::tracing::error;
+    use yokoku_library::{LibraryError, ports::MetadataError};
+
+    let message = match &error {
+        LibraryError::AlreadyInLibrary(_) => "It is already in the library".to_owned(),
+        LibraryError::FolderTaken(path) => format!("{} already belongs to another item", path.display()),
+        LibraryError::InvalidFolder(_) => "Give a folder name without slashes".to_owned(),
+        LibraryError::SeriesNotFound(_) | LibraryError::MovieNotFound(_) => "It is no longer in the library".to_owned(),
+        LibraryError::SeasonNotFound(_) | LibraryError::EpisodeNotFound(_) => {
+            "The metadata source no longer lists it; reload the page".to_owned()
+        },
+        LibraryError::Metadata(MetadataError::NotFound(_)) => "The metadata source no longer has it".to_owned(),
+        LibraryError::Metadata(MetadataError::Unavailable(_)) => {
+            "The metadata source could not be reached; try again".to_owned()
+        },
+        LibraryError::Metadata(MetadataError::Refused(_)) => {
+            "The metadata source refused the request; check the token".to_owned()
+        },
+        _ => {
+            error!(%error, "{doing} failed");
+            "Something went wrong; the server log has the cause".to_owned()
+        },
+    };
+    ServerFnError::new(message)
+}

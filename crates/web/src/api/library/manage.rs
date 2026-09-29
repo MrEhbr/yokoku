@@ -24,11 +24,11 @@ pub async fn set_monitored(target: MonitorTarget, monitored: bool) -> Result<(),
 
 #[cfg(feature = "server")]
 mod server {
-    use dioxus::{logger::tracing::error, prelude::*};
+    use dioxus::prelude::*;
     use yokoku_domain::EpisodeRef;
-    use yokoku_library::LibraryError;
 
     use super::{Library, MonitorTarget};
+    use crate::api::library_failure;
 
     pub(super) async fn set_monitored(
         library: &Library,
@@ -43,21 +43,6 @@ mod server {
             },
             MonitorTarget::Movie { id } => library.set_movie_monitored(id, monitored).await,
         };
-        changed.map_err(|error| failure(error, "changing monitoring"))
-    }
-
-    /// The error's message for the user; unexpected ones go to the log.
-    fn failure(error: LibraryError, doing: &str) -> ServerFnError {
-        let message = match &error {
-            LibraryError::SeriesNotFound(_) | LibraryError::MovieNotFound(_) => "It is no longer in the library",
-            LibraryError::SeasonNotFound(_) | LibraryError::EpisodeNotFound(_) => {
-                "The metadata source no longer lists it; reload the page"
-            },
-            _ => {
-                error!(%error, "{doing} failed");
-                "Something went wrong; the server log has the cause"
-            },
-        };
-        ServerFnError::new(message)
+        changed.map_err(|error| library_failure(error, "changing monitoring"))
     }
 }

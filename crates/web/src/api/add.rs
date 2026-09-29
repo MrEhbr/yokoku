@@ -86,11 +86,10 @@ mod server {
 
     use dioxus::{logger::tracing::error, prelude::*};
     use yokoku_domain::{ArtworkKind, ExternalId, ItemId, MediaKind, MonitorPreset};
-    use yokoku_library::{LibraryError, ports::MetadataError};
     use yokoku_media::{MediaError, RootKind};
 
     use super::{AddOptions, AddSettings, Kind, MetadataService, NewItem, RootChoice, RootFolders, SearchHit};
-    use crate::api::artwork;
+    use crate::api::{artwork, library_failure};
 
     pub(super) async fn search(
         metadata: &MetadataService,
@@ -99,8 +98,10 @@ mod server {
         kind: Kind,
     ) -> Result<Vec<SearchHit>, ServerFnError> {
         ready(settings)?;
-        let hits =
-            metadata.search(query.trim(), Some(media_kind(kind))).await.map_err(|error| failure(error, "searching"))?;
+        let hits = metadata
+            .search(query.trim(), Some(media_kind(kind)))
+            .await
+            .map_err(|error| library_failure(error, "searching"))?;
         Ok(hits
             .into_iter()
             .map(|hit| {
@@ -175,7 +176,7 @@ mod server {
                 metadata.add_movie(source, monitored, root.path, folder).await.map(|movie| ItemId::Movie(movie.id))
             },
         };
-        added.map_err(|error| failure(error, "adding the item"))
+        added.map_err(|error| library_failure(error, "adding the item"))
     }
 
     fn ready(settings: &AddSettings) -> Result<(), ServerFnError> {
@@ -188,27 +189,6 @@ mod server {
 
     fn parse(source: &str) -> Result<ExternalId, ServerFnError> {
         source.parse().map_err(|_| ServerFnError::new(format!("{source:?} is not a TMDB or TVDB id")))
-    }
-
-    /// The error's message for the user; unexpected ones go to the log.
-    fn failure(error: LibraryError, doing: &str) -> ServerFnError {
-        let message = match &error {
-            LibraryError::AlreadyInLibrary(_) => "It is already in the library".to_owned(),
-            LibraryError::FolderTaken(path) => format!("{} already belongs to another item", path.display()),
-            LibraryError::InvalidFolder(_) => "Give a folder name without slashes".to_owned(),
-            LibraryError::Metadata(MetadataError::NotFound(_)) => "The metadata source no longer has it".to_owned(),
-            LibraryError::Metadata(MetadataError::Unavailable(_)) => {
-                "The metadata source could not be reached; try again".to_owned()
-            },
-            LibraryError::Metadata(MetadataError::Refused(_)) => {
-                "The metadata source refused the request; check the token".to_owned()
-            },
-            _ => {
-                error!(%error, "{doing} failed");
-                "Something went wrong; the server log has the cause".to_owned()
-            },
-        };
-        ServerFnError::new(message)
     }
 
     fn wire_kind(kind: MediaKind) -> Kind {
