@@ -468,6 +468,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | Job | Trigger | Calls |
 |---|---|---|
 | `SyncDownloads` | cron, every 30 s, one tick at a time | `Downloads::sync` |
+| `SyncActiveDownloads` | cron, every 5 s, one tick at a time | `Downloads::sync_active`: syncs only while a download is queued, checking or downloading |
 | `ExecuteImports` | cron, every 5 s, one tick at a time | `Importer::run_pending` |
 | `RefreshMetadata` | cron, every 12 h; only with a TMDB token; everything on demand with `yokoku refresh` | `MetadataService::refresh_due` (one item's failure is logged and the rest continue) |
 | `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` | `Scanner::scan` (FR-8.7) |

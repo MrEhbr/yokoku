@@ -451,6 +451,33 @@ async fn a_torrent_yokoku_added_but_never_saved_is_taken_on_without_asking() {
 }
 
 #[tokio::test]
+async fn active_syncs_leave_the_client_alone_while_nothing_downloads() {
+    let setup = setup().await;
+    setup.client.set(1000, 1000);
+    setup.downloads.add(&magnet(), None).await.unwrap();
+    *setup.client.unavailable.lock().unwrap() = true;
+    let watch = setup.changes.watch();
+
+    let report = setup.downloads.sync_active().await.unwrap();
+
+    assert_eq!(report, None);
+    assert!(!watch.has_changed().unwrap());
+}
+
+#[tokio::test]
+async fn active_syncs_sync_while_a_download_is_in_progress() {
+    let setup = setup().await;
+    setup.client.set(250, 1000);
+    setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.client.set(500, 1000);
+
+    let report = setup.downloads.sync_active().await.unwrap();
+
+    assert_eq!(report.map(|report| report.synced), Some(1));
+    assert_eq!(setup.only_download().await.percent_done(), 50);
+}
+
+#[tokio::test]
 async fn adding_and_syncing_are_announced() {
     let setup = setup().await;
     let mut watch = setup.changes.watch();

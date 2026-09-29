@@ -208,6 +208,21 @@ impl Downloads {
         (download, events)
     }
 
+    /// Syncs like `sync`, but only while a download is queued, checking or downloading; `None` when
+    /// none is.
+    pub async fn sync_active(&self) -> Result<Option<SyncReport>, DownloadError> {
+        let active = self.repo.list().await?.iter().any(|download| {
+            matches!(
+                download.status.state,
+                DownloadState::Queued | DownloadState::Checking | DownloadState::Downloading
+            )
+        });
+        if !active {
+            return Ok(None);
+        }
+        self.sync().await.map(Some)
+    }
+
     /// Records that files from the download reached the library; the first import counts.
     pub async fn mark_imported(&self, id: DownloadId) -> Result<(), DownloadError> {
         let Some(mut download) = self.repo.get(id).await? else { return Ok(()) };

@@ -31,6 +31,7 @@ pub struct Jobs {
 #[derive(Debug, Clone)]
 pub struct Schedules {
     pub sync_downloads: Schedule,
+    pub sync_active_downloads: Schedule,
     pub execute_imports: Schedule,
     pub rescan_media_server: Schedule,
     pub refresh_metadata: Schedule,
@@ -41,6 +42,8 @@ pub struct Schedules {
 pub struct ScheduleSettings {
     /// Cron schedule with seconds for syncing downloads.
     pub sync_downloads: String,
+    /// Cron schedule with seconds for syncing downloads while one is queued or downloading.
+    pub sync_active_downloads: String,
     /// Cron schedule with seconds for carrying out approved imports.
     pub execute_imports: String,
     /// Cron schedule with seconds for checking whether Jellyfin should rescan.
@@ -55,6 +58,7 @@ impl Default for ScheduleSettings {
     fn default() -> Self {
         Self {
             sync_downloads: "*/30 * * * * *".into(),
+            sync_active_downloads: "*/5 * * * * *".into(),
             execute_imports: "*/5 * * * * *".into(),
             rescan_media_server: "*/10 * * * * *".into(),
             refresh_metadata: "0 0 */12 * * *".into(),
@@ -75,6 +79,7 @@ impl ScheduleSettings {
     pub fn schedules(&self) -> Result<Schedules, InvalidSchedule> {
         Ok(Schedules {
             sync_downloads: schedule(&self.sync_downloads)?,
+            sync_active_downloads: schedule(&self.sync_active_downloads)?,
             execute_imports: schedule(&self.execute_imports)?,
             rescan_media_server: schedule(&self.rescan_media_server)?,
             refresh_metadata: schedule(&self.refresh_metadata)?,
@@ -90,7 +95,14 @@ fn schedule(expression: &str) -> Result<Schedule, InvalidSchedule> {
 /// Registers every job, each running one tick at a time; run it with `Monitor::run_with_signal`.
 pub fn monitor(jobs: Jobs, schedules: Schedules) -> Monitor {
     let mut monitor = Monitor::new();
-    monitor = register(monitor, "sync-downloads", schedules.sync_downloads, jobs.downloads, sync_downloads);
+    monitor = register(monitor, "sync-downloads", schedules.sync_downloads, jobs.downloads.clone(), sync_downloads);
+    monitor = register(
+        monitor,
+        "sync-active-downloads",
+        schedules.sync_active_downloads,
+        jobs.downloads,
+        sync_active_downloads,
+    );
     monitor = register(monitor, "execute-imports", schedules.execute_imports, jobs.importer, execute_imports);
     monitor = register(monitor, "scan-library", schedules.scan_library, jobs.scanner, scan_library);
     monitor = register(monitor, "refresh-metadata", schedules.refresh_metadata, jobs.metadata, refresh_metadata);
@@ -135,6 +147,11 @@ async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynErro
 
 async fn sync_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) -> Result<(), BoxDynError> {
     downloads.sync().await?;
+    Ok(())
+}
+
+async fn sync_active_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) -> Result<(), BoxDynError> {
+    downloads.sync_active().await?;
     Ok(())
 }
 
