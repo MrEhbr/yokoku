@@ -51,6 +51,11 @@ pub fn size(bytes: u64) -> String {
     }
 }
 
+/// `2.4 MB/s`, from bytes per second.
+pub fn rate(bytes: u64) -> String {
+    format!("{}/s", size(bytes))
+}
+
 /// The usual name of a picture size, by width so cropped films count too: `2160p`, `1080p`,
 /// `720p`, else the height, like `480p`.
 pub fn resolution(width: u32, height: u32) -> String {

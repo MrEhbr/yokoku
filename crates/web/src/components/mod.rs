@@ -37,3 +37,4 @@ pub mod textarea;
 pub mod theme_switch;
 pub mod toggle;
 pub mod tooltip;
+pub mod unrecognised_files;

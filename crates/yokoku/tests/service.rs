@@ -1,5 +1,5 @@
 use std::{
-    io::{Read, Write},
+    io::{BufRead, Read, Write},
     net::{TcpListener, TcpStream},
     path::Path,
     process::{Child, Command, Stdio},
@@ -12,14 +12,15 @@ use jiff::Timestamp;
 use predicates::prelude::*;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, CorrelationId, Description, DownloadId, EpisodeMetadata, ExternalId, FileTarget, ImportId, ItemFolder,
-    ItemId, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, SeasonMetadata, Series, SeriesId,
-    SeriesMetadata, SourceStatus,
+    Artwork, Confidence, CorrelationId, Description, DownloadId, EpisodeMetadata, ExternalId, FileTarget, ImportId,
+    ItemFolder, ItemId, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, SeasonMetadata, Series,
+    SeriesId, SeriesMetadata, SourceStatus,
 };
+use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
 use yokoku_events::{Correlated, EventLog, FileRenamed, ImportFailed, MovieRemoved, TorrentAdded};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{
-    AudioStream, MediaFile, MediaInfo, VideoStream,
+    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, VideoStream,
     ports::{Changes, MediaRepo},
 };
 
@@ -58,8 +59,19 @@ impl Service {
 
     /// The response to `GET path`, status line and headers included.
     fn get(&self, path: &str) -> String {
+        self.request(&format!("GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"))
+    }
+
+    /// The response to an empty `POST path`.
+    fn post(&self, path: &str) -> String {
+        self.request(&format!(
+            "POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        ))
+    }
+
+    fn request(&self, request: &str) -> String {
         let mut stream = TcpStream::connect(("127.0.0.1", self.port)).unwrap();
-        write!(stream, "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").unwrap();
+        stream.write_all(request.as_bytes()).unwrap();
         let mut response = String::new();
         stream.read_to_string(&mut response).unwrap();
         response
@@ -393,4 +405,158 @@ async fn item_history_pages_load_older_entries_from_the_cursor() {
     assert!(newest.contains("Added torrent Dune 10") && !newest.contains("Added torrent Dune 0\""), "{newest}");
     assert_eq!(oldest.matches("Added torrent").count(), 1, "{oldest}");
     assert!(oldest.contains("Added torrent Dune 0\"") && oldest.contains("\"older\":null"), "{oldest}");
+}
+
+/// The imports `seed_downloads` stores.
+struct SeededImports {
+    review: ImportId,
+    failed: ImportId,
+}
+
+/// Torrents: one for `dune` 45% downloaded, one for Frieren's S01E01 whose import waits for
+/// review, one whose import failed, one imported and seeding, and one no longer in the client.
+/// Also a scan of Frieren's folder that found 2 files it could not recognise.
+async fn seed_downloads(path: &Path, frieren: SeriesId, dune: MovieId) -> SeededImports {
+    let db = Database::open(path).await.unwrap();
+    let now = Timestamp::now();
+    let status = |state, done| TorrentStatus {
+        state,
+        size: 1_000_000_000,
+        done,
+        download_rate: 2_400_000,
+        eta: Some(3_900),
+        download_dir: "/downloads".into(),
+        error: None,
+    };
+    let download = |name: &str, status: TorrentStatus, item| Download {
+        id: DownloadId::generate(),
+        hash: name.to_lowercase(),
+        name: name.into(),
+        item,
+        completed_at: (status.done == status.size).then_some(now),
+        imported_at: None,
+        status,
+        added_at: now,
+        revision: 0,
+    };
+    let downloading =
+        download("Dune.2021.1080p", status(DownloadState::Downloading, 450_000_000), Some(ItemId::Movie(dune)));
+    let review =
+        download("Frieren.S01E01.1080p", status(DownloadState::Seeding, 1_000_000_000), Some(ItemId::Series(frieren)));
+    let failed = download("Broken.Release", status(DownloadState::Stopped, 1_000_000_000), None);
+    let imported = Download {
+        imported_at: Some(now),
+        ..download("Frieren.S01E02.1080p", status(DownloadState::Seeding, 1_000_000_000), Some(ItemId::Series(frieren)))
+    };
+    let gone = download("Gone.Torrent", status(DownloadState::Removed, 0), None);
+    for download in [&downloading, &review, &failed, &imported, &gone] {
+        DownloadRepo::save(&db, &mut download.clone()).await.unwrap();
+    }
+
+    let import = |source: &str, download: Option<DownloadId>, status, error: Option<&str>, files: u16| Import {
+        id: ImportId::generate(),
+        source: source.into(),
+        download,
+        status,
+        error: error.map(Into::into),
+        rows: (1..=files)
+            .map(|n| ImportRow {
+                path: format!("{source}/video {n}.mkv").into(),
+                size: 7,
+                target: None,
+                confidence: Confidence::Unknown,
+                skipped: false,
+                replace: false,
+            })
+            .collect(),
+        created_at: now,
+    };
+    let imports = vec![
+        import("/downloads/Frieren.S01E01.1080p", Some(review.id), ImportStatus::NeedsReview, None, 1),
+        import("/downloads/Broken.Release", Some(failed.id), ImportStatus::Failed, Some("the disk is full"), 1),
+        import(&ItemFolder::default().path().display().to_string(), None, ImportStatus::NeedsReview, None, 2),
+    ];
+    let seeded = SeededImports { review: imports[0].id, failed: imports[1].id };
+    MediaRepo::save(&db, &Changes { imports, ..Changes::default() }).await.unwrap();
+    seeded
+}
+
+#[tokio::test]
+async fn the_downloads_page_shows_each_torrent_with_its_import() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (frieren, dune) = seed(&path).await;
+    seed_downloads(&path, frieren, dune).await;
+    let service = Service::start(dir.path());
+
+    let page = service.get("/downloads");
+
+    assert!(page.starts_with("HTTP/1.1 200"), "{page}");
+    for text in [
+        "45%",
+        "2 MB/s",
+        "1h 05m",
+        "Needs review",
+        ">Review<",
+        "Import failed",
+        "the disk is full",
+        ">Retry<",
+        "Imported · seeding",
+    ] {
+        assert!(page.contains(text), "{text}: {page}");
+    }
+    assert!(!page.contains("Gone.Torrent"), "torrents no longer in the client are left out: {page}");
+    assert!(page.contains(&format!("href=\"/movies/{dune}\"")), "{page}");
+}
+
+#[tokio::test]
+async fn detail_pages_tell_how_many_files_a_scan_did_not_recognise() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (frieren, dune) = seed(&path).await;
+    seed_downloads(&path, frieren, dune).await;
+    let service = Service::start(dir.path());
+
+    let series = service.get(&format!("/series/{frieren}"));
+
+    assert!(
+        series.contains("2 files in the folder weren&#39;t recognised"),
+        "the scan's 2 files count, not the 1 of the torrent import for Frieren: {series}"
+    );
+}
+
+#[tokio::test]
+async fn a_failed_import_can_be_retried_and_one_waiting_for_review_cannot() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (frieren, dune) = seed(&path).await;
+    let imports = seed_downloads(&path, frieren, dune).await;
+    let service = Service::start(dir.path());
+
+    let failed = service.post(&format!("/api/imports/{}/retry", imports.failed));
+    let review = service.post(&format!("/api/imports/{}/retry", imports.review));
+
+    assert!(failed.starts_with("HTTP/1.1 200"), "{failed}");
+    assert!(!review.starts_with("HTTP/1.1 200") && review.contains("no longer waiting for a retry"), "{review}");
+}
+
+#[tokio::test]
+async fn the_live_downloads_stream_sends_the_downloads_then_each_change() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (frieren, dune) = seed(&path).await;
+    let imports = seed_downloads(&path, frieren, dune).await;
+    let service = Service::start(dir.path());
+    let mut stream = TcpStream::connect(("127.0.0.1", service.port)).unwrap();
+    write!(stream, "GET /api/downloads/live HTTP/1.1\r\nHost: localhost\r\n\r\n").unwrap();
+    stream.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+    let mut events =
+        std::io::BufReader::new(stream).lines().map(Result::unwrap).filter(|line| line.starts_with("data:"));
+
+    let first = events.next().unwrap();
+    service.post(&format!("/api/imports/{}/retry", imports.failed));
+    let second = events.next().unwrap();
+
+    assert!(first.contains("Dune.2021.1080p") && first.contains("the disk is full"), "{first}");
+    assert!(!second.contains("the disk is full"), "the retried import is no longer failed for that reason: {second}");
 }

@@ -8,7 +8,7 @@ use yokoku_domain::{MovieId, SeriesId};
 
 use super::{FileStatus, Status};
 #[cfg(feature = "server")]
-use crate::api::{Dep, Library, Prober};
+use crate::api::{Dep, Library, Prober, Reviewer};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -91,6 +91,8 @@ pub struct SeriesDetail {
     pub next: Option<EpisodeRow>,
     pub last: Option<EpisodeRow>,
     pub seasons: Vec<SeasonDetail>,
+    /// Files a scan found in the series' folder that wait to be matched.
+    pub unrecognised: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -135,6 +137,8 @@ pub struct MovieDetail {
     pub file: FileStatus,
     /// The movie's file, when it has one.
     pub file_info: Option<FileInfo>,
+    /// Files a scan found in the movie's folder that wait to be matched.
+    pub unrecognised: usize,
 }
 
 impl Release {
@@ -158,15 +162,15 @@ impl SeasonDetail {
 }
 
 /// `None` when the library has no such series.
-#[get("/api/series/{id}", library: Dep<Library>, prober: Dep<Prober>)]
+#[get("/api/series/{id}", library: Dep<Library>, prober: Dep<Prober>, reviewer: Dep<Reviewer>)]
 pub async fn series(id: SeriesId) -> Result<Option<SeriesDetail>, ServerFnError> {
-    server::series(&library, &prober, id).await
+    server::series(&library, &prober, &reviewer, id).await
 }
 
 /// `None` when the library has no such movie.
-#[get("/api/movies/{id}", library: Dep<Library>, prober: Dep<Prober>)]
+#[get("/api/movies/{id}", library: Dep<Library>, prober: Dep<Prober>, reviewer: Dep<Reviewer>)]
 pub async fn movie(id: MovieId) -> Result<Option<MovieDetail>, ServerFnError> {
-    server::movie(&library, &prober, id).await
+    server::movie(&library, &prober, &reviewer, id).await
 }
 
 #[cfg(feature = "server")]
@@ -176,15 +180,15 @@ mod server {
     use dioxus::{logger::tracing::error, prelude::*};
     use jiff::civil::Date;
     use yokoku_domain::{
-        Artwork, ArtworkKind, Episode, EpisodeRef, ExternalId, ItemId, MediaFileId, MediaKind, Movie, MovieId,
-        ReleaseKind, Series, SeriesId,
+        Artwork, ArtworkKind, Episode, EpisodeRef, ExternalId, ItemFolder, ItemId, MediaFileId, MediaKind, Movie,
+        MovieId, ReleaseKind, Series, SeriesId,
     };
     use yokoku_library::{LibraryError, LibraryStatus, artwork_name};
     use yokoku_media::{FileDetails, MediaInfo};
 
     use super::{
-        Description, EpisodeRow, FileInfo, Images, Library, MovieDetail, Numbering, Prober, Release, SeasonDetail,
-        SeriesDetail, Streams, Video,
+        Description, EpisodeRow, FileInfo, Images, Library, MovieDetail, Numbering, Prober, Release, Reviewer,
+        SeasonDetail, SeriesDetail, Streams, Video,
     };
     use crate::api::artwork;
 
@@ -193,6 +197,7 @@ mod server {
     pub(super) async fn series(
         library: &Library,
         prober: &Prober,
+        reviewer: &Reviewer,
         id: SeriesId,
     ) -> Result<Option<SeriesDetail>, ServerFnError> {
         let today = library.today();
@@ -205,12 +210,14 @@ mod server {
             },
         };
         let files = files(prober, ItemId::Series(id)).await;
-        Ok(Some(SeriesDetail::new(&series, &files, today)))
+        let unrecognised = unrecognised(reviewer, &series.folder).await;
+        Ok(Some(SeriesDetail::new(&series, &files, unrecognised, today)))
     }
 
     pub(super) async fn movie(
         library: &Library,
         prober: &Prober,
+        reviewer: &Reviewer,
         id: MovieId,
     ) -> Result<Option<MovieDetail>, ServerFnError> {
         let today = library.today();
@@ -223,7 +230,24 @@ mod server {
             },
         };
         let files = files(prober, ItemId::Movie(id)).await;
-        Ok(Some(MovieDetail::new(&movie, &files, today)))
+        let unrecognised = unrecognised(reviewer, &movie.folder).await;
+        Ok(Some(MovieDetail::new(&movie, &files, unrecognised, today)))
+    }
+
+    /// Files of scans of `folder` waiting for review; none when imports cannot be read, so the
+    /// page still shows the item.
+    async fn unrecognised(reviewer: &Reviewer, folder: &ItemFolder) -> usize {
+        match reviewer.pending().await {
+            Ok(imports) => imports
+                .iter()
+                .filter(|import| import.download.is_none() && import.source == folder.path())
+                .map(|import| import.rows.iter().filter(|row| !row.skipped).count())
+                .sum(),
+            Err(error) => {
+                error!(%error, folder = %folder.path().display(), "reading the imports failed");
+                0
+            },
+        }
     }
 
     /// The item's files by id; none when they cannot be read, so the page still shows the item.
@@ -238,7 +262,7 @@ mod server {
     }
 
     impl SeriesDetail {
-        fn new(series: &Series, files: &Files, today: Date) -> Self {
+        fn new(series: &Series, files: &Files, unrecognised: usize, today: Date) -> Self {
             let row = |(reference, episode)| EpisodeRow::new(reference, episode, files, today);
             Self {
                 id: series.id,
@@ -255,6 +279,7 @@ mod server {
                 description: series.description.clone().into(),
                 next: series.next_episode(today).map(row),
                 last: series.last_aired(today).map(row),
+                unrecognised,
                 seasons: series
                     .seasons
                     .iter()
@@ -290,7 +315,7 @@ mod server {
     }
 
     impl MovieDetail {
-        fn new(movie: &Movie, files: &Files, today: Date) -> Self {
+        fn new(movie: &Movie, files: &Files, unrecognised: usize, today: Date) -> Self {
             let releases = &movie.releases;
             Self {
                 id: movie.id,
@@ -311,6 +336,7 @@ mod server {
                 ],
                 file: movie.file_status(today).into(),
                 file_info: movie.file.and_then(|file| files.get(&file)).cloned(),
+                unrecognised,
             }
         }
     }

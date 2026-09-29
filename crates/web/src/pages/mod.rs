@@ -1,3 +1,4 @@
+pub mod downloads;
 pub mod history;
 pub mod library;
 pub mod missing;

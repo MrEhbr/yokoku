@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, sync::Arc};
 
 use anyhow::{Context, Result};
 use tokio::signal::unix::{SignalKind, signal};
@@ -19,6 +19,10 @@ pub async fn run(app: &App) -> Result<()> {
         prober: app.prober.clone(),
         history: app.history.clone(),
         clock: app.clock.clone(),
+        downloads: app.downloads.clone(),
+        reviewer: app.reviewer.clone(),
+        importer: app.importer.clone(),
+        queue_changes: Arc::new(app.queue_changes.clone()),
     };
     let web = yokoku_web::Server::bind(config.web.address(), state).await.context("Failed to start the web server")?;
 

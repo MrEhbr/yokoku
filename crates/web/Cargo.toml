@@ -21,6 +21,7 @@ path = "gallery/main.rs"
 
 [dependencies]
 yokoku-domain.workspace = true
+yokoku-downloads = { workspace = true, optional = true }
 yokoku-events = { workspace = true, optional = true }
 yokoku-library = { workspace = true, optional = true }
 yokoku-media = { workspace = true, optional = true }
@@ -34,7 +35,7 @@ dioxus-icons = { version = "0.1.0", default-features = false }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/components", rev = "9a758255ea26e2b20c8cecf4c1c946feb9e71da7", default-features = false }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { workspace = true, features = ["net", "sync", "time"] }
+tokio = { workspace = true, features = ["macros", "net", "sync", "time"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 uuid = { workspace = true, features = ["js"] }
@@ -47,4 +48,4 @@ rstest.workspace = true
 [features]
 default = []
 web = ["dioxus/web"]
-server = ["dioxus/server", "dep:yokoku-events", "dep:yokoku-library", "dep:yokoku-media"]
+server = ["dioxus/server", "dep:yokoku-downloads", "dep:yokoku-events", "dep:yokoku-library", "dep:yokoku-media"]

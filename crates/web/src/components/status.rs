@@ -39,9 +39,9 @@ impl Tone {
 pub fn Status(tone: Tone, label: String) -> Element {
     let (class, symbol) = (tone.class(), tone.symbol());
     rsx! {
-        span { class: "inline-flex items-center gap-1.5 text-caption font-medium {class}",
+        span { class: "inline-flex max-w-full items-center gap-1.5 text-caption font-medium {class}",
             span { aria_hidden: "true", "{symbol}" }
-            "{label}"
+            span { class: "truncate", "{label}" }
         }
     }
 }

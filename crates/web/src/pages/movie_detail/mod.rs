@@ -11,6 +11,7 @@ use crate::{
         item_hero::ItemHero,
         item_status::{FileState, Lifecycle, Monitoring},
         skeleton::Skeleton,
+        unrecognised_files::UnrecognisedFiles,
     },
     format::{date, relative, year},
     layout::BackButton,
@@ -105,6 +106,11 @@ fn Page(movie: detail::MovieDetail) -> Element {
                         }
                     }
                 }
+            }
+        }
+        if movie.unrecognised > 0 {
+            div { class: "mt-8",
+                UnrecognisedFiles { count: movie.unrecognised }
             }
         }
         section { class: "mt-12",

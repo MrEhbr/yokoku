@@ -32,12 +32,14 @@ pub struct App {
     pub calendar: Arc<Calendar>,
     pub roots: RootFolders,
     pub scanner: Arc<Scanner>,
-    pub reviewer: Reviewer,
+    pub reviewer: Arc<Reviewer>,
     pub renamer: Renamer,
     pub downloads: Arc<Downloads>,
     pub importer: Arc<Importer>,
     pub history: Arc<History>,
     pub clock: Arc<dyn Clock>,
+    /// Wakes after this process changes downloads or imports.
+    pub queue_changes: QueueChanges,
     pub deleter: Arc<Deleter>,
     pub prober: Arc<Prober>,
     pub rescans: Arc<Rescans>,
@@ -112,7 +114,13 @@ impl App {
             calendar: Arc::new(Calendar::new(db.clone(), db.clone(), clock.clone())),
             roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
             scanner: scanner.clone(),
-            reviewer: Reviewer::new(db.clone(), db.clone(), clock.clone(), events.clone(), queue_changes.clone()),
+            reviewer: Arc::new(Reviewer::new(
+                db.clone(),
+                db.clone(),
+                clock.clone(),
+                events.clone(),
+                queue_changes.clone(),
+            )),
             downloads: downloads.clone(),
             renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), naming.clone(), events.clone()),
             importer: Arc::new(Importer::new(
@@ -128,6 +136,7 @@ impl App {
             )),
             history: Arc::new(History::new(Arc::new(db.event_log()))),
             clock: clock.clone(),
+            queue_changes: queue_changes.clone(),
             events: events.clone(),
             subscribers: subscriptions::subscribers(
                 &db,

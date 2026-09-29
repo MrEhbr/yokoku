@@ -4,8 +4,8 @@ use yokoku_domain::{ItemId, MovieId, SeriesId};
 use crate::{
     layout::Shell,
     pages::{
-        history::History, library::Library, missing::Missing, movie_detail::MovieDetail, series_detail::SeriesDetail,
-        upcoming::Upcoming,
+        downloads::Downloads, history::History, library::Library, missing::Missing, movie_detail::MovieDetail,
+        series_detail::SeriesDetail, upcoming::Upcoming,
     },
 };
 
@@ -22,6 +22,8 @@ pub(crate) enum Route {
     MovieDetail { id: MovieId },
     #[route("/upcoming")]
     Upcoming {},
+    #[route("/downloads")]
+    Downloads {},
     #[route("/history")]
     History {},
 }
@@ -42,6 +44,7 @@ impl Route {
                 Self::Library {}
             },
             Self::Upcoming {} => Self::Upcoming {},
+            Self::Downloads {} => Self::Downloads {},
             Self::History {} => Self::History {},
         }
     }

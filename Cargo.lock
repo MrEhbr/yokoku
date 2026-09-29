@@ -6414,6 +6414,7 @@ dependencies = [
  "tokio",
  "uuid",
  "yokoku-domain",
+ "yokoku-downloads",
  "yokoku-events",
  "yokoku-library",
  "yokoku-media",

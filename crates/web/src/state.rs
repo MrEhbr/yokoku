@@ -6,9 +6,10 @@ use dioxus::server::axum::{
     http::request::Parts,
 };
 use yokoku_domain::Clock;
-use yokoku_events::History;
+use yokoku_downloads::Downloads;
+use yokoku_events::{History, QueueChanges};
 use yokoku_library::{Artworks, Calendar, Library};
-use yokoku_media::Prober;
+use yokoku_media::{Importer, Prober, Reviewer};
 
 /// The use cases server functions call, wired by the composition root.
 #[derive(Clone)]
@@ -19,6 +20,10 @@ pub struct AppState {
     pub prober: Arc<Prober>,
     pub history: Arc<History>,
     pub clock: Arc<dyn Clock>,
+    pub downloads: Arc<Downloads>,
+    pub reviewer: Arc<Reviewer>,
+    pub importer: Arc<Importer>,
+    pub queue_changes: Arc<QueueChanges>,
 }
 
 /// `AppState` holds a `T`.
@@ -62,8 +67,39 @@ impl Provides<dyn Clock> for AppState {
     }
 }
 
+impl Provides<Downloads> for AppState {
+    fn provide(&self) -> Arc<Downloads> {
+        self.downloads.clone()
+    }
+}
+
+impl Provides<Reviewer> for AppState {
+    fn provide(&self) -> Arc<Reviewer> {
+        self.reviewer.clone()
+    }
+}
+
+impl Provides<Importer> for AppState {
+    fn provide(&self) -> Arc<Importer> {
+        self.importer.clone()
+    }
+}
+
+impl Provides<QueueChanges> for AppState {
+    fn provide(&self) -> Arc<QueueChanges> {
+        self.queue_changes.clone()
+    }
+}
+
 /// One dependency of a server function, taken from `AppState`: `library: Dep<Library>`.
 pub struct Dep<T: ?Sized>(Arc<T>);
+
+impl<T: ?Sized> Dep<T> {
+    /// For work that outlives the request, like a stream.
+    pub fn into_inner(self) -> Arc<T> {
+        self.0
+    }
+}
 
 impl<T: ?Sized> Deref for Dep<T> {
     type Target = T;

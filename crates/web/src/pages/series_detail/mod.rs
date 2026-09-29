@@ -14,6 +14,7 @@ use crate::{
         item_hero::ItemHero,
         item_status::{Lifecycle, Monitoring},
         skeleton::Skeleton,
+        unrecognised_files::UnrecognisedFiles,
     },
     format::year,
     layout::BackButton,
@@ -98,6 +99,11 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     episode: series.last.clone(),
                     today,
                 }
+            }
+        }
+        if series.unrecognised > 0 {
+            div { class: "mt-8",
+                UnrecognisedFiles { count: series.unrecognised }
             }
         }
         if series.seasons.is_empty() {
