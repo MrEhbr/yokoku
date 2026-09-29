@@ -21,6 +21,7 @@ path = "gallery/main.rs"
 
 [dependencies]
 yokoku-domain.workspace = true
+yokoku-events = { workspace = true, optional = true }
 yokoku-library = { workspace = true, optional = true }
 yokoku-media = { workspace = true, optional = true }
 yokoku-naming.workspace = true
@@ -46,4 +47,4 @@ rstest.workspace = true
 [features]
 default = []
 web = ["dioxus/web"]
-server = ["dioxus/server", "dep:yokoku-library", "dep:yokoku-media"]
+server = ["dioxus/server", "dep:yokoku-events", "dep:yokoku-library", "dep:yokoku-media"]

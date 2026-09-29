@@ -17,6 +17,8 @@ pub async fn run(app: &App) -> Result<()> {
         artworks: app.artworks.clone(),
         calendar: app.calendar.clone(),
         prober: app.prober.clone(),
+        history: app.history.clone(),
+        clock: app.clock.clone(),
     };
     let web = yokoku_web::Server::bind(config.web.address(), state).await.context("Failed to start the web server")?;
 

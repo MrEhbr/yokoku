@@ -12,6 +12,7 @@ pub mod disclosure;
 pub mod dropdown_menu;
 pub mod field;
 pub mod file_info;
+pub mod history_list;
 pub mod hover_card;
 pub mod input;
 pub mod item_description;

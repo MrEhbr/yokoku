@@ -2,13 +2,14 @@ mod episodes;
 mod summary;
 
 use dioxus::prelude::*;
-use yokoku_domain::SeriesId;
+use yokoku_domain::{ItemId, SeriesId};
 
 use self::{episodes::SeasonItem, summary::EpisodeSummary};
 use crate::{
     api::library::detail::{self, Numbering, series},
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
+        history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
         item_status::{Lifecycle, Monitoring},
@@ -111,6 +112,16 @@ fn Page(series: detail::SeriesDetail) -> Element {
                         series_monitored: series.monitored,
                         today,
                     }
+                }
+            }
+        }
+        section { class: "mt-12",
+            h2 { class: "text-section font-medium", "History" }
+            div { class: "mt-4",
+                HistoryList {
+                    key: "{series.id}",
+                    scope: HistoryScope::Item(ItemId::Series(series.id)),
+                    empty: "Nothing has happened to this series yet.",
                 }
             }
         }

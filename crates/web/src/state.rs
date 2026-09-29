@@ -5,6 +5,8 @@ use dioxus::server::axum::{
     extract::{FromRequestParts, rejection::ExtensionRejection},
     http::request::Parts,
 };
+use yokoku_domain::Clock;
+use yokoku_events::History;
 use yokoku_library::{Artworks, Calendar, Library};
 use yokoku_media::Prober;
 
@@ -15,6 +17,8 @@ pub struct AppState {
     pub artworks: Arc<Artworks>,
     pub calendar: Arc<Calendar>,
     pub prober: Arc<Prober>,
+    pub history: Arc<History>,
+    pub clock: Arc<dyn Clock>,
 }
 
 /// `AppState` holds a `T`.
@@ -43,6 +47,18 @@ impl Provides<Calendar> for AppState {
 impl Provides<Prober> for AppState {
     fn provide(&self) -> Arc<Prober> {
         self.prober.clone()
+    }
+}
+
+impl Provides<History> for AppState {
+    fn provide(&self) -> Arc<History> {
+        self.history.clone()
+    }
+}
+
+impl Provides<dyn Clock> for AppState {
+    fn provide(&self) -> Arc<dyn Clock> {
+        self.clock.clone()
     }
 }
 

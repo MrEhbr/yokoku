@@ -1,11 +1,12 @@
 use dioxus::prelude::*;
-use yokoku_domain::MovieId;
+use yokoku_domain::{ItemId, MovieId};
 
 use crate::{
     api::library::detail::{self, movie},
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         file_info::FileDetails,
+        history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
         item_status::{FileState, Lifecycle, Monitoring},
@@ -103,6 +104,16 @@ fn Page(movie: detail::MovieDetail) -> Element {
                             FileDetails { info }
                         }
                     }
+                }
+            }
+        }
+        section { class: "mt-12",
+            h2 { class: "text-section font-medium", "History" }
+            div { class: "mt-4",
+                HistoryList {
+                    key: "{movie.id}",
+                    scope: HistoryScope::Item(ItemId::Movie(movie.id)),
+                    empty: "Nothing has happened to this movie yet.",
                 }
             }
         }

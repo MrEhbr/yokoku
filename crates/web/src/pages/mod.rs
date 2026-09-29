@@ -1,3 +1,4 @@
+pub mod history;
 pub mod library;
 pub mod missing;
 pub mod movie_detail;

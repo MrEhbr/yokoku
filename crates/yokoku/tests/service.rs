@@ -12,9 +12,11 @@ use jiff::Timestamp;
 use predicates::prelude::*;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, ExternalId, FileTarget, ItemFolder, MediaFileId, MonitorPreset, Movie,
-    MovieId, MovieMetadata, Releases, SeasonMetadata, Series, SeriesId, SeriesMetadata, SourceStatus,
+    Artwork, CorrelationId, Description, DownloadId, EpisodeMetadata, ExternalId, FileTarget, ImportId, ItemFolder,
+    ItemId, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, SeasonMetadata, Series, SeriesId,
+    SeriesMetadata, SourceStatus,
 };
+use yokoku_events::{Correlated, EventLog, FileRenamed, ImportFailed, MovieRemoved, TorrentAdded};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{
     AudioStream, MediaFile, MediaInfo, VideoStream,
@@ -282,4 +284,113 @@ fn the_service_stops_at_startup_when_the_web_port_is_taken() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("Failed to start the web server"));
+}
+
+/// Logs a torrent added for `dune`, an import of an unknown folder that failed, the rename of
+/// `dune`'s file and the removal of "Arrival".
+async fn seed_history(path: &Path, dune: MovieId) {
+    let db = Database::open(path).await.unwrap();
+    let correlation = CorrelationId::generate();
+    let events = [
+        TorrentAdded {
+            download: DownloadId::generate(),
+            name: "Dune.2021.1080p".into(),
+            item: Some(ItemId::Movie(dune)),
+        }
+        .into(),
+        ImportFailed {
+            import: ImportId::generate(),
+            source: "/downloads/Unknown".into(),
+            reason: "nothing matched".into(),
+        }
+        .into(),
+        FileRenamed {
+            file: MediaFileId::generate(),
+            from: "/movies/Dune/dune.mkv".into(),
+            to: "/movies/Dune (2021)/Dune (2021).mkv".into(),
+            target: Some(FileTarget::Movie(dune)),
+        }
+        .into(),
+        MovieRemoved { movie: MovieId::generate(), title: "Arrival".into(), delete_files: false }.into(),
+    ];
+    let events = events.map(|event| Correlated { correlation, event });
+    db.event_log().append(&events).await.unwrap();
+}
+
+#[tokio::test]
+async fn the_history_page_lists_every_event_linked_to_its_item() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (_, dune) = seed(&path).await;
+    seed_history(&path, dune).await;
+    let service = Service::start(dir.path());
+
+    let page = service.get("/history");
+
+    assert!(page.starts_with("HTTP/1.1 200"), "{page}");
+    for text in [
+        "Added torrent Dune.2021.1080p",
+        "An import failed: nothing matched",
+        "/downloads/Unknown",
+        "the file",
+        "/movies/Dune/dune.mkv",
+        "Removed movie ",
+    ] {
+        assert!(page.contains(text), "{text}: {page}");
+    }
+    let link = format!("href=\"/movies/{dune}\"");
+    assert_eq!(page.matches(&link).count(), 2, "the torrent and the rename link to Dune: {page}");
+    assert!(page.contains(">Arrival<") && !page.contains("Arrival</a>"), "{page}");
+}
+
+#[tokio::test]
+async fn detail_pages_list_only_their_items_history() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (frieren, dune) = seed(&path).await;
+    seed_history(&path, dune).await;
+    let service = Service::start(dir.path());
+
+    let movie = service.get(&format!("/movies/{dune}"));
+    let series = service.get(&format!("/series/{frieren}"));
+
+    assert!(movie.contains("Added torrent Dune.2021.1080p") && !movie.contains("/downloads/Unknown"), "{movie}");
+    assert!(!movie.contains(&format!("href=\"/movies/{dune}\"")), "no link to the page itself: {movie}");
+    let own = service.get(&format!("/api/movies/{dune}/history"));
+    let all = service.get("/api/history");
+    assert!(own.contains(r#"{"text":"Renamed "},{"text":"the file"}]"#), "the page's item goes unnamed: {own}");
+    assert!(all.contains(r#"{"text":"the file"},{"text":" of "}"#), "{all}");
+    assert!(series.contains("Nothing has happened to this series yet."), "{series}");
+}
+
+#[tokio::test]
+async fn item_history_pages_load_older_entries_from_the_cursor() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (_, dune) = seed(&path).await;
+    let db = Database::open(&path).await.unwrap();
+    let correlation = CorrelationId::generate();
+    let events: Vec<_> = (0..11)
+        .map(|n| Correlated {
+            correlation,
+            event: TorrentAdded {
+                download: DownloadId::generate(),
+                name: format!("Dune {n}"),
+                item: Some(ItemId::Movie(dune)),
+            }
+            .into(),
+        })
+        .collect();
+    db.event_log().append(&events).await.unwrap();
+    drop(db);
+    let service = Service::start(dir.path());
+
+    let newest = service.get(&format!("/api/movies/{dune}/history"));
+    let older = newest.split("\"older\":").nth(1).unwrap().split(['}', ',']).next().unwrap();
+    let oldest = service.get(&format!("/api/movies/{dune}/history?before={older}"));
+
+    assert_eq!(newest.matches("Added torrent").count(), 10, "{newest}");
+    assert!(newest.contains("Added torrent Dune 10") && !newest.contains("Added torrent Dune 0\""), "{newest}");
+    assert_eq!(oldest.matches("Added torrent").count(), 1, "{oldest}");
+    assert!(oldest.contains("Added torrent Dune 0\"") && oldest.contains("\"older\":null"), "{oldest}");
 }

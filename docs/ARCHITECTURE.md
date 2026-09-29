@@ -123,9 +123,9 @@ naming rules make each hop predictable:
   web/src/
     route.rs      Route enum and App; the only file that names every page
     layout/       the shell around every page: Shell, DocumentHead, BackButton
-    pages/        one folder per route: library/, series_detail/, upcoming/
+    pages/        one folder per route: library/, series_detail/, upcoming/, history/
     dialogs/      modal flows opened from several pages: import_review.rs, rename.rs
-    api/          server functions, one file per feature module: library/, media.rs
+    api/          server functions, one file per feature module: library/, history.rs, media.rs
     components/   Paper components (vendored with `just web add`) and Yokoku widgets, flat
     format.rs     values as every page writes them: year, date
     server.rs     Server: binds and serves the router; server build only
@@ -226,7 +226,7 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | File details (FR-8.6) | `media/src/prober.rs` `Prober` (`media.probe`) | `media/src/model.rs` `MediaInfo` | `media_info.rs` | `system/src/probe.rs` | `files.rs`; web `api/library/detail.rs` |
 | Library lock | `media/src/ports.rs` `LibraryLock` | none | none | `system/src/lock.rs` | every media use case |
 | Jellyfin rescan (FR-10.4) | `integrations/src/rescans.rs` `Rescans` | none | `rescan_store.rs` | `media-servers/src/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
-| History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display` | `event_log.rs` | none | `history.rs` |
+| History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display` for the CLI; the web words events with item links in `web/src/api/history.rs` | `event_log.rs` | none | `history.rs`; web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
 | Event contract, delivery | `domain/src/events.rs`; `events/src/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `event_log.rs` | `system/src/spool.rs` | `yokoku/src/subscriptions.rs`, `app.rs` |
 | Settings (FR-10.3) | `config/src/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `config/src/lib.rs` (layering) | `settings_store.rs` | none | `settings.rs` |
 | Jobs and schedules | `jobs/src/lib.rs` | none | none | none | `yokoku/src/service.rs` |

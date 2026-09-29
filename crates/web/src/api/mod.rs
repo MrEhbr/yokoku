@@ -4,11 +4,14 @@
 
 #[cfg(feature = "server")]
 pub(crate) mod artwork;
+pub mod history;
 pub mod library;
 
 #[cfg(feature = "server")]
 use {
     crate::state::Dep,
+    yokoku_domain::Clock,
+    yokoku_events::History,
     yokoku_library::{Artworks, Calendar, Library},
     yokoku_media::Prober,
 };
