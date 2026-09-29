@@ -1,3 +1,6 @@
+pub mod calendar;
+pub mod detail;
+
 use dioxus::prelude::*;
 use jiff::civil::Date;
 use serde::{Deserialize, Serialize};
@@ -23,6 +26,15 @@ pub enum Status {
     Announced,
     InCinemas,
     Released,
+}
+
+/// Whether an episode or movie has its file (FR-1.4, 1.5, 7.4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileStatus {
+    Downloaded,
+    Missing,
+    Upcoming,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -83,6 +95,16 @@ impl Status {
     }
 }
 
+impl FileStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Downloaded => "Downloaded",
+            Self::Missing => "Missing",
+            Self::Upcoming => "Upcoming",
+        }
+    }
+}
+
 impl Sort {
     pub const ALL: [Self; 3] = [Self::Title, Self::Added, Self::NextRelease];
 
@@ -110,7 +132,7 @@ mod server {
     use yokoku_domain::{ArtworkKind, MediaKind, MovieStatus, SeriesStatus};
     use yokoku_library::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus, artwork_name};
 
-    use super::{Entry, Kind, Library, Sort, Status};
+    use super::{Entry, FileStatus, Kind, Library, Sort, Status};
     use crate::api::artwork;
 
     pub(super) async fn library(
@@ -158,6 +180,16 @@ mod server {
                 LibraryStatus::Movie(MovieStatus::Announced) => Self::Announced,
                 LibraryStatus::Movie(MovieStatus::InCinemas) => Self::InCinemas,
                 LibraryStatus::Movie(MovieStatus::Released) => Self::Released,
+            }
+        }
+    }
+
+    impl From<yokoku_domain::FileStatus> for FileStatus {
+        fn from(status: yokoku_domain::FileStatus) -> Self {
+            match status {
+                yokoku_domain::FileStatus::Downloaded => Self::Downloaded,
+                yokoku_domain::FileStatus::Missing => Self::Missing,
+                yokoku_domain::FileStatus::Upcoming => Self::Upcoming,
             }
         }
     }

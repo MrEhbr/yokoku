@@ -29,7 +29,7 @@ pub struct App {
     pub settings: Settings,
     pub library: Arc<Library>,
     pub artworks: Arc<Artworks>,
-    pub calendar: Calendar,
+    pub calendar: Arc<Calendar>,
     pub roots: RootFolders,
     pub scanner: Arc<Scanner>,
     pub reviewer: Reviewer,
@@ -99,7 +99,7 @@ impl App {
 
         Ok(Self {
             library: Arc::new(Library::new(db.clone(), db.clone(), clock.clone(), events.clone())),
-            calendar: Calendar::new(db.clone(), db.clone(), clock.clone()),
+            calendar: Arc::new(Calendar::new(db.clone(), db.clone(), clock.clone())),
             roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
             scanner: scanner.clone(),
             reviewer: Reviewer::new(db.clone(), db.clone(), clock.clone(), events.clone()),

@@ -5,13 +5,16 @@ use dioxus::server::axum::{
     extract::{FromRequestParts, rejection::ExtensionRejection},
     http::request::Parts,
 };
-use yokoku_library::{Artworks, Library};
+use yokoku_library::{Artworks, Calendar, Library};
+use yokoku_media::Prober;
 
 /// The use cases server functions call, wired by the composition root.
 #[derive(Clone)]
 pub struct AppState {
     pub library: Arc<Library>,
     pub artworks: Arc<Artworks>,
+    pub calendar: Arc<Calendar>,
+    pub prober: Arc<Prober>,
 }
 
 /// `AppState` holds a `T`.
@@ -28,6 +31,18 @@ impl Provides<Library> for AppState {
 impl Provides<Artworks> for AppState {
     fn provide(&self) -> Arc<Artworks> {
         self.artworks.clone()
+    }
+}
+
+impl Provides<Calendar> for AppState {
+    fn provide(&self) -> Arc<Calendar> {
+        self.calendar.clone()
+    }
+}
+
+impl Provides<Prober> for AppState {
+    fn provide(&self) -> Arc<Prober> {
+        self.prober.clone()
     }
 }
 

@@ -6409,11 +6409,13 @@ dependencies = [
  "dioxus-primitives",
  "gloo-timers",
  "jiff",
+ "rstest",
  "serde",
  "tokio",
  "uuid",
  "yokoku-domain",
  "yokoku-library",
+ "yokoku-media",
  "yokoku-naming",
 ]
 

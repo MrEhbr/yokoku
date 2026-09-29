@@ -12,10 +12,14 @@ use jiff::Timestamp;
 use predicates::prelude::*;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, Description, ExternalId, ItemFolder, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, Series,
-    SeriesId, SeriesMetadata, SourceStatus,
+    Artwork, Description, EpisodeMetadata, ExternalId, FileTarget, ItemFolder, MediaFileId, MonitorPreset, Movie,
+    MovieId, MovieMetadata, Releases, SeasonMetadata, Series, SeriesId, SeriesMetadata, SourceStatus,
 };
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
+use yokoku_media::{
+    AudioStream, MediaFile, MediaInfo, VideoStream,
+    ports::{Changes, MediaRepo},
+};
 
 /// A running service; killed on drop.
 struct Service {
@@ -67,8 +71,9 @@ impl Drop for Service {
     }
 }
 
-/// "Frieren" (tmdb:1), a series without a poster, and "Dune" (tmdb:10), a movie with the poster
-/// `/dune.jpg`.
+/// "Frieren" (tmdb:1), a series without a poster whose one episode, S01E01 "Departure", aired on
+/// 2023-09-29 without a file, and "Dune" (tmdb:10), a movie with the poster `/dune.jpg` and a probed
+/// 1080p file. Both have a description.
 async fn seed(path: &Path) -> (SeriesId, MovieId) {
     let db = Database::open(path).await.unwrap();
     let now = Timestamp::now();
@@ -79,9 +84,22 @@ async fn seed(path: &Path) -> (SeriesId, MovieId) {
         alternate_titles: Vec::new(),
         year: Some(2023),
         artwork: Artwork::default(),
-        description: Description::default(),
+        description: Description {
+            overview: "An elf mage outlives her party.".into(),
+            genres: vec!["Fantasy".into()],
+            runtime: Some(25),
+        },
         status: SourceStatus::Returning,
-        seasons: Vec::new(),
+        seasons: vec![SeasonMetadata {
+            number: 1,
+            episodes: vec![EpisodeMetadata {
+                source_id: 11,
+                number: 1,
+                title: "Departure".into(),
+                overview: "The party returns to the capital.".into(),
+                air_date: Some(jiff::civil::date(2023, 9, 29)),
+            }],
+        }],
     };
     let dune = MovieMetadata {
         source: ExternalId::Tmdb(10),
@@ -90,13 +108,27 @@ async fn seed(path: &Path) -> (SeriesId, MovieId) {
         alternate_titles: Vec::new(),
         year: Some(2021),
         artwork: Artwork { poster: Some("/dune.jpg".into()), ..Artwork::default() },
-        description: Description::default(),
+        description: Description { runtime: Some(155), ..Description::default() },
         releases: Releases::default(),
     };
     let today = now.to_zoned(jiff::tz::TimeZone::UTC).date();
     let mut series = Series::add(frieren, ItemFolder::default(), MonitorPreset::All, today, now);
     SeriesRepo::save(&db, &mut series).await.unwrap();
     let mut movie = Movie::add(dune, ItemFolder::default(), true, now);
+    MovieRepo::save(&db, &mut movie).await.unwrap();
+    let file = MediaFile {
+        id: MediaFileId::generate(),
+        path: "/movies/Dune (2021)/Dune (2021).mkv".into(),
+        size: 1_430_000_000,
+        target: FileTarget::Movie(movie.id),
+        added_at: now,
+    };
+    MediaRepo::save(&db, &Changes { added_files: vec![file.clone()], ..Changes::default() }).await.unwrap();
+    let video = VideoStream { codec: "h264".into(), width: 1920, height: 800 };
+    let audio = AudioStream { codec: "eac3".into(), language: Some("eng".into()), channels: 6 };
+    let info = MediaInfo { video: Some(video), audio: vec![audio], ..MediaInfo::default() };
+    MediaRepo::save_media_info(&db, file.id, &info).await.unwrap();
+    movie.file = Some(file.id);
     MovieRepo::save(&db, &mut movie).await.unwrap();
     (series.id, movie.id)
 }
@@ -123,6 +155,67 @@ async fn the_library_api_filters_by_type() {
 
     assert!(movies.starts_with("HTTP/1.1 200"), "{movies}");
     assert!(movies.contains("Dune") && !movies.contains("Frieren"), "{movies}");
+}
+
+#[tokio::test]
+async fn detail_pages_show_descriptions_episodes_releases_and_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let (frieren, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+
+    let series = service.get(&format!("/series/{frieren}"));
+    let movie = service.get(&format!("/movies/{dune}"));
+
+    assert!(series.starts_with("HTTP/1.1 200"), "{series}");
+    assert!(series.contains("Frieren") && series.contains("S01E01") && series.contains("Departure"), "{series}");
+    assert!(movie.starts_with("HTTP/1.1 200"), "{movie}");
+    assert!(movie.contains("Dune") && movie.contains("Releases"), "{movie}");
+    for text in ["An elf mage outlives her party.", "Fantasy · 25 min per episode", "The party returns to the capital."]
+    {
+        assert!(series.contains(text), "{text}: {series}");
+    }
+    for text in ["2h 35m", "/movies/Dune (2021)/Dune (2021).mkv", "1.4 GB", "1080p · 1920x800 h264", "eng eac3 5.1"] {
+        assert!(movie.contains(text), "{text}: {movie}");
+    }
+}
+
+#[tokio::test]
+async fn detail_pages_of_unknown_items_say_so() {
+    let dir = tempfile::tempdir().unwrap();
+    let (frieren, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+
+    let series = service.get(&format!("/series/{dune}"));
+    let movie = service.get(&format!("/movies/{frieren}"));
+
+    assert!(series.contains("Series not found"), "{series}");
+    assert!(movie.contains("Movie not found"), "{movie}");
+}
+
+#[tokio::test]
+async fn the_calendar_api_lists_the_monitored_releases_of_a_period() {
+    let dir = tempfile::tempdir().unwrap();
+    seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+
+    let september = service.get("/api/calendar?period=month&day=2023-09-10");
+    let week = service.get("/api/calendar?period=week&day=2023-09-10");
+
+    assert!(september.starts_with("HTTP/1.1 200"), "{september}");
+    assert!(september.contains("\"from\":\"2023-09-01\"") && september.contains("Departure"), "{september}");
+    assert!(week.contains("\"from\":\"2023-09-04\"") && !week.contains("Departure"), "{week}");
+}
+
+#[tokio::test]
+async fn the_missing_page_lists_aired_episodes_without_a_file() {
+    let dir = tempfile::tempdir().unwrap();
+    seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+
+    let page = service.get("/missing");
+
+    assert!(page.starts_with("HTTP/1.1 200"), "{page}");
+    assert!(page.contains("Frieren") && page.contains("Departure"), "{page}");
 }
 
 #[tokio::test]

@@ -22,6 +22,7 @@ path = "gallery/main.rs"
 [dependencies]
 yokoku-domain.workspace = true
 yokoku-library = { workspace = true, optional = true }
+yokoku-media = { workspace = true, optional = true }
 yokoku-naming.workspace = true
 
 jiff = { workspace = true, features = ["serde"] }
@@ -39,7 +40,10 @@ uuid = { workspace = true, features = ["js"] }
 
 gloo-timers = { version = "0.3", features = ["futures"] }
 
+[dev-dependencies]
+rstest.workspace = true
+
 [features]
 default = []
 web = ["dioxus/web"]
-server = ["dioxus/server", "dep:yokoku-library"]
+server = ["dioxus/server", "dep:yokoku-library", "dep:yokoku-media"]

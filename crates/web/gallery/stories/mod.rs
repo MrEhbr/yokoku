@@ -28,8 +28,10 @@ use yokoku_web::components::{
     button::{Button, ButtonSize, ButtonVariant},
     checkbox::{Checkbox, CheckboxState},
     dialog::{Dialog, DialogDescription, DialogFooter, DialogTitle},
+    disclosure::Disclosure,
     field::{Field, FieldError, FieldHint},
     input::Input,
+    item_hero::ItemHero,
     label::Label,
     progress::Progress,
     select::{Select, SelectGroup, SelectGroupLabel, SelectOption},
@@ -419,6 +421,51 @@ pub fn StatusStory() -> Element {
                     Status { tone: Tone::Danger, label: "Failed" }
                     Status { tone: Tone::Info, label: "Not yet aired" }
                     Status { tone: Tone::Muted, label: "Unmonitored" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn ItemHeroStory() -> Element {
+    rsx! {
+        StoryPage {
+            name: "Item hero",
+            path: "item-hero",
+            summary: "A detail page's header. The logo is the title only over a backdrop; without artwork the title is text.",
+            Story { title: "Without artwork",
+                ItemHero { title: "Frieren: Beyond Journey's End",
+                    p { class: "text-muted", "2023 · Series" }
+                    Status { tone: Tone::Info, label: "On break" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn DisclosureStory() -> Element {
+    rsx! {
+        StoryPage {
+            name: "Disclosure",
+            path: "disclosure",
+            summary: "A section that opens under its summary. A native details element, so it works before the page hydrates.",
+            Story { title: "Seasons, the latest open",
+                div { class: "border-t border-line",
+                    Disclosure {
+                        open: true,
+                        summary: rsx! {
+                            span { class: "text-section font-medium", "Season 2" }
+                        },
+                        p { class: "text-muted", "10 episodes" }
+                    }
+                    Disclosure {
+                        summary: rsx! {
+                            span { class: "text-section font-medium", "Season 1" }
+                        },
+                        p { class: "text-muted", "28 episodes" }
+                    }
                 }
             }
         }

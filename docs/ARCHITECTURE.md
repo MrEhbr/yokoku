@@ -122,10 +122,10 @@ naming rules make each hop predictable:
   ```
   web/src/
     route.rs      Route enum and App; the only file that names every page
-    layout/       the shell around every page: Shell, DocumentHead
-    pages/        one folder per route: library/, series_detail/, calendar/
+    layout/       the shell around every page: Shell, DocumentHead, BackButton
+    pages/        one folder per route: library/, series_detail/, upcoming/
     dialogs/      modal flows opened from several pages: import_review.rs, rename.rs
-    api/          server functions, one file per feature module: library.rs, media.rs
+    api/          server functions, one file per feature module: library/, media.rs
     components/   Paper components (vendored with `just web add`) and Yokoku widgets, flat
     format.rs     values as every page writes them: year, date
     server.rs     Server: binds and serves the router; server build only
@@ -169,12 +169,17 @@ naming rules make each hop predictable:
       child that only shows it takes the value.
   - **Page states** follow the design system (§6 of DESIGN-SYSTEM.md): loading (`Skeleton`),
     failed (`Alert` with a generic message), empty (what to do next), and empty because of
-    filters (a Clear filters action) are separate.
+    filters (a Clear filters action) are separate. Each page names itself with
+    `document::Title { "Library · Yokoku" }`; the shell's `Yokoku` is the fallback.
   - **Components** take props and send events, never call `api`, so the gallery shows each one
     with fixed data. A server-rendered `Select` with a value passes that value's text as
     `placeholder`, or the page shows "Select…" until the options register in the browser.
+    Sections that open and close are `Disclosure`, a native `details` that renders on the
+    server; the vendored `Accordion` mounts its content only in the browser.
   - **Navigation:** a main destination is one `NavItem` in `layout/` `Shell`, a router link in
-    the sidebar, which is a sheet below `md`.
+    the sidebar, which is a sheet below `md`. Every other page belongs to one
+    (`Route::section`), which stays highlighted, and starts with `BackButton`: back after an
+    in-app link, or to its section when opened directly.
   - **Server functions:** a file in `api/` holds, compiled for both builds, its wire types and
     its server function signatures, and in one `#[cfg(feature = "server")] mod server` everything
     that needs the server build: the use-case call, error mapping, and the conversions between
@@ -201,13 +206,13 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | Feature | Use case (entry point) | Rules / pure logic | Storage (`db/src`) | Outside world | Driven from |
 |---|---|---|---|---|---|
 | Search and add (FR-1.1) | `library/src/metadata.rs` `MetadataService::search`, `add_series`, `add_movie` | `domain/src/series.rs` `Series::add`, `movie.rs`; folder name `naming/src/naming.rs` via `yokoku/src/app.rs` `NamedFolders` | `series_repo.rs`, `movie_repo.rs` | `metadata/src/sources.rs`, `tmdb.rs`, `tvdb.rs` | `cli/commands/search.rs`, `add.rs` |
-| List, detail, monitoring, numbering, remove (FR-1, FR-2) | `library/src/library.rs` `Library` | `domain/src/series.rs` (monitoring, numbering), `library/src/listing.rs` | `series_repo.rs`, `movie_repo.rs` | none | `list.rs`, `show.rs`, `monitor.rs`, `numbering.rs`, `remove.rs` |
+| List, detail, monitoring, numbering, remove (FR-1, FR-2) | `library/src/library.rs` `Library` | `domain/src/series.rs` (monitoring, numbering), `library/src/listing.rs` | `series_repo.rs`, `movie_repo.rs` | none | `list.rs`, `show.rs`, `monitor.rs`, `numbering.rs`, `remove.rs`; web `api/library/`, `pages/library/`, `series_detail/`, `movie_detail/` |
 | Metadata refresh (FR-1.6) | `library/src/metadata.rs` `refresh_*` | `Series::refresh`, `needs_refresh` in `domain/src/series.rs`; `movie.rs` | as above | `metadata` | job `refresh-metadata` (`jobs/src/lib.rs`); `refresh.rs` |
-| Next / last aired (FR-6.1, 6.2) | `library/src/listing.rs` | `domain/src/series.rs` `next_episode`, `last_aired` | as above | none | `list.rs`, `show.rs` |
-| Calendar and missing (FR-6.3, 6.4, FR-7) | `library/src/calendar.rs` `Calendar::entries`, `missing` | `domain/src/series.rs`, `movie.rs` | as above | none | `calendar.rs`, `missing.rs` |
+| Next / last aired (FR-6.1, 6.2) | `library/src/listing.rs` | `domain/src/series.rs` `next_episode`, `last_aired` | as above | none | `list.rs`, `show.rs`; web `pages/series_detail/` |
+| Calendar and missing (FR-6.3, 6.4, FR-7) | `library/src/calendar.rs` `Calendar::entries`, `missing` | `domain/src/series.rs`, `movie.rs` | as above | none | `calendar.rs`, `missing.rs`; web `api/library/calendar.rs`, `pages/upcoming/`, `missing/` |
 | File projection on items | `library/src/files.rs` `FileTracker` (`library.files`) | none | `media_files.rs` | none | `yokoku/src/subscriptions.rs` |
 | Artwork: poster, backdrop, logo (FR-1.2) | `library/src/artwork.rs` `Artworks` (`library.artwork`) | `domain/src/artwork.rs` `Artwork`; choice in `metadata/src/tmdb_wire.rs`, `tvdb_wire.rs` | `series_repo.rs`, `movie_repo.rs` (`artwork` JSON column) | `metadata/src/artwork.rs` `ArtworkFetcher`; `system/src/artwork.rs` `ArtworkFiles` | `web/src/api/artwork.rs` |
-| Description: overview, genres, runtime; episode overviews | `library/src/metadata.rs` (with refresh) | `domain/src/description.rs` `Description`; `Series::refresh`, `Movie::refresh` | `series_repo.rs`, `movie_repo.rs` (`description` JSON column, episode `overview`) | `metadata/src/tmdb.rs`, `tvdb.rs` | job `refresh-metadata`; `refresh.rs` |
+| Description: overview, genres, runtime; episode overviews | `library/src/metadata.rs` (with refresh) | `domain/src/description.rs` `Description`; `Series::refresh`, `Movie::refresh` | `series_repo.rs`, `movie_repo.rs` (`description` JSON column, episode `overview`) | `metadata/src/tmdb.rs`, `tvdb.rs` | `web/src/api/library/detail.rs` |
 | Downloads: add, sync, pick up, seeding cleanup (FR-3) | `downloads/src/downloads.rs` `Downloads` | `downloads/src/model.rs` | `download_repo.rs` | `download-clients/src/transmission.rs` | job `sync-downloads`; `download.rs` |
 | Detection (FR-4.1–4.10, 4.13) | `detect` `ImportPlan::new` (`plan.rs`) | `classify.rs`, `parse.rs`, `titles.rs` (title and year), `plan.rs` (episodes) | none | none | `media/src/planner.rs`, `scan.rs` |
 | Import: plan, review, execute, retry (FR-3.5, 3.6, 4.11, 4.12, 9.2) | `media/src/planner.rs` `ImportPlanner` → `review.rs` `Reviewer` → `importer.rs` `Importer` | `detect`, `naming` | `media_repo.rs` | `system/src/fs.rs` | job `execute-imports`; `review.rs`, `import.rs` |
@@ -218,7 +223,7 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | Scan (FR-8.2, 8.3, 8.7, 8.8) | `media/src/scan.rs` `Scanner` | `detect` | `media_repo.rs`, `catalog.rs` | `system/src/fs.rs` | job `scan-library`; `media.scan_added`; `scan.rs` |
 | Retarget files on renumber | `media/src/scan/renumber.rs` (`media.renumbered`) | `domain/src/series.rs` `Series::refresh` | `media_repo.rs` | none | `subscriptions.rs` |
 | Delete files (FR-8.4, 8.5, FR-1.7) | `media/src/deleter.rs` `Deleter` | none | `media_repo.rs` | `system/src/fs.rs` | `delete.rs`, `remove.rs` |
-| File details (FR-8.6) | `media/src/prober.rs` `Prober` (`media.probe`) | `media/src/model.rs` `MediaInfo` | `media_info.rs` | `system/src/probe.rs` | `files.rs` |
+| File details (FR-8.6) | `media/src/prober.rs` `Prober` (`media.probe`) | `media/src/model.rs` `MediaInfo` | `media_info.rs` | `system/src/probe.rs` | `files.rs`; web `api/library/detail.rs` |
 | Library lock | `media/src/ports.rs` `LibraryLock` | none | none | `system/src/lock.rs` | every media use case |
 | Jellyfin rescan (FR-10.4) | `integrations/src/rescans.rs` `Rescans` | none | `rescan_store.rs` | `media-servers/src/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
 | History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display` | `event_log.rs` | none | `history.rs` |

@@ -4,7 +4,7 @@ mod grid;
 mod table;
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide::{LayoutGrid, Rows3};
+use dioxus_icons::lucide::{CircleAlert, LayoutGrid, Rows3};
 
 use self::{
     filters::{FilterBar, Filters},
@@ -18,6 +18,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         skeleton::Skeleton,
     },
+    route::Route,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -37,8 +38,13 @@ pub fn Library() -> Element {
     })?;
 
     rsx! {
+        document::Title { "Library · Yokoku" }
         div { class: "flex flex-wrap items-center justify-between gap-4",
             h1 { class: "yk-page-title", "Library" }
+            Link { class: "yk-button ml-auto [&>svg]:size-4", to: Route::Missing {},
+                CircleAlert {}
+                "Missing"
+            }
             div { role: "group", aria_label: "View", class: "flex gap-1",
                 for (option, label, icon) in [
                     (View::Grid, "Posters", rsx! {

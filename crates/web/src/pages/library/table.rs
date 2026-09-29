@@ -1,10 +1,14 @@
 use dioxus::prelude::*;
 
-use super::fields::{Files, Lifecycle};
+use super::fields::Files;
 use crate::{
     api::library::Entry,
-    components::table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
+    components::{
+        item_status::Lifecycle,
+        table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
+    },
     format::{date, year},
+    route::Route,
 };
 
 #[component]
@@ -26,7 +30,13 @@ pub(super) fn EntryTable(entries: Vec<Entry>) -> Element {
             TableBody {
                 for entry in entries {
                     TableRow { key: "{entry.id:?}",
-                        TableCell { class: "font-medium", "{entry.title}" }
+                        TableCell { class: "font-medium",
+                            Link {
+                                class: "hover:underline",
+                                to: Route::item(entry.id),
+                                "{entry.title}"
+                            }
+                        }
                         TableCell { class: "tabular-nums", "{year(entry.year)}" }
                         TableCell { "{entry.status.kind().label()}" }
                         TableCell {

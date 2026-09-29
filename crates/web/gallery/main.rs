@@ -75,6 +75,10 @@ enum Route {
     ToggleStory {},
     #[route("/ui/tooltip")]
     TooltipStory {},
+    #[route("/disclosure")]
+    DisclosureStory {},
+    #[route("/item-hero")]
+    ItemHeroStory {},
     #[route("/status")]
     StatusStory {},
     #[route("/patterns/manual-import")]
@@ -86,7 +90,14 @@ enum Route {
 /// Sidebar groups: title, then (label, page) per story.
 fn nav() -> [(&'static str, Vec<(&'static str, Route)>); 3] {
     [
-        ("Yokoku", vec![("Status", Route::StatusStory {})]),
+        (
+            "Yokoku",
+            vec![
+                ("Disclosure", Route::DisclosureStory {}),
+                ("Item hero", Route::ItemHeroStory {}),
+                ("Status", Route::StatusStory {}),
+            ],
+        ),
         ("Patterns", vec![("Manual import", Route::ManualImport {}), ("Live progress", Route::LiveProgress {})]),
         (
             "Primitives",

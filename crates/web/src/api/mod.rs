@@ -9,5 +9,6 @@ pub mod library;
 #[cfg(feature = "server")]
 use {
     crate::state::Dep,
-    yokoku_library::{Artworks, Library},
+    yokoku_library::{Artworks, Calendar, Library},
+    yokoku_media::Prober,
 };

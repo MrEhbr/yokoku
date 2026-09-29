@@ -1,9 +1,11 @@
+mod back_button;
 pub mod document_head;
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide::Library;
+use dioxus_icons::lucide::{CalendarDays, Library};
 
-use self::document_head::DocumentHead;
+pub(crate) use self::back_button::BackButton;
+use self::{back_button::use_in_app_history, document_head::DocumentHead};
 use crate::{
     components::{
         sidebar::{
@@ -19,6 +21,7 @@ use crate::{
 /// sheet opened from the top bar.
 #[component]
 pub fn Shell() -> Element {
+    use_in_app_history();
     rsx! {
         document::Title { "Yokoku" }
         DocumentHead {}
@@ -31,6 +34,7 @@ pub fn Shell() -> Element {
                     nav { aria_label: "Main",
                         SidebarMenu {
                             NavItem { to: Route::Library {}, label: "Library", Library {} }
+                            NavItem { to: Route::Upcoming {}, label: "Upcoming", CalendarDays {} }
                         }
                     }
                 }
@@ -63,11 +67,11 @@ fn Brand() -> Element {
     }
 }
 
-/// A main destination; following it closes the sidebar sheet.
+/// A main destination, active on its own pages; following it closes the sidebar sheet.
 #[component]
 fn NavItem(to: Route, label: &'static str, children: Element) -> Element {
     let sidebar = use_sidebar();
-    let active = use_route::<Route>() == to;
+    let active = use_route::<Route>().section() == to;
     rsx! {
         SidebarMenuItem {
             SidebarMenuButton {
