@@ -113,7 +113,7 @@ impl Template {
         rendered
     }
 
-    fn contains(&self, token: Token) -> bool {
+    pub(crate) fn contains(&self, token: Token) -> bool {
         self.parts.iter().any(|part| match part {
             Part::Token(candidate) => *candidate == token,
             Part::Optional(inner) => inner.contains(&Part::Token(token)),

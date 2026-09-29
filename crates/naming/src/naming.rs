@@ -102,17 +102,20 @@ impl Naming {
 
     /// `Movie Folder`, a single path component.
     pub fn movie_folder(&self, title: &str, year: Option<i16>) -> String {
-        sanitize(&self.movie_folder.render(&title_and_year(title, year)))
+        sanitize(&self.movie_folder.render(&title_and_year(&self.movie_folder, title, year)))
     }
 
     /// `Series Folder`, a single path component.
     pub fn series_folder(&self, title: &str, year: Option<i16>) -> String {
-        sanitize(&self.series_folder.render(&title_and_year(title, year)))
+        sanitize(&self.series_folder.render(&title_and_year(&self.series_folder, title, year)))
     }
 
     /// `Movie File.ext`, relative to the movie's folder.
     pub fn movie_path(&self, movie: &Movie, extension: &str) -> PathBuf {
-        PathBuf::from(file_name(&self.movie_file.render(&title_and_year(&movie.title, movie.year)), extension))
+        PathBuf::from(file_name(
+            &self.movie_file.render(&title_and_year(&self.movie_file, &movie.title, movie.year)),
+            extension,
+        ))
     }
 
     /// `Season Folder/Episode File.ext`, relative to the series' folder.
@@ -126,16 +129,20 @@ impl Naming {
         }
         let episode_title = (!titles.is_empty()).then(|| titles.join(" + "));
 
-        let value = |token| match token {
-            Token::Title => Some(series.title.clone()),
-            Token::Year => series.year.map(|year| year.to_string()),
-            Token::Season => Some(format!("{:02}", span.season())),
-            Token::Episodes => Some(span.to_string()),
-            Token::EpisodeTitle => episode_title.clone(),
+        let values = |template: &Template| {
+            let title = title_for(template, &series.title, series.year).to_owned();
+            let episode_title = episode_title.clone();
+            move |token| match token {
+                Token::Title => Some(title.clone()),
+                Token::Year => series.year.map(|year| year.to_string()),
+                Token::Season => Some(format!("{:02}", span.season())),
+                Token::Episodes => Some(span.to_string()),
+                Token::EpisodeTitle => episode_title.clone(),
+            }
         };
-        Ok([sanitize(&self.season_folder.render(&value)), file_name(&self.episode_file.render(&value), extension)]
-            .iter()
-            .collect())
+        let season_folder = self.season_folder.render(&values(&self.season_folder));
+        let episode_file = self.episode_file.render(&values(&self.episode_file));
+        Ok([sanitize(&season_folder), file_name(&episode_file, extension)].iter().collect())
     }
 }
 
@@ -153,12 +160,20 @@ impl From<Naming> for NamingTemplates {
     }
 }
 
-fn title_and_year(title: &str, year: Option<i16>) -> impl Fn(Token) -> Option<String> {
+fn title_and_year(template: &Template, title: &str, year: Option<i16>) -> impl Fn(Token) -> Option<String> {
+    let title = title_for(template, title, year).to_owned();
     move |token| match token {
-        Token::Title => Some(title.to_owned()),
+        Token::Title => Some(title.clone()),
         Token::Year => year.map(|year| year.to_string()),
         _ => None,
     }
+}
+
+/// `title` without a trailing ` (year)` of its own `year` when `template` renders the year, so a
+/// title like `ONE PIECE (2023)` gives `ONE PIECE (2023)`, not `ONE PIECE (2023) (2023)`.
+fn title_for<'a>(template: &Template, title: &'a str, year: Option<i16>) -> &'a str {
+    let Some(year) = year.filter(|_| template.contains(Token::Year)) else { return title };
+    title.strip_suffix(&format!(" ({year})")).filter(|rest| !rest.trim().is_empty()).unwrap_or(title)
 }
 
 impl Default for Naming {

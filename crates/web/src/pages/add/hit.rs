@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use yokoku_domain::ends_with_year;
 
 use crate::{api::add::SearchHit, components::skeleton::Skeleton, route::Route};
 
@@ -42,7 +43,7 @@ pub(super) fn HitRow(hit: SearchHit, on_pick: Callback<SearchHit>) -> Element {
         span { class: "grid min-w-0 flex-1 content-start gap-1.5",
             span { class: "text-section font-medium",
                 "{hit.title}"
-                if let Some(year) = hit.year {
+                if let Some(year) = hit.year.filter(|&year| !ends_with_year(&hit.title, year)) {
                     span { class: "font-normal text-muted", " ({year})" }
                 }
             }

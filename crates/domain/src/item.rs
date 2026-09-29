@@ -29,12 +29,18 @@ impl ItemId {
     }
 }
 
-/// How an item is named to people: `Dune (2021)`, or the bare title without a year.
+/// How an item is named to people: `Dune (2021)`, or the bare title without a year. A title that
+/// already ends in its year, like `ONE PIECE (2023)`, is left as it is.
 pub fn title_with_year(title: &str, year: Option<i16>) -> String {
     match year {
-        Some(year) => format!("{title} ({year})"),
-        None => title.to_owned(),
+        Some(year) if !ends_with_year(title, year) => format!("{title} ({year})"),
+        _ => title.to_owned(),
     }
+}
+
+/// Whether `title` ends in ` (year)`.
+pub fn ends_with_year(title: &str, year: i16) -> bool {
+    title.ends_with(&format!(" ({year})"))
 }
 
 #[cfg(test)]
@@ -46,6 +52,8 @@ mod tests {
     #[rstest]
     #[case("Dune", Some(2021), "Dune (2021)")]
     #[case("Dune", None, "Dune")]
+    #[case("ONE PIECE (2023)", Some(2023), "ONE PIECE (2023)")]
+    #[case("Dune (1984)", Some(2021), "Dune (1984) (2021)")]
     fn names_an_item(#[case] title: &str, #[case] year: Option<i16>, #[case] expected: &str) {
         assert_eq!(title_with_year(title, year), expected);
     }

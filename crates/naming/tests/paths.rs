@@ -74,6 +74,8 @@ fn span(season: u16, first: u16, last: u16) -> EpisodeSpan {
 #[case::without_year("Dune", None, "mkv", "Dune/Dune.mkv")]
 #[case::colon_becomes_dash("Dune: Part Two", Some(2024), "MKV", "Dune - Part Two (2024)/Dune - Part Two (2024).mkv")]
 #[case::slash_is_not_a_folder("Face/Off", Some(1997), ".mp4", "Face-Off (1997)/Face-Off (1997).mp4")]
+#[case::title_with_its_year("Dune (2021)", Some(2021), "mkv", "Dune (2021)/Dune (2021).mkv")]
+#[case::title_with_another_year("Dune (1984)", Some(2021), "mkv", "Dune (1984) (2021)/Dune (1984) (2021).mkv")]
 fn movie_paths_follow_jellyfin(
     #[case] title: &str,
     #[case] year: Option<i16>,
@@ -106,6 +108,25 @@ fn episode_paths_follow_jellyfin(#[case] span: EpisodeSpan, #[case] expected: &s
 
     let path = PathBuf::from(naming.series_folder("Frieren", Some(2023)))
         .join(naming.episode_path(&frieren, span, "mkv").unwrap());
+
+    assert_eq!(path, PathBuf::from(expected));
+}
+
+#[rstest]
+#[case::year_in_the_pattern(
+    NamingTemplates::default(),
+    "ONE PIECE (2023)/Season 01/ONE PIECE (2023) - S01E01 - Romance Dawn.mkv"
+)]
+#[case::no_year_in_the_pattern(
+    NamingTemplates { series_folder: "{title}".into(), episode_file: "{title} {episodes}".into(), ..NamingTemplates::default() },
+    "ONE PIECE (2023)/Season 01/ONE PIECE (2023) S01E01.mkv"
+)]
+fn a_title_ending_in_its_year_holds_the_year_once(#[case] templates: NamingTemplates, #[case] expected: &str) {
+    let naming = Naming::new(&templates).unwrap();
+    let one_piece = series("ONE PIECE (2023)", Some(2023), &[(1, &["Romance Dawn"])]);
+
+    let path = PathBuf::from(naming.series_folder("ONE PIECE (2023)", Some(2023)))
+        .join(naming.episode_path(&one_piece, span(1, 1, 1), "mkv").unwrap());
 
     assert_eq!(path, PathBuf::from(expected));
 }
