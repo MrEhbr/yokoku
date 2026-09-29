@@ -103,6 +103,22 @@ pub async fn live_downloads() -> Result<ServerEvents<Vec<DownloadEntry>>, Server
     Ok(server::live(sources, changes.into_inner()))
 }
 
+/// A torrent to add.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum NewTorrent {
+    Magnet(String),
+    /// The contents of a .torrent file.
+    File(Vec<u8>),
+}
+
+/// Sends the torrent to the download client for `item`, or for detection to work out what it
+/// holds (FR-3.2).
+#[post("/api/downloads", downloads: Dep<Downloads>)]
+pub async fn add_torrent(torrent: NewTorrent, item: Option<ItemId>) -> Result<(), ServerFnError> {
+    server::add(&downloads, torrent, item).await
+}
+
 /// Queues a failed import again; the import job carries it out.
 #[post("/api/imports/{id}/retry", importer: Dep<Importer>)]
 pub async fn retry_import(id: ImportId) -> Result<(), ServerFnError> {
@@ -115,13 +131,16 @@ mod server {
 
     use dioxus::{fullstack::ServerEvents, logger::tracing::error, prelude::*};
     use yokoku_domain::{DownloadId, ImportId, ItemId};
-    use yokoku_downloads::Download;
+    use yokoku_downloads::{
+        Download, DownloadError,
+        ports::{ClientError, TorrentSource},
+    };
     use yokoku_library::{LibraryFilter, LibrarySort};
     use yokoku_media::{Import, ImportStatus, MediaError};
 
     use super::{
-        DownloadEntry, DownloadState, Downloads, ImportEntry, ImportState, Importer, ItemLink, Library, QueueChanges,
-        Reviewer,
+        DownloadEntry, DownloadState, Downloads, ImportEntry, ImportState, Importer, ItemLink, Library, NewTorrent,
+        QueueChanges, Reviewer,
     };
 
     /// How long a burst of saves settles before the downloads are read again.
@@ -190,6 +209,33 @@ mod server {
                 entry(download, item, import)
             })
             .collect())
+    }
+
+    pub(super) async fn add(
+        downloads: &Downloads,
+        torrent: NewTorrent,
+        item: Option<ItemId>,
+    ) -> Result<(), ServerFnError> {
+        let torrent = match torrent {
+            NewTorrent::Magnet(link) if link.trim().starts_with("magnet:") => {
+                TorrentSource::Magnet(link.trim().to_owned())
+            },
+            NewTorrent::Magnet(_) => return Err(ServerFnError::new("Paste a link that starts with magnet:")),
+            NewTorrent::File(bytes) => TorrentSource::File(bytes),
+        };
+        downloads.add(&torrent, item).await.map(drop).map_err(|error| match error {
+            DownloadError::AlreadyAdded(name) => ServerFnError::new(format!("{name} was already added")),
+            DownloadError::Client(ClientError::Unavailable(_)) => {
+                ServerFnError::new("Transmission could not be reached; check that it runs and its address")
+            },
+            DownloadError::Client(ClientError::Refused(reason)) => {
+                ServerFnError::new(format!("Transmission refused the torrent: {reason}"))
+            },
+            error => {
+                error!(%error, "adding the torrent failed");
+                ServerFnError::new("The torrent could not be added; the server log has the cause")
+            },
+        })
     }
 
     pub(super) async fn retry(importer: &Importer, id: ImportId) -> Result<(), ServerFnError> {

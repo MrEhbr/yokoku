@@ -2,6 +2,7 @@
 
 mod api;
 pub mod components;
+mod dialogs;
 mod format;
 pub mod layout;
 mod pages;

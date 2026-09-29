@@ -124,7 +124,7 @@ naming rules make each hop predictable:
     route.rs      Route enum and App; the only file that names every page
     layout/       the shell around every page: Shell, DocumentHead, BackButton
     pages/        one folder per route: library/, series_detail/, upcoming/, downloads/, history/
-    dialogs/      modal flows opened from several pages: import_review.rs, rename.rs
+    dialogs/      modal flows opened from several pages: add_torrent.rs, import_review.rs, rename.rs
     api/          server functions, one file per feature module: library/, add.rs, downloads.rs, history.rs, media.rs
     components/   Paper components (vendored with `just web add`) and Yokoku widgets, flat
     format.rs     values as every page writes them: year, date
@@ -213,7 +213,7 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | File projection on items | `library/src/files.rs` `FileTracker` (`library.files`) | none | `media_files.rs` | none | `yokoku/src/subscriptions.rs` |
 | Artwork: poster, backdrop, logo (FR-1.2) | `library/src/artwork.rs` `Artworks` (`library.artwork`) | `domain/src/artwork.rs` `Artwork`; choice in `metadata/src/tmdb_wire.rs`, `tvdb_wire.rs` | `series_repo.rs`, `movie_repo.rs` (`artwork` JSON column) | `metadata/src/artwork.rs` `ArtworkFetcher`; `system/src/artwork.rs` `ArtworkFiles` | `web/src/api/artwork.rs`, which also serves search result posters uncached (`Artworks::preview`) |
 | Description: overview, genres, runtime; episode overviews | `library/src/metadata.rs` (with refresh) | `domain/src/description.rs` `Description`; `Series::refresh`, `Movie::refresh` | `series_repo.rs`, `movie_repo.rs` (`description` JSON column, episode `overview`) | `metadata/src/tmdb.rs`, `tvdb.rs` | `web/src/api/library/detail.rs` |
-| Downloads: add, sync, pick up, seeding cleanup (FR-3) | `downloads/src/downloads.rs` `Downloads` | `downloads/src/model.rs` | `download_repo.rs` | `download-clients/src/transmission.rs` | jobs `sync-downloads`, `sync-active-downloads`; `download.rs`; web `api/downloads.rs` (live over server-sent events, woken by `events::QueueChanges`, which `Downloads`, `ImportPlanner`, `Scanner`, `Reviewer` and `Importer` notify after saving downloads or imports), `pages/downloads/` |
+| Downloads: add, sync, pick up, seeding cleanup (FR-3) | `downloads/src/downloads.rs` `Downloads` | `downloads/src/model.rs` | `download_repo.rs` | `download-clients/src/transmission.rs` | jobs `sync-downloads`, `sync-active-downloads`; `download.rs`; web `api/downloads.rs` (live over server-sent events, woken by `events::QueueChanges`, which `Downloads`, `ImportPlanner`, `Scanner`, `Reviewer` and `Importer` notify after saving downloads or imports), `pages/downloads/`, adding torrents in `dialogs/add_torrent.rs` (from Downloads and detail pages) |
 | Detection (FR-4.1–4.10, 4.13) | `detect` `ImportPlan::new` (`plan.rs`) | `classify.rs`, `parse.rs`, `titles.rs` (title and year), `plan.rs` (episodes) | none | none | `media/src/planner.rs`, `scan.rs` |
 | Import: plan, review, execute, retry (FR-3.5, 3.6, 4.11, 4.12, 9.2) | `media/src/planner.rs` `ImportPlanner` → `review.rs` `Reviewer` → `importer.rs` `Importer` | `detect`, `naming` | `media_repo.rs` | `system/src/fs.rs` | job `execute-imports`; `review.rs`, `import.rs`; web: status and retry on torrent rows (`api/downloads.rs`, `pages/downloads/`), scan imports on detail pages |
 | Episode spans (`S01E01-E03`) | none | `domain/src/episode_span.rs` | none | none | none |

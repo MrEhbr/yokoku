@@ -631,6 +631,73 @@ async fn a_failed_import_can_be_retried_and_one_waiting_for_review_cannot() {
     assert!(!review.starts_with("HTTP/1.1 200") && review.contains("no longer waiting for a retry"), "{review}");
 }
 
+/// A Transmission that knows the session handshake and adds and lists one torrent, `Dune.2021.1080p`.
+async fn transmission() -> wiremock::MockServer {
+    use serde_json::json;
+    use wiremock::{
+        Mock, MockServer, Request, ResponseTemplate,
+        matchers::{body_partial_json, header, method},
+    };
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(|request: &Request| !request.headers.contains_key("X-Transmission-Session-Id"))
+        .respond_with(ResponseTemplate::new(409).insert_header("X-Transmission-Session-Id", "session"))
+        .mount(&server)
+        .await;
+    let hash = "0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6";
+    let torrent = json!({
+        "hashString": hash, "name": "Dune.2021.1080p", "status": 4, "sizeWhenDone": 4_000_000_000u64,
+        "leftUntilDone": 1_000_000_000u64, "rateDownload": 5_000_000, "eta": 600, "downloadDir": "/downloads",
+        "error": 0, "errorString": "", "metadataPercentComplete": 1.0, "isFinished": false, "labels": ["yokoku"],
+    });
+    for (rpc, arguments) in [
+        ("torrent-add", json!({ "torrent-added": { "hashString": hash, "id": 1, "name": "Dune.2021.1080p" } })),
+        ("torrent-get", json!({ "torrents": [torrent] })),
+    ] {
+        Mock::given(header("X-Transmission-Session-Id", "session"))
+            .and(body_partial_json(json!({ "method": rpc })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({ "arguments": arguments, "result": "success" })),
+            )
+            .mount(&server)
+            .await;
+    }
+    server
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_torrent_can_be_added_for_an_item() {
+    let transmission = transmission().await;
+    let dir = tempfile::tempdir().unwrap();
+    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let url = format!("{}/transmission/rpc", transmission.uri());
+    let service = Service::start_with(dir.path(), &[("APP__TRANSMISSION__URL", &url)]);
+    let magnet = |link: &str| format!(r#"{{"torrent":{{"magnet":"{link}"}},"item":{{"Movie":"{dune}"}}}}"#);
+
+    let not_a_magnet = service.post_json("/api/downloads", &magnet("https://example.com/dune"));
+    let added =
+        service.post_json("/api/downloads", &magnet("magnet:?xt=urn:btih:0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6"));
+    let again =
+        service.post_json("/api/downloads", &magnet("magnet:?xt=urn:btih:0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6"));
+    let downloads = service.get("/api/downloads");
+
+    assert!(not_a_magnet.contains("starts with magnet:"), "{not_a_magnet}");
+    assert!(added.starts_with("HTTP/1.1 200"), "{added}");
+    assert!(again.contains("was already added"), "{again}");
+    assert!(downloads.contains("Dune.2021.1080p") && downloads.contains(&dune.to_string()), "{downloads}");
+}
+
+#[tokio::test]
+async fn adding_a_torrent_says_when_transmission_is_unreachable() {
+    let dir = tempfile::tempdir().unwrap();
+    seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start_with(dir.path(), &[("APP__TRANSMISSION__URL", "http://127.0.0.1:9/transmission/rpc")]);
+
+    let added = service.post_json("/api/downloads", r#"{"torrent":{"file":[100,56]},"item":null}"#);
+
+    assert!(added.contains("Transmission could not be reached"), "{added}");
+}
+
 #[tokio::test]
 async fn the_live_downloads_stream_sends_the_downloads_then_each_change() {
     let dir = tempfile::tempdir().unwrap();

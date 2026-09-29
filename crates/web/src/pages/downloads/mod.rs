@@ -11,6 +11,7 @@ use crate::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         skeleton::Skeleton,
     },
+    dialogs::add_torrent::AddTorrentButton,
 };
 
 const RECONNECT: Duration = Duration::from_secs(2);
@@ -43,7 +44,10 @@ pub fn Downloads() -> Element {
     };
     rsx! {
         document::Title { "Downloads · Yokoku" }
-        h1 { class: "yk-page-title", "Downloads" }
+        div { class: "flex flex-wrap items-center gap-4",
+            h1 { class: "yk-page-title", "Downloads" }
+            div { class: "ml-auto", AddTorrentButton {} }
+        }
         p { class: "mt-2 text-muted", "As of the last sync with the download client." }
         div { class: "mt-8",
             match current {

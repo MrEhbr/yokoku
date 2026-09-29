@@ -23,6 +23,7 @@ use crate::{
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
+    dialogs::add_torrent::AddTorrentButton,
     format::year,
     layout::BackButton,
     route::Route,
@@ -114,8 +115,11 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     on_change: reload,
                 }
                 NumberingSelect { series: id, numbering: series.numbering, on_change: reload }
-                RefreshButton { item: ItemId::Series(id), on_change: reload }
-                RemoveItem { item: ItemId::Series(id), title: series.title.clone(), files: series.files() }
+                div { class: "flex flex-wrap items-center gap-2",
+                    AddTorrentButton { item: ItemId::Series(id) }
+                    RefreshButton { item: ItemId::Series(id), on_change: reload }
+                    RemoveItem { item: ItemId::Series(id), title: series.title.clone(), files: series.files() }
+                }
             }
             ItemDescription { description: series.description.clone(), per_episode: true }
             div { class: "mt-2 grid gap-3 lg:grid-cols-2",

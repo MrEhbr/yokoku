@@ -20,6 +20,7 @@ use crate::{
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
+    dialogs::add_torrent::AddTorrentButton,
     format::{date, relative, year},
     layout::BackButton,
     route::Route,
@@ -111,11 +112,14 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     labelled: true,
                     on_change: reload,
                 }
-                RefreshButton { item: ItemId::Movie(id), on_change: reload }
-                RemoveItem {
-                    item: ItemId::Movie(id),
-                    title: movie.title.clone(),
-                    files: usize::from(movie.file_info.is_some()),
+                div { class: "flex flex-wrap items-center gap-2",
+                    AddTorrentButton { item: ItemId::Movie(id) }
+                    RefreshButton { item: ItemId::Movie(id), on_change: reload }
+                    RemoveItem {
+                        item: ItemId::Movie(id),
+                        title: movie.title.clone(),
+                        files: usize::from(movie.file_info.is_some()),
+                    }
                 }
             }
             ItemDescription { description: movie.description.clone() }

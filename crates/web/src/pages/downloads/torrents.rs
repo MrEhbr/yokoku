@@ -20,11 +20,7 @@ use crate::{
 pub(super) fn Torrents(downloads: Vec<DownloadEntry>) -> Element {
     if downloads.is_empty() {
         return rsx! {
-            p { class: "text-muted",
-                "No downloads. Add a torrent with "
-                code { class: "yk-code", "yokoku download add" }
-                "."
-            }
+            p { class: "text-muted", "No downloads. Add a torrent to start one." }
         };
     }
     let count = downloads.len();
