@@ -164,3 +164,19 @@ async fn an_unreadable_root_stops_the_scan_and_forgets_nothing() {
     assert!(error.to_string().contains("tv"), "{error}");
     assert_eq!(app.db_files().await, before);
 }
+
+#[tokio::test]
+async fn a_scan_announces_the_imports_it_sends_to_review_and_not_the_files_it_links() {
+    let app = App::new().await;
+    app.write(E01, 10);
+    let mut watch = app.changes.watch();
+    app.scanner.scan().await.unwrap();
+    let after_linking = watch.has_changed().unwrap();
+    watch.borrow_and_update();
+    app.write("tv/Frieren (2023)/Frieren - 02.mkv", 12);
+
+    app.scanner.scan().await.unwrap();
+
+    assert!(!after_linking);
+    assert!(watch.has_changed().unwrap());
+}

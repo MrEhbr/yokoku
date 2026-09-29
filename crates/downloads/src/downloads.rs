@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
 use yokoku_domain::{Clock, DownloadId, ItemId, Live, StorageError};
 use yokoku_events::{
-    DownloadCompleted, Event, FilesImported, Handler, HandlerError, Publisher, TorrentAdded, TorrentRemoved,
+    DownloadCompleted, Event, FilesImported, Handler, HandlerError, Publisher, QueueChanges, TorrentAdded,
+    TorrentRemoved,
 };
 
 use crate::{
@@ -24,6 +25,7 @@ pub struct Downloads {
     clock: Arc<dyn Clock>,
     options: Live<DownloadOptions>,
     events: Publisher,
+    changes: QueueChanges,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -66,8 +68,9 @@ impl Downloads {
         clock: Arc<dyn Clock>,
         options: Live<DownloadOptions>,
         events: Publisher,
+        changes: QueueChanges,
     ) -> Self {
-        Self { repo, client, clock, options, events }
+        Self { repo, client, clock, options, events, changes }
     }
 
     /// The client's name and version (FR-3.1).
@@ -91,6 +94,7 @@ impl Downloads {
         let torrent = self.client.torrents(std::slice::from_ref(&added.hash)).await?.pop();
         let (mut download, events) = self.take_on(added.hash, added.name, item, torrent);
         self.repo.save(&mut download).await?;
+        self.changes.notify();
         info!(download = %download.id, name = %download.name, "torrent added");
         self.events.publish_all(events).await;
         Ok(download)
@@ -133,6 +137,7 @@ impl Downloads {
                 },
                 result => result?,
             }
+            self.changes.notify();
             self.events.publish_all(events).await;
             let (id, name) = (&download.id, &download.name);
             if completed.is_some() {
@@ -167,6 +172,7 @@ impl Downloads {
                 },
                 result => result?,
             }
+            self.changes.notify();
             self.events.publish_all(events).await;
             info!(download = %download.id, name = %download.name, "torrent taken on");
             report.picked_up += 1;
@@ -208,6 +214,7 @@ impl Downloads {
         if download.imported_at.is_none() {
             download.imported_at = Some(self.clock.now().timestamp());
             self.repo.save(&mut download).await?;
+            self.changes.notify();
         }
         Ok(())
     }

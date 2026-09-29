@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use tracing::{debug, info, instrument};
 use yokoku_detect::{ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series};
-use yokoku_events::{DownloadCompleted, Event, Handler, HandlerError, ImportFailed, ImportNeedsReview, Publisher};
+use yokoku_events::{
+    DownloadCompleted, Event, Handler, HandlerError, ImportFailed, ImportNeedsReview, Publisher, QueueChanges,
+};
 
 use crate::{
     Import, ImportRow, ImportStatus, MediaError,
@@ -18,6 +20,7 @@ pub struct ImportPlanner {
     fs: Arc<dyn FileSystem>,
     clock: Arc<dyn Clock>,
     events: Publisher,
+    changes: QueueChanges,
 }
 
 impl ImportPlanner {
@@ -27,8 +30,9 @@ impl ImportPlanner {
         fs: Arc<dyn FileSystem>,
         clock: Arc<dyn Clock>,
         events: Publisher,
+        changes: QueueChanges,
     ) -> Self {
-        Self { repo, catalog, fs, clock, events }
+        Self { repo, catalog, fs, clock, events, changes }
     }
 
     /// Detects what the download holds. The import is `Approved` when every file is certain and
@@ -106,6 +110,7 @@ impl ImportPlanner {
             _ => None,
         };
         self.repo.save(&Changes { imports: vec![import.clone()], ..Changes::default() }).await?;
+        self.changes.notify();
         info!(import = %import.id, status = ?import.status, rows = import.rows.len(), "import planned");
         self.events.publish_all(event.into_iter().collect()).await;
         Ok(Some(import))

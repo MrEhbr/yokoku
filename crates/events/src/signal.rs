@@ -45,3 +45,31 @@ impl Listener {
         self.receiver.changed().await.expect("the listener owns a sender");
     }
 }
+
+/// Wakes watchers after stored downloads or imports change, in this process.
+#[derive(Debug, Clone)]
+pub struct QueueChanges {
+    sender: Arc<watch::Sender<()>>,
+}
+
+impl QueueChanges {
+    pub fn new() -> Self {
+        let (sender, _) = watch::channel(());
+        Self { sender: Arc::new(sender) }
+    }
+
+    pub fn notify(&self) {
+        self.sender.send_replace(());
+    }
+
+    /// Sees each change made after this call.
+    pub fn watch(&self) -> watch::Receiver<()> {
+        self.sender.subscribe()
+    }
+}
+
+impl Default for QueueChanges {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -211,3 +211,24 @@ async fn files_found_by_a_scan_cannot_replace_library_files() {
 
     assert!(matches!(error, MediaError::ReplaceInPlace), "{error}");
 }
+
+#[tokio::test]
+async fn every_review_change_is_announced() {
+    let app = App::new().await;
+    let id = pending(&app).await;
+    let mut watch = app.changes.watch();
+    let mut announced = Vec::new();
+
+    app.reviewer.match_row(id, 1, app.episodes(1, 1, 1)).await.unwrap();
+    announced.push(watch.has_changed().unwrap());
+    watch.borrow_and_update();
+    app.reviewer.skip_row(id, 2).await.unwrap();
+    announced.push(watch.has_changed().unwrap());
+    watch.borrow_and_update();
+    app.reviewer.skip_row(id, 3).await.unwrap();
+    watch.borrow_and_update();
+    app.reviewer.approve(id).await.unwrap();
+    announced.push(watch.has_changed().unwrap());
+
+    assert_eq!(announced, [true, true, true]);
+}

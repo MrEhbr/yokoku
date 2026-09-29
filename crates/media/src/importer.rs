@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 use yokoku_detect::{Classified, ListedFile};
 use yokoku_domain::{Clock, FileTarget, ImportId, Live, MediaFileId};
-use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, Publisher};
+use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, Publisher, QueueChanges};
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
@@ -44,6 +44,7 @@ pub struct Importer {
     naming: Live<Naming>,
     mode: Live<ImportMode>,
     events: Publisher,
+    changes: QueueChanges,
 }
 
 /// What an import changed in the library.
@@ -64,8 +65,9 @@ impl Importer {
         naming: Live<Naming>,
         mode: Live<ImportMode>,
         events: Publisher,
+        changes: QueueChanges,
     ) -> Self {
-        Self { repo, catalog, fs, lock, clock, naming, mode, events }
+        Self { repo, catalog, fs, lock, clock, naming, mode, events, changes }
     }
 
     /// Imports that are approved, running or failed, oldest first.
@@ -89,9 +91,11 @@ impl Importer {
             let _lock = self.lock.acquire().await?;
             let recovered = self.repo.reset_importing().await?;
             if recovered > 0 {
+                self.changes.notify();
                 info!(recovered, "queued interrupted imports again");
             }
             let Some(import) = self.repo.claim_next_approved().await? else { break };
+            self.changes.notify();
             finished.push(self.execute(import).await?);
         }
         Ok(finished)
@@ -107,6 +111,7 @@ impl Importer {
         import.status = ImportStatus::Approved;
         import.error = None;
         self.repo.save(&Changes { imports: vec![import], ..Changes::default() }).await?;
+        self.changes.notify();
         info!("import queued again");
         Ok(())
     }
@@ -160,6 +165,7 @@ impl Importer {
             ..Changes::default()
         };
         self.repo.save(&changes).await?;
+        self.changes.notify();
         self.events.publish_all(events).await;
         Ok(import)
     }

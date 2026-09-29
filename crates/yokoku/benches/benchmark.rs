@@ -9,7 +9,7 @@ use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, Live,
     MediaFileId, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
-use yokoku_events::Publisher;
+use yokoku_events::{Publisher, QueueChanges};
 use yokoku_library::{
     Library, LibraryFilter, LibrarySort,
     ports::{MovieRepo, SeriesRepo},
@@ -80,7 +80,7 @@ impl Seeded {
         let db = Arc::new(self.db.clone());
         let lock = Arc::new(LockFile::new(self.dir.path().join("yokoku.lock")));
         let clock = Arc::new(SystemClock::new(Live::fixed(TimeZone::UTC)));
-        Scanner::new(db.clone(), db, Arc::new(LocalFileSystem), lock, clock, self.publisher())
+        Scanner::new(db.clone(), db, Arc::new(LocalFileSystem), lock, clock, self.publisher(), QueueChanges::new())
     }
 
     fn publisher(&self) -> Publisher {

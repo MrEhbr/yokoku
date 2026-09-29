@@ -17,7 +17,7 @@ use yokoku_domain::{
     Artwork, Clock, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ItemFolder, Live,
     MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
-use yokoku_events::{Event, EventLog, Publisher};
+use yokoku_events::{Event, EventLog, Publisher, QueueChanges};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{ImportPlanner, Renamer, Reviewer, RootFolders, RootKind, Scanner};
 use yokoku_naming::Naming;
@@ -53,6 +53,8 @@ pub struct App {
     pub reviewer: Reviewer,
     pub renamer: Renamer,
     pub planner: ImportPlanner,
+    /// Shared by every use case the app builds.
+    pub changes: QueueChanges,
     pub frieren: Series,
     pub dune: Movie,
 }
@@ -70,8 +72,10 @@ impl App {
         let clock = Arc::new(FixedClock);
         let roots = RootFolders::new(repo.clone(), repo.clone(), fs.clone());
         let lock = Arc::new(LockFile::new(dir.path().join(LOCK)));
-        let scanner = Scanner::new(repo.clone(), repo.clone(), fs, lock.clone(), clock.clone(), events.clone());
-        let reviewer = Reviewer::new(repo.clone(), repo.clone(), clock, events.clone());
+        let changes = QueueChanges::new();
+        let scanner =
+            Scanner::new(repo.clone(), repo.clone(), fs, lock.clone(), clock.clone(), events.clone(), changes.clone());
+        let reviewer = Reviewer::new(repo.clone(), repo.clone(), clock, events.clone(), changes.clone());
         let renamer = Renamer::new(
             repo.clone(),
             repo.clone(),
@@ -80,8 +84,14 @@ impl App {
             Live::fixed(Naming::default()),
             events.clone(),
         );
-        let planner =
-            ImportPlanner::new(repo.clone(), repo, Arc::new(LocalFileSystem), Arc::new(FixedClock), events.clone());
+        let planner = ImportPlanner::new(
+            repo.clone(),
+            repo,
+            Arc::new(LocalFileSystem),
+            Arc::new(FixedClock),
+            events.clone(),
+            changes.clone(),
+        );
 
         let tv = ItemFolder::new(dir.path().join("tv"), "Frieren (2023)".into()).unwrap();
         let movies = ItemFolder::new(dir.path().join("movies"), "Dune (2021)".into()).unwrap();
@@ -90,7 +100,7 @@ impl App {
         SeriesRepo::save(&db, &mut frieren).await.unwrap();
         MovieRepo::save(&db, &mut dune).await.unwrap();
 
-        let app = Self { dir, db, roots, scanner, reviewer, renamer, planner, frieren, dune };
+        let app = Self { dir, db, roots, scanner, reviewer, renamer, planner, changes, frieren, dune };
         app.roots.add(RootKind::Series, &app.path("tv")).await.unwrap();
         app.roots.add(RootKind::Movies, &app.path("movies")).await.unwrap();
         app
@@ -136,6 +146,7 @@ impl App {
             Live::fixed(Naming::default()),
             Live::fixed(mode),
             self.publisher(),
+            self.changes.clone(),
         )
     }
 

@@ -16,7 +16,7 @@ use yokoku_downloads::{
     DownloadOptions, DownloadState, Downloads,
     ports::{DownloadClient, TorrentSource},
 };
-use yokoku_events::{DownloadCompleted, Event, EventLog, Publisher};
+use yokoku_events::{DownloadCompleted, Event, EventLog, Publisher, QueueChanges};
 use yokoku_system::FileSpool;
 
 const WAIT: Duration = Duration::from_secs(20);
@@ -84,6 +84,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         Arc::new(SystemTime),
         Live::fixed(DownloadOptions::default()),
         Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool")))),
+        QueueChanges::new(),
     );
     let added = use_case.add(&TorrentSource::File(fs::read(&torrent_file).unwrap()), None).await.unwrap();
     assert_eq!(added.name, "Dune.2021.1080p.mkv");

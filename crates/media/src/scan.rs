@@ -11,7 +11,7 @@ use yokoku_detect::{ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId};
 use yokoku_events::{
     DeleteReason, Event, FileDeleted, FilesFound, Handler, HandlerError, ImportNeedsReview, MovieAdded, Publisher,
-    SeriesAdded,
+    QueueChanges, SeriesAdded,
 };
 
 use crate::{
@@ -28,6 +28,7 @@ pub struct Scanner {
     lock: Arc<dyn LibraryLock>,
     clock: Arc<dyn Clock>,
     events: Publisher,
+    changes: QueueChanges,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -64,8 +65,9 @@ impl Scanner {
         lock: Arc<dyn LibraryLock>,
         clock: Arc<dyn Clock>,
         events: Publisher,
+        changes: QueueChanges,
     ) -> Self {
-        Self { repo, catalog, fs, lock, clock, events }
+        Self { repo, catalog, fs, lock, clock, events, changes }
     }
 
     /// Links new files in the folder of every library item, sends the rest to review and forgets
@@ -132,6 +134,9 @@ impl Scanner {
         }
 
         self.repo.save(&changes).await?;
+        if !changes.imports.is_empty() {
+            self.changes.notify();
+        }
         self.events.publish_all(events).await;
         info!(
             folder = %path.display(),

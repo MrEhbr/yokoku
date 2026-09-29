@@ -315,3 +315,20 @@ async fn an_interrupted_copy_completes_on_retry() {
 
     assert_eq!(finished[0].status, ImportStatus::Done);
 }
+
+#[tokio::test]
+async fn running_and_retrying_imports_is_announced() {
+    let app = App::new().await;
+    let id = approved(&app).await;
+    fs::create_dir_all(app.path(E01)).unwrap();
+    let mut watch = app.changes.watch();
+    let importer = app.importer(ImportMode::HardLink);
+
+    importer.run_pending().await.unwrap();
+    let after_run = watch.has_changed().unwrap();
+    watch.borrow_and_update();
+    importer.retry(id).await.unwrap();
+
+    assert!(after_run);
+    assert!(watch.has_changed().unwrap());
+}

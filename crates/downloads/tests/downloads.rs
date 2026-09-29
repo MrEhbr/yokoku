@@ -18,7 +18,7 @@ use yokoku_downloads::{
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
 use yokoku_events::{
-    DownloadCompleted, Event, EventLog, FilesImported, Handler, Publisher, TorrentAdded, TorrentRemoved,
+    DownloadCompleted, Event, EventLog, FilesImported, Handler, Publisher, QueueChanges, TorrentAdded, TorrentRemoved,
 };
 use yokoku_system::FileSpool;
 
@@ -126,6 +126,7 @@ struct Setup {
     _dir: TempDir,
     db: Database,
     client: Arc<ScriptedClient>,
+    changes: QueueChanges,
     downloads: Downloads,
 }
 
@@ -137,14 +138,16 @@ async fn setup_with(options: DownloadOptions) -> Setup {
     let dir = TempDir::new().unwrap();
     let db = Database::open_in_memory().await.unwrap();
     let client = Arc::new(ScriptedClient::default());
+    let changes = QueueChanges::new();
     let downloads = Downloads::new(
         Arc::new(db.clone()),
         client.clone(),
         Arc::new(FixedClock),
         Live::fixed(options),
         Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool")))),
+        changes.clone(),
     );
-    Setup { _dir: dir, db, client, downloads }
+    Setup { _dir: dir, db, client, changes, downloads }
 }
 
 impl Setup {
@@ -445,4 +448,19 @@ async fn a_torrent_yokoku_added_but_never_saved_is_taken_on_without_asking() {
     assert_eq!(report.picked_up, 1);
     let download = setup.only_download().await;
     assert_eq!((download.hash.as_str(), download.item), ("aa", None));
+}
+
+#[tokio::test]
+async fn adding_and_syncing_are_announced() {
+    let setup = setup().await;
+    let mut watch = setup.changes.watch();
+    setup.client.set(250, 1000);
+
+    setup.downloads.add(&magnet(), None).await.unwrap();
+    let after_add = watch.has_changed().unwrap();
+    watch.borrow_and_update();
+    setup.downloads.sync().await.unwrap();
+
+    assert!(after_add);
+    assert!(watch.has_changed().unwrap());
 }

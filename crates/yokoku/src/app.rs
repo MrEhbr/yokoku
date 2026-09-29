@@ -10,7 +10,7 @@ use yokoku_db::Database;
 use yokoku_domain::{Clock, ItemId, Live, MovieMetadata, SeriesMetadata, title_with_year};
 use yokoku_download_clients::TransmissionClient;
 use yokoku_downloads::Downloads;
-use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, Subscriber};
+use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, QueueChanges, Subscriber};
 use yokoku_integrations::Rescans;
 use yokoku_library::{Artworks, Calendar, Library, MetadataService, ports::FolderNames};
 use yokoku_media::{
@@ -60,6 +60,7 @@ impl App {
             .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(settings.live(|config| config.clock.time_zone())));
         let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
+        let queue_changes = QueueChanges::new();
         let naming = settings.live(|config| config.naming.clone());
         let metadata_settings = settings.live(|config| config.metadata.clone());
         let metadata = Arc::new(MetadataService::new(
@@ -88,9 +89,17 @@ impl App {
             clock.clone(),
             settings.live(|config| config.downloads.clone()),
             events.clone(),
+            queue_changes.clone(),
         ));
-        let scanner =
-            Arc::new(Scanner::new(db.clone(), db.clone(), fs.clone(), lock.clone(), clock.clone(), events.clone()));
+        let scanner = Arc::new(Scanner::new(
+            db.clone(),
+            db.clone(),
+            fs.clone(),
+            lock.clone(),
+            clock.clone(),
+            events.clone(),
+            queue_changes.clone(),
+        ));
         let artworks = Arc::new(Artworks::new(
             db.clone(),
             db.clone(),
@@ -103,7 +112,7 @@ impl App {
             calendar: Arc::new(Calendar::new(db.clone(), db.clone(), clock.clone())),
             roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
             scanner: scanner.clone(),
-            reviewer: Reviewer::new(db.clone(), db.clone(), clock.clone(), events.clone()),
+            reviewer: Reviewer::new(db.clone(), db.clone(), clock.clone(), events.clone(), queue_changes.clone()),
             downloads: downloads.clone(),
             renamer: Renamer::new(db.clone(), db.clone(), fs.clone(), lock.clone(), naming.clone(), events.clone()),
             importer: Arc::new(Importer::new(
@@ -115,13 +124,21 @@ impl App {
                 naming,
                 settings.live(|config| config.import.mode),
                 events.clone(),
+                queue_changes.clone(),
             )),
             history: Arc::new(History::new(Arc::new(db.event_log()))),
             clock: clock.clone(),
             events: events.clone(),
             subscribers: subscriptions::subscribers(
                 &db,
-                &Arc::new(ImportPlanner::new(db.clone(), db.clone(), fs.clone(), clock.clone(), events.clone())),
+                &Arc::new(ImportPlanner::new(
+                    db.clone(),
+                    db.clone(),
+                    fs.clone(),
+                    clock.clone(),
+                    events.clone(),
+                    queue_changes.clone(),
+                )),
                 &deleter,
                 &downloads,
                 &prober,

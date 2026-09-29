@@ -106,3 +106,15 @@ async fn a_redelivered_completion_plans_once() {
     assert_eq!(import.rows[0].target, Some(app.movie()));
     assert_eq!(app.db.imports(ImportStatus::Approved).await.unwrap().len(), 1);
 }
+
+#[tokio::test]
+async fn a_planned_import_is_announced() {
+    let app = App::new().await;
+    app.write("downloads/Frieren.S01E01.1080p.mkv", 10);
+    let watch = app.changes.watch();
+
+    let item = Some(ItemId::Series(app.frieren.id));
+    app.planner.plan(DownloadId::generate(), &app.path("downloads/Frieren.S01E01.1080p.mkv"), item).await.unwrap();
+
+    assert!(watch.has_changed().unwrap());
+}

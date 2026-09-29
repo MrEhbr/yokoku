@@ -15,7 +15,7 @@ pub use delivery::{Delivery, DeliveryConfig};
 pub use event_log::{Correlated, DeliveryFailure, EventId, EventLog, Recorded};
 pub use history::History;
 pub use publisher::Publisher;
-pub use signal::{Listener, NewEvents};
+pub use signal::{Listener, NewEvents, QueueChanges};
 pub use spool::EventSpool;
 pub use subscriber::{HandlerError, Subscriber};
 pub use subscription::{Handler, Subscription};
