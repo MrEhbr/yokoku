@@ -57,6 +57,18 @@ impl RootFolders {
         Ok(root)
     }
 
+    /// Names of the folders in `root`, such as ones an added item can take over.
+    pub async fn folders(&self, root: &RootFolder) -> Result<Vec<String>, MediaError> {
+        Ok(self.fs.folders(&root.path).await?)
+    }
+
+    /// Names of the folders of the series and movies in `root`, whether they exist yet or not.
+    pub async fn item_folders(&self, root: &RootFolder) -> Result<Vec<String>, MediaError> {
+        let series = self.catalog.all_series().await?.into_iter().map(|series| series.folder);
+        let movies = self.catalog.all_movies().await?.into_iter().map(|movie| movie.folder);
+        Ok(series.chain(movies).filter(|folder| folder.root == root.path).map(|folder| folder.name).collect())
+    }
+
     /// Refused while series or movies belong to the folder.
     pub async fn remove(&self, path: &Path) -> Result<(), MediaError> {
         let path: PathBuf = path.components().collect();

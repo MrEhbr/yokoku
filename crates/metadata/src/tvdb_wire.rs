@@ -39,6 +39,11 @@ pub(crate) struct SearchItem {
     /// Names by three-letter language code.
     #[serde(default)]
     pub translations: BTreeMap<String, String>,
+    /// In the original language.
+    pub overview: Option<String>,
+    /// Overviews by three-letter language code.
+    #[serde(default)]
+    pub overviews: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]

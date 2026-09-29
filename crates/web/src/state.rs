@@ -5,11 +5,11 @@ use dioxus::server::axum::{
     extract::{FromRequestParts, rejection::ExtensionRejection},
     http::request::Parts,
 };
-use yokoku_domain::Clock;
+use yokoku_domain::{Clock, Live, MonitorPreset};
 use yokoku_downloads::Downloads;
 use yokoku_events::{History, QueueChanges};
-use yokoku_library::{Artworks, Calendar, Library};
-use yokoku_media::{Importer, Prober, Reviewer};
+use yokoku_library::{Artworks, Calendar, Library, MetadataService};
+use yokoku_media::{Importer, Prober, Reviewer, RootFolders};
 
 /// The use cases server functions call, wired by the composition root.
 #[derive(Clone)]
@@ -24,6 +24,17 @@ pub struct AppState {
     pub reviewer: Arc<Reviewer>,
     pub importer: Arc<Importer>,
     pub queue_changes: Arc<QueueChanges>,
+    pub metadata: Arc<MetadataService>,
+    pub roots: Arc<RootFolders>,
+    pub add: Arc<AddSettings>,
+}
+
+/// The settings adding an item reads.
+pub struct AddSettings {
+    /// Searching and adding need a TMDB token.
+    pub tmdb_token_set: Live<bool>,
+    /// What a new series monitors; a new movie is monitored unless this is `None`.
+    pub monitor: Live<MonitorPreset>,
 }
 
 /// `AppState` holds a `T`.
@@ -88,6 +99,24 @@ impl Provides<Importer> for AppState {
 impl Provides<QueueChanges> for AppState {
     fn provide(&self) -> Arc<QueueChanges> {
         self.queue_changes.clone()
+    }
+}
+
+impl Provides<MetadataService> for AppState {
+    fn provide(&self) -> Arc<MetadataService> {
+        self.metadata.clone()
+    }
+}
+
+impl Provides<RootFolders> for AppState {
+    fn provide(&self) -> Arc<RootFolders> {
+        self.roots.clone()
+    }
+}
+
+impl Provides<AddSettings> for AppState {
+    fn provide(&self) -> Arc<AddSettings> {
+        self.add.clone()
     }
 }
 

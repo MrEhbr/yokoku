@@ -12,7 +12,7 @@ pub struct Args {
 }
 
 pub async fn run(app: &App, args: Args) -> Result<()> {
-    let hits = app.metadata()?.search(&args.query.join(" ")).await?;
+    let hits = app.metadata()?.search(&args.query.join(" "), None).await?;
 
     if hits.is_empty() {
         hint!("No results.")?;
@@ -24,7 +24,7 @@ pub async fn run(app: &App, args: Args) -> Result<()> {
             result.kind,
             title_with_year(&result.title, result.year).bold(),
             result.source,
-            if hit.in_library { "in library" } else { "" }.green(),
+            if hit.in_library.is_some() { "in library" } else { "" }.green(),
         )?;
     }
 

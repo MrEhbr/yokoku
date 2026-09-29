@@ -14,7 +14,7 @@ use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
     Artwork, Clock, Description, EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata,
-    SeriesMetadata, SourceStatus,
+    SeriesMetadata, SourceStatus, title_with_year,
 };
 use yokoku_events::{Event, EventLog, Publisher};
 use yokoku_library::{
@@ -43,16 +43,16 @@ impl Clock for FixedClock {
     }
 }
 
-/// Names each folder after the item's source id.
-pub struct SourceFolders;
+/// Names each folder `Title (Year)`.
+pub struct TitleFolders;
 
-impl FolderNames for SourceFolders {
-    fn series_folder(&self, metadata: &SeriesMetadata) -> String {
-        metadata.source.to_string()
+impl FolderNames for TitleFolders {
+    fn series_folder(&self, title: &str, year: Option<i16>) -> String {
+        title_with_year(title, year)
     }
 
-    fn movie_folder(&self, metadata: &MovieMetadata) -> String {
-        metadata.source.to_string()
+    fn movie_folder(&self, title: &str, year: Option<i16>) -> String {
+        title_with_year(title, year)
     }
 }
 
@@ -80,24 +80,27 @@ impl StaticMetadata {
 
 #[async_trait]
 impl MetadataProvider for StaticMetadata {
-    async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
+    async fn search(&self, query: &str, kind: Option<MediaKind>) -> Result<Vec<SearchResult>, MetadataError> {
         let query = query.to_lowercase();
         let series = self
             .series
             .lock()
             .unwrap()
             .values()
-            .map(|m| result(MediaKind::Series, m.source, &m.title))
+            .map(|m| result(MediaKind::Series, m.source, &m.title, m.year, &m.description.overview))
             .collect::<Vec<_>>();
         let movies = self
             .movies
             .lock()
             .unwrap()
             .values()
-            .map(|m| result(MediaKind::Movie, m.source, &m.title))
+            .map(|m| result(MediaKind::Movie, m.source, &m.title, m.year, &m.description.overview))
             .collect::<Vec<_>>();
-        let mut results: Vec<_> =
-            series.into_iter().chain(movies).filter(|r| r.title.to_lowercase().contains(&query)).collect();
+        let mut results: Vec<_> = series
+            .into_iter()
+            .chain(movies)
+            .filter(|r| kind.is_none_or(|kind| r.kind == kind) && r.title.to_lowercase().contains(&query))
+            .collect();
         results.sort_by(|a, b| a.title.cmp(&b.title));
         Ok(results)
     }
@@ -111,8 +114,9 @@ impl MetadataProvider for StaticMetadata {
     }
 }
 
-fn result(kind: MediaKind, source: ExternalId, title: &str) -> SearchResult {
-    SearchResult { kind, source, title: title.into(), original_title: title.into(), year: None, poster_path: None }
+fn result(kind: MediaKind, source: ExternalId, title: &str, year: Option<i16>, overview: &str) -> SearchResult {
+    let (title, original_title, overview) = (title.into(), title.into(), overview.into());
+    SearchResult { kind, source, title, original_title, year, poster_path: None, overview }
 }
 
 /// Seasons as `(number, air dates)`; source ids are assigned in order.
@@ -190,7 +194,7 @@ impl App {
         let library = Library::new(repo.clone(), repo.clone(), clock.clone(), events.clone());
         let calendar = Calendar::new(repo.clone(), repo.clone(), clock.clone());
         let metadata =
-            MetadataService::new(repo.clone(), repo, provider.clone(), Arc::new(SourceFolders), clock.clone(), events);
+            MetadataService::new(repo.clone(), repo, provider.clone(), Arc::new(TitleFolders), clock.clone(), events);
         Self { _dir: dir, db, clock, provider, library, calendar, metadata }
     }
 

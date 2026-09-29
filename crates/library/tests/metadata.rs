@@ -4,8 +4,8 @@ use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use jiff::{SignedDuration, ToSpan};
 use rstest::{fixture, rstest};
 use yokoku_domain::{
-    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ItemFolder, ItemId, MediaFileId, MonitorPreset, Releases,
-    SeasonMetadata, SourceStatus,
+    EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ItemFolder, ItemId, MediaFileId, MediaKind, MonitorPreset,
+    Releases, SeasonMetadata, SourceStatus,
 };
 use yokoku_events::{EpisodesRenumbered, MovieAdded, RenumberedFile, SeriesAdded};
 use yokoku_library::{
@@ -83,7 +83,7 @@ async fn items_get_the_named_folder_or_the_given_one(#[future(awt)] app: App) {
         .await
         .unwrap();
 
-    assert_eq!(series.folder, ItemFolder { root: ROOT.into(), name: "tmdb:1".into() });
+    assert_eq!(series.folder, ItemFolder { root: ROOT.into(), name: "Frieren (2023)".into() });
     assert_eq!(movie.folder, ItemFolder { root: "/films".into(), name: "Dune 2021".into() });
 }
 
@@ -138,12 +138,38 @@ async fn refreshing_keeps_the_folder(#[future(awt)] app: App) {
 async fn search_marks_items_already_in_the_library(#[future(awt)] app: App) {
     app.provider.put_series(series_metadata(1, "Dune: Prophecy", SourceStatus::Returning, &[]));
     app.provider.put_movie(movie_metadata(438631, "Dune", Releases::default()));
-    app.metadata.add_movie(ExternalId::Tmdb(438631), true, ROOT.into(), None).await.unwrap();
+    let movie = app.metadata.add_movie(ExternalId::Tmdb(438631), true, ROOT.into(), None).await.unwrap();
 
-    let hits = app.metadata.search("dune").await.unwrap();
+    let hits = app.metadata.search("dune", None).await.unwrap();
 
     let marked: Vec<_> = hits.iter().map(|hit| (hit.result.title.as_str(), hit.in_library)).collect();
-    assert_eq!(marked, [("Dune", true), ("Dune: Prophecy", false)]);
+    assert_eq!(marked, [("Dune", Some(ItemId::Movie(movie.id))), ("Dune: Prophecy", None)]);
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_search_can_ask_for_one_kind(#[future(awt)] app: App) {
+    app.provider.put_series(series_metadata(1, "Dune: Prophecy", SourceStatus::Returning, &[]));
+    app.provider.put_movie(movie_metadata(438631, "Dune", Releases::default()));
+
+    let series = app.metadata.search("dune", Some(MediaKind::Series)).await.unwrap();
+
+    let titles: Vec<_> = series.iter().map(|hit| hit.result.title.as_str()).collect();
+    assert_eq!(titles, ["Dune: Prophecy"]);
+}
+
+#[rstest]
+#[tokio::test]
+async fn search_hits_carry_the_folder_adding_would_give(#[future(awt)] app: App) {
+    let mut frieren = series_metadata(1, "Frieren", SourceStatus::Returning, &[]);
+    frieren.description.overview = "An elf mage outlives her party.".into();
+    app.provider.put_series(frieren);
+
+    let hit = app.metadata.search("frieren", None).await.unwrap().remove(0);
+    let added = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+
+    assert_eq!(hit.folder, added.folder.name);
+    assert_eq!(hit.result.overview, "An elf mage outlives her party.");
 }
 
 #[rstest]

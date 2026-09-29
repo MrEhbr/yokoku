@@ -25,6 +25,11 @@ impl FileSystem for LocalFileSystem {
         }
     }
 
+    async fn folders(&self, dir: &Path) -> Result<Vec<String>, FsError> {
+        let dir = dir.to_owned();
+        blocking(move || folders(&dir)).await
+    }
+
     async fn files(&self, dir: &Path) -> Result<Vec<ListedFile>, FsError> {
         let dir = dir.to_owned();
         blocking(move || walk(&dir, true)).await
@@ -120,6 +125,26 @@ fn walk(root: &Path, recursive: bool) -> Result<Vec<ListedFile>, FsError> {
 
     files.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(files)
+}
+
+fn folders(dir: &Path) -> Result<Vec<String>, FsError> {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(source) if source.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(source) => return Err(FsError { path: dir.to_owned(), source }),
+    };
+    let mut names = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|source| FsError { path: dir.to_owned(), source })?;
+        let is_dir = entry.file_type().map_err(|source| FsError { path: entry.path(), source })?.is_dir();
+        if let (true, Ok(name)) = (is_dir, entry.file_name().into_string())
+            && !name.starts_with('.')
+        {
+            names.push(name);
+        }
+    }
+    names.sort();
+    Ok(names)
 }
 
 fn is_visible(entry: &DirEntry) -> bool {

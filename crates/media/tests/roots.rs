@@ -22,6 +22,31 @@ async fn added_root_folders_are_listed() {
 }
 
 #[tokio::test]
+async fn a_root_folders_folders_are_listed_by_name() {
+    let app = App::new().await;
+    std::fs::create_dir_all(app.path("tv/Frieren/Season 01")).unwrap();
+    std::fs::create_dir(app.path("tv/Arcane (2021)")).unwrap();
+    let root = RootFolder { kind: RootKind::Series, path: app.path("tv") };
+
+    let folders = app.roots.folders(&root).await.unwrap();
+
+    assert_eq!(folders, ["Arcane (2021)", "Frieren"]);
+}
+
+#[tokio::test]
+async fn a_root_folders_item_folders_are_listed_whether_they_exist_or_not() {
+    let app = App::new().await;
+    let tv = RootFolder { kind: RootKind::Series, path: app.path("tv") };
+    let anime = RootFolder { kind: RootKind::Series, path: app.path("anime") };
+
+    let taken = app.roots.item_folders(&tv).await.unwrap();
+    let none = app.roots.item_folders(&anime).await.unwrap();
+
+    assert_eq!(taken, ["Frieren (2023)"]);
+    assert!(none.is_empty());
+}
+
+#[tokio::test]
 async fn trailing_separators_are_dropped() {
     let app = App::new().await;
     app.write("anime/.keep", 0);

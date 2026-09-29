@@ -23,6 +23,12 @@ pub async fn run(app: &App) -> Result<()> {
         reviewer: app.reviewer.clone(),
         importer: app.importer.clone(),
         queue_changes: Arc::new(app.queue_changes.clone()),
+        metadata: app.metadata_service(),
+        roots: app.roots.clone(),
+        add: Arc::new(yokoku_web::AddSettings {
+            tmdb_token_set: app.settings.live(|config| config.metadata.tmdb.token.is_some()),
+            monitor: app.settings.live(|config| config.add.monitor),
+        }),
     };
     let web = yokoku_web::Server::bind(config.web.address(), state).await.context("Failed to start the web server")?;
 

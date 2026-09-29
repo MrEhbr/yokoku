@@ -10,7 +10,7 @@ use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 use crate::{
     MetadataSettings,
     http::{self, Http, invalid},
-    tmdb_wire::{self, MovieDetails, SearchItem, SearchPage, SeasonDetails, TvDetails},
+    tmdb_wire::{self, MovieDetails, MovieSummary, SearchItem, SearchPage, SeasonDetails, TvDetails, TvSummary},
 };
 
 /// TMDB's limit on `append_to_response` entries per request.
@@ -47,32 +47,29 @@ impl TmdbClient {
 
 #[async_trait]
 impl MetadataProvider for TmdbClient {
-    async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
-        let page: SearchPage = self.get("search/multi", &[("query", query), ("include_adult", "false")], None).await?;
-
-        Ok(page
-            .results
-            .into_iter()
-            .filter_map(|item| match item {
-                SearchItem::Movie(movie) => Some(SearchResult {
-                    kind: MediaKind::Movie,
-                    source: ExternalId::Tmdb(movie.id),
-                    year: http::year(movie.release_date.as_deref()),
-                    title: movie.title,
-                    original_title: movie.original_title,
-                    poster_path: movie.poster_path,
-                }),
-                SearchItem::Tv(tv) => Some(SearchResult {
-                    kind: MediaKind::Series,
-                    source: ExternalId::Tmdb(tv.id),
-                    year: http::year(tv.first_air_date.as_deref()),
-                    title: tv.name,
-                    original_title: tv.original_name,
-                    poster_path: tv.poster_path,
-                }),
-                SearchItem::Other => None,
-            })
-            .collect())
+    async fn search(&self, query: &str, kind: Option<MediaKind>) -> Result<Vec<SearchResult>, MetadataError> {
+        let params = [("query", query), ("include_adult", "false")];
+        Ok(match kind {
+            None => {
+                let page: SearchPage<SearchItem> = self.get("search/multi", &params, None).await?;
+                page.results
+                    .into_iter()
+                    .filter_map(|item| match item {
+                        SearchItem::Movie(movie) => Some(movie.into()),
+                        SearchItem::Tv(tv) => Some(tv.into()),
+                        SearchItem::Other => None,
+                    })
+                    .collect()
+            },
+            Some(MediaKind::Movie) => {
+                let page: SearchPage<MovieSummary> = self.get("search/movie", &params, None).await?;
+                page.results.into_iter().map(SearchResult::from).collect()
+            },
+            Some(MediaKind::Series) => {
+                let page: SearchPage<TvSummary> = self.get("search/tv", &params, None).await?;
+                page.results.into_iter().map(SearchResult::from).collect()
+            },
+        })
     }
 
     async fn series(&self, source: ExternalId) -> Result<SeriesMetadata, MetadataError> {
@@ -157,6 +154,34 @@ impl MetadataProvider for TmdbClient {
                 runtime: details.runtime.filter(|&minutes| minutes > 0),
             },
         })
+    }
+}
+
+impl From<MovieSummary> for SearchResult {
+    fn from(movie: MovieSummary) -> Self {
+        Self {
+            kind: MediaKind::Movie,
+            source: ExternalId::Tmdb(movie.id),
+            year: http::year(movie.release_date.as_deref()),
+            title: movie.title,
+            original_title: movie.original_title,
+            poster_path: movie.poster_path,
+            overview: movie.overview,
+        }
+    }
+}
+
+impl From<TvSummary> for SearchResult {
+    fn from(tv: TvSummary) -> Self {
+        Self {
+            kind: MediaKind::Series,
+            source: ExternalId::Tmdb(tv.id),
+            year: http::year(tv.first_air_date.as_deref()),
+            title: tv.name,
+            original_title: tv.original_name,
+            poster_path: tv.poster_path,
+            overview: tv.overview,
+        }
     }
 }
 

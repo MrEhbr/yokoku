@@ -4,7 +4,7 @@ mod grid;
 mod table;
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide::{CircleAlert, LayoutGrid, Rows3};
+use dioxus_icons::lucide::{CircleAlert, LayoutGrid, Plus, Rows3};
 
 use self::{
     filters::{FilterBar, Filters},
@@ -18,7 +18,7 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         skeleton::Skeleton,
     },
-    route::Route,
+    route::{Route, SearchText},
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -41,7 +41,16 @@ pub fn Library() -> Element {
         document::Title { "Library · Yokoku" }
         div { class: "flex flex-wrap items-center justify-between gap-4",
             h1 { class: "yk-page-title", "Library" }
-            Link { class: "yk-button ml-auto [&>svg]:size-4", to: Route::Missing {},
+            Link {
+                class: "yk-button yk-button-primary ml-auto [&>svg]:size-4",
+                to: Route::Add {
+                    query: SearchText::default(),
+                    kind: filters().kind.unwrap_or_default(),
+                },
+                Plus {}
+                "Add"
+            }
+            Link { class: "yk-button [&>svg]:size-4", to: Route::Missing {},
                 CircleAlert {}
                 "Missing"
             }
@@ -90,11 +99,7 @@ pub fn Library() -> Element {
                     }
                 },
                 Some(Ok(entries)) if entries.is_empty() => rsx! {
-                    p { class: "text-muted",
-                        "Your library is empty. Add a movie or series with "
-                        code { class: "yk-code", "yokoku add" }
-                        "."
-                    }
+                    p { class: "text-muted", "Your library is empty. Add a movie or series to start." }
                 },
                 Some(Ok(entries)) => {
                     match view() {

@@ -8,8 +8,8 @@ use yokoku_domain::{Releases, SourceStatus};
 use crate::http::date;
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct SearchPage {
-    pub results: Vec<SearchItem>,
+pub(crate) struct SearchPage<T> {
+    pub results: Vec<T>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,6 +28,8 @@ pub(crate) struct MovieSummary {
     pub original_title: String,
     pub release_date: Option<String>,
     pub poster_path: Option<String>,
+    #[serde(default)]
+    pub overview: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +39,8 @@ pub(crate) struct TvSummary {
     pub original_name: String,
     pub first_air_date: Option<String>,
     pub poster_path: Option<String>,
+    #[serde(default)]
+    pub overview: String,
 }
 
 #[derive(Debug, Deserialize)]

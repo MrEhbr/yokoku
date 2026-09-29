@@ -118,7 +118,11 @@ impl TvdbClient {
 
 #[async_trait]
 impl MetadataProvider for TvdbClient {
-    async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
+    /// Series only; Yokoku takes movies from TMDB.
+    async fn search(&self, query: &str, kind: Option<MediaKind>) -> Result<Vec<SearchResult>, MetadataError> {
+        if kind == Some(MediaKind::Movie) {
+            return Ok(Vec::new());
+        }
         let language = self.language()?;
         let envelope: Envelope<Vec<SearchItem>> =
             self.get("search", &[("query", query), ("type", "series")], None).await?;
@@ -135,6 +139,7 @@ impl MetadataProvider for TvdbClient {
                     original_title: item.name,
                     year: http::year(item.year.as_deref()),
                     poster_path: item.image_url,
+                    overview: item.overviews.remove(language).or(item.overview).unwrap_or_default(),
                 })
             })
             .collect())

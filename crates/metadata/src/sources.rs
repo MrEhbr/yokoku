@@ -26,13 +26,17 @@ impl Sources {
 
 #[async_trait]
 impl MetadataProvider for Sources {
-    async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError> {
+    async fn search(&self, query: &str, kind: Option<MediaKind>) -> Result<Vec<SearchResult>, MetadataError> {
         if !self.use_tvdb.current() {
-            return self.tmdb.search(query).await;
+            return self.tmdb.search(query, kind).await;
         }
-        let mut results = self.tmdb.search(query).await?;
-        results.retain(|result| result.kind == MediaKind::Movie);
-        results.extend(self.tvdb.search(query).await?.into_iter().filter(|result| result.kind == MediaKind::Series));
+        let mut results = Vec::new();
+        if kind != Some(MediaKind::Series) {
+            results.extend(self.tmdb.search(query, Some(MediaKind::Movie)).await?);
+        }
+        if kind != Some(MediaKind::Movie) {
+            results.extend(self.tvdb.search(query, Some(MediaKind::Series)).await?);
+        }
         Ok(results)
     }
 

@@ -21,6 +21,21 @@ fn relative(root: &Path, files: &[ListedFile]) -> Vec<(String, u64)> {
 }
 
 #[tokio::test]
+async fn lists_the_visible_folders_directly_in_a_folder_by_name() {
+    let dir = TempDir::new().unwrap();
+    write(dir.path(), "Frieren/Season 01/S01E01.mkv", 1);
+    write(dir.path(), "Arcane (2021)/S01E01.mkv", 1);
+    write(dir.path(), ".cache/x", 1);
+    write(dir.path(), "Dune.mkv", 1);
+
+    let folders = LocalFileSystem.folders(dir.path()).await.unwrap();
+    let missing = LocalFileSystem.folders(&dir.path().join("gone")).await.unwrap();
+
+    assert_eq!(folders, ["Arcane (2021)", "Frieren"]);
+    assert!(missing.is_empty());
+}
+
+#[tokio::test]
 async fn lists_files_at_any_depth_in_path_order() {
     let dir = TempDir::new().unwrap();
     write(dir.path(), "Frieren/Season 01/S01E02.mkv", 20);

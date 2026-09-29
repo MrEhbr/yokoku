@@ -7,7 +7,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_config::{Config, Settings};
 use yokoku_db::Database;
-use yokoku_domain::{Clock, ItemId, Live, MovieMetadata, SeriesMetadata, title_with_year};
+use yokoku_domain::{Clock, ItemId, Live, title_with_year};
 use yokoku_download_clients::TransmissionClient;
 use yokoku_downloads::Downloads;
 use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, QueueChanges, Subscriber};
@@ -30,7 +30,7 @@ pub struct App {
     pub library: Arc<Library>,
     pub artworks: Arc<Artworks>,
     pub calendar: Arc<Calendar>,
-    pub roots: RootFolders,
+    pub roots: Arc<RootFolders>,
     pub scanner: Arc<Scanner>,
     pub reviewer: Arc<Reviewer>,
     pub renamer: Renamer,
@@ -112,7 +112,7 @@ impl App {
         Ok(Self {
             library: Arc::new(Library::new(db.clone(), db.clone(), clock.clone(), events.clone())),
             calendar: Arc::new(Calendar::new(db.clone(), db.clone(), clock.clone())),
-            roots: RootFolders::new(db.clone(), db.clone(), fs.clone()),
+            roots: Arc::new(RootFolders::new(db.clone(), db.clone(), fs.clone())),
             scanner: scanner.clone(),
             reviewer: Arc::new(Reviewer::new(
                 db.clone(),
@@ -236,12 +236,12 @@ impl App {
 struct NamedFolders(Live<Naming>);
 
 impl FolderNames for NamedFolders {
-    fn series_folder(&self, metadata: &SeriesMetadata) -> String {
-        self.0.current().series_folder(&metadata.title, metadata.year)
+    fn series_folder(&self, title: &str, year: Option<i16>) -> String {
+        self.0.current().series_folder(title, year)
     }
 
-    fn movie_folder(&self, metadata: &MovieMetadata) -> String {
-        self.0.current().movie_folder(&metadata.title, metadata.year)
+    fn movie_folder(&self, title: &str, year: Option<i16>) -> String {
+        self.0.current().movie_folder(title, year)
     }
 }
 

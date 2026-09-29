@@ -48,6 +48,19 @@ impl Artworks {
         Ok(Some(Image { bytes, content_type }))
     }
 
+    /// A small version of the image at `path` of `source`, for an item not in the library;
+    /// fetched on every call. `None` when the path does not end in a plain file name.
+    pub async fn preview(
+        &self,
+        source: ExternalId,
+        kind: ArtworkKind,
+        path: &str,
+    ) -> Result<Option<Image>, LibraryError> {
+        let Some(name) = artwork_name(path) else { return Ok(None) };
+        let bytes = self.source.fetch_thumbnail(source, kind, path).await?;
+        Ok(Some(Image { bytes, content_type: content_type(name) }))
+    }
+
     async fn artwork(&self, item: ItemId) -> Result<(ExternalId, Artwork), LibraryError> {
         Ok(match item {
             ItemId::Series(id) => {

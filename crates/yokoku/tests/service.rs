@@ -20,7 +20,7 @@ use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRe
 use yokoku_events::{Correlated, EventLog, FileRenamed, ImportFailed, MovieRemoved, TorrentAdded};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{
-    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, VideoStream,
+    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind, VideoStream,
     ports::{Changes, MediaRepo},
 };
 
@@ -31,9 +31,14 @@ struct Service {
 }
 
 impl Service {
-    /// Serves the database in `dir` with empty web assets in `dir/public`; its log goes to
-    /// `dir/service.log`.
+    /// Serves the database in `dir` with empty web assets in `dir/public` and no metadata source
+    /// keys; its log goes to `dir/service.log`.
     fn start(dir: &Path) -> Self {
+        Self::start_with(dir, &[])
+    }
+
+    /// Like `start`, with the environment variables `env` set.
+    fn start_with(dir: &Path, env: &[(&str, &str)]) -> Self {
         let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         std::fs::create_dir_all(dir.join("public")).unwrap();
         let log = dir.join("service.log");
@@ -41,6 +46,9 @@ impl Service {
             .env("APP__DATABASE__PATH", dir.join("yokoku.db"))
             .env("DIOXUS_PUBLIC_PATH", dir.join("public"))
             .env("APP__WEB__PORT", port.to_string())
+            .env_remove("APP__METADATA__TMDB__TOKEN")
+            .env_remove("APP__METADATA__TVDB__API_KEY")
+            .envs(env.iter().copied())
             .stdout(Stdio::null())
             .stderr(std::fs::File::create(&log).unwrap())
             .spawn()
@@ -66,6 +74,14 @@ impl Service {
     fn post(&self, path: &str) -> String {
         self.request(&format!(
             "POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        ))
+    }
+
+    /// The response to `POST path` with the JSON `body`.
+    fn post_json(&self, path: &str, body: &str) -> String {
+        self.request(&format!(
+            "POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
         ))
     }
 
@@ -559,4 +575,93 @@ async fn the_live_downloads_stream_sends_the_downloads_then_each_change() {
 
     assert!(first.contains("Dune.2021.1080p") && first.contains("the disk is full"), "{first}");
     assert!(!second.contains("the disk is full"), "the retried import is no longer failed for that reason: {second}");
+}
+
+/// A TMDB server answering a movie search for "dune" with the recorded movies, and Dune
+/// (tmdb:438631).
+async fn tmdb() -> wiremock::MockServer {
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{path, query_param},
+    };
+    let fixture = |name: &str| {
+        let file = format!("{}/../metadata/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+        serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(file).unwrap()).unwrap()
+    };
+    let server = MockServer::start().await;
+    let mut movies = fixture("search_dune.json");
+    movies["results"].as_array_mut().unwrap().retain(|item| item["media_type"] == "movie");
+    Mock::given(path("/search/movie"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(movies))
+        .mount(&server)
+        .await;
+    Mock::given(path("/movie/438631"))
+        .and(query_param("append_to_response", "release_dates,alternative_titles,images"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(fixture("movie_438631.json")))
+        .mount(&server)
+        .await;
+    server
+}
+
+/// The value after `"in_library":` in the search hit of `source`.
+fn in_library<'a>(search: &'a str, source: &str) -> &'a str {
+    let hit = &search[search.find(&format!("\"source\":\"{source}\"")).expect(search)..];
+    let value = &hit[hit.find("\"in_library\":").unwrap() + "\"in_library\":".len()..];
+    &value[..value.find(['}', ',']).unwrap()]
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_search_result_can_be_added_to_a_root_folder() {
+    let tmdb = tmdb().await;
+    let dir = tempfile::tempdir().unwrap();
+    let movies = dir.path().join("movies");
+    std::fs::create_dir_all(movies.join("Dune (2021)")).unwrap();
+    let db = Database::open(&dir.path().join("yokoku.db")).await.unwrap();
+    MediaRepo::add_root_folder(&db, &RootFolder { kind: RootKind::Movies, path: movies.clone() }).await.unwrap();
+    let uri = tmdb.uri();
+    let service = Service::start_with(
+        dir.path(),
+        &[("APP__METADATA__TMDB__TOKEN", "test-token"), ("APP__METADATA__TMDB__URL", &uri)],
+    );
+    let root = movies.display().to_string();
+    let item = format!(
+        r#"{{"item":{{"kind":"movie","source":"tmdb:438631","root":"{root}","monitor":"all","folder":"Dune (2021)"}}}}"#
+    );
+
+    let page = service.get("/add?query=dune&kind=movie");
+    let before = service.get("/api/search?query=dune&kind=movie");
+    let options = service.get("/api/add-options");
+    let added = service.post_json("/api/items", &item);
+    let after = service.get("/api/search?query=dune&kind=movie");
+    let again = service.post_json("/api/items", &item);
+
+    assert!(
+        page.starts_with("HTTP/1.1 200") && page.contains("Dune: Part Two") && page.contains("Paul Atreides"),
+        "{page}"
+    );
+    assert!(before.starts_with("HTTP/1.1 200"), "{before}");
+    assert!(before.contains("/artwork/preview/tmdb:438631/poster?path=/v1tRXZ4JtD2Iv6fjkPvT4GiwslV.jpg"), "{before}");
+    assert_eq!(in_library(&before, "tmdb:438631"), "null");
+    assert!(
+        before.contains(r#""overview":"Paul Atreides"#) && before.contains(r#""folder":"Dune (2021)""#),
+        "{before}"
+    );
+    let movie_roots =
+        format!(r#""movie_roots":[{{"path":"{root}","folders":["Dune (2021)"],"taken":[]}}],"monitor":"all""#);
+    assert!(options.contains(&movie_roots), "{options}");
+    assert!(added.starts_with("HTTP/1.1 200"), "{added}");
+    assert_ne!(in_library(&after, "tmdb:438631"), "null", "{after}");
+    assert_eq!(in_library(&after, "tmdb:841"), "null");
+    assert!(service.get("/api/library?kind=movie").contains("Dune"));
+    assert!(!again.starts_with("HTTP/1.1 200") && again.contains("It is already in the library"), "{again}");
+}
+
+#[tokio::test]
+async fn searching_asks_for_a_tmdb_token_until_one_is_set() {
+    let dir = tempfile::tempdir().unwrap();
+    let service = Service::start(dir.path());
+
+    let search = service.get("/api/search?query=dune&kind=movie");
+
+    assert!(!search.starts_with("HTTP/1.1 200") && search.contains("Set a TMDB token"), "{search}");
 }

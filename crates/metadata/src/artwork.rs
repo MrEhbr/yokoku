@@ -25,12 +25,18 @@ impl ArtworkFetcher {
         Self { http: Http::new("artwork server"), tmdb: tmdb.to_owned(), tvdb: tvdb.to_owned() }
     }
 
-    fn url(&self, source: ExternalId, kind: ArtworkKind, path: &str) -> Result<String, MetadataError> {
+    /// `size` is a TMDB size; TVDB images come in one size.
+    fn url(&self, source: ExternalId, size: &str, path: &str) -> Result<String, MetadataError> {
         match source {
-            ExternalId::Tmdb(_) if path.starts_with('/') => Ok(format!("{}/{}{path}", self.tmdb, tmdb_size(kind))),
+            ExternalId::Tmdb(_) if path.starts_with('/') => Ok(format!("{}/{size}{path}", self.tmdb)),
             ExternalId::Tvdb(_) if path.starts_with(&self.tvdb) => Ok(path.to_owned()),
-            _ => Err(invalid(PathOutsideSource(format!("{source} has the {kind} path {path:?}")))),
+            _ => Err(invalid(PathOutsideSource(format!("{source} has the image path {path:?}")))),
         }
+    }
+
+    async fn get(&self, source: ExternalId, url: String) -> Result<Vec<u8>, MetadataError> {
+        let response = self.http.send(self.http.get(url), Some(source)).await?;
+        Ok(response.bytes().await.map_err(unavailable)?.to_vec())
     }
 }
 
@@ -49,6 +55,15 @@ fn tmdb_size(kind: ArtworkKind) -> &'static str {
     }
 }
 
+/// Widths for small previews, like a search result's poster.
+fn tmdb_thumbnail_size(kind: ArtworkKind) -> &'static str {
+    match kind {
+        ArtworkKind::Poster => "w342",
+        ArtworkKind::Logo => "w154",
+        ArtworkKind::Backdrop => "w300",
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("{0}, which is not at its source's image server")]
 struct PathOutsideSource(String);
@@ -56,9 +71,16 @@ struct PathOutsideSource(String);
 #[async_trait]
 impl ArtworkSource for ArtworkFetcher {
     async fn fetch(&self, source: ExternalId, kind: ArtworkKind, path: &str) -> Result<Vec<u8>, MetadataError> {
-        let url = self.url(source, kind, path)?;
-        let response = self.http.send(self.http.get(url), Some(source)).await?;
-        Ok(response.bytes().await.map_err(unavailable)?.to_vec())
+        self.get(source, self.url(source, tmdb_size(kind), path)?).await
+    }
+
+    async fn fetch_thumbnail(
+        &self,
+        source: ExternalId,
+        kind: ArtworkKind,
+        path: &str,
+    ) -> Result<Vec<u8>, MetadataError> {
+        self.get(source, self.url(source, tmdb_thumbnail_size(kind), path)?).await
     }
 }
 
@@ -86,6 +108,22 @@ mod tests {
         let fetcher = ArtworkFetcher::with_servers(&server.uri(), "https://artworks.thetvdb.com/");
 
         assert_eq!(fetcher.fetch(ExternalId::Tmdb(1), kind, "/abc.jpg").await.unwrap(), b"image");
+    }
+
+    #[rstest]
+    #[case::poster(ArtworkKind::Poster, "/w342/abc.jpg")]
+    #[case::backdrop(ArtworkKind::Backdrop, "/w300/abc.jpg")]
+    #[case::logo(ArtworkKind::Logo, "/w154/abc.jpg")]
+    #[tokio::test]
+    async fn tmdb_thumbnails_come_at_a_small_size(#[case] kind: ArtworkKind, #[case] served_at: &str) {
+        let server = MockServer::start().await;
+        let image = ResponseTemplate::new(200).set_body_bytes(b"thumbnail".to_vec());
+        Mock::given(path(served_at)).respond_with(image).mount(&server).await;
+        let fetcher = ArtworkFetcher::with_servers(&server.uri(), "https://artworks.thetvdb.com/");
+
+        let thumbnail = fetcher.fetch_thumbnail(ExternalId::Tmdb(1), kind, "/abc.jpg").await.unwrap();
+
+        assert_eq!(thumbnail, b"thumbnail");
     }
 
     #[tokio::test]

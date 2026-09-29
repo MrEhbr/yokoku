@@ -129,14 +129,15 @@ async fn search_finds_series_under_their_translated_names() {
             {
                 "tvdb_id": "424536", "name": "葬送のフリーレン", "year": "2023", "image_url": "https://example.test/1.jpg",
                 "translations": { "eng": "Frieren: Beyond Journey's End", "jpn": "葬送のフリーレン" },
+                "overview": "勇者一行の魔法使い。", "overviews": { "eng": "An elf mage outlives her party." },
             },
-            { "tvdb_id": "1", "name": "Frieren Shorts" },
+            { "tvdb_id": "1", "name": "Frieren Shorts", "overview": "Shorts." },
             { "tvdb_id": "not-a-number", "name": "Broken" },
         ])))
         .mount(&server)
         .await;
 
-    let results = client(&server).search("frieren").await.unwrap();
+    let results = client(&server).search("frieren", Some(MediaKind::Series)).await.unwrap();
 
     let found: Vec<_> =
         results.iter().map(|r| (r.kind, r.source, r.title.as_str(), r.original_title.as_str(), r.year)).collect();
@@ -153,6 +154,18 @@ async fn search_finds_series_under_their_translated_names() {
             (MediaKind::Series, ExternalId::Tvdb(1), "Frieren Shorts", "Frieren Shorts", None),
         ]
     );
+    let overviews: Vec<_> = results.iter().map(|r| r.overview.as_str()).collect();
+    assert_eq!(overviews, ["An elf mage outlives her party.", "Shorts."]);
+}
+
+#[tokio::test]
+async fn a_search_for_movies_finds_nothing_without_asking() {
+    let server = MockServer::start().await;
+
+    let results = client(&server).search("dune", Some(MediaKind::Movie)).await.unwrap();
+
+    assert!(results.is_empty());
+    assert!(server.received_requests().await.unwrap().is_empty());
 }
 
 #[tokio::test]

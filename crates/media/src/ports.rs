@@ -13,6 +13,10 @@ use crate::{Import, ImportStatus, MediaFile, MediaInfo, RootFolder};
 pub trait FileSystem: Send + Sync {
     async fn is_dir(&self, path: &Path) -> Result<bool, FsError>;
 
+    /// Names of the folders directly in `dir`, sorted; empty when `dir` does not exist. Hidden
+    /// folders and names that are not UTF-8 are skipped.
+    async fn folders(&self, dir: &Path) -> Result<Vec<String>, FsError>;
+
     /// Regular files under `dir` at any depth, ordered by path. Hidden entries, symlinked
     /// folders and names that are not UTF-8 are skipped.
     async fn files(&self, dir: &Path) -> Result<Vec<ListedFile>, FsError>;

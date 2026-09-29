@@ -125,7 +125,7 @@ naming rules make each hop predictable:
     layout/       the shell around every page: Shell, DocumentHead, BackButton
     pages/        one folder per route: library/, series_detail/, upcoming/, downloads/, history/
     dialogs/      modal flows opened from several pages: import_review.rs, rename.rs
-    api/          server functions, one file per feature module: library/, downloads.rs, history.rs, media.rs
+    api/          server functions, one file per feature module: library/, add.rs, downloads.rs, history.rs, media.rs
     components/   Paper components (vendored with `just web add`) and Yokoku widgets, flat
     format.rs     values as every page writes them: year, date
     server.rs     Server: binds and serves the router; server build only
@@ -205,13 +205,13 @@ by module in `yokoku/tests/<module>_commands.rs`.
 
 | Feature | Use case (entry point) | Rules / pure logic | Storage (`db/src`) | Outside world | Driven from |
 |---|---|---|---|---|---|
-| Search and add (FR-1.1) | `library/src/metadata.rs` `MetadataService::search`, `add_series`, `add_movie` | `domain/src/series.rs` `Series::add`, `movie.rs`; folder name `naming/src/naming.rs` via `yokoku/src/app.rs` `NamedFolders` | `series_repo.rs`, `movie_repo.rs` | `metadata/src/sources.rs`, `tmdb.rs`, `tvdb.rs` | `cli/commands/search.rs`, `add.rs` |
+| Search and add (FR-1.1, 2.2) | `library/src/metadata.rs` `MetadataService::search` (with each hit's default folder), `add_series`, `add_movie`; existing and taken folders from `media/src/roots.rs` `RootFolders::folders`, `item_folders` | `domain/src/series.rs` `Series::add`, `movie.rs`; folder name `naming/src/naming.rs` via `yokoku/src/app.rs` `NamedFolders` | `series_repo.rs`, `movie_repo.rs` | `metadata/src/sources.rs`, `tmdb.rs`, `tvdb.rs` | `cli/commands/search.rs`, `add.rs`; web `api/add.rs`, `pages/add/` (the search page at `/add`, with the options in a dialog) |
 | List, detail, monitoring, numbering, remove (FR-1, FR-2) | `library/src/library.rs` `Library` | `domain/src/series.rs` (monitoring, numbering), `library/src/listing.rs` | `series_repo.rs`, `movie_repo.rs` | none | `list.rs`, `show.rs`, `monitor.rs`, `numbering.rs`, `remove.rs`; web `api/library/`, `pages/library/`, `series_detail/`, `movie_detail/` |
 | Metadata refresh (FR-1.6) | `library/src/metadata.rs` `refresh_*` | `Series::refresh`, `needs_refresh` in `domain/src/series.rs`; `movie.rs` | as above | `metadata` | job `refresh-metadata` (`jobs/src/lib.rs`); `refresh.rs` |
 | Next / last aired (FR-6.1, 6.2) | `library/src/listing.rs` | `domain/src/series.rs` `next_episode`, `last_aired` | as above | none | `list.rs`, `show.rs`; web `pages/series_detail/` |
 | Calendar and missing (FR-6.3, 6.4, FR-7) | `library/src/calendar.rs` `Calendar::entries`, `missing` | `domain/src/series.rs`, `movie.rs` | as above | none | `calendar.rs`, `missing.rs`; web `api/library/calendar.rs`, `pages/upcoming/`, `missing/` |
 | File projection on items | `library/src/files.rs` `FileTracker` (`library.files`) | none | `media_files.rs` | none | `yokoku/src/subscriptions.rs` |
-| Artwork: poster, backdrop, logo (FR-1.2) | `library/src/artwork.rs` `Artworks` (`library.artwork`) | `domain/src/artwork.rs` `Artwork`; choice in `metadata/src/tmdb_wire.rs`, `tvdb_wire.rs` | `series_repo.rs`, `movie_repo.rs` (`artwork` JSON column) | `metadata/src/artwork.rs` `ArtworkFetcher`; `system/src/artwork.rs` `ArtworkFiles` | `web/src/api/artwork.rs` |
+| Artwork: poster, backdrop, logo (FR-1.2) | `library/src/artwork.rs` `Artworks` (`library.artwork`) | `domain/src/artwork.rs` `Artwork`; choice in `metadata/src/tmdb_wire.rs`, `tvdb_wire.rs` | `series_repo.rs`, `movie_repo.rs` (`artwork` JSON column) | `metadata/src/artwork.rs` `ArtworkFetcher`; `system/src/artwork.rs` `ArtworkFiles` | `web/src/api/artwork.rs`, which also serves search result posters uncached (`Artworks::preview`) |
 | Description: overview, genres, runtime; episode overviews | `library/src/metadata.rs` (with refresh) | `domain/src/description.rs` `Description`; `Series::refresh`, `Movie::refresh` | `series_repo.rs`, `movie_repo.rs` (`description` JSON column, episode `overview`) | `metadata/src/tmdb.rs`, `tvdb.rs` | `web/src/api/library/detail.rs` |
 | Downloads: add, sync, pick up, seeding cleanup (FR-3) | `downloads/src/downloads.rs` `Downloads` | `downloads/src/model.rs` | `download_repo.rs` | `download-clients/src/transmission.rs` | jobs `sync-downloads`, `sync-active-downloads`; `download.rs`; web `api/downloads.rs` (live over server-sent events, woken by `events::QueueChanges`, which `Downloads`, `ImportPlanner`, `Scanner`, `Reviewer` and `Importer` notify after saving downloads or imports), `pages/downloads/` |
 | Detection (FR-4.1–4.10, 4.13) | `detect` `ImportPlan::new` (`plan.rs`) | `classify.rs`, `parse.rs`, `titles.rs` (title and year), `plan.rs` (episodes) | none | none | `media/src/planner.rs`, `scan.rs` |

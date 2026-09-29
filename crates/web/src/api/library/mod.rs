@@ -9,9 +9,10 @@ use yokoku_domain::ItemId;
 #[cfg(feature = "server")]
 use super::{Dep, Library};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Kind {
+    #[default]
     Series,
     Movie,
 }
@@ -68,6 +69,28 @@ impl Kind {
         match self {
             Self::Series => "Series",
             Self::Movie => "Movie",
+        }
+    }
+}
+
+/// `series` or `movie`, as in route queries.
+impl std::fmt::Display for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Series => "series",
+            Self::Movie => "movie",
+        })
+    }
+}
+
+impl std::str::FromStr for Kind {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "series" => Ok(Self::Series),
+            "movie" => Ok(Self::Movie),
+            _ => Err(format!("{value:?} is not series or movie")),
         }
     }
 }

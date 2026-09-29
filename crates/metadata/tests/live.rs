@@ -15,7 +15,7 @@ fn client() -> TmdbClient {
 async fn real_tmdb_matches_the_recorded_shapes() {
     let client = client();
 
-    let results = client.search("frieren").await.unwrap();
+    let results = client.search("frieren", None).await.unwrap();
     assert!(results.iter().any(|r| r.kind == MediaKind::Series && r.source == ExternalId::Tmdb(209867)));
 
     let frieren = client.series(ExternalId::Tmdb(209867)).await.unwrap();
@@ -36,7 +36,7 @@ async fn real_tvdb_matches_the_assumed_shapes() {
     settings.tvdb.pin = std::env::var("APP__METADATA__TVDB__PIN").ok().map(Secret::new);
     let client = TvdbClient::new(Live::fixed(settings));
 
-    let results = client.search("frieren").await.unwrap();
+    let results = client.search("frieren", None).await.unwrap();
     assert!(results.iter().any(|r| r.kind == MediaKind::Series && r.source == ExternalId::Tvdb(424536)));
 
     let frieren = client.series(ExternalId::Tvdb(424536)).await.unwrap();

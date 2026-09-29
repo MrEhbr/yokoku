@@ -36,6 +36,16 @@ impl ArtworkSource for Servers {
         self.0.lock().unwrap().push((kind, path.to_owned()));
         Ok(format!("image of {path}").into_bytes())
     }
+
+    async fn fetch_thumbnail(
+        &self,
+        _source: ExternalId,
+        kind: ArtworkKind,
+        path: &str,
+    ) -> Result<Vec<u8>, MetadataError> {
+        self.0.lock().unwrap().push((kind, format!("thumbnail {path}")));
+        Ok(format!("thumbnail of {path}").into_bytes())
+    }
 }
 
 struct Setup {
@@ -151,6 +161,29 @@ async fn an_item_not_in_the_library_is_not_found() {
     let error = setup.artworks.image(ItemId::Series(missing), ArtworkKind::Poster).await.unwrap_err();
 
     assert!(matches!(error, LibraryError::SeriesNotFound(id) if id == missing));
+}
+
+#[tokio::test]
+async fn a_preview_is_a_thumbnail_fetched_every_time_and_never_cached() {
+    let setup = setup().await;
+
+    let first = setup.artworks.preview(ExternalId::Tmdb(1), ArtworkKind::Poster, "/dune.png").await.unwrap();
+    setup.artworks.preview(ExternalId::Tmdb(1), ArtworkKind::Poster, "/dune.png").await.unwrap();
+
+    let thumbnail = Image { bytes: b"thumbnail of /dune.png".to_vec(), content_type: "image/png" };
+    assert_eq!(first, Some(thumbnail));
+    assert_eq!(setup.servers.fetched(), vec![(ArtworkKind::Poster, "thumbnail /dune.png".to_owned()); 2]);
+    assert_eq!(setup.cached(), 0);
+}
+
+#[tokio::test]
+async fn a_preview_path_without_a_file_name_is_none() {
+    let setup = setup().await;
+
+    let preview = setup.artworks.preview(ExternalId::Tmdb(1), ArtworkKind::Poster, "/").await.unwrap();
+
+    assert_eq!(preview, None);
+    assert!(setup.servers.fetched().is_empty());
 }
 
 #[tokio::test]

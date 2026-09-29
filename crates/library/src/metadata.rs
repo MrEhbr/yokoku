@@ -25,7 +25,10 @@ pub struct MetadataService {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchHit {
     pub result: SearchResult,
-    pub in_library: bool,
+    /// The item holding this result when it is already in the library.
+    pub in_library: Option<ItemId>,
+    /// The folder name `add_series` or `add_movie` gives the item when the caller gives none.
+    pub folder: String,
 }
 
 #[derive(Debug, Default)]
@@ -52,14 +55,21 @@ impl MetadataService {
         Self { series, movies, metadata, folders, clock, events }
     }
 
-    pub async fn search(&self, query: &str) -> Result<Vec<SearchHit>, LibraryError> {
+    /// Movies and series matching `query`, or only those of `kind`.
+    pub async fn search(&self, query: &str, kind: Option<MediaKind>) -> Result<Vec<SearchHit>, LibraryError> {
         let mut hits = Vec::new();
-        for result in self.metadata.search(query).await? {
-            let in_library = match result.kind {
-                MediaKind::Series => self.series.find_by_source(result.source).await?.is_some(),
-                MediaKind::Movie => self.movies.find_by_source(result.source).await?.is_some(),
+        for result in self.metadata.search(query, kind).await? {
+            let (in_library, folder) = match result.kind {
+                MediaKind::Series => (
+                    self.series.find_by_source(result.source).await?.map(|series| ItemId::Series(series.id)),
+                    self.folders.series_folder(&result.title, result.year),
+                ),
+                MediaKind::Movie => (
+                    self.movies.find_by_source(result.source).await?.map(|movie| ItemId::Movie(movie.id)),
+                    self.folders.movie_folder(&result.title, result.year),
+                ),
             };
-            hits.push(SearchHit { result, in_library });
+            hits.push(SearchHit { result, in_library, folder });
         }
         Ok(hits)
     }
@@ -78,7 +88,10 @@ impl MetadataService {
             return Err(LibraryError::AlreadyInLibrary(source));
         }
         let metadata = self.metadata.series(source).await?;
-        let folder = ItemFolder::new(root, folder.unwrap_or_else(|| self.folders.series_folder(&metadata)))?;
+        let folder = ItemFolder::new(
+            root,
+            folder.unwrap_or_else(|| self.folders.series_folder(&metadata.title, metadata.year)),
+        )?;
         if self.series.find_by_folder(&folder).await?.is_some() {
             return Err(LibraryError::FolderTaken(folder.path()));
         }
@@ -105,7 +118,8 @@ impl MetadataService {
             return Err(LibraryError::AlreadyInLibrary(source));
         }
         let metadata = self.metadata.movie(source).await?;
-        let folder = ItemFolder::new(root, folder.unwrap_or_else(|| self.folders.movie_folder(&metadata)))?;
+        let folder =
+            ItemFolder::new(root, folder.unwrap_or_else(|| self.folders.movie_folder(&metadata.title, metadata.year)))?;
         if self.movies.find_by_folder(&folder).await?.is_some() {
             return Err(LibraryError::FolderTaken(folder.path()));
         }

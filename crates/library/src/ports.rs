@@ -14,11 +14,14 @@ pub struct SearchResult {
     pub original_title: String,
     pub year: Option<i16>,
     pub poster_path: Option<String>,
+    /// Empty when the source has none.
+    pub overview: String,
 }
 
 #[async_trait]
 pub trait MetadataProvider: Send + Sync {
-    async fn search(&self, query: &str) -> Result<Vec<SearchResult>, MetadataError>;
+    /// Movies and series, or only those of `kind`.
+    async fn search(&self, query: &str, kind: Option<MediaKind>) -> Result<Vec<SearchResult>, MetadataError>;
     async fn series(&self, source: ExternalId) -> Result<SeriesMetadata, MetadataError>;
     async fn movie(&self, source: ExternalId) -> Result<MovieMetadata, MetadataError>;
 }
@@ -28,6 +31,13 @@ pub trait MetadataProvider: Send + Sync {
 pub trait ArtworkSource: Send + Sync {
     /// The image at `path` as the item's source stored it: a TMDB path or a TVDB URL.
     async fn fetch(&self, source: ExternalId, kind: ArtworkKind, path: &str) -> Result<Vec<u8>, MetadataError>;
+    /// Like `fetch`, at a small size for previews where the source has one.
+    async fn fetch_thumbnail(
+        &self,
+        source: ExternalId,
+        kind: ArtworkKind,
+        path: &str,
+    ) -> Result<Vec<u8>, MetadataError>;
 }
 
 /// Artwork images kept on this host, at most one of each kind per item.
@@ -42,8 +52,8 @@ pub trait ArtworkCache: Send + Sync {
 
 /// The folder name a new item gets in its root folder when the user gives none (FR-5.1).
 pub trait FolderNames: Send + Sync {
-    fn series_folder(&self, metadata: &SeriesMetadata) -> String;
-    fn movie_folder(&self, metadata: &MovieMetadata) -> String;
+    fn series_folder(&self, title: &str, year: Option<i16>) -> String;
+    fn movie_folder(&self, title: &str, year: Option<i16>) -> String;
 }
 
 #[derive(Debug, thiserror::Error)]

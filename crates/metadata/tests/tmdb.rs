@@ -54,7 +54,7 @@ async fn search_returns_movies_and_series_but_not_people() {
         .mount(&server)
         .await;
 
-    let results = client(&server, "US").search("dune").await.unwrap();
+    let results = client(&server, "US").search("dune", None).await.unwrap();
 
     let first: Vec<_> = results.iter().take(4).map(|r| (r.kind, r.source, r.title.as_str(), r.year)).collect();
     assert_eq!(
@@ -73,6 +73,38 @@ async fn search_returns_movies_and_series_but_not_people() {
         .filter(|item| item["media_type"] != "person")
         .count();
     assert_eq!(results.len(), expected);
+}
+
+#[rstest]
+#[case::series(MediaKind::Series, "/search/tv", json!({ "results": [
+    {
+        "id": 90228, "name": "Dune: Prophecy", "original_name": "Dune: Prophecy", "first_air_date": "2024-11-17",
+        "overview": "The sisterhood.",
+    },
+]}))]
+#[case::movies(MediaKind::Movie, "/search/movie", json!({ "results": [
+    {
+        "id": 438631, "title": "Dune", "original_title": "Dune", "release_date": "2021-09-15",
+        "overview": "The sisterhood.",
+    },
+]}))]
+#[tokio::test]
+async fn a_search_for_one_kind_asks_for_that_kind_only(
+    #[case] kind: MediaKind,
+    #[case] endpoint: &str,
+    #[case] page: Value,
+) {
+    let server = server().await;
+    Mock::given(path(endpoint))
+        .and(query_param("query", "dune"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(page))
+        .mount(&server)
+        .await;
+
+    let results = client(&server, "US").search("dune", Some(kind)).await.unwrap();
+
+    assert_eq!(results.len(), 1);
+    assert_eq!((results[0].kind, results[0].overview.as_str()), (kind, "The sisterhood."));
 }
 
 #[tokio::test]
