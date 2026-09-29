@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
-use yokoku_domain::{Artwork, ExternalId, ItemFolder, MediaFileId, Movie, MovieId, Releases, StorageError};
+use yokoku_domain::{
+    Artwork, Description, ExternalId, ItemFolder, MediaFileId, Movie, MovieId, Releases, StorageError,
+};
 use yokoku_library::ports::MovieRepo;
 
 use crate::{
@@ -21,6 +23,7 @@ struct MovieRow {
     alternate_titles: Json<Vec<String>>,
     year: Option<i16>,
     artwork: Json<Artwork>,
+    description: Json<Description>,
     cinema_date: Option<Text<Date>>,
     digital_date: Option<Text<Date>>,
     physical_date: Option<Text<Date>>,
@@ -96,14 +99,15 @@ impl Database {
 
         sqlx::query(
             "INSERT INTO movies (id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
-                                 cinema_date, digital_date, physical_date, root, folder, monitored, file_id, added_at,
-                                 refreshed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 description, cinema_date, digital_date, physical_date, root, folder, monitored,
+                                 file_id, added_at, refreshed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                  title = excluded.title, original_title = excluded.original_title,
                  alternate_titles = excluded.alternate_titles, year = excluded.year,
-                 artwork = excluded.artwork, cinema_date = excluded.cinema_date,
-                 digital_date = excluded.digital_date, physical_date = excluded.physical_date,
+                 artwork = excluded.artwork, description = excluded.description,
+                 cinema_date = excluded.cinema_date, digital_date = excluded.digital_date,
+                 physical_date = excluded.physical_date,
                  monitored = excluded.monitored, file_id = excluded.file_id,
                  refreshed_at = excluded.refreshed_at",
         )
@@ -115,6 +119,7 @@ impl Database {
         .bind(Json(&movie.alternate_titles))
         .bind(movie.year)
         .bind(Json(&movie.artwork))
+        .bind(Json(&movie.description))
         .bind(date(movie.releases.cinema))
         .bind(date(movie.releases.digital))
         .bind(date(movie.releases.physical))
@@ -135,8 +140,8 @@ impl Database {
     pub(crate) async fn load_movie(&self, id: MovieId) -> Result<Option<Movie>, DbError> {
         let row: Option<MovieRow> = sqlx::query_as(
             "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
-                    cinema_date, digital_date, physical_date, root, folder, monitored, file_id, added_at, refreshed_at,
-                    revision
+                    description, cinema_date, digital_date, physical_date, root, folder, monitored, file_id,
+                    added_at, refreshed_at, revision
              FROM movies WHERE id = ?",
         )
         .bind(id.to_string())
@@ -150,8 +155,8 @@ impl Database {
     pub(crate) async fn load_all_movies(&self) -> Result<Vec<Movie>, DbError> {
         let rows: Vec<MovieRow> = sqlx::query_as(
             "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
-                    cinema_date, digital_date, physical_date, root, folder, monitored, file_id, added_at, refreshed_at,
-                    revision
+                    description, cinema_date, digital_date, physical_date, root, folder, monitored, file_id,
+                    added_at, refreshed_at, revision
              FROM movies ORDER BY id",
         )
         .fetch_all(self.pool())
@@ -178,6 +183,7 @@ impl TryFrom<MovieRow> for Movie {
             alternate_titles: row.alternate_titles.0,
             year: row.year,
             artwork: row.artwork.0,
+            description: row.description.0,
             releases: Releases {
                 cinema: row.cinema_date.map(|date| date.0),
                 digital: row.digital_date.map(|date| date.0),

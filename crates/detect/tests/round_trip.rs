@@ -2,8 +2,8 @@ use jiff::{Timestamp, civil::date};
 use proptest::prelude::*;
 use yokoku_detect::{ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{
-    Artwork, Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset, Movie,
-    MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Confidence, Description, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset,
+    Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_naming::Naming;
 
@@ -13,7 +13,13 @@ const EPISODE_TITLE: &str = "[A-Za-z ]{0,20}";
 fn series(title: String, year: i16, episode_titles: Vec<String>) -> Series {
     let episodes = (1..)
         .zip(episode_titles)
-        .map(|(number, title)| EpisodeMetadata { source_id: u64::from(number), number, title, air_date: None })
+        .map(|(number, title)| EpisodeMetadata {
+            source_id: u64::from(number),
+            number,
+            title,
+            overview: String::new(),
+            air_date: None,
+        })
         .collect();
     let metadata = SeriesMetadata {
         source: ExternalId::Tmdb(1),
@@ -22,6 +28,7 @@ fn series(title: String, year: i16, episode_titles: Vec<String>) -> Series {
         alternate_titles: Vec::new(),
         year: Some(year),
         artwork: Artwork::default(),
+        description: Description::default(),
         status: SourceStatus::Returning,
         seasons: vec![SeasonMetadata { number: 1, episodes }],
     };
@@ -36,6 +43,7 @@ fn movie(title: String, year: i16) -> Movie {
         alternate_titles: Vec::new(),
         year: Some(year),
         artwork: Artwork::default(),
+        description: Description::default(),
         releases: Releases::default(),
     };
     Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)

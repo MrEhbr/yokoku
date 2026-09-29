@@ -6,8 +6,8 @@ use predicates::prelude::*;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata,
-    Series, SeriesMetadata, SourceStatus,
+    Artwork, Description, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases,
+    SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog, SeriesRemoved};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
@@ -55,6 +55,7 @@ async fn seeded_library() -> Library {
         source_id,
         number,
         title: format!("Episode {number}"),
+        overview: String::new(),
         air_date: Some(air_date),
     };
     let frieren = SeriesMetadata {
@@ -64,6 +65,7 @@ async fn seeded_library() -> Library {
         alternate_titles: Vec::new(),
         year: Some(2023),
         artwork: Artwork::default(),
+        description: Description::default(),
         status: SourceStatus::Returning,
         seasons: vec![SeasonMetadata {
             number: 1,
@@ -77,6 +79,7 @@ async fn seeded_library() -> Library {
         alternate_titles: Vec::new(),
         year: Some(2021),
         artwork: Artwork::default(),
+        description: Description::default(),
         releases: Releases { digital: Some(today() - 30.days()), ..Releases::default() },
     };
 

@@ -12,8 +12,8 @@ use jiff::Timestamp;
 use predicates::prelude::*;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, ExternalId, ItemFolder, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, Series, SeriesId,
-    SeriesMetadata, SourceStatus,
+    Artwork, Description, ExternalId, ItemFolder, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, Series,
+    SeriesId, SeriesMetadata, SourceStatus,
 };
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 
@@ -79,6 +79,7 @@ async fn seed(path: &Path) -> (SeriesId, MovieId) {
         alternate_titles: Vec::new(),
         year: Some(2023),
         artwork: Artwork::default(),
+        description: Description::default(),
         status: SourceStatus::Returning,
         seasons: Vec::new(),
     };
@@ -89,6 +90,7 @@ async fn seed(path: &Path) -> (SeriesId, MovieId) {
         alternate_titles: Vec::new(),
         year: Some(2021),
         artwork: Artwork { poster: Some("/dune.jpg".into()), ..Artwork::default() },
+        description: Description::default(),
         releases: Releases::default(),
     };
     let today = now.to_zoned(jiff::tz::TimeZone::UTC).date();

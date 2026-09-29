@@ -45,6 +45,12 @@ pub(crate) struct SearchItem {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SeriesDetails {
     pub name: String,
+    /// In the original language.
+    pub overview: Option<String>,
+    #[serde(default)]
+    pub genres: Vec<Genre>,
+    /// Minutes.
+    pub average_runtime: Option<u16>,
     pub year: Option<String>,
     pub image: Option<String>,
     pub status: Option<Status>,
@@ -64,11 +70,18 @@ pub(crate) struct Alias {
     pub name: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct Genre {
+    pub name: String,
+}
+
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Translations {
     #[serde(default)]
     pub name_translations: Vec<Translation>,
+    #[serde(default)]
+    pub overview_translations: Vec<OverviewTranslation>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,6 +93,12 @@ pub(crate) struct Translation {
     pub is_alias: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct OverviewTranslation {
+    pub language: String,
+    pub overview: Option<String>,
+}
+
 impl SeriesDetails {
     pub(crate) fn translated_name(&self, language: &str) -> Option<&str> {
         self.translations
@@ -88,6 +107,17 @@ impl SeriesDetails {
             .find(|translation| translation.language == language && translation.is_alias != Some(true))
             .and_then(|translation| translation.name.as_deref())
             .filter(|name| !name.is_empty())
+    }
+
+    /// The overview in `language`, else in the original language.
+    pub(crate) fn overview(&self, language: &str) -> Option<&str> {
+        self.translations
+            .overview_translations
+            .iter()
+            .find(|translation| translation.language == language)
+            .and_then(|translation| translation.overview.as_deref())
+            .or(self.overview.as_deref())
+            .filter(|overview| !overview.is_empty())
     }
 }
 
@@ -103,6 +133,8 @@ pub(crate) struct EpisodeItem {
     pub season_number: u16,
     pub number: u16,
     pub name: Option<String>,
+    /// In the requested language.
+    pub overview: Option<String>,
     pub aired: Option<String>,
 }
 

@@ -7,8 +7,8 @@ use jiff::{
 use rstest::rstest;
 use yokoku_detect::{Conflict, ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{
-    Artwork, Confidence, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MediaFileId, MonitorPreset,
-    Movie, MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Confidence, Description, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MediaFileId,
+    MonitorPreset, Movie, MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -31,6 +31,7 @@ fn series(spec: SeriesSpec<'_>) -> Series {
         alternate_titles: Vec::new(),
         year: Some(spec.year),
         artwork: Artwork::default(),
+        description: Description::default(),
         status: SourceStatus::Returning,
         seasons: spec
             .seasons
@@ -42,7 +43,13 @@ fn series(spec: SeriesSpec<'_>) -> Series {
                     .zip(1..)
                     .map(|(title, episode)| {
                         source_id += 1;
-                        EpisodeMetadata { source_id, number: episode, title: (*title).into(), air_date: None }
+                        EpisodeMetadata {
+                            source_id,
+                            number: episode,
+                            title: (*title).into(),
+                            overview: String::new(),
+                            air_date: None,
+                        }
                     })
                     .collect(),
             })
@@ -63,6 +70,7 @@ fn movie(source: u64, title: &str, original_title: &str, year: i16) -> Movie {
         alternate_titles: Vec::new(),
         year: Some(year),
         artwork: Artwork::default(),
+        description: Description::default(),
         releases: Releases::default(),
     };
     Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)

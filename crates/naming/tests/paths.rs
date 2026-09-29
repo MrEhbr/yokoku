@@ -4,8 +4,8 @@ use jiff::Timestamp;
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::{
-    Artwork, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata,
-    Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, Movie,
+    MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_naming::{Naming, NamingError, NamingTemplates, sanitize};
 
@@ -17,6 +17,7 @@ fn movie(title: &str, year: Option<i16>) -> Movie {
         alternate_titles: Vec::new(),
         year,
         artwork: Artwork::default(),
+        description: Description::default(),
         releases: Releases::default(),
     };
     Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
@@ -32,6 +33,7 @@ fn series(title: &str, year: Option<i16>, seasons: &[(u16, &[&str])]) -> Series 
         alternate_titles: Vec::new(),
         year,
         artwork: Artwork::default(),
+        description: Description::default(),
         status: SourceStatus::Returning,
         seasons: seasons
             .iter()
@@ -42,7 +44,13 @@ fn series(title: &str, year: Option<i16>, seasons: &[(u16, &[&str])]) -> Series 
                     .zip(1..)
                     .map(|(title, episode)| {
                         source_id += 1;
-                        EpisodeMetadata { source_id, number: episode, title: (*title).into(), air_date: None }
+                        EpisodeMetadata {
+                            source_id,
+                            number: episode,
+                            title: (*title).into(),
+                            overview: String::new(),
+                            air_date: None,
+                        }
                     })
                     .collect(),
             })

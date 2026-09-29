@@ -1,6 +1,6 @@
 use jiff::{SignedDuration, Timestamp, ToSpan, civil::Date};
 
-use crate::{Artwork, ExternalId, FileStatus, ItemFolder, MediaFileId, MovieId};
+use crate::{Artwork, Description, ExternalId, FileStatus, ItemFolder, MediaFileId, MovieId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Releases {
@@ -58,6 +58,7 @@ pub struct MovieMetadata {
     pub alternate_titles: Vec<String>,
     pub year: Option<i16>,
     pub artwork: Artwork,
+    pub description: Description,
     pub releases: Releases,
 }
 
@@ -71,6 +72,7 @@ pub struct Movie {
     pub alternate_titles: Vec<String>,
     pub year: Option<i16>,
     pub artwork: Artwork,
+    pub description: Description,
     pub releases: Releases,
     /// Set when the movie is added; never changes.
     pub folder: ItemFolder,
@@ -92,6 +94,7 @@ impl Movie {
             alternate_titles: metadata.alternate_titles,
             year: metadata.year,
             artwork: metadata.artwork,
+            description: metadata.description,
             releases: metadata.releases,
             folder,
             monitored,
@@ -108,6 +111,7 @@ impl Movie {
         self.alternate_titles = metadata.alternate_titles;
         self.year = metadata.year;
         self.artwork = metadata.artwork;
+        self.description = metadata.description;
         self.releases = metadata.releases;
         self.refreshed_at = now;
     }

@@ -11,8 +11,8 @@ use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, Confidence, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder,
-    MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
+    Artwork, Confidence, Description, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ImportId,
+    ItemFolder, MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
 };
 use yokoku_library::ports::SeriesRepo;
 use yokoku_media::{
@@ -37,6 +37,7 @@ impl Setup {
             source_id: number,
             number: number as u16,
             title: format!("Episode {number}"),
+            overview: String::new(),
             air_date: Some(week_ago),
         };
         let tv = dir.path().canonicalize().unwrap().join("tv");
@@ -48,6 +49,7 @@ impl Setup {
             alternate_titles: Vec::new(),
             year: Some(2023),
             artwork: Artwork::default(),
+            description: Description::default(),
             status: SourceStatus::Returning,
             seasons: vec![SeasonMetadata { number: 1, episodes: vec![episode(1), episode(2)] }],
         };

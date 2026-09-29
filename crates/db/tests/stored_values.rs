@@ -5,7 +5,7 @@ use rstest::rstest;
 use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, DownloadId, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
+    Artwork, Description, DownloadId, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
     SeriesMetadata, SourceStatus,
 };
 use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
@@ -23,6 +23,7 @@ fn series(episode_source_id: u64) -> Series {
         alternate_titles: vec![],
         year: None,
         artwork: Artwork::default(),
+        description: Description::default(),
         status: SourceStatus::Returning,
         seasons: vec![SeasonMetadata {
             number: 1,
@@ -30,6 +31,7 @@ fn series(episode_source_id: u64) -> Series {
                 source_id: episode_source_id,
                 number: 1,
                 title: "Episode 1".into(),
+                overview: String::new(),
                 air_date: None,
             }],
         }],

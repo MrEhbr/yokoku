@@ -3,6 +3,7 @@
 mod artwork;
 mod clock;
 mod confidence;
+mod description;
 mod episode_span;
 pub mod events;
 mod external;
@@ -23,6 +24,7 @@ mod subtitle;
 pub use artwork::{Artwork, ArtworkKind};
 pub use clock::Clock;
 pub use confidence::Confidence;
+pub use description::Description;
 pub use episode_span::{EpisodeRef, EpisodeSpan, ParseEpisodeSpanError};
 pub use external::{ExternalId, ParseExternalIdError};
 pub use file_status::FileStatus;

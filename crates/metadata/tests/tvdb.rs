@@ -47,6 +47,8 @@ async fn mount_frieren(server: &MockServer) {
         .and(header("authorization", format!("Bearer {TOKEN}")))
         .respond_with(ok(json!({
             "id": 424536, "name": "葬送のフリーレン", "year": "2023",
+            "overview": "魔王を倒した勇者一行の後日譚。", "averageRuntime": 25,
+            "genres": [{ "id": 1, "name": "Fantasy", "slug": "fantasy" }, { "id": 2, "name": "Anime", "slug": "anime" }],
             "image": "https://artworks.thetvdb.com/banners/v4/series/424536/posters/1.jpg",
             "status": { "id": 1, "name": "Continuing", "recordType": "series", "keepUpdated": false },
             "aliases": [
@@ -59,6 +61,10 @@ async fn mount_frieren(server: &MockServer) {
                 { "language": "jpn", "name": "葬送のフリーレン", "isPrimary": true, "isAlias": null },
                 { "language": "eng", "name": "Frieren of the Funeral", "isPrimary": null, "isAlias": true },
                 { "language": "eng", "name": "Frieren: Beyond Journey's End", "isPrimary": null, "isAlias": null },
+            ],
+            "overviewTranslations": [
+                { "language": "jpn", "overview": "魔王を倒した勇者一行の後日譚。" },
+                { "language": "eng", "overview": "An elf mage outlives her party." },
             ]},
         })))
         .mount(server)
@@ -99,7 +105,14 @@ async fn mount_frieren(server: &MockServer) {
         .await;
     Mock::given(path("/series/424536/episodes/default/eng"))
         .and(query_param("page", "1"))
-        .respond_with(page(vec![episode(8_000_001, 1, 1, Some("The Journey's End"), Some("2023-09-29"))], None))
+        .respond_with(page(
+            vec![{
+                let mut first = episode(8_000_001, 1, 1, Some("The Journey's End"), Some("2023-09-29"));
+                first["overview"] = json!("The party returns to the capital.");
+                first
+            }],
+            None,
+        ))
         .mount(server)
         .await;
 }
@@ -162,6 +175,37 @@ async fn series_gather_every_episode_page_into_seasons() {
         (8_000_001, 1, "The Journey's End", Some(date(2023, 9, 29)))
     );
     assert_eq!(frieren.seasons[1].episodes.len(), 2);
+}
+
+#[tokio::test]
+async fn series_take_their_description_in_the_language() {
+    let server = MockServer::start().await;
+    mount_login(&server, TOKEN).await;
+    mount_frieren(&server).await;
+
+    let frieren = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap();
+
+    assert_eq!(frieren.description.overview, "An elf mage outlives her party.");
+    assert_eq!(frieren.description.genres, ["Fantasy", "Anime"]);
+    assert_eq!(frieren.description.runtime, Some(25));
+    assert_eq!(frieren.seasons[1].episodes[0].overview, "The party returns to the capital.");
+    assert_eq!(frieren.seasons[1].episodes[1].overview, "");
+}
+
+#[tokio::test]
+async fn series_without_an_overview_in_the_language_take_the_original_one() {
+    let server = MockServer::start().await;
+    mount_login(&server, TOKEN).await;
+    mount_frieren(&server).await;
+    Mock::given(path("/series/424536/episodes/default/fra"))
+        .respond_with(ok(json!({ "series": { "id": 424536 }, "episodes": [] })))
+        .mount(&server)
+        .await;
+    let french = MetadataSettings { language: "fr-FR".into(), ..settings_at(&server.uri(), "api-key") };
+
+    let frieren = TvdbClient::new(Live::fixed(french)).series(ExternalId::Tvdb(424536)).await.unwrap();
+
+    assert_eq!(frieren.description.overview, "魔王を倒した勇者一行の後日譚。");
 }
 
 #[tokio::test]

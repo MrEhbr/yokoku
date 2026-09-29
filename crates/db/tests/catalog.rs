@@ -9,8 +9,8 @@ use proptest::prelude::*;
 use rstest::{fixture, rstest};
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata,
-    Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
+    Artwork, Description, EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieId,
+    MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
 };
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::ports::Catalog;
@@ -44,6 +44,11 @@ fn series_metadata(source: u64, seasons: &[(u16, &[Option<Date>])]) -> SeriesMet
             backdrop: Some("/frieren-backdrop.jpg".into()),
             logo: Some("https://artworks.thetvdb.com/banners/v4/series/424536/clearlogo/1.png".into()),
         },
+        description: Description {
+            overview: "An elf mage outlives her party.".into(),
+            genres: vec!["Animation".into(), "Fantasy".into()],
+            runtime: Some(25),
+        },
         status: SourceStatus::Returning,
         seasons: seasons
             .iter()
@@ -58,6 +63,7 @@ fn series_metadata(source: u64, seasons: &[(u16, &[Option<Date>])]) -> SeriesMet
                             source_id: next_source_id,
                             number: episode,
                             title: format!("Episode {episode}"),
+                            overview: format!("What happens in episode {episode}."),
                             air_date,
                         }
                     })
@@ -75,6 +81,11 @@ fn movie_metadata(source: u64) -> MovieMetadata {
         alternate_titles: vec!["Dune: Part One".into()],
         year: None,
         artwork: Artwork::default(),
+        description: Description {
+            overview: "A noble family takes over Arrakis.".into(),
+            genres: vec![],
+            runtime: Some(155),
+        },
         releases: Releases { cinema: Some(TODAY), digital: None, physical: Some(TODAY + 90.days()) },
     }
 }
@@ -307,6 +318,7 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
             alternate_titles: Vec::new(),
             year: Some(2023),
             artwork: Artwork::default(),
+            description: Description::default(),
             status: SourceStatus::Returning,
             seasons: vec![],
         },
@@ -323,6 +335,7 @@ async fn the_catalog_reads_the_library(#[future] db: Database) {
             alternate_titles: Vec::new(),
             year: Some(2021),
             artwork: Artwork::default(),
+            description: Description::default(),
             releases: Releases::default(),
         },
         ItemFolder::default(),

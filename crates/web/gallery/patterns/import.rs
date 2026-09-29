@@ -11,7 +11,7 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
 use jiff::Timestamp;
 use yokoku_domain::{
-    Artwork, EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
+    Artwork, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
     SeriesMetadata, SourceStatus,
 };
 use yokoku_naming::{Naming, NamingTemplates};
@@ -157,7 +157,7 @@ fn to_series(info: &SeriesInfo) -> Series {
                 .zip(titles)
                 .map(|(number, title)| {
                     source_id += 1;
-                    EpisodeMetadata { source_id, number, title: title.clone(), air_date: None }
+                    EpisodeMetadata { source_id, number, title: title.clone(), overview: String::new(), air_date: None }
                 })
                 .collect(),
         })
@@ -169,6 +169,7 @@ fn to_series(info: &SeriesInfo) -> Series {
         alternate_titles: Vec::new(),
         year: info.year,
         artwork: Artwork::default(),
+        description: Description::default(),
         status: SourceStatus::Returning,
         seasons,
     };

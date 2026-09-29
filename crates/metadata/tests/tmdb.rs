@@ -113,6 +113,61 @@ async fn ended_series_keep_their_specials() {
 }
 
 #[tokio::test]
+async fn series_take_their_description_and_episode_overviews() {
+    let server = server().await;
+    mount_series(&server, 209867, "season/0,season/1").await;
+
+    let frieren = client(&server, "US").series(ExternalId::Tmdb(209867)).await.unwrap();
+
+    assert!(frieren.description.overview.starts_with("After the party of heroes defeated the Demon King"));
+    assert_eq!(frieren.description.genres, ["Animation", "Action & Adventure", "Drama", "Sci-Fi & Fantasy"]);
+    assert_eq!(frieren.description.runtime, Some(25));
+    assert!(frieren.seasons[1].episodes[0].overview.starts_with("The world celebrates the Demon King's"));
+}
+
+#[tokio::test]
+async fn series_without_a_usual_runtime_take_their_most_common_episode_length() {
+    let server = server().await;
+    let mut details = fixture("tv_209867.json");
+    details["episode_run_time"] = json!([]);
+    let mut seasons = fixture("tv_209867_seasons.json");
+    for season in ["season/0", "season/1"] {
+        for (index, episode) in seasons[season]["episodes"].as_array_mut().unwrap().iter_mut().enumerate() {
+            episode["runtime"] = json!(if index < 2 { 30 } else { 24 });
+        }
+    }
+    Mock::given(path("/tv/209867"))
+        .and(query_param("append_to_response", "alternative_titles,images"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(details))
+        .mount(&server)
+        .await;
+    Mock::given(path("/tv/209867"))
+        .and(query_param("append_to_response", "season/0,season/1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(seasons))
+        .mount(&server)
+        .await;
+
+    let frieren = client(&server, "US").series(ExternalId::Tmdb(209867)).await.unwrap();
+
+    assert_eq!(frieren.description.runtime, Some(24));
+}
+
+#[tokio::test]
+async fn movies_take_their_description() {
+    let server = server().await;
+    Mock::given(path("/movie/438631"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(fixture("movie_438631.json")))
+        .mount(&server)
+        .await;
+
+    let dune = client(&server, "US").movie(ExternalId::Tmdb(438631)).await.unwrap();
+
+    assert!(dune.description.overview.starts_with("Paul Atreides, a brilliant and gifted young man"));
+    assert_eq!(dune.description.genres, ["Science Fiction", "Adventure"]);
+    assert_eq!(dune.description.runtime, Some(155));
+}
+
+#[tokio::test]
 async fn long_series_load_seasons_twenty_at_a_time() {
     let server = server().await;
     let numbers: Vec<u16> = (0..=24).collect();

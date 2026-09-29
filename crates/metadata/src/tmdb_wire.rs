@@ -43,6 +43,13 @@ pub(crate) struct TvSummary {
 pub(crate) struct TvDetails {
     pub name: String,
     pub original_name: String,
+    #[serde(default)]
+    pub overview: String,
+    #[serde(default)]
+    pub genres: Vec<Genre>,
+    /// Usual episode lengths in minutes; often empty.
+    #[serde(default)]
+    pub episode_run_time: Vec<u16>,
     pub first_air_date: Option<String>,
     pub poster_path: Option<String>,
     pub backdrop_path: Option<String>,
@@ -55,6 +62,11 @@ pub(crate) struct TvDetails {
     /// Appended `season/N` objects, among other fields.
     #[serde(flatten)]
     pub appended: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct Genre {
+    pub name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,6 +85,9 @@ pub(crate) struct EpisodeItem {
     pub id: u64,
     pub episode_number: u16,
     pub name: String,
+    #[serde(default)]
+    pub overview: String,
+    pub runtime: Option<u16>,
     pub air_date: Option<String>,
 }
 
@@ -80,6 +95,12 @@ pub(crate) struct EpisodeItem {
 pub(crate) struct MovieDetails {
     pub title: String,
     pub original_title: String,
+    #[serde(default)]
+    pub overview: String,
+    #[serde(default)]
+    pub genres: Vec<Genre>,
+    /// Minutes; 0 when unknown.
+    pub runtime: Option<u16>,
     pub release_date: Option<String>,
     pub poster_path: Option<String>,
     pub backdrop_path: Option<String>,

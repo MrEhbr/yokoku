@@ -4,8 +4,8 @@ use jiff::{SignedDuration, Timestamp, ToSpan, civil::Date};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Artwork, EpisodeId, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId, SeriesId,
-    events::RenumberedFile,
+    Artwork, Description, EpisodeId, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId,
+    SeriesId, events::RenumberedFile,
 };
 
 const SPECIALS: u16 = 0;
@@ -87,6 +87,7 @@ pub struct SeriesMetadata {
     pub alternate_titles: Vec<String>,
     pub year: Option<i16>,
     pub artwork: Artwork,
+    pub description: Description,
     pub status: SourceStatus,
     pub seasons: Vec<SeasonMetadata>,
 }
@@ -102,6 +103,8 @@ pub struct EpisodeMetadata {
     pub source_id: u64,
     pub number: u16,
     pub title: String,
+    /// Empty when the source has none.
+    pub overview: String,
     pub air_date: Option<Date>,
 }
 
@@ -116,6 +119,7 @@ pub struct Series {
     pub alternate_titles: Vec<String>,
     pub year: Option<i16>,
     pub artwork: Artwork,
+    pub description: Description,
     pub source_status: SourceStatus,
     pub numbering: Numbering,
     /// Set when the series is added; never changes.
@@ -141,6 +145,8 @@ pub struct Episode {
     pub source_id: u64,
     pub number: u16,
     pub title: String,
+    /// Empty when the source has none.
+    pub overview: String,
     pub air_date: Option<Date>,
     pub monitored: bool,
     pub file: Option<MediaFileId>,
@@ -187,6 +193,7 @@ impl Series {
             alternate_titles: metadata.alternate_titles,
             year: metadata.year,
             artwork: metadata.artwork,
+            description: metadata.description,
             source_status: metadata.status,
             numbering: Numbering::default(),
             folder,
@@ -228,6 +235,7 @@ impl Series {
                         Some(existing) => Episode {
                             number: episode.number,
                             title: episode.title,
+                            overview: episode.overview,
                             air_date: episode.air_date,
                             ..existing
                         },
@@ -243,6 +251,7 @@ impl Series {
         self.alternate_titles = metadata.alternate_titles;
         self.year = metadata.year;
         self.artwork = metadata.artwork;
+        self.description = metadata.description;
         self.source_status = metadata.status;
         self.refreshed_at = now;
         self.sort();
@@ -413,6 +422,7 @@ impl Episode {
             source_id: metadata.source_id,
             number: metadata.number,
             title: metadata.title,
+            overview: metadata.overview,
             air_date: metadata.air_date,
             monitored,
             file: None,

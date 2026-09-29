@@ -6,8 +6,8 @@ use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, Live, MediaFileId,
-    MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, Live,
+    MediaFileId, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_events::Publisher;
 use yokoku_library::{
@@ -97,6 +97,7 @@ fn series_metadata(number: usize) -> SeriesMetadata {
         alternate_titles: Vec::new(),
         year: Some(2020),
         artwork: Artwork::default(),
+        description: Description::default(),
         status: SourceStatus::Returning,
         seasons: (1..=SEASONS)
             .map(|season| SeasonMetadata {
@@ -106,6 +107,7 @@ fn series_metadata(number: usize) -> SeriesMetadata {
                         source_id: source + u64::from(season) * 20 + u64::from(episode),
                         number: episode,
                         title: format!("Episode {episode}"),
+                        overview: String::new(),
                         air_date: Some(jiff::civil::date(2020, 1, 1)),
                     })
                     .collect(),
@@ -122,6 +124,7 @@ fn movie_metadata(number: usize) -> MovieMetadata {
         alternate_titles: Vec::new(),
         year: Some(2020),
         artwork: Artwork::default(),
+        description: Description::default(),
         releases: Releases::default(),
     }
 }

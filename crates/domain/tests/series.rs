@@ -7,8 +7,8 @@ use jiff::{
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::{
-    Artwork, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId, MonitorPreset,
-    SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus, events::RenumberedFile,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId,
+    MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus, events::RenumberedFile,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -35,6 +35,7 @@ fn metadata(status: SourceStatus, seasons: &[(u16, &[Option<Date>])]) -> SeriesM
                         source_id: next_source_id,
                         number: episode,
                         title: format!("S{number}E{episode}"),
+                        overview: String::new(),
                         air_date,
                     }
                 })
@@ -48,6 +49,7 @@ fn metadata(status: SourceStatus, seasons: &[(u16, &[Option<Date>])]) -> SeriesM
         alternate_titles: Vec::new(),
         year: Some(2023),
         artwork: Artwork::default(),
+        description: Description::default(),
         status,
         seasons,
     }
@@ -192,16 +194,19 @@ fn refresh_keeps_identity_flags_and_files_of_renumbered_episodes() {
     series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().monitored = false;
 
     let mut renumbered = original;
+    renumbered.description.overview = "An elf mage outlives her party.".into();
     let episode = renumbered.seasons[0].episodes.pop().unwrap();
     renumbered.seasons.push(SeasonMetadata {
         number: 2,
-        episodes: vec![EpisodeMetadata { number: 1, title: "Renamed".into(), ..episode }],
+        episodes: vec![EpisodeMetadata { number: 1, title: "Renamed".into(), overview: "Retold.".into(), ..episode }],
     });
     let files = series.refresh(renumbered, now() + 1.hour());
 
     let episode = find(&series, 2, 1);
     assert_eq!(episode.id, moved.id);
     assert_eq!(episode.title, "Renamed");
+    assert_eq!(episode.overview, "Retold.");
+    assert_eq!(series.description.overview, "An elf mage outlives her party.");
     assert_eq!(episode.file, Some(file));
     assert!(!episode.monitored);
     assert_eq!(series.refreshed_at, now() + 1.hour());

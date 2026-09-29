@@ -10,7 +10,7 @@ use wiremock::{
     matchers::{body_partial_json, header, method},
 };
 use yokoku_db::Database;
-use yokoku_domain::{Artwork, ExternalId, ItemFolder, Movie, MovieMetadata, Releases};
+use yokoku_domain::{Artwork, Description, ExternalId, ItemFolder, Movie, MovieMetadata, Releases};
 use yokoku_events::{DownloadCompleted, Event, EventLog, FilesImported, TorrentRemoved};
 use yokoku_library::ports::MovieRepo;
 
@@ -37,6 +37,7 @@ impl Setup {
             alternate_titles: Vec::new(),
             year: Some(2021),
             artwork: Artwork::default(),
+            description: Description::default(),
             releases: Releases::default(),
         };
         let folder = ItemFolder::new(dir.path().join("movies"), "Dune (2021)".into()).unwrap();

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
 use yokoku_domain::{
-    Artwork, Episode, EpisodeId, ExternalId, ItemFolder, MediaFileId, Numbering, Season, Series, SeriesId,
+    Artwork, Description, Episode, EpisodeId, ExternalId, ItemFolder, MediaFileId, Numbering, Season, Series, SeriesId,
     SourceStatus, StorageError,
 };
 use yokoku_library::ports::SeriesRepo;
@@ -27,6 +27,7 @@ struct SeriesRow {
     alternate_titles: Json<Vec<String>>,
     year: Option<i16>,
     artwork: Json<Artwork>,
+    description: Json<Description>,
     source_status: Text<SourceStatus>,
     numbering: Text<Numbering>,
     root: String,
@@ -52,6 +53,7 @@ struct EpisodeRow {
     source_id: u64,
     number: u16,
     title: String,
+    overview: String,
     air_date: Option<Text<Date>>,
     monitored: bool,
     file_id: Option<Text<MediaFileId>>,
@@ -122,8 +124,8 @@ impl Database {
     pub(crate) async fn load_series(&self, id: SeriesId) -> Result<Option<Series>, DbError> {
         let id = id.to_string();
         let Some(row) = sqlx::query_as::<_, SeriesRow>(
-            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork, source_status,
-                    numbering, root, folder, monitored, added_at, refreshed_at, revision
+            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
+                    description, source_status, numbering, root, folder, monitored, added_at, refreshed_at, revision
              FROM series WHERE id = ?",
         )
         .bind(&id)
@@ -139,7 +141,7 @@ impl Database {
                 .fetch_all(self.pool())
                 .await?;
         let episodes: Vec<EpisodeRow> = sqlx::query_as(
-            "SELECT id, series_id, season_number, source_id, number, title, air_date, monitored, file_id
+            "SELECT id, series_id, season_number, source_id, number, title, overview, air_date, monitored, file_id
              FROM episodes WHERE series_id = ? ORDER BY season_number, number",
         )
         .bind(&id)
@@ -152,8 +154,8 @@ impl Database {
     /// Every series in three queries, ordered by id.
     pub(crate) async fn load_all_series(&self) -> Result<Vec<Series>, DbError> {
         let rows: Vec<SeriesRow> = sqlx::query_as(
-            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork, source_status,
-                    numbering, root, folder, monitored, added_at, refreshed_at, revision
+            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
+                    description, source_status, numbering, root, folder, monitored, added_at, refreshed_at, revision
              FROM series ORDER BY id",
         )
         .fetch_all(self.pool())
@@ -163,7 +165,7 @@ impl Database {
                 .fetch_all(self.pool())
                 .await?;
         let episodes: Vec<EpisodeRow> = sqlx::query_as(
-            "SELECT id, series_id, season_number, source_id, number, title, air_date, monitored, file_id
+            "SELECT id, series_id, season_number, source_id, number, title, overview, air_date, monitored, file_id
              FROM episodes ORDER BY series_id, season_number, number",
         )
         .fetch_all(self.pool())
@@ -194,13 +196,15 @@ impl Database {
 
         sqlx::query(
             "INSERT INTO series (id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
-                                 source_status, numbering, root, folder, monitored, added_at, refreshed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 description, source_status, numbering, root, folder, monitored, added_at,
+                                 refreshed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                  title = excluded.title, original_title = excluded.original_title,
                  alternate_titles = excluded.alternate_titles, year = excluded.year,
-                 artwork = excluded.artwork, source_status = excluded.source_status,
-                 numbering = excluded.numbering, monitored = excluded.monitored,
+                 artwork = excluded.artwork, description = excluded.description,
+                 source_status = excluded.source_status, numbering = excluded.numbering,
+                 monitored = excluded.monitored,
                  refreshed_at = excluded.refreshed_at",
         )
         .bind(&id)
@@ -211,6 +215,7 @@ impl Database {
         .bind(Json(&series.alternate_titles))
         .bind(series.year)
         .bind(Json(&series.artwork))
+        .bind(Json(&series.description))
         .bind(series.source_status.as_str())
         .bind(series.numbering.as_str())
         .bind(PathText(&series.folder.root))
@@ -234,12 +239,12 @@ impl Database {
 
             for episode in &season.episodes {
                 sqlx::query(
-                    "INSERT INTO episodes (id, series_id, season_number, source_id, number, title, air_date,
+                    "INSERT INTO episodes (id, series_id, season_number, source_id, number, title, overview, air_date,
                                            monitored, file_id)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON CONFLICT (id) DO UPDATE SET
                          season_number = excluded.season_number, number = excluded.number,
-                         title = excluded.title, air_date = excluded.air_date,
+                         title = excluded.title, overview = excluded.overview, air_date = excluded.air_date,
                          monitored = excluded.monitored, file_id = excluded.file_id",
                 )
                 .bind(episode.id.to_string())
@@ -248,6 +253,7 @@ impl Database {
                 .bind(Int(episode.source_id))
                 .bind(episode.number)
                 .bind(&episode.title)
+                .bind(&episode.overview)
                 .bind(episode.air_date.map(|date| date.to_string()))
                 .bind(episode.monitored)
                 .bind(episode.file.map(|file| file.to_string()))
@@ -283,6 +289,7 @@ impl From<EpisodeRow> for Episode {
             source_id: episode.source_id,
             number: episode.number,
             title: episode.title,
+            overview: episode.overview,
             air_date: episode.air_date.map(|date| date.0),
             monitored: episode.monitored,
             file: episode.file_id.map(|file| file.0),
@@ -314,6 +321,7 @@ impl SeriesRow {
             alternate_titles: self.alternate_titles.0,
             year: self.year,
             artwork: self.artwork.0,
+            description: self.description.0,
             source_status: self.source_status.0,
             numbering: self.numbering.0,
             folder: ItemFolder { root: PathBuf::from(self.root), name: self.folder },

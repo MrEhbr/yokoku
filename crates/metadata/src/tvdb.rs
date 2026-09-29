@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 use tracing::debug;
 use yokoku_domain::{
-    Artwork, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
+    Artwork, Description, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
 };
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
@@ -155,6 +155,7 @@ impl MetadataProvider for TvdbClient {
                 source_id: episode.id,
                 number: episode.number,
                 title: episode.name.unwrap_or_default(),
+                overview: episode.overview.unwrap_or_default(),
                 air_date: http::date(episode.aired.as_deref()),
             });
         }
@@ -166,6 +167,11 @@ impl MetadataProvider for TvdbClient {
             })
             .collect();
 
+        let description = Description {
+            overview: details.overview(language).unwrap_or_default().to_owned(),
+            genres: details.genres.iter().map(|genre| genre.name.clone()).collect(),
+            runtime: details.average_runtime.filter(|&minutes| minutes > 0),
+        };
         let title = details.translated_name(language).unwrap_or(&details.name).to_owned();
         let mut alternate_titles: Vec<String> = Vec::new();
         for alias in details.aliases {
@@ -186,6 +192,7 @@ impl MetadataProvider for TvdbClient {
                 backdrop: artworks.best(SERIES_BACKGROUND, [None, Some(language)]),
                 logo: artworks.best(SERIES_CLEAR_LOGO, [Some(language), None]),
             },
+            description,
             seasons,
         })
     }

@@ -13,8 +13,8 @@ use jiff::{
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, Clock, EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata,
-    SourceStatus,
+    Artwork, Clock, Description, EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata,
+    SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog, Publisher};
 use yokoku_library::{
@@ -130,6 +130,7 @@ pub fn series_metadata(
         alternate_titles: Vec::new(),
         year: Some(2023),
         artwork: Artwork::default(),
+        description: Description::default(),
         status,
         seasons: seasons
             .iter()
@@ -144,6 +145,7 @@ pub fn series_metadata(
                             source_id: next_source_id,
                             number: episode,
                             title: format!("Episode {episode}"),
+                            overview: String::new(),
                             air_date,
                         }
                     })
@@ -161,6 +163,7 @@ pub fn movie_metadata(source: u64, title: &str, releases: Releases) -> MovieMeta
         alternate_titles: Vec::new(),
         year: None,
         artwork: Artwork::default(),
+        description: Description::default(),
         releases,
     }
 }

@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use yokoku_domain::{
-    Artwork, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
+    Artwork, Description, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
 };
 use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
@@ -82,12 +84,14 @@ impl MetadataProvider for TmdbClient {
         let numbers: Vec<u16> = details.seasons.iter().map(|season| season.season_number).collect();
 
         let mut seasons = Vec::new();
+        let mut runtimes = Vec::new();
         for chunk in numbers.chunks(MAX_APPENDED_SEASONS) {
             let append = chunk.iter().map(|number| format!("season/{number}")).collect::<Vec<_>>().join(",");
             let mut page: TvDetails = self.get(&endpoint, &[("append_to_response", &append)], Some(source)).await?;
             for number in chunk {
                 let Some(value) = page.appended.remove(&format!("season/{number}")) else { continue };
                 let season: SeasonDetails = serde_json::from_value(value).map_err(invalid)?;
+                runtimes.extend(season.episodes.iter().filter_map(|episode| episode.runtime));
                 seasons.push(SeasonMetadata {
                     number: season.season_number,
                     episodes: season
@@ -97,6 +101,7 @@ impl MetadataProvider for TmdbClient {
                             source_id: episode.id,
                             number: episode.episode_number,
                             title: episode.name,
+                            overview: episode.overview,
                             air_date: http::date(episode.air_date.as_deref()),
                         })
                         .collect(),
@@ -115,6 +120,11 @@ impl MetadataProvider for TmdbClient {
                 logo: details.images.logo(self.settings.current().image_language()),
                 poster: details.poster_path,
                 backdrop: details.backdrop_path,
+            },
+            description: Description {
+                overview: details.overview,
+                genres: details.genres.into_iter().map(|genre| genre.name).collect(),
+                runtime: details.episode_run_time.first().copied().or_else(|| most_common(runtimes)),
             },
             seasons,
         })
@@ -141,8 +151,22 @@ impl MetadataProvider for TmdbClient {
                 poster: details.poster_path,
                 backdrop: details.backdrop_path,
             },
+            description: Description {
+                overview: details.overview,
+                genres: details.genres.into_iter().map(|genre| genre.name).collect(),
+                runtime: details.runtime.filter(|&minutes| minutes > 0),
+            },
         })
     }
+}
+
+/// The value that occurs most often; the smallest of equally common ones.
+fn most_common(values: Vec<u16>) -> Option<u16> {
+    let mut counts: BTreeMap<u16, usize> = BTreeMap::new();
+    for value in values.into_iter().filter(|&value| value > 0) {
+        *counts.entry(value).or_default() += 1;
+    }
+    counts.into_iter().rev().max_by_key(|&(_, count)| count).map(|(value, _)| value)
 }
 
 /// Images in the metadata language and images without text, for `include_image_language`.
