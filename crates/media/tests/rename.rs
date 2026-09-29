@@ -45,7 +45,7 @@ async fn applying_moves_videos_and_subtitles_and_tidies_old_folders() {
     linked(&app, MESSY).await;
     app.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.eng.srt", 1);
 
-    let report = app.renamer.apply(RenameScope::All).await.unwrap();
+    let report = app.renamer.apply(RenameScope::All, None).await.unwrap();
 
     assert_eq!(report.renamed.len(), 1);
     assert!(report.failed.is_empty(), "{:?}", report.failed);
@@ -62,6 +62,18 @@ async fn applying_moves_videos_and_subtitles_and_tidies_old_folders() {
         )
     );
     assert_eq!(app.renamer.preview(RenameScope::All).await.unwrap().renames, []);
+}
+
+#[tokio::test]
+async fn applying_to_chosen_files_leaves_the_others() {
+    let app = App::new().await;
+    linked(&app, MESSY).await;
+
+    let report = app.renamer.apply(RenameScope::All, Some(&[MediaFileId::generate()])).await.unwrap();
+
+    assert_eq!(report.renamed, []);
+    assert!(app.path(MESSY).exists());
+    assert_eq!(app.renamer.preview(RenameScope::All).await.unwrap().renames.len(), 1);
 }
 
 #[tokio::test]
@@ -120,7 +132,7 @@ async fn an_unlinked_file_at_the_new_path_is_never_replaced() {
     fs::create_dir_all(blocker.parent().unwrap()).unwrap();
     fs::write(&blocker, b"keep me").unwrap();
 
-    let report = app.renamer.apply(RenameScope::All).await.unwrap();
+    let report = app.renamer.apply(RenameScope::All, None).await.unwrap();
 
     assert_eq!(report.renamed, []);
     assert_eq!(relative(&app, report.failed.iter().map(|failure| failure.path.as_path())), [MESSY]);
@@ -163,7 +175,7 @@ async fn an_old_folder_that_cannot_be_removed_does_not_stop_the_other_renames() 
     fs::create_dir_all(series.join("Season 02")).unwrap();
     fs::set_permissions(&series, fs::Permissions::from_mode(0o555)).unwrap();
 
-    let result = app.renamer.apply(RenameScope::All).await;
+    let result = app.renamer.apply(RenameScope::All, None).await;
 
     fs::set_permissions(&series, fs::Permissions::from_mode(0o755)).unwrap();
     let report = result.unwrap();

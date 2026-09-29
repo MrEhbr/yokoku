@@ -144,15 +144,16 @@ impl Renamer {
         Ok(plan)
     }
 
-    /// Carries out the plan file by file; a file that cannot be moved is reported and left alone,
-    /// and an old folder that cannot be removed is only logged.
+    /// Carries out the plan file by file, for the files in `only` or for all of them; a file that
+    /// cannot be moved is reported and left alone, and an old folder that cannot be removed is
+    /// only logged.
     #[instrument(skip_all, fields(?scope))]
-    pub async fn apply(&self, scope: RenameScope) -> Result<RenameReport, MediaError> {
+    pub async fn apply(&self, scope: RenameScope, only: Option<&[MediaFileId]>) -> Result<RenameReport, MediaError> {
         let _lock = self.lock.acquire().await?;
         let plan = self.preview(scope).await?;
         let mut report = RenameReport { skipped: plan.skipped, ..RenameReport::default() };
 
-        for rename in plan.renames {
+        for rename in plan.renames.into_iter().filter(|rename| only.is_none_or(|files| files.contains(&rename.file))) {
             let video = &rename.video;
             if video.from != video.to {
                 if let Err(error) = self.fs.rename(&video.from, &video.to).await {

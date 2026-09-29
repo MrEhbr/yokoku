@@ -58,7 +58,7 @@ pub async fn run(app: &App, args: Args) -> Result<()> {
         return Ok(());
     }
 
-    let report = app.renamer.apply(scope).await?;
+    let report = app.renamer.apply(scope, None).await?;
     app.deliver_events().await?;
     success!("Renamed {} files", report.renamed.len())?;
     for skipped in &report.skipped {

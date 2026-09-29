@@ -310,6 +310,25 @@ async fn deleting_a_file_that_is_gone_asks_for_a_reload() {
 }
 
 #[tokio::test]
+async fn a_rename_preview_says_which_files_stay() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+    let item = format!(r#"{{"Movie":"{dune}"}}"#);
+
+    let preview = service.post_json("/api/rename/preview", &format!(r#"{{"item":{item}}}"#));
+    let renamed = service.post_json("/api/rename", &format!(r#"{{"item":{item},"files":[]}}"#));
+
+    assert!(preview.starts_with("HTTP/1.1 200"), "{preview}");
+    assert!(
+        preview.contains(r#""renames":[]"#) && preview.contains("/movies/Dune (2021)/Dune (2021).mkv"),
+        "{preview}"
+    );
+    assert!(preview.contains("not in a root folder"), "{preview}");
+    assert!(renamed.contains(r#""renamed":0"#), "{renamed}");
+}
+
+#[tokio::test]
 async fn refreshing_says_why_it_cannot() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;

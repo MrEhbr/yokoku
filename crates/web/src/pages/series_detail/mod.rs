@@ -23,7 +23,7 @@ use crate::{
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
-    dialogs::add_torrent::AddTorrentButton,
+    dialogs::{add_torrent::AddTorrentButton, rename::RenameButton},
     format::year,
     layout::BackButton,
     route::Route,
@@ -118,6 +118,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
                 div { class: "flex flex-wrap items-center gap-2",
                     AddTorrentButton { item: ItemId::Series(id) }
                     RefreshButton { item: ItemId::Series(id), on_change: reload }
+                    RenameButton { item: ItemId::Series(id), on_change: reload }
                     RemoveItem { item: ItemId::Series(id), title: series.title.clone(), files: series.files() }
                 }
             }
