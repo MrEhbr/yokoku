@@ -19,6 +19,7 @@ use crate::{
         item_status::Lifecycle,
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
+        remove_item::RemoveItem,
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
@@ -114,6 +115,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
                 }
                 NumberingSelect { series: id, numbering: series.numbering, on_change: reload }
                 RefreshButton { item: ItemId::Series(id), on_change: reload }
+                RemoveItem { item: ItemId::Series(id), title: series.title.clone(), files: series.files() }
             }
             ItemDescription { description: series.description.clone(), per_episode: true }
             div { class: "mt-2 grid gap-3 lg:grid-cols-2",

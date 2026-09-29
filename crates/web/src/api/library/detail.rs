@@ -151,6 +151,19 @@ impl Release {
     }
 }
 
+impl SeriesDetail {
+    /// How many files hold its episodes; a file holding several episodes counts once.
+    pub fn files(&self) -> usize {
+        let paths: std::collections::HashSet<&str> = self
+            .seasons
+            .iter()
+            .flat_map(|season| &season.episodes)
+            .filter_map(|episode| episode.file_info.as_ref().map(|info| info.path.as_str()))
+            .collect();
+        paths.len()
+    }
+}
+
 impl SeasonDetail {
     /// `Season 1`, or `Specials` for season 0.
     pub fn name(&self) -> String {

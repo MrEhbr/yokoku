@@ -1,5 +1,5 @@
-//! Changes to a library item from its page: monitoring (FR-2.1), refresh (FR-1.6) and numbering
-//! (FR-1.8).
+//! Changes to a library item from its page: monitoring (FR-2.1), refresh (FR-1.6), numbering
+//! (FR-1.8) and removal (FR-1.7).
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,12 @@ pub async fn set_numbering(id: SeriesId, numbering: Numbering) -> Result<(), Ser
     server::set_numbering(&library, id, numbering).await
 }
 
+/// Removes the item from the library, and its files from disk when `delete_files` (FR-1.7).
+#[post("/api/items/remove", library: Dep<Library>)]
+pub async fn remove(item: ItemId, delete_files: bool) -> Result<(), ServerFnError> {
+    server::remove(&library, item, delete_files).await
+}
+
 #[cfg(feature = "server")]
 mod server {
     use dioxus::prelude::*;
@@ -43,6 +49,14 @@ mod server {
 
     use super::{Library, MetadataService, MonitorTarget, Numbering};
     use crate::api::library_failure;
+
+    pub(super) async fn remove(library: &Library, item: ItemId, delete_files: bool) -> Result<(), ServerFnError> {
+        let removed = match item {
+            ItemId::Series(id) => library.remove_series(id, delete_files).await,
+            ItemId::Movie(id) => library.remove_movie(id, delete_files).await,
+        };
+        removed.map_err(|error| library_failure(error, "removing the item"))
+    }
 
     impl From<Numbering> for yokoku_domain::Numbering {
         fn from(numbering: Numbering) -> Self {

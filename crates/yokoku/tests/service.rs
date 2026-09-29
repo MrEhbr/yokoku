@@ -280,6 +280,22 @@ async fn a_series_can_switch_to_absolute_numbering() {
 }
 
 #[tokio::test]
+async fn a_removed_item_leaves_the_library() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+    let body = format!(r#"{{"item":{{"Movie":"{dune}"}},"delete_files":false}}"#);
+
+    let removed = service.post_json("/api/items/remove", &body);
+    let again = service.post_json("/api/items/remove", &body);
+    let library = service.get("/api/library");
+
+    assert!(removed.starts_with("HTTP/1.1 200"), "{removed}");
+    assert!(again.contains("no longer in the library"), "{again}");
+    assert!(library.contains("Frieren") && !library.contains("Dune"), "{library}");
+}
+
+#[tokio::test]
 async fn refreshing_says_why_it_cannot() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;

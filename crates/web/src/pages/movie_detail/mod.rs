@@ -15,6 +15,7 @@ use crate::{
         item_status::{FileState, Lifecycle},
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
+        remove_item::RemoveItem,
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
@@ -110,6 +111,11 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     on_change: reload,
                 }
                 RefreshButton { item: ItemId::Movie(id), on_change: reload }
+                RemoveItem {
+                    item: ItemId::Movie(id),
+                    title: movie.title.clone(),
+                    files: usize::from(movie.file_info.is_some()),
+                }
             }
             ItemDescription { description: movie.description.clone() }
             div { class: "mt-2 grid gap-6 lg:grid-cols-2",
