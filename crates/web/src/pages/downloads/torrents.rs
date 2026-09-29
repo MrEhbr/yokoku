@@ -2,7 +2,10 @@ use dioxus::prelude::*;
 use yokoku_domain::ImportId;
 
 use crate::{
-    api::downloads::{DownloadEntry, DownloadState, ImportState, retry_import},
+    api::{
+        downloads::{DownloadEntry, DownloadState, ImportState, retry_import},
+        failure,
+    },
     components::{
         button::{Button, ButtonSize},
         progress::Progress,
@@ -178,7 +181,7 @@ fn Retry(import: ImportId) -> Element {
                     busy.set(true);
                     match retry_import(import).await {
                         Ok(()) => failed.set(None),
-                        Err(error) => failed.set(Some(error.to_string())),
+                        Err(error) => failed.set(Some(failure(&error))),
                     }
                     busy.set(false);
                 },
