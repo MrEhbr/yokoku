@@ -296,6 +296,20 @@ async fn a_removed_item_leaves_the_library() {
 }
 
 #[tokio::test]
+async fn deleting_a_file_that_is_gone_asks_for_a_reload() {
+    let dir = tempfile::tempdir().unwrap();
+    let (frieren, _) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+
+    let deleted = service.post_json(
+        "/api/files/delete",
+        &format!(r#"{{"target":{{"kind":"episode","id":"{frieren}","season":1,"episode":1}}}}"#),
+    );
+
+    assert!(!deleted.starts_with("HTTP/1.1 200") && deleted.contains("no file anymore"), "{deleted}");
+}
+
+#[tokio::test]
 async fn refreshing_says_why_it_cannot() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;

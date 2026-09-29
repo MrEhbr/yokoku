@@ -4,8 +4,13 @@ use jiff::civil::Date;
 use yokoku_domain::SeriesId;
 
 use crate::{
-    api::library::{FileStatus, detail::SeasonDetail, manage::MonitorTarget},
+    api::library::{
+        FileStatus,
+        detail::SeasonDetail,
+        manage::{FileOf, MonitorTarget},
+    },
     components::{
+        delete_file::DeleteFile,
         disclosure::Disclosure,
         file_info::{FileDetails, FileSummary},
         item_status::FileState,
@@ -35,6 +40,18 @@ pub(super) fn SeasonItem(
         .iter()
         .filter(|episode| followed && episode.monitored && episode.file == FileStatus::Missing)
         .count();
+    let files: Vec<(String, u16, u16)> = season
+        .episodes
+        .iter()
+        .filter_map(|episode| Some((episode.file_info.as_ref()?.path.clone(), episode.season, episode.number)))
+        .collect();
+    let sharing = move |path: &str, own: u16| -> Vec<String> {
+        files
+            .iter()
+            .filter(|(other, _, number)| other == path && *number != own)
+            .map(|(_, season, number)| code(*season, *number))
+            .collect()
+    };
     rsx! {
         Disclosure {
             open,
@@ -106,7 +123,19 @@ pub(super) fn SeasonItem(
                                                 p { class: "max-w-prose text-muted", "{episode.overview}" }
                                             }
                                             if let Some(info) = episode.file_info.clone() {
-                                                FileDetails { info }
+                                                FileDetails { info: info.clone() }
+                                                div {
+                                                    DeleteFile {
+                                                        target: FileOf::Episode {
+                                                            id: series,
+                                                            season: episode.season,
+                                                            episode: episode.number,
+                                                        },
+                                                        path: info.path.clone(),
+                                                        also: sharing(&info.path, episode.number),
+                                                        on_change,
+                                                    }
+                                                }
                                             }
                                         }
                                     }

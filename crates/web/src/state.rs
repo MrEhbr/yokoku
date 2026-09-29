@@ -9,7 +9,7 @@ use yokoku_domain::{Clock, Live, MonitorPreset};
 use yokoku_downloads::Downloads;
 use yokoku_events::{History, QueueChanges};
 use yokoku_library::{Artworks, Calendar, Library, MetadataService};
-use yokoku_media::{Importer, Prober, Reviewer, RootFolders};
+use yokoku_media::{Deleter, Importer, Prober, Reviewer, RootFolders};
 
 /// The use cases server functions call, wired by the composition root.
 #[derive(Clone)]
@@ -27,6 +27,7 @@ pub struct AppState {
     pub metadata: Arc<MetadataService>,
     pub roots: Arc<RootFolders>,
     pub add: Arc<AddSettings>,
+    pub deleter: Arc<Deleter>,
 }
 
 /// The settings adding an item reads.
@@ -111,6 +112,12 @@ impl Provides<MetadataService> for AppState {
 impl Provides<RootFolders> for AppState {
     fn provide(&self) -> Arc<RootFolders> {
         self.roots.clone()
+    }
+}
+
+impl Provides<Deleter> for AppState {
+    fn provide(&self) -> Arc<Deleter> {
+        self.deleter.clone()
     }
 }
 

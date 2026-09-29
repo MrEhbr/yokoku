@@ -4,10 +4,11 @@ use yokoku_domain::{ItemId, MovieId};
 use crate::{
     api::library::{
         detail::{self, movie},
-        manage::MonitorTarget,
+        manage::{FileOf, MonitorTarget},
     },
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
+        delete_file::DeleteFile,
         file_info::FileDetails,
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
@@ -138,8 +139,13 @@ fn Page(movie: detail::MovieDetail) -> Element {
                 if let Some(info) = movie.file_info {
                     section {
                         h2 { class: "text-caption font-medium text-muted", "File" }
-                        div { class: "mt-2",
-                            FileDetails { info }
+                        div { class: "mt-2 flex flex-col items-start gap-3",
+                            FileDetails { info: info.clone() }
+                            DeleteFile {
+                                target: FileOf::Movie { id },
+                                path: info.path,
+                                on_change: reload,
+                            }
                         }
                     }
                 }

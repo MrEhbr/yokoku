@@ -1,5 +1,5 @@
 //! Changes to a library item from its page: monitoring (FR-2.1), refresh (FR-1.6), numbering
-//! (FR-1.8) and removal (FR-1.7).
+//! (FR-1.8), removal (FR-1.7) and deleting files (FR-8.4).
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use yokoku_domain::{ItemId, MovieId, SeriesId};
 
 use super::detail::Numbering;
 #[cfg(feature = "server")]
-use crate::api::{Dep, Library, MetadataService};
+use crate::api::{Deleter, Dep, Library, MetadataService};
 
 /// What a monitoring change applies to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,13 +42,45 @@ pub async fn remove(item: ItemId, delete_files: bool) -> Result<(), ServerFnErro
     server::remove(&library, item, delete_files).await
 }
 
+/// What holds a file to delete.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", tag = "kind")]
+pub enum FileOf {
+    Episode { id: SeriesId, season: u16, episode: u16 },
+    Movie { id: MovieId },
+}
+
+/// Deletes the file holding `target` from disk, with its subtitles (FR-8.4); a file holding
+/// several episodes goes as a whole.
+#[post("/api/files/delete", deleter: Dep<Deleter>)]
+pub async fn delete_file(target: FileOf) -> Result<(), ServerFnError> {
+    server::delete_file(&deleter, target).await
+}
+
 #[cfg(feature = "server")]
 mod server {
-    use dioxus::prelude::*;
-    use yokoku_domain::{EpisodeRef, ItemId, SeriesId};
+    use dioxus::{logger::tracing::error, prelude::*};
+    use yokoku_domain::{EpisodeRef, EpisodeSpan, FileTarget, ItemId, SeriesId};
+    use yokoku_media::MediaError;
 
-    use super::{Library, MetadataService, MonitorTarget, Numbering};
+    use super::{Deleter, FileOf, Library, MetadataService, MonitorTarget, Numbering};
     use crate::api::library_failure;
+
+    pub(super) async fn delete_file(deleter: &Deleter, target: FileOf) -> Result<(), ServerFnError> {
+        let target = match target {
+            FileOf::Episode { id, season, episode } => {
+                FileTarget::Episodes { series: id, span: EpisodeSpan::single(EpisodeRef { season, episode }) }
+            },
+            FileOf::Movie { id } => FileTarget::Movie(id),
+        };
+        deleter.delete(target).await.map(drop).map_err(|error| match error {
+            MediaError::NoFile => ServerFnError::new("It has no file anymore; reload the page"),
+            error => {
+                error!(%error, ?target, "deleting the file failed");
+                ServerFnError::new("The file could not be deleted; the server log has the cause")
+            },
+        })
+    }
 
     pub(super) async fn remove(library: &Library, item: ItemId, delete_files: bool) -> Result<(), ServerFnError> {
         let removed = match item {
