@@ -90,6 +90,20 @@ async fn found_files_are_probed_and_shown_with_their_subtitle_files() {
 }
 
 #[tokio::test]
+async fn a_file_whose_folder_was_removed_outside_the_app_is_still_shown() {
+    let setup = setup().await;
+    let path = setup.app.write(DUNE, 10);
+    setup.scan_and_deliver().await;
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+
+    let details = setup.prober.details(setup.dune()).await.unwrap();
+
+    assert_eq!(details.len(), 1);
+    assert_eq!(details[0].info, Some(full_hd()));
+    assert!(details[0].subtitle_files.is_empty());
+}
+
+#[tokio::test]
 async fn a_file_that_cannot_be_probed_is_tried_again_later() {
     let setup = setup().await;
     let path = setup.app.write(DUNE, 10);
