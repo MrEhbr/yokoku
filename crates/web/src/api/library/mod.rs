@@ -1,5 +1,6 @@
 pub mod calendar;
 pub mod detail;
+pub mod manage;
 
 use dioxus::prelude::*;
 use jiff::civil::Date;

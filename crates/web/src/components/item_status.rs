@@ -37,11 +37,3 @@ pub fn FileState(
         Status { tone, label }
     }
 }
-
-#[component]
-pub fn Monitoring(monitored: bool) -> Element {
-    let (tone, label) = if monitored { (Tone::Success, "Monitored") } else { (Tone::Muted, "Unmonitored") };
-    rsx! {
-        Status { tone, label }
-    }
-}

@@ -1,22 +1,31 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::ChevronRight;
 use jiff::civil::Date;
+use yokoku_domain::SeriesId;
 
 use crate::{
-    api::library::{FileStatus, detail::SeasonDetail},
+    api::library::{FileStatus, detail::SeasonDetail, manage::MonitorTarget},
     components::{
         disclosure::Disclosure,
         file_info::{FileDetails, FileSummary},
-        item_status::{FileState, Monitoring},
+        item_status::FileState,
+        monitor_toggle::MonitorToggle,
         table::{Table, TableBody, TableCell, TableHead, TableHeader, TableRow},
     },
     format::{date, episode as code, relative},
 };
 
-/// A season that opens to its episodes. Monitoring shows only where it is off, and only an
-/// episode monitored with its season and series is missing.
+/// A season that opens to its episodes, each season and episode with its monitoring toggle. Only
+/// an episode monitored with its season and series is missing.
 #[component]
-pub(super) fn SeasonItem(open: bool, season: SeasonDetail, series_monitored: bool, today: Date) -> Element {
+pub(super) fn SeasonItem(
+    open: bool,
+    series: SeriesId,
+    season: SeasonDetail,
+    series_monitored: bool,
+    today: Date,
+    on_change: Callback,
+) -> Element {
     let name = season.name();
     let count = season.episodes.len();
     let followed = series_monitored && season.monitored;
@@ -29,6 +38,14 @@ pub(super) fn SeasonItem(open: bool, season: SeasonDetail, series_monitored: boo
     rsx! {
         Disclosure {
             open,
+            lead: rsx! {
+                MonitorToggle {
+                    target: MonitorTarget::Season { id: series, season: season.number },
+                    monitored: season.monitored,
+                    name: name.clone(),
+                    on_change,
+                }
+            },
             summary: rsx! {
                 span { class: "flex flex-wrap items-baseline gap-x-4 gap-y-1",
                     span { class: "text-section font-medium", "{name}" }
@@ -38,14 +55,14 @@ pub(super) fn SeasonItem(open: bool, season: SeasonDetail, series_monitored: boo
                             ", {missing} missing"
                         }
                     }
-                    if !season.monitored {
-                        Monitoring { monitored: false }
-                    }
                 }
             },
-            Table { class: "min-w-[36rem] table-fixed", aria_label: "{name} episodes",
+            Table { class: "min-w-[39rem] table-fixed", aria_label: "{name} episodes",
                 TableHeader {
                     TableRow {
+                        TableHead { class: "w-12",
+                            span { class: "sr-only", "Monitored" }
+                        }
                         TableHead { class: "w-28", "Episode" }
                         TableHead { "Title" }
                         TableHead { class: "w-44", "Air date" }
@@ -55,12 +72,26 @@ pub(super) fn SeasonItem(open: bool, season: SeasonDetail, series_monitored: boo
                 TableBody {
                     for episode in season.episodes {
                         TableRow { key: "{episode.number}", class: "[&>td]:align-top",
+                            TableCell {
+                                div { class: "-my-2",
+                                    MonitorToggle {
+                                        target: MonitorTarget::Episode {
+                                            id: series,
+                                            season: episode.season,
+                                            episode: episode.number,
+                                        },
+                                        monitored: episode.monitored,
+                                        name: code(episode.season, episode.number),
+                                        on_change,
+                                    }
+                                }
+                            }
                             TableCell { class: "yk-code whitespace-nowrap",
                                 "{code(episode.season, episode.number)}"
                             }
                             TableCell {
                                 if episode.overview.is_empty() && episode.file_info.is_none() {
-                                    EpisodeTitle { title: episode.title.clone(), monitored: episode.monitored }
+                                    EpisodeTitle { title: episode.title.clone() }
                                 } else {
                                     details { class: "group/episode",
                                         summary { class: "flex cursor-pointer list-none items-baseline gap-2 hover:underline [&::-webkit-details-marker]:hidden",
@@ -68,7 +99,7 @@ pub(super) fn SeasonItem(open: bool, season: SeasonDetail, series_monitored: boo
                                                 size: "0.75rem",
                                                 class: "shrink-0 self-center text-muted transition-transform group-open/episode:rotate-90 motion-reduce:transition-none",
                                             }
-                                            EpisodeTitle { title: episode.title.clone(), monitored: episode.monitored }
+                                            EpisodeTitle { title: episode.title.clone() }
                                         }
                                         div { class: "mt-2 flex flex-col gap-3 pb-1 pl-5",
                                             if !episode.overview.is_empty() {
@@ -111,19 +142,14 @@ pub(super) fn SeasonItem(open: bool, season: SeasonDetail, series_monitored: boo
     }
 }
 
-/// The title, `TBA` while it has none, and whether the episode is unmonitored.
+/// The title, `TBA` while it has none.
 #[component]
-fn EpisodeTitle(title: String, monitored: bool) -> Element {
+fn EpisodeTitle(title: String) -> Element {
     rsx! {
         if title.is_empty() {
             span { class: "text-muted", "TBA" }
         } else {
             span { "{title}" }
-        }
-        if !monitored {
-            span { class: "ml-3",
-                Monitoring { monitored: false }
-            }
         }
     }
 }

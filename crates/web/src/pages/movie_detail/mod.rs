@@ -1,15 +1,19 @@
-use dioxus::prelude::*;
+use dioxus::{core::Task, logger::tracing::warn, prelude::*};
 use yokoku_domain::{ItemId, MovieId};
 
 use crate::{
-    api::library::detail::{self, movie},
+    api::library::{
+        detail::{self, movie},
+        manage::MonitorTarget,
+    },
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         file_info::FileDetails,
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
-        item_status::{FileState, Lifecycle, Monitoring},
+        item_status::{FileState, Lifecycle},
+        monitor_toggle::MonitorToggle,
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
@@ -42,7 +46,7 @@ pub fn MovieDetail(id: MovieId) -> Element {
                     p { class: "mt-2 text-muted", "It may have been removed from the library." }
                 },
                 Some(Ok(Some(movie))) => rsx! {
-                    Page { movie: movie.clone() }
+                    Page { key: "{movie.id}", movie: movie.clone() }
                 },
             }
         }
@@ -50,9 +54,26 @@ pub fn MovieDetail(id: MovieId) -> Element {
 }
 
 /// Each release shows how far away it is, which explains the lifecycle and file status: a
-/// movie counts as released, and its file as missing, from its digital or physical release.
+/// movie counts as released, and its file as missing, from its digital or physical release. The
+/// movie is read again after each change made on the page.
 #[component]
 fn Page(movie: detail::MovieDetail) -> Element {
+    let id = movie.id;
+    let mut current = use_signal(|| movie);
+    let mut reading = use_signal(|| None::<Task>);
+    let reload = use_callback(move |()| {
+        if let Some(task) = reading.take() {
+            task.cancel();
+        }
+        reading.set(Some(spawn(async move {
+            match detail::movie(id).await {
+                Ok(Some(movie)) => current.set(movie),
+                Ok(None) => warn!("the movie is gone from the library"),
+                Err(error) => warn!(%error, "reading the movie again failed"),
+            }
+        })));
+    });
+    let movie = current();
     let images = movie.images.clone();
     let today = movie.today;
     rsx! {
@@ -77,8 +98,16 @@ fn Page(movie: detail::MovieDetail) -> Element {
             }
             div { class: "flex flex-wrap gap-x-4 gap-y-1",
                 Lifecycle { status: movie.status }
-                Monitoring { monitored: movie.monitored }
-                FileState { status: movie.file }
+                FileState { status: movie.file, monitored: movie.monitored }
+            }
+            div { class: "flex flex-wrap items-center gap-2",
+                MonitorToggle {
+                    target: MonitorTarget::Movie { id },
+                    monitored: movie.monitored,
+                    name: movie.title.clone(),
+                    labelled: true,
+                    on_change: reload,
+                }
             }
             ItemDescription { description: movie.description.clone() }
             div { class: "mt-2 grid gap-6 lg:grid-cols-2",

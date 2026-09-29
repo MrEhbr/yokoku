@@ -249,6 +249,24 @@ async fn the_missing_page_lists_aired_episodes_without_a_file() {
 }
 
 #[tokio::test]
+async fn an_unmonitored_episode_is_no_longer_missing() {
+    let dir = tempfile::tempdir().unwrap();
+    let (frieren, _) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+    let episode = |season| {
+        format!(r#"{{"target":{{"kind":"episode","id":"{frieren}","season":{season},"episode":1}},"monitored":false}}"#)
+    };
+
+    let off = service.post_json("/api/monitoring", &episode(1));
+    let unknown = service.post_json("/api/monitoring", &episode(9));
+    let missing = service.get("/missing");
+
+    assert!(off.starts_with("HTTP/1.1 200"), "{off}");
+    assert!(!unknown.starts_with("HTTP/1.1 200") && unknown.contains("no longer lists it"), "{unknown}");
+    assert!(missing.starts_with("HTTP/1.1 200") && !missing.contains("Departure"), "{missing}");
+}
+
+#[tokio::test]
 async fn a_cached_poster_is_served_at_the_url_the_library_lists() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;

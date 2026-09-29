@@ -20,6 +20,7 @@ pub mod item_hero;
 pub mod item_status;
 pub mod kbd;
 pub mod label;
+pub mod monitor_toggle;
 pub mod pagination;
 pub mod progress;
 pub mod radio_group;

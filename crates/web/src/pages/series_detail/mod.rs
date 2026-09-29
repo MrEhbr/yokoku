@@ -1,18 +1,22 @@
 mod episodes;
 mod summary;
 
-use dioxus::prelude::*;
+use dioxus::{core::Task, logger::tracing::warn, prelude::*};
 use yokoku_domain::{ItemId, SeriesId};
 
 use self::{episodes::SeasonItem, summary::EpisodeSummary};
 use crate::{
-    api::library::detail::{self, Numbering, series},
+    api::library::{
+        detail::{self, Numbering, series},
+        manage::MonitorTarget,
+    },
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
-        item_status::{Lifecycle, Monitoring},
+        item_status::Lifecycle,
+        monitor_toggle::MonitorToggle,
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
@@ -46,15 +50,32 @@ pub fn SeriesDetail(id: SeriesId) -> Element {
                     p { class: "mt-2 text-muted", "It may have been removed from the library." }
                 },
                 Some(Ok(Some(series))) => rsx! {
-                    Page { series: series.clone() }
+                    Page { key: "{series.id}", series: series.clone() }
                 },
             }
         }
     }
 }
 
+/// The series as loaded, read again after each change made on the page.
 #[component]
 fn Page(series: detail::SeriesDetail) -> Element {
+    let id = series.id;
+    let mut current = use_signal(|| series);
+    let mut reading = use_signal(|| None::<Task>);
+    let reload = use_callback(move |()| {
+        if let Some(task) = reading.take() {
+            task.cancel();
+        }
+        reading.set(Some(spawn(async move {
+            match detail::series(id).await {
+                Ok(Some(series)) => current.set(series),
+                Ok(None) => warn!("the series is gone from the library"),
+                Err(error) => warn!(%error, "reading the series again failed"),
+            }
+        })));
+    });
+    let series = current();
     let images = series.images.clone();
     let today = series.today;
     let (regular, specials): (Vec<_>, Vec<_>) = series.seasons.iter().cloned().partition(|season| season.number != 0);
@@ -80,9 +101,17 @@ fn Page(series: detail::SeriesDetail) -> Element {
             }
             div { class: "flex flex-wrap gap-x-4 gap-y-1",
                 Lifecycle { status: series.status }
-                Monitoring { monitored: series.monitored }
                 if series.numbering == Numbering::Absolute {
                     span { class: "text-caption text-muted", "Absolute numbering" }
+                }
+            }
+            div { class: "flex flex-wrap items-center gap-2",
+                MonitorToggle {
+                    target: MonitorTarget::Series { id },
+                    monitored: series.monitored,
+                    name: series.title.clone(),
+                    labelled: true,
+                    on_change: reload,
                 }
             }
             ItemDescription { description: series.description.clone(), per_episode: true }
@@ -114,9 +143,11 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     SeasonItem {
                         key: "{season.number}",
                         open: index == 0,
+                        series: id,
                         season,
                         series_monitored: series.monitored,
                         today,
+                        on_change: reload,
                     }
                 }
             }
