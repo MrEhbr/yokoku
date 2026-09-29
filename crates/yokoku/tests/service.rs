@@ -267,6 +267,19 @@ async fn an_unmonitored_episode_is_no_longer_missing() {
 }
 
 #[tokio::test]
+async fn a_series_can_switch_to_absolute_numbering() {
+    let dir = tempfile::tempdir().unwrap();
+    let (frieren, _) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+
+    let set = service.post_json(&format!("/api/series/{frieren}/numbering"), r#"{"numbering":"absolute"}"#);
+    let series = service.get(&format!("/api/series/{frieren}"));
+
+    assert!(set.starts_with("HTTP/1.1 200"), "{set}");
+    assert!(series.contains(r#""numbering":"absolute""#), "{series}");
+}
+
+#[tokio::test]
 async fn refreshing_says_why_it_cannot() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;

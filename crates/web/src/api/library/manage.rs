@@ -1,9 +1,11 @@
-//! Changes to a library item from its page: monitoring (FR-2.1) and refresh (FR-1.6).
+//! Changes to a library item from its page: monitoring (FR-2.1), refresh (FR-1.6) and numbering
+//! (FR-1.8).
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use yokoku_domain::{ItemId, MovieId, SeriesId};
 
+use super::detail::Numbering;
 #[cfg(feature = "server")]
 use crate::api::{Dep, Library, MetadataService};
 
@@ -28,13 +30,36 @@ pub async fn refresh(item: ItemId) -> Result<(), ServerFnError> {
     server::refresh(&metadata, item).await
 }
 
+/// Sets how the series' episode numbers are read from file names (FR-1.8).
+#[post("/api/series/{id}/numbering", library: Dep<Library>)]
+pub async fn set_numbering(id: SeriesId, numbering: Numbering) -> Result<(), ServerFnError> {
+    server::set_numbering(&library, id, numbering).await
+}
+
 #[cfg(feature = "server")]
 mod server {
     use dioxus::prelude::*;
-    use yokoku_domain::{EpisodeRef, ItemId};
+    use yokoku_domain::{EpisodeRef, ItemId, SeriesId};
 
-    use super::{Library, MetadataService, MonitorTarget};
+    use super::{Library, MetadataService, MonitorTarget, Numbering};
     use crate::api::library_failure;
+
+    impl From<Numbering> for yokoku_domain::Numbering {
+        fn from(numbering: Numbering) -> Self {
+            match numbering {
+                Numbering::Standard => Self::Standard,
+                Numbering::Absolute => Self::Absolute,
+            }
+        }
+    }
+
+    pub(super) async fn set_numbering(
+        library: &Library,
+        id: SeriesId,
+        numbering: Numbering,
+    ) -> Result<(), ServerFnError> {
+        library.set_numbering(id, numbering.into()).await.map_err(|error| library_failure(error, "changing numbering"))
+    }
 
     pub(super) async fn refresh(metadata: &MetadataService, item: ItemId) -> Result<(), ServerFnError> {
         let refreshed = match item {

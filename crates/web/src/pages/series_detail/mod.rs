@@ -1,13 +1,14 @@
 mod episodes;
+mod numbering;
 mod summary;
 
 use dioxus::{core::Task, logger::tracing::warn, prelude::*};
 use yokoku_domain::{ItemId, SeriesId};
 
-use self::{episodes::SeasonItem, summary::EpisodeSummary};
+use self::{episodes::SeasonItem, numbering::NumberingSelect, summary::EpisodeSummary};
 use crate::{
     api::library::{
-        detail::{self, Numbering, series},
+        detail::{self, series},
         manage::MonitorTarget,
     },
     components::{
@@ -102,9 +103,6 @@ fn Page(series: detail::SeriesDetail) -> Element {
             }
             div { class: "flex flex-wrap gap-x-4 gap-y-1",
                 Lifecycle { status: series.status }
-                if series.numbering == Numbering::Absolute {
-                    span { class: "text-caption text-muted", "Absolute numbering" }
-                }
             }
             div { class: "flex flex-wrap items-center gap-x-6 gap-y-2",
                 MonitorToggle {
@@ -114,6 +112,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     labelled: true,
                     on_change: reload,
                 }
+                NumberingSelect { series: id, numbering: series.numbering, on_change: reload }
                 RefreshButton { item: ItemId::Series(id), on_change: reload }
             }
             ItemDescription { description: series.description.clone(), per_episode: true }
