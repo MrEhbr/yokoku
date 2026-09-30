@@ -54,10 +54,10 @@ impl JellyfinClient {
             .request(method, format!("{url}{path}"))
             .header("Authorization", format!("MediaBrowser Token=\"{api_key}\""))
             .build()
-            .map_err(unavailable)?;
+            .map_err(|error| MediaServerError::Unavailable(error.into()))?;
         let (method, path) = (request.method().clone(), request.url().path().to_owned());
         let started = Instant::now();
-        let response = self.http.execute(request).await.map_err(unavailable)?;
+        let response = self.http.execute(request).await.map_err(|error| MediaServerError::Unavailable(error.into()))?;
         let elapsed_ms = started.elapsed().as_millis();
         debug!(%method, path, status = response.status().as_u16(), elapsed_ms, "Jellyfin request");
         match response.status() {
@@ -74,17 +74,13 @@ impl JellyfinClient {
 impl MediaServer for JellyfinClient {
     async fn version(&self) -> Result<String, MediaServerError> {
         let response = self.send(Method::GET, "/System/Info").await?;
-        let info: SystemInfo = response.json().await.map_err(unavailable)?;
+        let info: SystemInfo = response.json().await.map_err(|error| MediaServerError::Unavailable(error.into()))?;
         Ok(format!("Jellyfin {}", info.version))
     }
 
     async fn refresh_library(&self) -> Result<(), MediaServerError> {
         self.send(Method::POST, "/Library/Refresh").await.map(drop)
     }
-}
-
-fn unavailable(error: reqwest::Error) -> MediaServerError {
-    MediaServerError::Unavailable(Box::new(error))
 }
 
 #[cfg(test)]
