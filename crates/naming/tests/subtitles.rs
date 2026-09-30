@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::SubtitleTags;
 use yokoku_naming::subtitle_path;
@@ -19,4 +20,23 @@ fn subtitles_match_their_video(#[case] tags: SubtitleTags, #[case] extension: &s
     let video = Path::new("Dune (2021)/Dune (2021).mkv");
 
     assert_eq!(subtitle_path(video, &tags, extension), PathBuf::from("Dune (2021)").join(expected));
+}
+
+proptest! {
+    #[test]
+    fn a_subtitle_sits_beside_its_video_and_starts_with_its_name(
+        stem in "[A-Za-z0-9 ().-]{1,30}",
+        language in proptest::option::of(".*"),
+        sdh in any::<bool>(),
+        forced in any::<bool>(),
+        extension in ".*",
+    ) {
+        let video = Path::new("/tv/Frieren (2023)").join(format!("{stem}.mkv"));
+
+        let subtitle = subtitle_path(&video, &tags(language.as_deref(), sdh, forced), &extension);
+
+        prop_assert_eq!(subtitle.parent(), video.parent());
+        let name = subtitle.file_name().unwrap().to_string_lossy().into_owned();
+        prop_assert!(name.starts_with(&stem), "{name}");
+    }
 }
