@@ -62,6 +62,23 @@ async fn a_live_value_follows_a_reload() {
 }
 
 #[tokio::test]
+async fn a_preview_applies_changes_without_storing_them() {
+    let store = Arc::new(MemoryStore::default());
+    store.set_setting("import.mode", &json!("copy")).await.unwrap();
+    store.set_setting("calendar.days", &json!(14)).await.unwrap();
+    let settings = open(&store).await;
+
+    let preview =
+        settings.preview(&[("import.mode".into(), Some(json!("move"))), ("calendar.days".into(), None)]).await.unwrap();
+    let invalid = settings.preview(&[("import.mode".into(), Some(json!("teleport")))]).await;
+
+    assert_eq!((preview.import.mode, preview.calendar.days), (ImportMode::Move, None));
+    assert!(invalid.is_err());
+    assert_eq!(settings.current().import.mode, ImportMode::Copy);
+    assert_eq!(settings.stored_keys().await.unwrap(), ["import.mode", "calendar.days"]);
+}
+
+#[tokio::test]
 async fn a_reload_that_fails_keeps_the_settings_in_effect() {
     let store = Arc::new(MemoryStore::default());
     store.set_setting("import.mode", &json!("copy")).await.unwrap();

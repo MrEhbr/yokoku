@@ -28,7 +28,7 @@ pub async fn run(app: &App) -> Result<()> {
         deleter: app.deleter.clone(),
         renamer: app.renamer.clone(),
         scanner: app.scanner.clone(),
-        settings: Arc::new(WebSettings::new(app.settings.clone(), app.rescans.clone())),
+        settings: Arc::new(WebSettings::new(app.settings.clone())),
         add: Arc::new(yokoku_web::AddSettings {
             tmdb_token_set: app.settings.live(|config| config.metadata.tmdb.token.is_some()),
             monitor: app.settings.live(|config| config.add.monitor),

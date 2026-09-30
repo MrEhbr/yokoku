@@ -8,7 +8,7 @@ use serde_json::Value;
 use super::library::Kind;
 #[cfg(feature = "server")]
 use crate::{
-    api::{Dep, Downloads, RootFolders, Scanner},
+    api::{Dep, RootFolders, Scanner},
     state::SettingsAccess,
 };
 
@@ -55,10 +55,11 @@ pub async fn reset_setting(key: String) -> Result<Setting, ServerFnError> {
     server::save(&*access, &key, Value::Null).await
 }
 
-/// What the service answered, such as its version.
-#[post("/api/settings/test", downloads: Dep<Downloads>, access: Dep<dyn SettingsAccess>)]
-pub async fn test_connection(connection: Connection) -> Result<String, ServerFnError> {
-    server::test(&downloads, &*access, connection).await
+/// What the service answered, such as its version, with `changes` (unsaved values, as for
+/// `save_setting`) over the settings in effect.
+#[post("/api/settings/test", access: Dep<dyn SettingsAccess>)]
+pub async fn test_connection(connection: Connection, changes: Vec<(String, Value)>) -> Result<String, ServerFnError> {
+    server::test(&*access, connection, changes).await
 }
 
 #[get("/api/roots", roots: Dep<RootFolders>)]
@@ -102,7 +103,7 @@ mod server {
     use serde_json::Value;
     use yokoku_media::{MediaError, RootKind};
 
-    use super::{Connection, Downloads, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess};
+    use super::{Connection, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess};
 
     /// The settings the page shows; no other key can be changed through it.
     const KEYS: &[&str] = &[
@@ -142,28 +143,33 @@ mod server {
         if !KEYS.contains(&key) {
             return Err(ServerFnError::new(format!("{key} cannot be changed here")));
         }
-        let cleared = match &value {
-            Value::Null => true,
-            Value::String(text) => text.trim().is_empty(),
-            Value::Array(items) => items.is_empty(),
-            _ => false,
-        };
-        let saved = if cleared { access.unset(key).await } else { access.set(key, value).await };
+        let saved = if cleared(&value) { access.unset(key).await } else { access.set(key, value).await };
         saved.map_err(ServerFnError::new)?;
         let stored = access.stored_keys().await.map_err(ServerFnError::new)?;
         setting(access, &stored, key).ok_or_else(|| ServerFnError::new(format!("{key} is not a setting")))
     }
 
     pub(super) async fn test(
-        downloads: &Downloads,
         access: &dyn SettingsAccess,
         connection: Connection,
+        changes: Vec<(String, Value)>,
     ) -> Result<String, ServerFnError> {
-        match connection {
-            Connection::Transmission => downloads.test_connection().await.map_err(|error| error.to_string()),
-            Connection::Jellyfin => access.test_jellyfin().await,
+        if let Some((key, _)) = changes.iter().find(|(key, _)| !KEYS.contains(&key.as_str())) {
+            return Err(ServerFnError::new(format!("{key} cannot be changed here")));
         }
-        .map_err(ServerFnError::new)
+        let changes =
+            changes.into_iter().map(|(key, value)| (key, Some(value).filter(|value| !cleared(value)))).collect();
+        access.test(connection, changes).await.map_err(ServerFnError::new)
+    }
+
+    /// Empty, so the config file's value applies.
+    fn cleared(value: &Value) -> bool {
+        match value {
+            Value::Null => true,
+            Value::String(text) => text.trim().is_empty(),
+            Value::Array(items) => items.is_empty(),
+            _ => false,
+        }
     }
 
     pub(super) async fn roots(roots: &RootFolders) -> Result<Vec<Root>, ServerFnError> {

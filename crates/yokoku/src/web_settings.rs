@@ -1,21 +1,23 @@
-use std::{env, sync::Arc};
+use std::env;
 
 use async_trait::async_trait;
 use serde_json::Value;
 use yokoku_config::Settings;
-use yokoku_domain::StorageError;
-use yokoku_integrations::Rescans;
-use yokoku_web::SettingsAccess;
+use yokoku_domain::{Live, StorageError};
+use yokoku_download_clients::TransmissionClient;
+use yokoku_downloads::{DownloadError, ports::DownloadClient};
+use yokoku_integrations::ports::MediaServer;
+use yokoku_media_servers::JellyfinClient;
+use yokoku_web::{Connection, SettingsAccess};
 
-/// The configuration and the Jellyfin connection, as the web Settings page reaches them.
+/// The configuration, as the web Settings page reaches it.
 pub struct WebSettings {
     settings: Settings,
-    rescans: Arc<Rescans>,
 }
 
 impl WebSettings {
-    pub fn new(settings: Settings, rescans: Arc<Rescans>) -> Self {
-        Self { settings, rescans }
+    pub fn new(settings: Settings) -> Self {
+        Self { settings }
     }
 }
 
@@ -43,11 +45,19 @@ impl SettingsAccess for WebSettings {
         self.settings.unset(key).await.map(drop).map_err(message)
     }
 
-    async fn test_jellyfin(&self) -> Result<String, String> {
-        if self.settings.current().jellyfin.url.is_none() {
-            return Err("Set the Jellyfin address first".to_owned());
+    async fn test(&self, connection: Connection, changes: Vec<(String, Option<Value>)>) -> Result<String, String> {
+        let config = self.settings.preview(&changes).await.map_err(message)?;
+        match connection {
+            Connection::Transmission => TransmissionClient::new(Live::fixed(config.transmission.clone()))
+                .version()
+                .await
+                .map_err(|error| DownloadError::from(error).to_string()),
+            Connection::Jellyfin if config.jellyfin.url.is_none() => Err("Set the Jellyfin address first".to_owned()),
+            Connection::Jellyfin => JellyfinClient::new(Live::fixed(config.jellyfin.clone()))
+                .version()
+                .await
+                .map_err(|error| error.to_string()),
         }
-        self.rescans.test_connection().await.map_err(|error| error.to_string())
     }
 }
 

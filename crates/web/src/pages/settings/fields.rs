@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use dioxus::prelude::*;
 use serde_json::Value;
 
@@ -15,6 +17,10 @@ use crate::{
         switch::Switch,
     },
 };
+
+/// Values typed but not saved yet, by key, as `save_setting` takes them.
+#[derive(Clone, Copy)]
+pub(super) struct Unsaved(pub(super) Signal<BTreeMap<String, Value>>);
 
 /// How a setting is edited.
 #[derive(Clone, Copy, PartialEq)]
@@ -69,6 +75,15 @@ pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static
         ),
         _ => Value::String(draft()),
     };
+    let Unsaved(mut unsaved) = use_context();
+    use_effect(move || {
+        let key = current.read().key.clone();
+        if draft() == text(&current.read().value, control) {
+            unsaved.write().remove(&key);
+        } else {
+            unsaved.write().insert(key, typed());
+        }
+    });
     let setting = current();
     let variable = format!("APP__{}", setting.key.to_uppercase().replace('.', "__"));
     rsx! {

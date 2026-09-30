@@ -58,8 +58,13 @@ pub trait SettingsAccess: Send + Sync {
     /// Removes the stored value, so the config file or the default applies again.
     async fn unset(&self, key: &str) -> Result<(), String>;
 
-    /// The Jellyfin server's version, or why it could not be reached.
-    async fn test_jellyfin(&self) -> Result<String, String>;
+    /// The service's version, or why it could not be reached, with `changes` over the settings
+    /// in effect and nothing stored; a `None` value leaves its key to the config file.
+    async fn test(
+        &self,
+        connection: crate::api::settings::Connection,
+        changes: Vec<(String, Option<serde_json::Value>)>,
+    ) -> Result<String, String>;
 }
 
 /// `AppState` holds a `T`.

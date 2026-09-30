@@ -53,6 +53,20 @@ impl Settings {
         self.reload().await
     }
 
+    /// The configuration with `changes` over the stored settings, loaded and validated; nothing is
+    /// stored or applied. A `None` value leaves its key to the config file.
+    pub async fn preview(&self, changes: &[(String, Option<Value>)]) -> Result<Config> {
+        let mut candidate = self.0.store.settings().await?;
+        for (key, value) in changes {
+            Config::editable(key)?;
+            candidate.retain(|(stored, _)| stored != key);
+            candidate.extend(value.clone().map(|value| (key.clone(), value)));
+        }
+        let config = Config::load(self.0.path.as_deref(), &candidate)?;
+        config.validate()?;
+        Ok(config)
+    }
+
     /// Removes the stored value of `key` and applies the configuration without it; `false` when
     /// none was stored.
     pub async fn unset(&self, key: &str) -> Result<bool> {

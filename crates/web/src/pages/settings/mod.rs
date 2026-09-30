@@ -1,12 +1,13 @@
 mod fields;
 mod roots;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use dioxus::prelude::*;
+use serde_json::Value;
 
 use self::{
-    fields::{Control, SettingField},
+    fields::{Control, SettingField, Unsaved},
     roots::RootFolders,
 };
 use crate::{
@@ -151,6 +152,7 @@ pub fn Settings() -> Element {
 
 #[component]
 fn Sections(settings: HashMap<String, Setting>) -> Element {
+    use_context_provider(|| Unsaved(Signal::new(BTreeMap::new())));
     let group = |fields: Fields| {
         let settings = settings.clone();
         rsx! {
@@ -194,11 +196,24 @@ fn Section(title: &'static str, children: Element) -> Element {
     }
 }
 
-/// Checks the connection with the settings in effect.
+/// Checks the connection with the section's values as typed, saved or not.
 #[component]
 fn Test(connection: Connection) -> Element {
     let mut busy = use_signal(|| false);
     let mut outcome = use_signal(|| None::<Result<String, String>>);
+    let Unsaved(unsaved) = use_context();
+    let prefix = match connection {
+        Connection::Transmission => "transmission.",
+        Connection::Jellyfin => "jellyfin.",
+    };
+    let changes = move || -> Vec<(String, Value)> {
+        unsaved
+            .read()
+            .iter()
+            .filter(|(key, _)| key.starts_with(prefix))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect()
+    };
     rsx! {
         div { class: "flex flex-wrap items-center gap-3",
             Button {
@@ -207,10 +222,13 @@ fn Test(connection: Connection) -> Element {
                 onclick: move |_| async move {
                     busy.set(true);
                     outcome.set(None);
-                    outcome.set(Some(test_connection(connection).await.map_err(|error| failure(&error))));
+                    outcome.set(Some(test_connection(connection, changes()).await.map_err(|error| failure(&error))));
                     busy.set(false);
                 },
                 "Test connection"
+            }
+            if outcome().is_none() && !changes().is_empty() {
+                span { class: "text-caption text-muted", "Tests the values as typed; save them to keep them." }
             }
             span { role: "status", class: "text-caption",
                 match outcome() {

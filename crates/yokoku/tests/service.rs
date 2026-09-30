@@ -857,11 +857,21 @@ async fn transmission_can_be_tested_from_settings() {
         &[("APP__TRANSMISSION__URL", "http://127.0.0.1:9/transmission/rpc")],
     );
 
-    let tested = service.post_json("/api/settings/test", r#"{"connection":"transmission"}"#);
-    let failed = unreachable.post_json("/api/settings/test", r#"{"connection":"transmission"}"#);
+    let unsaved_dir = tempfile::tempdir().unwrap();
+    let unsaved = Service::start(unsaved_dir.path());
+
+    let tested = service.post_json("/api/settings/test", r#"{"connection":"transmission","changes":[]}"#);
+    let failed = unreachable.post_json("/api/settings/test", r#"{"connection":"transmission","changes":[]}"#);
+    let typed = unsaved.post_json(
+        "/api/settings/test",
+        &format!(r#"{{"connection":"transmission","changes":[["transmission.url","{url}"]]}}"#),
+    );
+    let stored = unsaved.get("/api/settings");
 
     assert!(tested.starts_with("HTTP/1.1 200") && tested.contains("Transmission 4.1.3 (0)"), "{tested}");
     assert!(!failed.starts_with("HTTP/1.1 200") && failed.contains("download client unavailable"), "{failed}");
+    assert!(typed.starts_with("HTTP/1.1 200") && typed.contains("Transmission 4.1.3 (0)"), "{typed}");
+    assert!(!stored.contains(&url), "a tested value is not stored: {stored}");
 }
 
 #[tokio::test]
