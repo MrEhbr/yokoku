@@ -34,42 +34,12 @@ pub struct Args {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Search the metadata source for series and movies
-    Search(commands::search::Args),
-    /// Add a series or movie to the library
-    Add(commands::add::Args),
     /// Refresh metadata for one item or the whole library
     Refresh(commands::refresh::Args),
-    /// List library items
-    List(commands::list::Args),
-    /// Show a series or movie in detail
-    Show(commands::show::Args),
-    /// Mark a series, season, episode or movie monitored or not
-    Monitor(commands::monitor::Args),
-    /// Set a series' episode numbering
-    Numbering(commands::numbering::Args),
-    /// Remove a series or movie from the library
-    Remove(commands::remove::Args),
-    /// Show monitored releases for a week, a month or the days ahead
-    Calendar(commands::calendar::Args),
-    /// List monitored episodes and movies that are out but have no file
-    Missing(commands::missing::Args),
     /// Manage the folders that hold series and movies
     Root(commands::root::Args),
     /// Link files in the root folders to the library
     Scan(commands::scan::Args),
-    /// Match files the scan was unsure about
-    Review(commands::review::Args),
-    /// Move library files to the names and folders naming gives them
-    Rename(commands::rename::Args),
-    /// Add torrents to Transmission and follow their progress
-    Download(commands::download::Args),
-    /// Follow and retry imports of finished downloads
-    Import(commands::import::Args),
-    /// Show what happened, newest first
-    History(commands::history::Args),
-    /// Delete the file of an episode or movie
-    Delete(commands::delete::Args),
     /// Show the details of library files, or read them with ffprobe
     Files(commands::files::Args),
     /// Test the Jellyfin connection or ask it to rescan
@@ -122,24 +92,9 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
         return crate::service::run(&app).await;
     };
     match command {
-        Search(cmd_args) => commands::search::run(&app, cmd_args).await,
-        Add(cmd_args) => commands::add::run(&app, cmd_args).await,
         Refresh(cmd_args) => commands::refresh::run(&app, cmd_args).await,
-        List(cmd_args) => commands::list::run(&app, cmd_args).await,
-        Show(cmd_args) => commands::show::run(&app, cmd_args).await,
-        Monitor(cmd_args) => commands::monitor::run(&app, cmd_args).await,
-        Numbering(cmd_args) => commands::numbering::run(&app, cmd_args).await,
-        Remove(cmd_args) => commands::remove::run(&app, cmd_args).await,
-        Calendar(cmd_args) => commands::calendar::run(&app, cmd_args).await,
-        Missing(cmd_args) => commands::missing::run(&app, cmd_args).await,
         Root(cmd_args) => commands::root::run(&app, cmd_args).await,
         Scan(cmd_args) => commands::scan::run(&app, cmd_args).await,
-        Review(cmd_args) => commands::review::run(&app, cmd_args).await,
-        Rename(cmd_args) => commands::rename::run(&app, cmd_args).await,
-        Download(cmd_args) => commands::download::run(&app, cmd_args).await,
-        Import(cmd_args) => commands::import::run(&app, cmd_args).await,
-        History(cmd_args) => commands::history::run(&app, cmd_args).await,
-        Delete(cmd_args) => commands::delete::run(&app, cmd_args).await,
         Files(cmd_args) => commands::files::run(&app, cmd_args).await,
         Jellyfin(cmd_args) => commands::jellyfin::run(&app, cmd_args).await,
         Settings(_) => unreachable!("settings run before the app opens"),

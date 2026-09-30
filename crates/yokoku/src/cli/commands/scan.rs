@@ -20,7 +20,7 @@ pub async fn run(app: &App, _args: Args) -> Result<()> {
         say!("Forgot {} files missing from disk", report.vanished)?;
     }
     if !report.needs_review.is_empty() {
-        say!("{} folders need review; see `yokoku review list`", report.needs_review.len())?;
+        say!("{} folders need review; match their files on each item's page", report.needs_review.len())?;
     }
     Ok(())
 }

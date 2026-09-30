@@ -1,24 +1,15 @@
-use std::{
-    fs,
-    path::PathBuf,
-    process::{Command, Output},
-};
+use std::{fs, path::PathBuf, process::Command};
 
 use assert_cmd::prelude::*;
 use jiff::{Timestamp, ToSpan, civil::Date, tz::TimeZone};
 use predicates::prelude::*;
-use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, Confidence, Description, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ImportId,
-    ItemFolder, MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
+    SeriesMetadata, SettingsStore, SourceStatus,
 };
 use yokoku_library::ports::SeriesRepo;
-use yokoku_media::{
-    Import, ImportRow, ImportStatus, Resolution,
-    ports::{Changes, MediaRepo},
-};
 
 /// A database with "Frieren" (tmdb:1) in `tv/Frieren (2023)`, two episodes aired a week ago, and a series
 /// root `tv`.
@@ -82,19 +73,17 @@ impl Setup {
         command
     }
 
-    fn answering(&self, args: &[&str], answer: &str) -> Output {
-        assert_cmd::Command::from_std(self.command()).args(args).write_stdin(answer).output().unwrap()
-    }
-
     fn stdout(&self, args: &[&str]) -> String {
         let output = self.command().args(args).output().unwrap();
         assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
         String::from_utf8(output.stdout).unwrap()
     }
 
-    fn episode_line(&self, reference: &str) -> String {
-        let stdout = self.stdout(&["show", "series", "tmdb:1"]);
-        stdout.lines().find(|line| line.trim_start().starts_with(reference)).unwrap().to_owned()
+    /// Whether "Frieren"'s `season`/`episode` has a linked file.
+    async fn episode_downloaded(&self, season: u16, episode: u16) -> bool {
+        let db = Database::open(&self.database).await.unwrap();
+        let series = SeriesRepo::find_by_source(&db, ExternalId::Tmdb(1)).await.unwrap().unwrap();
+        series.episode(EpisodeRef { season, episode }).unwrap().file.is_some()
     }
 }
 
@@ -132,178 +121,8 @@ async fn scanned_files_mark_their_episodes_downloaded() {
     let stdout = setup.stdout(&["scan"]);
 
     assert_eq!(stdout, "Linked 1 new files\n");
-    assert!(setup.episode_line("S01E01").contains("downloaded"));
-    assert!(setup.episode_line("S01E02").contains("missing"));
-}
-
-#[tokio::test]
-async fn unrecognised_files_are_matched_through_review() {
-    let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/clip.mkv");
-    assert!(setup.stdout(&["scan"]).contains("1 folders need review"));
-    let listed = setup.stdout(&["review", "list"]);
-    let import = listed.split_whitespace().next().unwrap().to_owned();
-
-    setup.stdout(&["review", "match", &import, "1", "series", "tmdb:1", "S01E01-E02"]);
-    let shown = setup.stdout(&["review", "show", &import]);
-    let approved = setup.stdout(&["review", "approve", &import]);
-
-    assert!(listed.contains("1 files") && listed.contains("Frieren (2023)"), "{listed}");
-    assert!(shown.contains("clip.mkv") && shown.contains("Frieren (2023) S01E01-E02"), "{shown}");
-    assert_eq!(approved, "Linked 1 files\n");
-    assert!(setup.episode_line("S01E02").contains("downloaded"));
-    assert_eq!(setup.stdout(&["review", "list"]), "Nothing to review.\n");
-}
-
-#[tokio::test]
-async fn a_series_match_needs_episodes() {
-    let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/clip.mkv");
-    setup.stdout(&["scan"]);
-    let listed = setup.stdout(&["review", "list"]);
-    let import = listed.split_whitespace().next().unwrap();
-
-    setup
-        .command()
-        .args(["review", "match", import, "1", "series", "tmdb:1"])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("A series needs episodes"));
-}
-
-#[tokio::test]
-async fn rename_previews_then_applies() {
-    let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.mkv");
-    setup.stdout(&["scan"]);
-
-    let preview = setup.stdout(&["rename"]);
-    let applied = setup.stdout(&["rename", "series", "tmdb:1", "--apply"]);
-
-    assert_eq!(
-        preview,
-        "Frieren (2023)/S1/Frieren (2023) - S01E01.mkv\n  -> Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv\n\
-         Run with --apply to rename 1 files.\n"
-    );
-    assert_eq!(applied, "Renamed 1 files\n");
-    assert!(setup.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv").exists());
-    assert_eq!(setup.stdout(&["rename"]), "Nothing to rename.\n");
-    assert!(setup.episode_line("S01E01").contains("downloaded"));
-}
-
-#[tokio::test]
-async fn history_lists_what_happened_newest_first() {
-    let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
-    setup.stdout(&["scan"]);
-    setup.stdout(&["rename", "--apply"]);
-
-    let all = setup.stdout(&["history"]);
-    let frieren = setup.stdout(&["history", "series", "tmdb:1", "--limit", "1"]);
-
-    let lines: Vec<_> = all.lines().collect();
-    assert!(lines[0].contains("  Renamed "), "{all}");
-    assert!(lines[1].trim_start().starts_with("-> ") && lines[1].ends_with("S01E01 - Episode 1.mkv"), "{all}");
-    assert!(lines[2].contains("  Found ") && lines[2].ends_with("Frieren (2023) - S01E01.mkv"), "{all}");
-    assert_eq!(frieren.lines().count(), 2, "{frieren}");
-    assert!(frieren.contains("Renamed "), "{frieren}");
-}
-
-#[tokio::test]
-async fn deleting_an_episode_deletes_its_file_and_marks_it_missing() {
-    let setup = Setup::new().await;
-    let file = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
-    setup.write(file);
-    setup.stdout(&["scan"]);
-
-    let deleted = setup.stdout(&["delete", "series", "tmdb:1", "S01E01", "--yes"]);
-
-    assert!(deleted.starts_with("Deleted "), "{deleted}");
-    assert!(setup.episode_line("S01E01").contains("missing"));
-    assert!(!setup.path(file).exists());
-}
-
-#[rstest]
-#[case::declined("n\n", false)]
-#[case::no_answer("", false)]
-#[case::accepted("y\n", true)]
-#[tokio::test]
-async fn deleting_asks_before_it_deletes(#[case] answer: &str, #[case] deletes: bool) {
-    let setup = Setup::new().await;
-    let file = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
-    setup.write(file);
-    setup.stdout(&["scan"]);
-
-    let output = setup.answering(&["delete", "series", "tmdb:1", "S01E01"], answer);
-
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains(file) && stdout.contains("Delete 1 file? [y/N] "), "{stdout}");
-    assert_eq!(output.status.success(), deletes);
-    assert_eq!(setup.path(file).exists(), !deletes);
-}
-
-#[tokio::test]
-async fn removing_a_series_with_its_files_asks_first() {
-    let setup = Setup::new().await;
-    let file = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv";
-    setup.write(file);
-    setup.stdout(&["scan"]);
-
-    let output = setup.answering(&["remove", "series", "tmdb:1", "--delete-files"], "n\n");
-
-    assert!(!output.status.success());
-    assert!(String::from_utf8(output.stdout).unwrap().contains("Delete 1 file? [y/N] "));
-    assert!(setup.path(file).exists());
-    assert!(setup.stdout(&["list"]).contains("Frieren"));
-}
-
-#[tokio::test]
-async fn removing_a_series_with_its_files_deletes_them() {
-    let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
-    setup.stdout(&["scan"]);
-
-    setup.stdout(&["remove", "series", "tmdb:1", "--delete-files", "--yes"]);
-
-    assert!(!setup.path("tv/Frieren (2023)").exists());
-    let history = setup.stdout(&["history", "-n", "2"]);
-    assert!(history.contains("Deleted ") && history.contains("(its item was removed)"), "{history}");
-}
-
-#[tokio::test]
-async fn changing_library_files_asks_jellyfin_to_rescan() {
-    let setup = Setup::new().await;
-    let jellyfin = wiremock::MockServer::start().await;
-    wiremock::Mock::given(wiremock::matchers::method("POST"))
-        .and(wiremock::matchers::path("/Library/Refresh"))
-        .and(wiremock::matchers::header("Authorization", "MediaBrowser Token=\"key\""))
-        .respond_with(wiremock::ResponseTemplate::new(204))
-        .expect(1)
-        .mount(&jellyfin)
-        .await;
-    wiremock::Mock::given(wiremock::matchers::path("/System/Info"))
-        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({ "Version": "10.10.7" })))
-        .mount(&jellyfin)
-        .await;
-    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
-    setup.stdout(&["scan"]);
-    let with_jellyfin = |args: &[&str]| {
-        let output = setup
-            .command()
-            .args(args)
-            .env("APP__JELLYFIN__URL", jellyfin.uri())
-            .env("APP__JELLYFIN__API_KEY", "key")
-            .output()
-            .unwrap();
-        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
-        String::from_utf8(output.stdout).unwrap()
-    };
-
-    let tested = with_jellyfin(&["jellyfin", "test"]);
-    with_jellyfin(&["delete", "series", "tmdb:1", "S01E01", "--yes"]);
-    with_jellyfin(&["list"]);
-
-    assert_eq!(tested, "Connected to Jellyfin 10.10.7\n");
+    assert!(setup.episode_downloaded(1, 1).await);
+    assert!(!setup.episode_downloaded(1, 2).await);
 }
 
 #[tokio::test]
@@ -329,7 +148,8 @@ async fn the_jellyfin_api_key_can_be_read_from_a_file() {
         .args(["jellyfin", "test"])
         .env("APP__JELLYFIN__URL", jellyfin.uri())
         .assert()
-        .success();
+        .success()
+        .stdout("Connected to Jellyfin 10.10.7\n");
     setup
         .command()
         .args(["jellyfin", "test"])
@@ -356,15 +176,14 @@ fn a_missing_secret_file_is_reported() {
 async fn an_unreachable_jellyfin_does_not_fail_the_change() {
     let setup = Setup::new().await;
     setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
-    setup.stdout(&["scan"]);
 
     setup
         .command()
-        .args(["delete", "series", "tmdb:1", "S01E01", "--yes"])
+        .arg("scan")
         .env("APP__JELLYFIN__URL", "http://127.0.0.1:9")
         .assert()
         .success()
-        .stdout(predicate::str::starts_with("Deleted "));
+        .stdout("Linked 1 new files\n");
 }
 
 /// A stand-in for ffprobe that reports the recorded sample: 320x180 h264, English and Japanese
@@ -416,86 +235,14 @@ async fn files_are_probed_on_request_once_ffprobe_is_there() {
 }
 
 #[tokio::test]
-async fn renames_follow_the_configured_patterns() {
-    let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.mkv");
-    setup.stdout(&["scan"]);
-
-    let preview = setup
-        .command()
-        .arg("rename")
-        .env("APP__NAMING__SEASON_FOLDER", "S{season}")
-        .env("APP__NAMING__EPISODE_FILE", "{episodes} {episode_title}")
-        .output()
-        .unwrap();
-
-    assert_eq!(
-        String::from_utf8(preview.stdout).unwrap(),
-        "Frieren (2023)/S1/Frieren (2023) - S01E01.mkv\n  -> Frieren (2023)/S01/S01E01 Episode 1.mkv\nRun with --apply to rename 1 files.\n"
-    );
-}
-
-#[tokio::test]
-async fn an_invalid_pattern_is_refused_with_its_reason() {
-    let setup = Setup::new().await;
-
-    setup.command().arg("rename").env("APP__NAMING__EPISODE_FILE", "{title}").assert().failure().stderr(
-        predicate::str::contains("Failed to load configuration").and(predicate::str::contains("episode file pattern")),
-    );
-}
-
-#[tokio::test]
-async fn stored_settings_apply_to_every_command() {
-    let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.mkv");
-    setup.stdout(&["scan"]);
-
-    setup.stdout(&["settings", "set", "naming.season_folder", "S{season}"]);
-    let preview = setup.stdout(&["rename"]);
-
-    assert!(preview.contains("-> Frieren (2023)/S01/Frieren (2023) - S01E01 - Episode 1.mkv"), "{preview}");
-}
-
-#[tokio::test]
 async fn a_stored_value_that_no_longer_loads_can_still_be_unset() {
     let setup = Setup::new().await;
     let db = Database::open(&setup.database).await.unwrap();
     db.set_setting("import.mode", &serde_json::json!("sideways")).await.unwrap();
 
-    setup.command().arg("list").assert().failure().stderr(predicate::str::contains("see `yokoku settings list`"));
+    setup.command().arg("scan").assert().failure().stderr(predicate::str::contains("see `yokoku settings list`"));
     let unset = setup.stdout(&["settings", "unset", "import.mode"]);
 
     assert_eq!(unset, "Unset import.mode\n");
-    setup.command().arg("list").assert().success();
-}
-
-#[tokio::test]
-async fn an_import_left_running_by_a_stopped_command_runs_again() {
-    let setup = Setup::new().await;
-    setup.write("downloads/Frieren.S01E01.mkv");
-    let source = setup.path("downloads/Frieren.S01E01.mkv");
-    let db = Database::open(&setup.database).await.unwrap();
-    let series = SeriesRepo::find_by_source(&db, ExternalId::Tmdb(1)).await.unwrap().unwrap();
-    let import = Import {
-        id: ImportId::generate(),
-        source: source.clone(),
-        download: Some(DownloadId::generate()),
-        status: ImportStatus::Importing,
-        error: None,
-        rows: vec![ImportRow {
-            path: source.clone(),
-            size: 5,
-            target: Some(FileTarget::Episodes { series: series.id, span: EpisodeSpan::new(1, 1, 1).unwrap() }),
-            confidence: Confidence::Certain,
-            skipped: false,
-            resolution: Resolution::Unresolved,
-        }],
-        created_at: Timestamp::now(),
-    };
-    MediaRepo::save(&db, &Changes { imports: vec![import], ..Changes::default() }).await.unwrap();
-
-    let stdout = setup.stdout(&["import", "run"]);
-
-    assert_eq!(stdout, format!("Imported {}\n", source.display()));
-    assert!(setup.episode_line("S01E01").contains("downloaded"));
+    setup.command().arg("scan").assert().success();
 }

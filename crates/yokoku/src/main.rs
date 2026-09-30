@@ -36,7 +36,7 @@ async fn main() {
     }
 }
 
-/// The reader of stdout went away, e.g. `yokoku list | head`.
+/// The reader of stdout went away, e.g. `yokoku root list | head`.
 fn is_broken_pipe(error: &anyhow::Error) -> bool {
     error
         .chain()

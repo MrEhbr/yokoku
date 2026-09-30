@@ -53,14 +53,12 @@ just web add <name>...  # Vendor a Dioxus component into src/components/, then r
 
 `just web serve` runs the service from the repository root with `config/app.toml`, so its data
 lives in `data/` (ignored by git). `dx` hot-reloads `rsx!` edits and rebuilds on other changes.
-Fill an empty library with the CLI:
+Add root folders with the CLI, then search and add series and movies in the web UI:
 
 ```bash
 mkdir -p data/library/series data/library/movies
 just run root add series "$PWD/data/library/series"
 just run root add movies "$PWD/data/library/movies"
-just run add series tvdb:81189 --root "$PWD/data/library/series"
-just run add movie tmdb:438631 --root "$PWD/data/library/movies"
 ```
 
 How web code is organized and written: [ARCHITECTURE.md §3.1](docs/ARCHITECTURE.md#31-where-things-live).
