@@ -6275,6 +6275,7 @@ dependencies = [
  "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-test-support",
 ]
 
 [[package]]

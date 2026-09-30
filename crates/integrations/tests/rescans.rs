@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use jiff::{SignedDuration, Timestamp, Zoned, tz::TimeZone};
+use jiff::{SignedDuration, Timestamp, tz::TimeZone};
 use yokoku_db::Database;
 use yokoku_domain::{Clock, MediaFileId, MovieId};
 use yokoku_events::{DeleteReason, EventKind, FileDeleted, FileRenamed, Handler};
@@ -9,23 +9,9 @@ use yokoku_integrations::{
     Rescans,
     ports::{MediaServer, MediaServerError, RescanStore},
 };
+use yokoku_test_support::clock::TestClock;
 
 const QUIET: SignedDuration = SignedDuration::from_secs(30);
-
-struct TestClock(Mutex<Timestamp>);
-
-impl TestClock {
-    fn advance(&self, by: SignedDuration) {
-        let mut now = self.0.lock().unwrap();
-        *now = now.checked_add(by).unwrap();
-    }
-}
-
-impl Clock for TestClock {
-    fn now(&self) -> Zoned {
-        self.0.lock().unwrap().to_zoned(TimeZone::UTC)
-    }
-}
 
 /// Counts refreshes; can fail, be unconfigured, or record another request while refreshing.
 #[derive(Default)]
@@ -67,7 +53,8 @@ struct Setup {
 
 async fn setup() -> Setup {
     let db = Database::open_in_memory().await.unwrap();
-    let clock = Arc::new(TestClock(Mutex::new("2026-09-26T12:00:00.250Z".parse().unwrap())));
+    let now: Timestamp = "2026-09-26T12:00:00.250Z".parse().unwrap();
+    let clock = Arc::new(TestClock::at(now.to_zoned(TimeZone::UTC)));
     let server = Arc::new(RecordingServer::default());
     let rescans = Rescans::new(Arc::new(db.clone()), server.clone(), clock.clone());
     Setup { db, clock, server, rescans }
