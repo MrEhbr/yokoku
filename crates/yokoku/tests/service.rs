@@ -24,6 +24,19 @@ use yokoku_media::{
     ports::{Changes, MediaRepo},
 };
 
+/// The `[serve]` schedules, as `APP__SERVE__` variables name them.
+const JOBS: [&str; 6] = [
+    "SYNC_DOWNLOADS",
+    "SYNC_ACTIVE_DOWNLOADS",
+    "EXECUTE_IMPORTS",
+    "RESCAN_MEDIA_SERVER",
+    "REFRESH_METADATA",
+    "SCAN_LIBRARY",
+];
+
+/// A cron schedule that does not fire while a test runs: midnight on January 1st.
+const NEVER: &str = "0 0 0 1 1 *";
+
 /// A running service; killed on drop.
 struct Service {
     child: Child,
@@ -37,7 +50,8 @@ impl Service {
         Self::start_with(dir, &[])
     }
 
-    /// Like `start`, with the environment variables `env` set.
+    /// Like `start`, with the environment variables `env` set. Scheduled jobs run only when `env`
+    /// gives them a schedule.
     fn start_with(dir: &Path, env: &[(&str, &str)]) -> Self {
         let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         std::fs::create_dir_all(dir.join("public")).unwrap();
@@ -48,6 +62,7 @@ impl Service {
             .env("APP__WEB__PORT", port.to_string())
             .env_remove("APP__METADATA__TMDB__TOKEN")
             .env_remove("APP__METADATA__TVDB__API_KEY")
+            .envs(JOBS.iter().map(|job| (format!("APP__SERVE__{job}"), NEVER)))
             .envs(env.iter().copied())
             .stdout(Stdio::null())
             .stderr(std::fs::File::create(&log).unwrap())
