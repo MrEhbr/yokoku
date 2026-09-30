@@ -60,20 +60,6 @@ impl Delivery {
         info!(subscriber, "event delivery stopped");
     }
 
-    /// Tries again the events given up on earlier, then delivers every event already in the log;
-    /// returns how many new events there were.
-    pub async fn catch_up(&self) -> Result<usize, StorageError> {
-        self.retry_failed().await?;
-        let mut delivered = 0;
-        loop {
-            match self.deliver_batch().await? {
-                0 => break,
-                count => delivered += count,
-            }
-        }
-        Ok(delivered)
-    }
-
     async fn deliver_forever(mut self) {
         let mut last_retry = Instant::now();
         loop {
@@ -95,18 +81,16 @@ impl Delivery {
         }
     }
 
-    /// Tries each event given up on once more; returns how many succeeded. They arrive after newer
-    /// events, which idempotent handlers accept.
-    pub async fn retry_failed(&self) -> Result<usize, StorageError> {
+    /// Tries each event given up on once more. They arrive after newer events, which idempotent
+    /// handlers accept.
+    async fn retry_failed(&self) -> Result<(), StorageError> {
         let subscriber = self.subscriber.name();
-        let mut resolved = 0;
         for (recorded, failure) in self.log.failed(subscriber).await? {
             let retried = async {
                 match self.subscriber.handle(&recorded.event).await {
                     Ok(()) => {
                         info!("event handled on retry");
-                        self.log.resolve(subscriber, recorded.id).await?;
-                        Ok(true)
+                        self.log.resolve(subscriber, recorded.id).await
                     },
                     Err(error) => {
                         warn!(
@@ -116,16 +100,13 @@ impl Delivery {
                         );
                         let failure =
                             DeliveryFailure { error: error.to_string(), attempts: failure.attempts + 1, ..failure };
-                        self.log.record_failure(subscriber, &failure).await?;
-                        Ok::<_, StorageError>(false)
+                        self.log.record_failure(subscriber, &failure).await
                     },
                 }
             };
-            if self.scoped(&recorded, retried).await? {
-                resolved += 1;
-            }
+            self.scoped(&recorded, retried).await?;
         }
-        Ok(resolved)
+        Ok(())
     }
 
     async fn deliver_batch(&self) -> Result<usize, StorageError> {

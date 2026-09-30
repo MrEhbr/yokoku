@@ -209,50 +209,24 @@ async fn stops_on_shutdown(#[future(awt)] mut harness: Harness) {
 
 #[rstest]
 #[tokio::test]
-async fn catching_up_delivers_what_is_logged_and_returns(#[future(awt)] mut harness: Harness) {
-    append(&harness.log, 3).await;
-    let delivery = harness.delivery(NO_POLLING);
-
-    assert_eq!(delivery.catch_up().await.unwrap(), 3);
-    assert_eq!(delivery.catch_up().await.unwrap(), 0);
-
-    for expected in 1..=3 {
-        assert_eq!(harness.next_handled().await, EventId(expected));
-    }
-    harness.position_reaches(3).await;
-}
-
-#[rstest]
-#[tokio::test]
-async fn catching_up_retries_events_given_up_on_earlier(#[future(awt)] harness: Harness) {
-    let mut harness = harness.failing(1, 3);
-    append(&harness.log, 2).await;
-    let delivery = harness.delivery(NO_POLLING);
-    delivery.catch_up().await.unwrap();
-    assert_eq!(harness.next_handled().await, EventId(2));
-    assert_eq!(failures(&harness.log).await.len(), 1);
-
-    delivery.catch_up().await.unwrap();
-
-    assert_eq!(harness.next_handled().await, EventId(1));
-    assert!(failures(&harness.log).await.is_empty());
-    assert_eq!(harness.log.last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
-}
-
-#[rstest]
-#[tokio::test]
 async fn a_retry_that_fails_again_counts_the_attempt_and_keeps_the_position(#[future(awt)] harness: Harness) {
     let mut harness = harness.failing(1, u32::MAX);
     append(&harness.log, 2).await;
-    let delivery = harness.delivery(NO_POLLING);
-    delivery.catch_up().await.unwrap();
 
-    assert_eq!(delivery.retry_failed().await.unwrap(), 0);
+    harness.start(Duration::from_millis(50));
 
+    assert_eq!(harness.next_handled().await, EventId(2));
     let log = &harness.log;
+    timeout(WAIT, async {
+        while failures(log).await.first().is_none_or(|failure| failure.attempts < 4) {
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the failure is retried in time");
     assert_eq!(
-        failures(log).await,
-        [DeliveryFailure { event: EventId(1), error: "handler failed".into(), attempts: 4 }]
+        failures(log).await[0],
+        DeliveryFailure { event: EventId(1), error: "handler failed".into(), attempts: 4 }
     );
     assert_eq!(log.last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
 }
@@ -261,10 +235,11 @@ async fn a_retry_that_fails_again_counts_the_attempt_and_keeps_the_position(#[fu
 #[tokio::test]
 async fn the_delivery_loop_retries_failed_events_on_its_interval(#[future(awt)] harness: Harness) {
     let mut harness = harness.failing(1, 3);
-    append(&harness.log, 1).await;
+    append(&harness.log, 2).await;
 
     harness.start(Duration::from_millis(50));
 
+    assert_eq!(harness.next_handled().await, EventId(2));
     assert_eq!(harness.next_handled().await, EventId(1));
     timeout(WAIT, async {
         while !failures(&harness.log).await.is_empty() {
@@ -273,6 +248,7 @@ async fn the_delivery_loop_retries_failed_events_on_its_interval(#[future(awt)] 
     })
     .await
     .expect("the failure is resolved in time");
+    assert_eq!(harness.log.last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
 }
 
 #[rstest]
@@ -310,8 +286,17 @@ async fn handlers_run_under_the_correlation_id_of_their_event() {
         Arc::new(Subscription::new("correlations").on::<SeriesAdded>(recorder.clone())),
         DeliveryConfig::default(),
     );
+    let shutdown = CancellationToken::new();
+    let task = tokio::spawn(delivery.run(shutdown.clone()));
 
-    delivery.catch_up().await.unwrap();
-
+    timeout(WAIT, async {
+        while recorder.0.lock().unwrap().is_empty() {
+            sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("the event is delivered in time");
+    shutdown.cancel();
+    task.await.unwrap();
     assert_eq!(*recorder.0.lock().unwrap(), [Some(event.correlation)]);
 }
