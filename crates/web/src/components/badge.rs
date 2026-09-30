@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use dioxus_primitives::{dioxus_attributes::attributes, merge_attributes};
 
 #[derive(Copy, Clone, PartialEq, Default)]
 pub enum BadgeVariant {
@@ -47,12 +48,12 @@ pub struct BadgeProps {
 #[component]
 pub fn Badge(props: BadgeProps) -> Element {
     let variant = props.variant.class();
+    let base = attributes!(span {
+        class: "inline-flex w-fit shrink-0 items-center justify-center gap-1 border px-2 py-0.5 text-caption \
+                font-medium whitespace-nowrap [&>svg]:size-3 {variant}",
+    });
+    let merged = merge_attributes(vec![base, props.attributes]);
     rsx! {
-        span {
-            class: "inline-flex w-fit shrink-0 items-center justify-center gap-1 border px-2 py-0.5 text-caption \
-                    font-medium whitespace-nowrap [&>svg]:size-3 {variant}",
-            ..props.attributes,
-            {props.children}
-        }
+        span { ..merged, {props.children} }
     }
 }
