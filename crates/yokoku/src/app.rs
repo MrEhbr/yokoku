@@ -23,10 +23,7 @@ use yokoku_infra::{
     system::{ArtworkFiles, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
 
-use crate::{
-    config::{Config, Settings},
-    subscriptions,
-};
+use crate::config::{Config, Settings};
 
 /// Use cases wired to their adapters, each reading the settings in effect when it runs.
 #[derive(Clone)]
@@ -177,7 +174,7 @@ impl App {
     pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
         let poll_interval = Duration::from_millis(self.settings.current().events.poll_interval_ms);
         let config = DeliveryConfig { poll_interval, ..DeliveryConfig::default() };
-        subscriptions::subscribers(self)
+        self.subscriptions()
             .into_iter()
             .map(|subscriber| {
                 let delivery = Delivery::new(self.log.clone(), subscriber, config.clone());
