@@ -125,7 +125,7 @@ impl App {
     }
 
     pub async fn events(&self) -> Vec<Event> {
-        let recorded = self.db.event_log().read_after(None, 100).await.unwrap();
+        let recorded = EventLog::new(self.db.pool().clone()).read_after(None, 100).await.unwrap();
         recorded.into_iter().map(|recorded| recorded.event).collect()
     }
 }

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use yokoku_domain::{ItemId, StorageError};
 
 use crate::{EventId, EventLog, Recorded};
@@ -8,11 +6,11 @@ const BATCH: u32 = 200;
 
 /// What happened, newest first (FR-9.1), read from the event log.
 pub struct History {
-    log: Arc<dyn EventLog>,
+    log: EventLog,
 }
 
 impl History {
-    pub fn new(log: Arc<dyn EventLog>) -> Self {
+    pub fn new(log: EventLog) -> Self {
         Self { log }
     }
 

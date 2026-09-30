@@ -9,7 +9,7 @@ use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, Live,
     MediaFileId, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
-use yokoku_events::{Publisher, QueueChanges};
+use yokoku_events::{EventLog, Publisher, QueueChanges};
 use yokoku_library::{
     Library, LibraryFilter, LibrarySort,
     ports::{MovieRepo, SeriesRepo},
@@ -84,7 +84,7 @@ impl Seeded {
     }
 
     fn publisher(&self) -> Publisher {
-        Publisher::new(Arc::new(self.db.event_log()))
+        Publisher::new(EventLog::new(self.db.pool().clone()))
     }
 }
 

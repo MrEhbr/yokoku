@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use yokoku_db::Database;
 use yokoku_domain::{MovieId, SeriesId};
 use yokoku_events::{
@@ -13,12 +11,12 @@ fn series_added(title: &str) -> Event {
 
 async fn setup() -> (Database, Publisher) {
     let db = Database::open_in_memory().await.unwrap();
-    let publisher = Publisher::new(Arc::new(db.event_log()));
+    let publisher = Publisher::new(EventLog::new(db.pool().clone()));
     (db, publisher)
 }
 
 async fn appended(db: &Database) -> Vec<Recorded> {
-    db.event_log().read_after(None, 100).await.unwrap()
+    EventLog::new(db.pool().clone()).read_after(None, 100).await.unwrap()
 }
 
 async fn events(db: &Database) -> Vec<Event> {

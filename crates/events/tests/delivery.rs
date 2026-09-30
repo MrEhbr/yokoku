@@ -46,7 +46,7 @@ impl Subscriber for Recorder {
 }
 
 struct Harness {
-    db: Database,
+    log: EventLog,
     recorder: Option<Recorder>,
     handled: UnboundedReceiver<EventId>,
     shutdown: CancellationToken,
@@ -57,7 +57,7 @@ impl Harness {
     fn new(db: Database) -> Self {
         let (handled_tx, handled) = mpsc::unbounded_channel();
         Self {
-            db,
+            log: EventLog::new(db.pool().clone()),
             recorder: Some(Recorder { failures_left: Mutex::default(), handled: handled_tx }),
             handled,
             shutdown: CancellationToken::new(),
@@ -81,8 +81,7 @@ impl Harness {
             retry_interval: RETRY_INTERVAL,
         };
         let recorder = Arc::new(self.recorder.take().expect("started once"));
-        let log = Arc::new(self.db.event_log());
-        Delivery::new(log, recorder, self.db.new_events().listen(), config)
+        Delivery::new(self.log.clone(), recorder, config)
     }
 
     fn start(&mut self, poll_interval: Duration) {
@@ -95,7 +94,7 @@ impl Harness {
     }
 
     async fn position_reaches(&self, event: i64) {
-        let log = self.db.event_log();
+        let log = &self.log;
         timeout(WAIT, async {
             while log.last_delivered(SUBSCRIBER).await.unwrap() != Some(EventId(event)) {
                 sleep(Duration::from_millis(5)).await;
@@ -111,9 +110,13 @@ fn series_added(title: &str) -> Correlated {
     Correlated { correlation: CorrelationId::generate(), event }
 }
 
-async fn append(db: &Database, count: i64) {
+async fn append(log: &EventLog, count: i64) {
     let events: Vec<_> = (1..=count).map(|id| series_added(&format!("Series {id}"))).collect();
-    db.event_log().append(&events).await.unwrap();
+    log.append(&events).await.unwrap();
+}
+
+async fn failures(log: &EventLog) -> Vec<DeliveryFailure> {
+    log.failed(SUBSCRIBER).await.unwrap().into_iter().map(|(_, failure)| failure).collect()
 }
 
 #[fixture]
@@ -124,7 +127,7 @@ async fn harness() -> Harness {
 #[rstest]
 #[tokio::test]
 async fn delivers_events_in_order_and_advances_the_position(#[future(awt)] mut harness: Harness) {
-    append(&harness.db, 3).await;
+    append(&harness.log, 3).await;
     harness.start(NO_POLLING);
 
     for expected in 1..=3 {
@@ -136,8 +139,8 @@ async fn delivers_events_in_order_and_advances_the_position(#[future(awt)] mut h
 #[rstest]
 #[tokio::test]
 async fn resumes_after_the_saved_position(#[future(awt)] mut harness: Harness) {
-    append(&harness.db, 3).await;
-    harness.db.event_log().mark_delivered(SUBSCRIBER, EventId(2)).await.unwrap();
+    append(&harness.log, 3).await;
+    harness.log.mark_delivered(SUBSCRIBER, EventId(2)).await.unwrap();
     harness.start(NO_POLLING);
 
     assert_eq!(harness.next_handled().await, EventId(3));
@@ -147,25 +150,25 @@ async fn resumes_after_the_saved_position(#[future(awt)] mut harness: Harness) {
 #[tokio::test]
 async fn retries_a_failing_handler_until_it_succeeds(#[future(awt)] harness: Harness) {
     let mut harness = harness.failing(1, 2);
-    append(&harness.db, 1).await;
+    append(&harness.log, 1).await;
     harness.start(NO_POLLING);
 
     assert_eq!(harness.next_handled().await, EventId(1));
     harness.position_reaches(1).await;
-    assert!(harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap().is_empty());
+    assert!(failures(&harness.log).await.is_empty());
 }
 
 #[rstest]
 #[tokio::test]
 async fn gives_up_after_max_attempts_and_moves_on(#[future(awt)] harness: Harness) {
     let mut harness = harness.failing(1, u32::MAX);
-    append(&harness.db, 2).await;
+    append(&harness.log, 2).await;
     harness.start(NO_POLLING);
 
     assert_eq!(harness.next_handled().await, EventId(2));
     harness.position_reaches(2).await;
     assert_eq!(
-        harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap(),
+        failures(&harness.log).await,
         [DeliveryFailure { event: EventId(1), error: "handler failed".into(), attempts: 3 }]
     );
 }
@@ -176,7 +179,7 @@ async fn wakes_up_when_events_are_committed(#[future(awt)] mut harness: Harness)
     harness.start(NO_POLLING);
     sleep(Duration::from_millis(50)).await;
 
-    append(&harness.db, 1).await;
+    append(&harness.log, 1).await;
 
     assert_eq!(harness.next_handled().await, EventId(1));
 }
@@ -190,7 +193,7 @@ async fn polls_for_events_committed_by_another_process() {
     harness.start(Duration::from_millis(100));
     sleep(Duration::from_millis(50)).await;
 
-    append(&other_process, 1).await;
+    append(&EventLog::new(other_process.pool().clone()), 1).await;
 
     assert_eq!(harness.next_handled().await, EventId(1));
 }
@@ -209,7 +212,7 @@ async fn stops_on_shutdown(#[future(awt)] mut harness: Harness) {
 #[rstest]
 #[tokio::test]
 async fn catching_up_delivers_what_is_logged_and_returns(#[future(awt)] mut harness: Harness) {
-    append(&harness.db, 3).await;
+    append(&harness.log, 3).await;
     let delivery = harness.delivery(NO_POLLING);
 
     assert_eq!(delivery.catch_up().await.unwrap(), 3);
@@ -225,32 +228,32 @@ async fn catching_up_delivers_what_is_logged_and_returns(#[future(awt)] mut harn
 #[tokio::test]
 async fn catching_up_retries_events_given_up_on_earlier(#[future(awt)] harness: Harness) {
     let mut harness = harness.failing(1, 3);
-    append(&harness.db, 2).await;
+    append(&harness.log, 2).await;
     let delivery = harness.delivery(NO_POLLING);
     delivery.catch_up().await.unwrap();
     assert_eq!(harness.next_handled().await, EventId(2));
-    assert_eq!(harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap().len(), 1);
+    assert_eq!(failures(&harness.log).await.len(), 1);
 
     delivery.catch_up().await.unwrap();
 
     assert_eq!(harness.next_handled().await, EventId(1));
-    assert!(harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap().is_empty());
-    assert_eq!(harness.db.event_log().last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
+    assert!(failures(&harness.log).await.is_empty());
+    assert_eq!(harness.log.last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
 }
 
 #[rstest]
 #[tokio::test]
 async fn a_retry_that_fails_again_counts_the_attempt_and_keeps_the_position(#[future(awt)] harness: Harness) {
     let mut harness = harness.failing(1, u32::MAX);
-    append(&harness.db, 2).await;
+    append(&harness.log, 2).await;
     let delivery = harness.delivery(NO_POLLING);
     delivery.catch_up().await.unwrap();
 
     assert_eq!(delivery.retry_failed().await.unwrap(), 0);
 
-    let log = harness.db.event_log();
+    let log = &harness.log;
     assert_eq!(
-        log.failed_deliveries(SUBSCRIBER).await.unwrap(),
+        failures(log).await,
         [DeliveryFailure { event: EventId(1), error: "handler failed".into(), attempts: 4 }]
     );
     assert_eq!(log.last_delivered(SUBSCRIBER).await.unwrap(), Some(EventId(2)));
@@ -260,13 +263,13 @@ async fn a_retry_that_fails_again_counts_the_attempt_and_keeps_the_position(#[fu
 #[tokio::test]
 async fn the_delivery_loop_retries_failed_events_on_its_interval(#[future(awt)] harness: Harness) {
     let mut harness = harness.failing(1, 3);
-    append(&harness.db, 1).await;
+    append(&harness.log, 1).await;
 
     harness.start(Duration::from_millis(50));
 
     assert_eq!(harness.next_handled().await, EventId(1));
     timeout(WAIT, async {
-        while !harness.db.event_log().failed_deliveries(SUBSCRIBER).await.unwrap().is_empty() {
+        while !failures(&harness.log).await.is_empty() {
             sleep(Duration::from_millis(10)).await;
         }
     })
@@ -280,7 +283,7 @@ async fn wakes_up_when_events_are_appended(#[future(awt)] mut harness: Harness) 
     harness.start(NO_POLLING);
     sleep(Duration::from_millis(50)).await;
 
-    harness.db.event_log().append(&[series_added("Series 1")]).await.unwrap();
+    harness.log.append(&[series_added("Series 1")]).await.unwrap();
 
     assert_eq!(harness.next_handled().await, EventId(1));
 }
@@ -305,10 +308,10 @@ impl Subscriber for CorrelationRecorder {
 async fn handlers_run_under_the_correlation_id_of_their_event() {
     let db = Database::open_in_memory().await.unwrap();
     let event = series_added("Series 1");
-    db.event_log().append(std::slice::from_ref(&event)).await.unwrap();
+    let log = EventLog::new(db.pool().clone());
+    log.append(std::slice::from_ref(&event)).await.unwrap();
     let recorder = Arc::new(CorrelationRecorder::default());
-    let delivery =
-        Delivery::new(Arc::new(db.event_log()), recorder.clone(), db.new_events().listen(), DeliveryConfig::default());
+    let delivery = Delivery::new(log, recorder.clone(), DeliveryConfig::default());
 
     delivery.catch_up().await.unwrap();
 

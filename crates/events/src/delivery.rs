@@ -5,7 +5,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_domain::{CorrelationId, StorageError};
 
-use crate::{DeliveryFailure, EventLog, Listener, Recorded, Subscriber, correlation::correlate};
+use crate::{DeliveryFailure, EventLog, Recorded, Subscriber, correlation::correlate, signal::Listener};
 
 #[derive(Debug, Clone)]
 pub struct DeliveryConfig {
@@ -41,20 +41,15 @@ impl DeliveryConfig {
 
 /// Delivers the event log to one subscriber, in order, at least once.
 pub struct Delivery {
-    log: Arc<dyn EventLog>,
+    log: EventLog,
     subscriber: Arc<dyn Subscriber>,
     listener: Listener,
     config: DeliveryConfig,
 }
 
 impl Delivery {
-    pub fn new(
-        log: Arc<dyn EventLog>,
-        subscriber: Arc<dyn Subscriber>,
-        listener: Listener,
-        config: DeliveryConfig,
-    ) -> Self {
-        Self { log, subscriber, listener, config }
+    pub fn new(log: EventLog, subscriber: Arc<dyn Subscriber>, config: DeliveryConfig) -> Self {
+        Self { listener: log.listen(), log, subscriber, config }
     }
 
     /// Runs until `shutdown` is cancelled; an interrupted event is redelivered on the next run.

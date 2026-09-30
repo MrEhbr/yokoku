@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -6,7 +6,7 @@ use serde_json::Value;
 use yokoku_config::Config;
 use yokoku_db::Database;
 use yokoku_domain::SettingsStore;
-use yokoku_events::{Publisher, SettingsChanged};
+use yokoku_events::{EventLog, Publisher, SettingsChanged};
 
 use crate::cli::args::EVENTS_LOST;
 
@@ -34,7 +34,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
     let path = &config.database.path;
     let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
     let stored = db.settings().await.context("Failed to read the stored settings")?;
-    let events = Publisher::new(Arc::new(db.event_log()));
+    let events = Publisher::new(EventLog::new(db.pool().clone()));
 
     match args.command {
         Command::List => {

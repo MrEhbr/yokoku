@@ -48,7 +48,7 @@ Versions are pinned in `[workspace.dependencies]` when the workspace is set up.
 ```
 crates/
   domain/            yokoku-domain            Shared value types and rules, event contract
-  events/            yokoku-events            Handlers, subscriptions, delivery loop; re-exports the event contract
+  events/            yokoku-events            Event log (SQLite), publisher, handlers, subscriptions, delivery loop; re-exports the event contract
   detect/            yokoku-detect            Pure: downloaded files → ImportPlan
   naming/            yokoku-naming            Pure: NamingTemplate parse/render, sanitising
 
@@ -57,7 +57,7 @@ crates/
   media/             yokoku-media             Import pipeline, review, scan, rename, delete
   integrations/      yokoku-integrations      Jellyfin rescan
 
-  db/                yokoku-db                sqlx: migrations, all repository impls, event store
+  db/                yokoku-db                sqlx: migrations (the event tables too), all repository impls
   metadata/          yokoku-metadata          MetadataProvider impls: TMDB, TVDB
   download-clients/  yokoku-download-clients  DownloadClient impls (Transmission)
   media-servers/     yokoku-media-servers     MediaServer impls (Jellyfin)
@@ -231,8 +231,8 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | File details (FR-8.6) | `media/src/prober.rs` `Prober` (`media.probe`) | `media/src/model.rs` `MediaInfo` | `media_info.rs` | `system/src/probe.rs` | `files.rs`; web `api/library/detail.rs` |
 | Library lock | `media/src/ports.rs` `LibraryLock` | none | none | `system/src/lock.rs` | every media use case |
 | Jellyfin rescan (FR-10.4) | `integrations/src/rescans.rs` `Rescans` | none | `rescan_store.rs` | `media-servers/src/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
-| History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display`; the web words events with item links in `web/src/api/history.rs` | `event_log.rs` | none | web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
-| Event contract, delivery | `domain/src/events.rs`; `events/src/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `event_log.rs` | none | `yokoku/src/subscriptions.rs`, `app.rs` |
+| History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display`; the web words events with item links in `web/src/api/history.rs` | `events/src/event_log.rs` | none | web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
+| Event contract, delivery | `domain/src/events.rs`; `events/src/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `events/src/event_log.rs` | none | `yokoku/src/subscriptions.rs`, `app.rs` |
 | Settings (FR-10.3) | `config/src/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `config/src/lib.rs` (layering) | `settings_store.rs` | none | `settings.rs`; web `api/settings.rs`, `pages/settings/` (through `SettingsAccess` in `web/src/state.rs`, implemented by `yokoku/src/web_settings.rs`) |
 | Jobs and schedules | `jobs/src/lib.rs` | none | none | none | `yokoku/src/service.rs` |
 | Attribution (FR-10.5) | none | none | none | none | `cli/args.rs` `DATA_SOURCES` |

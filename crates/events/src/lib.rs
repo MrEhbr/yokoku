@@ -14,7 +14,7 @@ pub use delivery::{Delivery, DeliveryConfig};
 pub use event_log::{Correlated, DeliveryFailure, EventId, EventLog, Recorded};
 pub use history::History;
 pub use publisher::Publisher;
-pub use signal::{Listener, NewEvents, QueueChanges};
+pub use signal::QueueChanges;
 pub use subscriber::{HandlerError, Subscriber};
 pub use subscription::{Handler, Subscription};
 pub use yokoku_domain::{

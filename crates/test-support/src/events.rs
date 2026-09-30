@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use yokoku_db::Database;
-use yokoku_events::Publisher;
+use yokoku_events::{EventLog, Publisher};
 
 pub fn publisher(db: &Database) -> Publisher {
-    Publisher::new(Arc::new(db.event_log()))
+    Publisher::new(EventLog::new(db.pool().clone()))
 }
 
 /// Makes `db`'s event log refuse every append until `accept_events`.

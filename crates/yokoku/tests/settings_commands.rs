@@ -146,7 +146,7 @@ impl Setup {
     /// Sets `import.mode` to `mode` and waits until the service reloaded on its `SettingsChanged`.
     async fn set_and_await_reload(&self, mode: &str) -> bool {
         self.stdout(&["settings", "set", "import.mode", mode]);
-        let log = Database::open(&self.database).await.unwrap().event_log();
+        let log = EventLog::new(Database::open(&self.database).await.unwrap().pool().clone());
         let changed = log
             .read_after(None, 100)
             .await

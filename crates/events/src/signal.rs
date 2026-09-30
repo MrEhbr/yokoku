@@ -4,34 +4,28 @@ use tokio::sync::watch;
 
 /// Wakes event deliveries after new events are committed.
 #[derive(Debug, Clone)]
-pub struct NewEvents {
+pub(crate) struct NewEvents {
     sender: Arc<watch::Sender<()>>,
 }
 
 impl NewEvents {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let (sender, _) = watch::channel(());
         Self { sender: Arc::new(sender) }
     }
 
-    pub fn notify(&self) {
+    pub(crate) fn notify(&self) {
         self.sender.send_replace(());
     }
 
-    pub fn listen(&self) -> Listener {
+    pub(crate) fn listen(&self) -> Listener {
         Listener { receiver: self.sender.subscribe(), _sender: Arc::clone(&self.sender) }
-    }
-}
-
-impl Default for NewEvents {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
 /// A notification sent after `mark_seen` is never lost.
 #[derive(Debug)]
-pub struct Listener {
+pub(crate) struct Listener {
     receiver: watch::Receiver<()>,
     _sender: Arc<watch::Sender<()>>,
 }

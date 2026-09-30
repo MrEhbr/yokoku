@@ -16,14 +16,14 @@ async fn logged(db: &Database, series: SeriesId, count: usize) {
         })
         .map(|event| Correlated { correlation, event })
         .collect();
-    db.event_log().append(&events).await.unwrap();
+    EventLog::new(db.pool().clone()).append(&events).await.unwrap();
 }
 
 #[tokio::test]
 async fn history_pages_backwards_from_the_newest_event() {
     let db = Database::open_in_memory().await.unwrap();
     logged(&db, SeriesId::generate(), 5).await;
-    let history = History::new(std::sync::Arc::new(db.event_log()));
+    let history = History::new(EventLog::new(db.pool().clone()));
 
     let newest = history.page(None, None, 2).await.unwrap();
     let older = history.page(None, Some(newest[1].id), 10).await.unwrap();
@@ -37,7 +37,7 @@ async fn history_of_an_item_skips_other_events_across_batches() {
     let db = Database::open_in_memory().await.unwrap();
     let series = SeriesId::generate();
     logged(&db, series, 1000).await;
-    let history = History::new(std::sync::Arc::new(db.event_log()));
+    let history = History::new(EventLog::new(db.pool().clone()));
 
     let entries = history.page(Some(ItemId::Series(series)), Some(EventId(900)), 300).await.unwrap();
 

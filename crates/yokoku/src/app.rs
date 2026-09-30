@@ -9,7 +9,7 @@ use yokoku_db::Database;
 use yokoku_domain::{Clock, ItemId, Live, title_with_year};
 use yokoku_download_clients::TransmissionClient;
 use yokoku_downloads::Downloads;
-use yokoku_events::{Delivery, DeliveryConfig, History, Publisher, QueueChanges, Subscriber};
+use yokoku_events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges, Subscriber};
 use yokoku_integrations::Rescans;
 use yokoku_library::{Artworks, Calendar, Library, MetadataService, ports::FolderNames};
 use yokoku_media::{
@@ -43,8 +43,8 @@ pub struct App {
     pub prober: Arc<Prober>,
     pub rescans: Arc<Rescans>,
     metadata: Arc<MetadataService>,
-    db: Arc<Database>,
     pub events: Publisher,
+    log: EventLog,
     subscribers: Vec<Arc<dyn Subscriber>>,
 }
 
@@ -60,7 +60,8 @@ impl App {
             .await
             .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(settings.live(|config| config.clock.time_zone())));
-        let events = Publisher::new(Arc::new(db.event_log()));
+        let log = EventLog::new(db.pool().clone());
+        let events = Publisher::new(log.clone());
         let queue_changes = QueueChanges::new();
         let naming = settings.live(|config| config.naming.clone());
         let metadata_settings = settings.live(|config| config.metadata.clone());
@@ -140,10 +141,11 @@ impl App {
                 events.clone(),
                 queue_changes.clone(),
             )),
-            history: Arc::new(History::new(Arc::new(db.event_log()))),
+            history: Arc::new(History::new(log.clone())),
             clock: clock.clone(),
             queue_changes: queue_changes.clone(),
             events: events.clone(),
+            log,
             subscribers: subscriptions::subscribers(
                 &db,
                 &Arc::new(ImportPlanner::new(
@@ -168,7 +170,6 @@ impl App {
             rescans,
             metadata,
             artworks,
-            db,
         })
     }
 
@@ -180,8 +181,7 @@ impl App {
         self.subscribers
             .iter()
             .map(|subscriber| {
-                let log = Arc::new(self.db.event_log());
-                let delivery = Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), config.clone());
+                let delivery = Delivery::new(self.log.clone(), subscriber.clone(), config.clone());
                 tokio::spawn(delivery.run(shutdown.clone()))
             })
             .chain([self.spawn_flush(shutdown)])

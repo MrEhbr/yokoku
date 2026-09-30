@@ -5,16 +5,14 @@ use sqlx::{
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
-use yokoku_events::NewEvents;
 
-use crate::{DbError, SqliteEventLog, codec::Int};
+use crate::{DbError, codec::Int};
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
 #[derive(Debug, Clone)]
 pub struct Database {
     pool: SqlitePool,
-    new_events: NewEvents,
 }
 
 impl Database {
@@ -38,19 +36,11 @@ impl Database {
         let options = options.foreign_keys(true).busy_timeout(Duration::from_secs(5));
         let pool = pool.connect_with(options).await?;
         MIGRATOR.run(&pool).await?;
-        Ok(Self { pool, new_events: NewEvents::new() })
+        Ok(Self { pool })
     }
 
-    pub(crate) fn pool(&self) -> &SqlitePool {
+    pub fn pool(&self) -> &SqlitePool {
         &self.pool
-    }
-
-    pub fn new_events(&self) -> &NewEvents {
-        &self.new_events
-    }
-
-    pub fn event_log(&self) -> SqliteEventLog {
-        SqliteEventLog::new(self.pool.clone(), self.new_events.clone())
     }
 
     pub async fn begin(&self) -> Result<Transaction<'static, Sqlite>, DbError> {

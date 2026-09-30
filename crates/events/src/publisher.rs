@@ -12,12 +12,12 @@ use crate::{Correlated, CorrelationId, Event, EventLog, correlation};
 /// or a new one outside any.
 #[derive(Clone)]
 pub struct Publisher {
-    log: Arc<dyn EventLog>,
+    log: EventLog,
     waiting: Arc<Mutex<Vec<Correlated>>>,
 }
 
 impl Publisher {
-    pub fn new(log: Arc<dyn EventLog>) -> Self {
+    pub fn new(log: EventLog) -> Self {
         Self { log, waiting: Arc::default() }
     }
 
