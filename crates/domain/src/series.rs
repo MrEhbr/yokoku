@@ -10,16 +10,6 @@ use crate::{
 
 const SPECIALS: u16 = 0;
 
-/// `None` unless the ordered `episodes` are one gapless run in one season.
-fn span_of(episodes: &[EpisodeRef]) -> Option<EpisodeSpan> {
-    let season = episodes.first()?.season;
-    if episodes.iter().any(|episode| episode.season != season) {
-        return None;
-    }
-    let numbers: Vec<u16> = episodes.iter().map(|episode| episode.episode).collect();
-    EpisodeSpan::consecutive(season, &numbers)
-}
-
 /// Series status as the metadata source reports it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceStatus {
@@ -261,7 +251,7 @@ impl Series {
             .file_episodes()
             .into_iter()
             .filter(|(file, episodes)| files_before.get(file) != Some(episodes))
-            .map(|(file, episodes)| RenumberedFile { file, span: span_of(&episodes) })
+            .map(|(file, episodes)| RenumberedFile { file, span: EpisodeSpan::from_refs(&episodes) })
             .collect();
         for split in renumbered.iter().filter(|renumbered| renumbered.span.is_none()) {
             for episode in self.seasons.iter_mut().flat_map(|season| &mut season.episodes) {
@@ -401,11 +391,7 @@ impl Series {
     pub fn absolute_span(&self, episodes: &[u16]) -> Option<EpisodeSpan> {
         let refs: Vec<EpisodeRef> =
             episodes.iter().map(|&number| self.absolute_to_ref(u32::from(number))).collect::<Option<_>>()?;
-        let season = refs.first()?.season;
-        if refs.iter().any(|reference| reference.season != season) {
-            return None;
-        }
-        EpisodeSpan::consecutive(season, &refs.iter().map(|reference| reference.episode).collect::<Vec<_>>())
+        EpisodeSpan::from_refs(&refs)
     }
 
     fn sort(&mut self) {

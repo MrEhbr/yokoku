@@ -75,6 +75,16 @@ impl EpisodeSpan {
         Self::new(season, first, last)
     }
 
+    /// `None` unless the ordered `episodes` are one gapless run in one season.
+    pub fn from_refs(episodes: &[EpisodeRef]) -> Option<Self> {
+        let season = episodes.first()?.season;
+        if episodes.iter().any(|episode| episode.season != season) {
+            return None;
+        }
+        let numbers: Vec<u16> = episodes.iter().map(|episode| episode.episode).collect();
+        Self::consecutive(season, &numbers)
+    }
+
     pub fn season(&self) -> u16 {
         self.season
     }

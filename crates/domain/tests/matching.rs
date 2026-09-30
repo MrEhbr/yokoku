@@ -58,6 +58,19 @@ fn episode_spans_display_and_list_their_episodes(
     assert_eq!(span.refs().collect::<Vec<_>>(), refs(expected));
 }
 
+#[rstest]
+#[case::one(&[(1, 2)], EpisodeSpan::new(1, 2, 2))]
+#[case::run(&[(2, 3), (2, 4), (2, 5)], EpisodeSpan::new(2, 3, 5))]
+#[case::gap(&[(1, 1), (1, 3)], None)]
+#[case::two_seasons(&[(1, 8), (2, 1)], None)]
+#[case::empty(&[], None)]
+fn episode_spans_come_from_one_gapless_run_of_refs(
+    #[case] pairs: &[(u16, u16)],
+    #[case] expected: Option<EpisodeSpan>,
+) {
+    assert_eq!(EpisodeSpan::from_refs(&refs(pairs)), expected);
+}
+
 #[test]
 fn episode_spans_reject_reversed_ranges() {
     assert_eq!(EpisodeSpan::new(1, 3, 2), None);
