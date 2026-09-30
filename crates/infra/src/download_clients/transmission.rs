@@ -78,7 +78,8 @@ impl TransmissionClient {
             status if !status.is_success() => return Err(ClientError::Unavailable(format!("HTTP {status}").into())),
             _ => {},
         }
-        let response: wire::Response<T> = response.json().await.map_err(unavailable)?;
+        let response: wire::Response<T> =
+            response.json().await.map_err(|error| ClientError::Unavailable(error.into()))?;
         match (response.result.as_str(), response.arguments) {
             ("success", Some(arguments)) => Ok(arguments),
             ("success", None) => Err(ClientError::Unavailable("response without arguments".into())),
@@ -95,7 +96,7 @@ impl TransmissionClient {
         if let Some(username) = &settings.username {
             request = request.basic_auth(username, Some(settings.password.as_ref().map_or("", Secret::expose)));
         }
-        request.send().await.map_err(unavailable)
+        request.send().await.map_err(|error| ClientError::Unavailable(error.into()))
     }
 }
 
@@ -170,10 +171,6 @@ impl From<wire::Torrent> for Torrent {
             labels: torrent.labels,
         }
     }
-}
-
-fn unavailable(error: reqwest::Error) -> ClientError {
-    ClientError::Unavailable(Box::new(error))
 }
 
 #[cfg(test)]
