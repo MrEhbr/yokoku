@@ -10,6 +10,7 @@ use crate::{
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
+        combobox::{Combobox, ComboboxEmpty, ComboboxOption},
         field::{Field, FieldError, FieldHint},
         input::Input,
         label::Label,
@@ -17,6 +18,9 @@ use crate::{
         switch::Switch,
     },
 };
+
+/// Choices beyond this many are searched rather than scrolled.
+const LONG_CHOICE: usize = 12;
 
 /// Values typed but not saved yet, by key, as `save_setting` takes them.
 #[derive(Clone, Copy)]
@@ -28,7 +32,7 @@ pub(super) enum Control {
     Text(&'static str),
     /// Shown masked; typing replaces it.
     Secret,
-    /// JSON string values with their labels.
+    /// JSON string values with their labels; a value in effect outside them is offered too.
     Choice(&'static [(&'static str, &'static str)]),
     Switch,
     /// Strings, typed comma-separated.
@@ -102,26 +106,58 @@ pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static
                         },
                     }
                 },
-                Control::Choice(choices) => rsx! {
-                    Select::<String> {
-                        id: "{id}",
-                        value: Some(chosen.into()),
-                        placeholder: choices.iter().find(|(value, _)| *value == draft()).map_or("", |(_, text)| text),
-                        disabled: locked,
-                        aria_invalid: error.read().is_some(),
-                        aria_describedby: "{described}",
-                        on_value_change: move |next: Option<String>| {
-                            let Some(next) = next.filter(|next| *next != draft()) else { return };
-                            draft.set(next.clone());
-                            spawn(save(Value::String(next)));
-                        },
-                        for (index, (value, text)) in choices.iter().enumerate() {
-                            SelectOption::<String> {
-                                key: "{value}",
-                                index,
-                                value: value.to_string(),
-                                text_value: *text,
-                                "{text}"
+                Control::Choice(choices) => {
+                    let mut options: Vec<(String, String)> =
+                        choices.iter().map(|(value, text)| (value.to_string(), text.to_string())).collect();
+                    if !draft().is_empty() && !options.iter().any(|(value, _)| *value == draft()) {
+                        options.insert(0, (draft(), draft()));
+                    }
+                    let placeholder =
+                        options.iter().find(|(value, _)| *value == draft()).map(|(_, text)| text.clone()).unwrap_or_default();
+                    let pick = move |next: Option<String>| {
+                        let Some(next) = next.filter(|next| *next != draft()) else { return };
+                        draft.set(next.clone());
+                        spawn(save(Value::String(next)));
+                    };
+                    if options.len() > LONG_CHOICE {
+                        rsx! {
+                            Combobox::<String> {
+                                id: "{id}",
+                                value: Some(chosen.into()),
+                                disabled: locked,
+                                aria_describedby: "{described}",
+                                on_value_change: pick,
+                                ComboboxEmpty { "Nothing matches" }
+                                for (index, (value, text)) in options.into_iter().enumerate() {
+                                    ComboboxOption::<String> {
+                                        key: "{value}",
+                                        index,
+                                        value,
+                                        text_value: text.clone(),
+                                        "{text}"
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        rsx! {
+                            Select::<String> {
+                                id: "{id}",
+                                value: Some(chosen.into()),
+                                placeholder,
+                                disabled: locked,
+                                aria_invalid: error.read().is_some(),
+                                aria_describedby: "{described}",
+                                on_value_change: pick,
+                                for (index, (value, text)) in options.into_iter().enumerate() {
+                                    SelectOption::<String> {
+                                        key: "{value}",
+                                        index,
+                                        value,
+                                        text_value: text.clone(),
+                                        "{text}"
+                                    }
+                                }
                             }
                         }
                     }
