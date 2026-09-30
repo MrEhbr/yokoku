@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
-use yokoku_core::{events::correlation::correlate, library::MetadataService};
+use yokoku_core::events::correlation::correlate;
 use yokoku_domain::{CorrelationId, Live};
 
 use crate::app::App;
@@ -122,7 +122,12 @@ pub fn spawn(app: &App, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
             scanner.scan().await
         })),
         tokio::spawn(every("refresh-metadata", schedule(|s| &s.refresh_metadata), shutdown(), async move || {
-            refresh_metadata(&metadata).await
+            let report = metadata.refresh_due().await?;
+            for failure in &report.failures {
+                warn!(item = ?failure.item, error = %failure.error, "metadata refresh failed");
+            }
+            info!(refreshed = report.refreshed, failed = report.failures.len(), "metadata refreshed");
+            Ok::<_, BoxError>(())
         })),
         tokio::spawn(every("rescan-media-server", schedule(|s| &s.rescan_media_server), shutdown(), async move || {
             rescans.run_due(RESCAN_QUIET).await
@@ -171,15 +176,6 @@ async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxError>>
         result
     };
     correlate(correlation, work.instrument(info_span!(parent: None, "job", name, %correlation))).await
-}
-
-async fn refresh_metadata(metadata: &MetadataService) -> Result<(), BoxError> {
-    let report = metadata.refresh_due().await?;
-    for failure in &report.failures {
-        warn!(item = ?failure.item, error = %failure.error, "metadata refresh failed");
-    }
-    info!(refreshed = report.refreshed, failed = report.failures.len(), "metadata refreshed");
-    Ok(())
 }
 
 #[cfg(test)]
