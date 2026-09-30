@@ -46,7 +46,7 @@ pub(super) fn EntryTable(entries: Vec<Entry>) -> Element {
                             Files { present: entry.has_files }
                         }
                         TableCell { class: "tabular-nums whitespace-nowrap",
-                            {entry.next_release.map(date).unwrap_or_else(|| "—".to_owned())}
+                            {entry.next_release.map_or_else(|| "—".to_owned(), date)}
                         }
                     }
                 }

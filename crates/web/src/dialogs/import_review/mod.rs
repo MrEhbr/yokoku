@@ -93,10 +93,10 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
             };
         },
     };
-    let included: Vec<&ReviewFile> = review.rows.iter().filter(|row| !row.skipped).collect();
-    let unmatched = included.iter().filter(|row| row.target.is_none()).count();
-    let conflicting = included.iter().filter(|row| !row.conflicts.is_empty()).count();
-    let count = included.len();
+    let included = || review.rows.iter().filter(|row| !row.skipped);
+    let unmatched = included().filter(|row| row.target.is_none()).count();
+    let conflicting = included().filter(|row| !row.conflicts.is_empty()).count();
+    let count = included().count();
     let blocked = unmatched > 0 || conflicting > 0 || count == 0;
     let files = plural(count, "file", "files");
     let all: BTreeSet<usize> = review.rows.iter().map(|row| row.row).collect();
@@ -121,7 +121,7 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
                 id: "review-all",
                 checked: header,
                 on_checked_change: move |state| {
-                    selected.set(if state == CheckboxState::Checked { all.clone() } else { BTreeSet::new() })
+                    selected.set(if state == CheckboxState::Checked { all.clone() } else { BTreeSet::new() });
                 },
             }
             Label { html_for: "review-all", class: "text-caption text-muted", "Select files for the bulk tools" }
@@ -377,23 +377,14 @@ fn MatchEditor(
     let item_choice = use_memo(move || Some(item()));
     let episode_list: Vec<(u16, u16, String)> = series
         .read()
-        .clone()
+        .iter()
         .flatten()
-        .map(|series| {
-            series
-                .seasons
-                .iter()
-                .flat_map(|season| season.episodes.iter())
-                .map(|episode| {
-                    (
-                        episode.season,
-                        episode.number,
-                        format!("{} {}", code(episode.season, episode.number), episode.title),
-                    )
-                })
-                .collect()
+        .flat_map(|series| &series.seasons)
+        .flat_map(|season| &season.episodes)
+        .map(|episode| {
+            (episode.season, episode.number, format!("{} {}", code(episode.season, episode.number), episode.title))
         })
-        .unwrap_or_default();
+        .collect();
     let first_choice = use_memo(move || episodes().map(|(season, first, _)| (season, first)));
     let last_choice = use_memo(move || episodes().map(|(season, _, last)| (season, last)));
     let later: Vec<(u16, u16, String)> = match episodes() {

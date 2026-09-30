@@ -49,7 +49,7 @@ fn AddTorrent(open: Signal<bool>, item: Option<ItemLink>) -> Element {
     rsx! {
         ClosableDialog { title: "Add torrent", open,
             if open() {
-                Form { item: item.clone(), on_close: move |()| open.set(false) }
+                Form { item, on_close: move |()| open.set(false) }
             }
         }
     }

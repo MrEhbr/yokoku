@@ -131,7 +131,7 @@ fn PlanForm(item: ItemId, plan: RenamePlan, on_renamed: Callback<RenameResult>, 
                     id: "rename-all",
                     checked: header,
                     on_checked_change: move |state| {
-                        selected.set(if state == CheckboxState::Checked { all.clone() } else { HashSet::new() })
+                        selected.set(if state == CheckboxState::Checked { all.clone() } else { HashSet::new() });
                     },
                 }
                 Label { html_for: "rename-all", "{count} of {plan.renames.len()} selected" }

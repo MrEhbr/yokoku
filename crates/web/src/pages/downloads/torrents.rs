@@ -49,13 +49,12 @@ pub(super) fn Torrents(downloads: Vec<DownloadEntry>) -> Element {
 
 #[component]
 fn Torrent(download: DownloadEntry) -> Element {
-    let item = download.item.clone();
     let downloading = download.state == DownloadState::Downloading;
     rsx! {
         TableRow {
             TableCell { class: "truncate font-medium", title: "{download.name}", "{download.name}" }
             TableCell { class: "truncate",
-                if let Some(item) = item {
+                if let Some(item) = &download.item {
                     Link {
                         class: "hover:underline",
                         title: "{item.title}",

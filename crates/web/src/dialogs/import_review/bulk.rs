@@ -76,10 +76,10 @@ pub(super) fn BulkTools(import: ImportId, files: Vec<ReviewFile>, on_change: Cal
             }
             match tool() {
                 Some(Tool::Series) => rsx! {
-                    SeriesMatch { import, rows: rows.clone(), on_change }
+                    SeriesMatch { import, rows, on_change }
                 },
                 Some(Tool::InOrder) => rsx! {
-                    InOrder { import, files: files.clone(), on_change }
+                    InOrder { import, files, on_change }
                 },
                 None => rsx! {},
             }
@@ -163,11 +163,13 @@ fn InOrder(import: ImportId, files: Vec<ReviewFile>, on_change: Callback) -> Ele
     });
     let episodes: Vec<(u16, String)> = detail
         .read()
-        .clone()
+        .iter()
         .flatten()
-        .and_then(|detail| detail.seasons.into_iter().find(|found| Some(found.number) == season()))
-        .map(|found| found.episodes.into_iter().map(|episode| (episode.number, episode.title)).collect())
-        .unwrap_or_default();
+        .flat_map(|detail| &detail.seasons)
+        .filter(|found| Some(found.number) == season())
+        .flat_map(|found| &found.episodes)
+        .map(|episode| (episode.number, episode.title.clone()))
+        .collect();
     let start = first().and_then(|first| episodes.iter().position(|(number, _)| *number == first));
     let preview: Vec<(ReviewFile, Option<(u16, String)>)> = match start {
         Some(start) => files
@@ -206,14 +208,13 @@ fn InOrder(import: ImportId, files: Vec<ReviewFile>, on_change: Callback) -> Ele
             on_change(());
         }
     };
-    let episode_options: Vec<(u16, String)> = episodes.clone();
     rsx! {
         div { class: "grid gap-3 sm:grid-cols-3",
             SeriesPicker { id: "order-series", series }
             if let Some(id) = series() {
                 SeasonPicker { key: "{id}", id: "order-season", series: id, season, none: None }
             }
-            if season().is_some() && !episode_options.is_empty() {
+            if season().is_some() && !episodes.is_empty() {
                 div { class: "grid gap-1.5",
                     Label { html_for: "order-first", "Starting at" }
                     Select::<u16> {
@@ -222,7 +223,7 @@ fn InOrder(import: ImportId, files: Vec<ReviewFile>, on_change: Callback) -> Ele
                         value: Some(first.into()),
                         placeholder: "Choose…",
                         on_value_change: move |next| first.set(next),
-                        for (index, (number, title)) in episode_options.into_iter().enumerate() {
+                        for (index, (number, title)) in episodes.into_iter().enumerate() {
                             SelectOption::<u16> {
                                 key: "{number}",
                                 index,

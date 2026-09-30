@@ -18,7 +18,7 @@ pub fn Downloads() -> Element {
     let LiveDownloads(latest) = use_context();
 
     let first = first.read();
-    let current = match (latest.read().clone(), &*first) {
+    let current = match (latest(), &*first) {
         (Some(reloaded), _) => Some(Ok(reloaded)),
         (None, first) => first.clone(),
     };

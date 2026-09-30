@@ -141,7 +141,7 @@ fn Page(movie: detail::MovieDetail) -> Element {
                             div { key: "{release.label()}", class: "contents",
                                 dt { class: "border-b border-line py-2 text-muted", "{release.label()}" }
                                 dd { class: "border-b border-line py-2 tabular-nums",
-                                    {day.map(date).unwrap_or_else(|| "Not announced".to_owned())}
+                                    {day.map_or_else(|| "Not announced".to_owned(), date)}
                                 }
                                 dd { class: "border-b border-line py-2 text-right text-caption text-muted",
                                     {day.map(|day| relative(day, today)).unwrap_or_default()}

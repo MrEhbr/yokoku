@@ -74,9 +74,9 @@ pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static
         saving.set(false);
     };
     let typed = move || match control {
-        Control::List => Value::Array(
-            draft().split(',').map(str::trim).filter(|item| !item.is_empty()).map(|item| item.into()).collect(),
-        ),
+        Control::List => {
+            Value::Array(draft().split(',').map(str::trim).filter(|item| !item.is_empty()).map(Into::into).collect())
+        },
         _ => Value::String(draft()),
     };
     let Unsaved(mut unsaved) = use_context();

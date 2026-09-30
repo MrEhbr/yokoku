@@ -71,12 +71,7 @@ fn Options(hit: SearchHit, options: Resource<Result<AddOptions, ServerFnError>>,
                 }
             },
             Some(Ok(options)) => rsx! {
-                OptionsForm {
-                    hit: hit.clone(),
-                    roots: options.roots(hit.kind).to_vec(),
-                    monitor: options.monitor,
-                    on_close,
-                }
+                OptionsForm { roots: options.roots(hit.kind).to_vec(), hit, monitor: options.monitor, on_close }
             },
         }
     }
@@ -101,7 +96,7 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
         Kind::Series => "series",
         Kind::Movie => "movies",
     };
-    let presets: &[(MonitorPreset, &str, &str)] = match hit.kind {
+    let presets: &'static [(MonitorPreset, &str, &str)] = match hit.kind {
         Kind::Series => &[
             (MonitorPreset::All, "All episodes", "Every episode, aired or not, counts toward Wanted and Upcoming."),
             (MonitorPreset::Future, "Future episodes", "Only episodes that have not aired yet."),
@@ -116,7 +111,7 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
     let monitor_hint = presets.iter().find(|(preset, ..)| Some(*preset) == monitor()).map(|(.., hint)| *hint);
     let path = format!("{}/{}", root().unwrap_or_default(), folder().trim());
     let chosen = roots.iter().find(|choice| Some(&choice.path) == root.read().as_ref());
-    let has = |names: fn(&RootChoice) -> &Vec<String>| {
+    let has = |names: fn(&RootChoice) -> &[String]| {
         chosen.is_some_and(|choice| names(choice).iter().any(|name| name == folder().trim()))
     };
     let (taken, existing) = (has(|choice| &choice.taken), has(|choice| &choice.folders));
@@ -166,9 +161,9 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
             }
             div { class: "grid min-w-0 flex-1 gap-4",
                 OptionFields {
-                    roots: roots.iter().map(|choice| choice.path.clone()).collect::<Vec<_>>(),
+                    roots,
                     root,
-                    presets: presets.iter().map(|(preset, label, _)| (*preset, *label)).collect::<Vec<_>>(),
+                    presets,
                     monitor,
                     monitor_hint: monitor_hint.unwrap_or_default(),
                     folder,
@@ -201,9 +196,9 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
 
 #[component]
 fn OptionFields(
-    roots: Vec<String>,
+    roots: Vec<RootChoice>,
     root: Signal<Option<String>>,
-    presets: Vec<(MonitorPreset, &'static str)>,
+    presets: &'static [(MonitorPreset, &'static str, &'static str)],
     monitor: Signal<Option<MonitorPreset>>,
     monitor_hint: &'static str,
     folder: Signal<String>,
@@ -217,7 +212,7 @@ fn OptionFields(
                 id: "add-root",
                 value: Some(root.into()),
                 on_value_change: move |next| root.set(next),
-                for (index, path) in roots.iter().enumerate() {
+                for (index, RootChoice { path, .. }) in roots.into_iter().enumerate() {
                     SelectOption::<String> {
                         key: "{path}",
                         index,
@@ -235,7 +230,7 @@ fn OptionFields(
                 value: Some(monitor.into()),
                 aria_describedby: "add-monitor-hint",
                 on_value_change: move |next| monitor.set(next),
-                for (index, (preset, label)) in presets.iter().enumerate() {
+                for (index, (preset, label, _)) in presets.iter().enumerate() {
                     SelectOption::<MonitorPreset> {
                         key: "{label}",
                         index,
