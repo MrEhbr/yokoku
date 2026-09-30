@@ -163,8 +163,8 @@ naming rules make each hop predictable:
     - Values computed from signals: `use_memo`, not a signal kept in sync by hand.
     - Large nested state edited per item, like the rows of an import review: a store
       (`#[derive(Store)]`, `use_store`), so a row re-renders alone.
-    - State a subtree shares: context (`use_context_provider` / `use_context`), as the sidebar
-      does; not for server data.
+    - State a subtree shares: context (`use_context_provider` / `use_context`), as `BackButton`'s
+      in-app history does; not for server data.
     - A child that edits page state takes the signal as a prop (`FilterBar { filters }`); a
       child that only shows it takes the value.
   - **Page states** follow the design system (§6 of DESIGN-SYSTEM.md): loading (`Skeleton`),
@@ -177,9 +177,10 @@ naming rules make each hop predictable:
     Sections that open and close are `Disclosure`, a native `details` that renders on the
     server; the vendored `Accordion` mounts its content only in the browser.
   - **Navigation:** a main destination is one `NavItem` in `layout/` `Shell`, a router link in
-    the sidebar, which is a sheet below `md`. Every other page belongs to one
-    (`Route::section`), which stays highlighted, and starts with `BackButton`: back after an
-    in-app link, or to its section when opened directly.
+    the top bar, whose links wrap to their own row below `md`; Settings is an icon link beside
+    the theme switch. The bar and the page share one width, capped at 120rem. Every other page
+    belongs to one (`Route::section`), which stays highlighted, and starts with `BackButton`:
+    back after an in-app link, or to its section when opened directly.
   - **Server functions:** a file in `api/` holds, compiled for both builds, its wire types and
     its server function signatures, and in one `#[cfg(feature = "server")] mod server` everything
     that needs the server build: the use-case call, error mapping, and the conversions between

@@ -174,6 +174,8 @@ Default output: `Shows/Title (Year)/Season 01/Title (Year) - S01E01 - Episode Ti
 
 Primary destinations: Library, Upcoming, Downloads, Activity, Settings. Review is a badge/action within Downloads and unmatched-file management; it does not require another large permanent screen. Missing is a Library filter/grouped view. Upcoming offers list/week/month views of monitored items.
 
+Destinations are text links in a top bar, the current one underlined in ink; Settings and the theme switch are icons at its right. The bar and the page share one width, capped at 1920px (120rem) so table rows stay scannable on wide windows. Below `md` the links take their own row, which scrolls sideways when it doesn't fit.
+
 Library: poster or compact list, type/status filters, title/date-added/next-release sorting. Series detail: next/last episode, monitoring, seasons, episode/file rows. Movie detail: release dates by type, monitoring, file details. Downloads: compact rows, selection, progress, linked media, review/retry. Settings: one screen grouped by connections, roots/import, naming, metadata/numbering, history, appearance.
 
 ## 10. Accessibility and scale

@@ -2,93 +2,73 @@ mod back_button;
 pub mod document_head;
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide::{CalendarDays, Download, History, Library, Settings};
+use dioxus_icons::lucide::Settings;
 
 pub(crate) use self::back_button::BackButton;
 use self::{back_button::use_in_app_history, document_head::DocumentHead};
-use crate::{
-    components::{
-        sidebar::{
-            Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton,
-            SidebarMenuItem, SidebarProvider, SidebarTrigger, use_sidebar,
-        },
-        theme_switch::ThemeSwitch,
-    },
-    route::Route,
-};
+use crate::{components::theme_switch::ThemeSwitch, route::Route};
 
-/// The sidebar with the main navigation, and the page beside it. Below `md` the sidebar is a
-/// sheet opened from the top bar.
+/// Page width and side padding, shared by the top bar and the page so their edges line up.
+const CONTAINER: &str = "mx-auto w-full max-w-[120rem] px-4 sm:px-6 lg:px-10";
+
+/// The top bar with the main navigation, and the page below it. Below `md` the navigation
+/// wraps to its own row, which scrolls sideways when it doesn't fit.
 #[component]
 pub fn Shell() -> Element {
     use_in_app_history();
+    let section = use_route::<Route>().section();
     rsx! {
         document::Title { "Yokoku" }
         DocumentHead {}
-        SidebarProvider {
-            Sidebar {
-                SidebarHeader { class: "px-4 py-3",
-                    Brand {}
-                }
-                SidebarContent { class: "px-2",
-                    nav { aria_label: "Main",
-                        SidebarMenu {
-                            NavItem { to: Route::Library {}, label: "Library", Library {} }
-                            NavItem { to: Route::Upcoming {}, label: "Upcoming", CalendarDays {} }
-                            NavItem { to: Route::Downloads {}, label: "Downloads", Download {} }
-                            NavItem { to: Route::History {}, label: "History", History {} }
-                            NavItem { to: Route::Settings {}, label: "Settings", Settings {} }
+        div { class: "flex min-h-dvh flex-col",
+            header { class: "sticky top-0 z-40 border-b border-line bg-canvas",
+                div { class: "{CONTAINER} flex flex-wrap items-center gap-x-8",
+                    Link {
+                        to: Route::Library {},
+                        class: "py-3 font-mono text-xl tracking-tight",
+                        "yokoku"
+                    }
+                    nav {
+                        aria_label: "Main",
+                        class: "order-last flex w-full overflow-x-auto md:order-none md:w-auto",
+                        NavItem { to: Route::Library {}, label: "Library" }
+                        NavItem { to: Route::Upcoming {}, label: "Upcoming" }
+                        NavItem { to: Route::Downloads {}, label: "Downloads" }
+                        NavItem { to: Route::History {}, label: "History" }
+                    }
+                    div { class: "ml-auto flex items-center gap-1",
+                        Link {
+                            to: Route::Settings {},
+                            class: "inline-flex size-9 items-center justify-center text-muted transition-colors hover:bg-subtle \
+                                    hover:text-ink aria-[current=page]:bg-subtle aria-[current=page]:text-ink [&>svg]:size-4",
+                            aria_label: "Settings",
+                            aria_current: if section == (Route::Settings {}) { "page" } else { "false" },
+                            Settings {}
                         }
+                        ThemeSwitch {}
                     }
                 }
-                SidebarFooter { class: "px-2 py-3",
-                    ThemeSwitch {}
-                }
             }
-            SidebarInset { class: "overflow-y-auto",
-                div { class: "flex items-center gap-2 border-b border-line px-3 py-2 md:hidden",
-                    SidebarTrigger {}
-                    Brand {}
-                }
-                div { class: "mx-auto flex w-full max-w-[80rem] flex-1 flex-col px-5 sm:px-8",
-                    div { class: "flex-1 py-8", Outlet::<Route> {} }
-                    Footer {}
-                }
+            main { class: "{CONTAINER} flex flex-1 flex-col",
+                div { class: "flex-1 py-8", Outlet::<Route> {} }
+                Footer {}
             }
         }
     }
 }
 
+/// A main destination, marked current on its own pages.
 #[component]
-fn Brand() -> Element {
-    rsx! {
-        Link {
-            to: Route::Library {},
-            class: "font-mono text-xl tracking-tight",
-            "yokoku"
-        }
-    }
-}
-
-/// A main destination, active on its own pages; following it closes the sidebar sheet.
-#[component]
-fn NavItem(to: Route, label: &'static str, children: Element) -> Element {
-    let sidebar = use_sidebar();
+fn NavItem(to: Route, label: &'static str) -> Element {
     let active = use_route::<Route>().section() == to;
     rsx! {
-        SidebarMenuItem {
-            SidebarMenuButton {
-                is_active: active,
-                r#as: move |attributes: Vec<Attribute>| rsx! {
-                    Link {
-                        to: to.clone(),
-                        onclick: move |_| sidebar.set_open_mobile(false),
-                        attributes,
-                        {children.clone()}
-                        span { "{label}" }
-                    }
-                },
-            }
+        Link {
+            to: to.clone(),
+            class: "-mb-px shrink-0 border-b-2 border-transparent px-3 py-3 text-body whitespace-nowrap text-muted \
+                    transition-colors hover:text-ink aria-[current=page]:border-ink aria-[current=page]:font-medium \
+                    aria-[current=page]:text-ink",
+            aria_current: if active { "page" } else { "false" },
+            "{label}"
         }
     }
 }
