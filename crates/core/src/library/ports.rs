@@ -50,12 +50,6 @@ pub trait ArtworkCache: Send + Sync {
     async fn remove(&self, item: ItemId) -> Result<(), StorageError>;
 }
 
-/// The folder name a new item gets in its root folder when the user gives none (FR-5.1).
-pub trait FolderNames: Send + Sync {
-    fn series_folder(&self, title: &str, year: Option<i16>) -> String;
-    fn movie_folder(&self, title: &str, year: Option<i16>) -> String;
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum MetadataError {
     #[error("{0} was not found at the metadata source")]

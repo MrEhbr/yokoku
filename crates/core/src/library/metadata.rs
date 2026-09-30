@@ -2,15 +2,16 @@ use std::{path::PathBuf, sync::Arc};
 
 use tracing::{debug, info, instrument};
 use yokoku_domain::{
-    Clock, ExternalId, ItemFolder, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
+    Clock, ExternalId, ItemFolder, ItemId, Live, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
     events::{EpisodesRenumbered, MovieAdded, SeriesAdded},
+    naming::Naming,
 };
 
 use crate::{
     events::Publisher,
     library::{
         LibraryError,
-        ports::{FolderNames, MetadataProvider, MovieRepo, SearchResult, SeriesRepo},
+        ports::{MetadataProvider, MovieRepo, SearchResult, SeriesRepo},
         retry,
     },
 };
@@ -20,7 +21,8 @@ pub struct MetadataService {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
     metadata: Arc<dyn MetadataProvider>,
-    folders: Arc<dyn FolderNames>,
+    /// Names a new item's folder when the caller gives none (FR-5.1).
+    naming: Live<Naming>,
     clock: Arc<dyn Clock>,
     events: Publisher,
 }
@@ -51,11 +53,11 @@ impl MetadataService {
         series: Arc<dyn SeriesRepo>,
         movies: Arc<dyn MovieRepo>,
         metadata: Arc<dyn MetadataProvider>,
-        folders: Arc<dyn FolderNames>,
+        naming: Live<Naming>,
         clock: Arc<dyn Clock>,
         events: Publisher,
     ) -> Self {
-        Self { series, movies, metadata, folders, clock, events }
+        Self { series, movies, metadata, naming, clock, events }
     }
 
     /// Movies and series matching `query`, or only those of `kind`.
@@ -65,11 +67,11 @@ impl MetadataService {
             let (in_library, folder) = match result.kind {
                 MediaKind::Series => (
                     self.series.find_by_source(result.source).await?.map(|series| ItemId::Series(series.id)),
-                    self.folders.series_folder(&result.title, result.year),
+                    self.naming.current().series_folder(&result.title, result.year),
                 ),
                 MediaKind::Movie => (
                     self.movies.find_by_source(result.source).await?.map(|movie| ItemId::Movie(movie.id)),
-                    self.folders.movie_folder(&result.title, result.year),
+                    self.naming.current().movie_folder(&result.title, result.year),
                 ),
             };
             hits.push(SearchHit { result, in_library, folder });
@@ -93,7 +95,7 @@ impl MetadataService {
         let metadata = self.metadata.series(source).await?;
         let folder = ItemFolder::new(
             root,
-            folder.unwrap_or_else(|| self.folders.series_folder(&metadata.title, metadata.year)),
+            folder.unwrap_or_else(|| self.naming.current().series_folder(&metadata.title, metadata.year)),
         )?;
         if self.series.find_by_folder(&folder).await?.is_some() {
             return Err(LibraryError::FolderTaken(folder.path()));
@@ -121,8 +123,10 @@ impl MetadataService {
             return Err(LibraryError::AlreadyInLibrary(source));
         }
         let metadata = self.metadata.movie(source).await?;
-        let folder =
-            ItemFolder::new(root, folder.unwrap_or_else(|| self.folders.movie_folder(&metadata.title, metadata.year)))?;
+        let folder = ItemFolder::new(
+            root,
+            folder.unwrap_or_else(|| self.naming.current().movie_folder(&metadata.title, metadata.year)),
+        )?;
         if self.movies.find_by_folder(&folder).await?.is_some() {
             return Err(LibraryError::FolderTaken(folder.path()));
         }

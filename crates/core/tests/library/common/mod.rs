@@ -11,10 +11,10 @@ use yokoku_core::{
     events::EventLog,
     library::{
         Calendar, Library, MetadataService,
-        ports::{FolderNames, MetadataError, MetadataProvider, SearchResult},
+        ports::{MetadataError, MetadataProvider, SearchResult},
     },
 };
-use yokoku_domain::{ExternalId, ItemName, MediaKind, MovieMetadata, SeriesMetadata, events::Event};
+use yokoku_domain::{ExternalId, Live, MediaKind, MovieMetadata, SeriesMetadata, events::Event, naming::Naming};
 use yokoku_infra::db::Database;
 pub use yokoku_test_support::{
     clock::TODAY,
@@ -24,19 +24,6 @@ use yokoku_test_support::{clock::TestClock, events::publisher};
 
 /// The root folder items are added to.
 pub const ROOT: &str = "/library";
-
-/// Names each folder `Title (Year)`.
-pub struct TitleFolders;
-
-impl FolderNames for TitleFolders {
-    fn series_folder(&self, title: &str, year: Option<i16>) -> String {
-        ItemName::new(title, year).to_string()
-    }
-
-    fn movie_folder(&self, title: &str, year: Option<i16>) -> String {
-        ItemName::new(title, year).to_string()
-    }
-}
 
 /// Serves metadata registered by the test.
 #[derive(Default)]
@@ -121,8 +108,14 @@ impl App {
         let events = publisher(&db);
         let library = Library::new(repo.clone(), repo.clone(), clock.clone(), events.clone());
         let calendar = Calendar::new(repo.clone(), repo.clone(), clock.clone());
-        let metadata =
-            MetadataService::new(repo.clone(), repo, provider.clone(), Arc::new(TitleFolders), clock.clone(), events);
+        let metadata = MetadataService::new(
+            repo.clone(),
+            repo,
+            provider.clone(),
+            Live::fixed(Naming::default()),
+            clock.clone(),
+            events,
+        );
         Self { _dir: dir, db, clock, provider, library, calendar, metadata }
     }
 

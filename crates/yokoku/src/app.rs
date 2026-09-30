@@ -10,13 +10,13 @@ use yokoku_core::{
     downloads::{DownloadError, Downloads, ports::DownloadClient},
     events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges},
     integrations::{Rescans, ports::MediaServer},
-    library::{Artworks, Calendar, FileTracker, Library, MetadataService, ports::FolderNames},
+    library::{Artworks, Calendar, FileTracker, Library, MetadataService},
     media::{
         Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
         ports::{FileSystem, LibraryLock},
     },
 };
-use yokoku_domain::{Clock, Live, naming::Naming};
+use yokoku_domain::{Clock, Live};
 use yokoku_infra::{
     db::Database,
     download_clients::TransmissionClient,
@@ -84,7 +84,7 @@ impl App {
                 Arc::new(TvdbClient::new(metadata_settings)),
                 settings.live(|config| config.metadata.tvdb.api_key.is_some()),
             )),
-            Arc::new(NamedFolders(naming.clone())),
+            naming.clone(),
             clock.clone(),
             events.clone(),
         ));
@@ -191,6 +191,7 @@ impl App {
     }
 
     fn spawn_flush(&self, shutdown: &CancellationToken) -> JoinHandle<()> {
+        const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
         let (events, shutdown) = (self.events.clone(), shutdown.clone());
         tokio::spawn(async move {
             shutdown
@@ -204,19 +205,6 @@ impl App {
                 })
                 .await;
         })
-    }
-}
-
-/// Names new item folders with the configured naming patterns.
-struct NamedFolders(Live<Naming>);
-
-impl FolderNames for NamedFolders {
-    fn series_folder(&self, title: &str, year: Option<i16>) -> String {
-        self.0.current().series_folder(title, year)
-    }
-
-    fn movie_folder(&self, title: &str, year: Option<i16>) -> String {
-        self.0.current().movie_folder(title, year)
     }
 }
 
@@ -240,5 +228,3 @@ impl ConnectionTest for Connections {
         }
     }
 }
-
-const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
