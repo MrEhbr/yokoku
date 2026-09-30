@@ -113,6 +113,23 @@ impl Template {
         rendered
     }
 
+    /// Renders `{title}` and `{year}`; other tokens have no value.
+    pub(crate) fn render_item(&self, title: &str, year: Option<i16>) -> String {
+        let title = self.title(title, year);
+        self.render(&|token| match token {
+            Token::Title => Some(title.to_owned()),
+            Token::Year => year.map(|year| year.to_string()),
+            _ => None,
+        })
+    }
+
+    /// `title` without a trailing ` (year)` of its own `year` when this template renders the year, so
+    /// a title like `ONE PIECE (2023)` gives `ONE PIECE (2023)`, not `ONE PIECE (2023) (2023)`.
+    pub(crate) fn title<'a>(&self, title: &'a str, year: Option<i16>) -> &'a str {
+        let Some(year) = year.filter(|_| self.contains(Token::Year)) else { return title };
+        title.strip_suffix(&format!(" ({year})")).filter(|rest| !rest.trim().is_empty()).unwrap_or(title)
+    }
+
     pub(crate) fn contains(&self, token: Token) -> bool {
         self.parts.iter().any(|part| match part {
             Part::Token(candidate) => *candidate == token,
