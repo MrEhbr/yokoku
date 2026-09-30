@@ -1,4 +1,3 @@
-use serde_json::json;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{header, method, path},
@@ -6,6 +5,7 @@ use wiremock::{
 use yokoku_domain::{Live, Secret};
 use yokoku_integrations::ports::{MediaServer, MediaServerError};
 use yokoku_media_servers::{JellyfinClient, JellyfinSettings};
+use yokoku_test_support::jellyfin::system_info;
 
 const AUTHORIZATION: &str = "MediaBrowser Token=\"secret\"";
 
@@ -30,12 +30,7 @@ async fn refreshes_the_library_with_the_api_key() {
 #[tokio::test]
 async fn reports_the_server_version() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/System/Info"))
-        .and(header("Authorization", AUTHORIZATION))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "ServerName": "media", "Version": "10.10.7" })))
-        .mount(&server)
-        .await;
+    system_info("secret", "10.10.7").mount(&server).await;
 
     assert_eq!(client(server.uri(), "secret").version().await.unwrap(), "Jellyfin 10.10.7");
 }

@@ -6346,12 +6346,12 @@ dependencies = [
  "async-trait",
  "reqwest 0.13.5",
  "serde",
- "serde_json",
  "tokio",
  "tracing",
  "wiremock",
  "yokoku-domain",
  "yokoku-integrations",
+ "yokoku-test-support",
 ]
 
 [[package]]
