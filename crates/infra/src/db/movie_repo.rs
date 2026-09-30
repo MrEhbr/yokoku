@@ -81,7 +81,7 @@ impl MovieRepo for Database {
     }
 
     async fn remove(&self, id: MovieId) -> Result<(), StorageError> {
-        let mut tx = self.begin().await?;
+        let mut tx = self.pool().begin().await.map_err(DbError::from)?;
         sqlx::query("DELETE FROM movies WHERE id = ?")
             .bind(id.to_string())
             .execute(&mut *tx)

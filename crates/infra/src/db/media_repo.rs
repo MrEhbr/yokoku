@@ -232,7 +232,7 @@ impl Database {
     }
 
     async fn save_changes(&self, changes: &Changes) -> Result<(), DbError> {
-        let mut tx = self.begin().await?;
+        let mut tx = self.pool().begin().await?;
         for id in &changes.removed_files {
             sqlx::query("DELETE FROM media_files WHERE id = ?").bind(id.to_string()).execute(&mut *tx).await?;
         }

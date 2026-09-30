@@ -19,7 +19,7 @@ pub async fn accept_events(db: &Database) {
 }
 
 async fn execute(db: &Database, sql: &'static str) {
-    let mut tx = db.begin().await.unwrap();
+    let mut tx = db.pool().begin().await.unwrap();
     sqlx::query(sql).execute(&mut *tx).await.unwrap();
     tx.commit().await.unwrap();
 }

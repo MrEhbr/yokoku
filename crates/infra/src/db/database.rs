@@ -43,10 +43,6 @@ impl Database {
         &self.pool
     }
 
-    pub async fn begin(&self) -> Result<Transaction<'static, Sqlite>, DbError> {
-        Ok(self.pool.begin().await?)
-    }
-
     /// Begins a transaction that bumps the row's revision; `Conflict` when the stored revision is
     /// not `revision`. A zero revision is a new row and bumps nothing.
     pub(crate) async fn begin_save(
@@ -55,7 +51,7 @@ impl Database {
         id: &str,
         revision: u64,
     ) -> Result<Transaction<'static, Sqlite>, DbError> {
-        let mut tx = self.begin().await?;
+        let mut tx = self.pool.begin().await?;
         if revision > 0 {
             let claimed = sqlx::query(AssertSqlSafe(format!(
                 "UPDATE {table} SET revision = revision + 1 WHERE id = ? AND revision = ?"

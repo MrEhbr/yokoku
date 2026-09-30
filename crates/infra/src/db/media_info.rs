@@ -65,7 +65,7 @@ impl Database {
 
     pub(crate) async fn store_media_info(&self, file: MediaFileId, info: &MediaInfo) -> Result<(), DbError> {
         let file = file.to_string();
-        let mut tx = self.begin().await?;
+        let mut tx = self.pool().begin().await?;
         sqlx::query("DELETE FROM media_info WHERE file_id = ?").bind(&file).execute(&mut *tx).await?;
         let inserted = sqlx::query(
             "INSERT INTO media_info (file_id, duration_ms, video_codec, width, height)

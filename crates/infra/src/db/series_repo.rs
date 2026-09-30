@@ -104,7 +104,7 @@ impl SeriesRepo for Database {
     }
 
     async fn remove(&self, id: SeriesId) -> Result<(), StorageError> {
-        let mut tx = self.begin().await?;
+        let mut tx = self.pool().begin().await.map_err(DbError::from)?;
         sqlx::query("DELETE FROM series WHERE id = ?")
             .bind(id.to_string())
             .execute(&mut *tx)
