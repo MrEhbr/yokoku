@@ -1,6 +1,6 @@
 use std::{path::Path, sync::Arc, time::Duration};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_json::Value;
 use tokio::{task::JoinHandle, time::sleep};
@@ -50,7 +50,7 @@ pub struct App {
     pub deleter: Arc<Deleter>,
     pub prober: Arc<Prober>,
     pub rescans: Arc<Rescans>,
-    metadata: Arc<MetadataService>,
+    pub metadata: Arc<MetadataService>,
     pub events: Publisher,
     log: EventLog,
     subscribers: Vec<Arc<Subscription>>,
@@ -210,18 +210,6 @@ impl App {
                 })
                 .await;
         })
-    }
-
-    /// Use cases that need the metadata source; fails while no TMDB token is configured.
-    pub fn metadata(&self) -> Result<&MetadataService> {
-        if self.settings.current().metadata.tmdb.token.is_none() {
-            bail!("No TMDB token configured; set APP__METADATA__TMDB__TOKEN");
-        }
-        Ok(&self.metadata)
-    }
-
-    pub fn metadata_service(&self) -> Arc<MetadataService> {
-        self.metadata.clone()
     }
 
     /// The item's title with its year; `removed series` or `removed movie` once it left the library.

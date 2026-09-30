@@ -19,7 +19,10 @@ pub struct Args {
 }
 
 pub async fn run(app: &App, args: Args) -> Result<()> {
-    let metadata = app.metadata()?;
+    if app.settings.current().metadata.tmdb.token.is_none() {
+        bail!("No TMDB token configured; set APP__METADATA__TMDB__TOKEN");
+    }
+    let metadata = &app.metadata;
     let item = ItemArgs::optional(args.kind, args.source);
 
     let Some(item) = item else {
