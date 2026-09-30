@@ -44,7 +44,7 @@ pub fn SeriesDetail(id: SeriesId) -> Element {
         div { class: "mt-4",
             match &*series.read() {
                 None => rsx! {
-                    Skeleton { class: "aspect-[3/1] w-full" }
+                    Skeleton { class: "aspect-[3/1] max-h-[40dvh] w-full" }
                 },
                 Some(Err(_)) => rsx! {
                     Alert { variant: AlertVariant::Danger,
@@ -142,7 +142,6 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     RemoveItem { item: ItemId::Series(id), title: series.title.clone(), usage }
                 }
             }
-            ItemDescription { description: series.description.clone(), per_episode: true }
             div { class: "mt-2 grid gap-3 lg:grid-cols-2",
                 EpisodeSummary {
                     label: "Next episode",
@@ -157,6 +156,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     today,
                 }
             }
+            ItemDescription { description: series.description.clone(), per_episode: true }
         }
         if let Some(unrecognised) = series.unrecognised {
             div { class: "mt-8",

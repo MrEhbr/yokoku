@@ -40,7 +40,7 @@ pub fn MovieDetail(id: MovieId) -> Element {
         div { class: "mt-4",
             match &*movie.read() {
                 None => rsx! {
-                    Skeleton { class: "aspect-[3/1] w-full" }
+                    Skeleton { class: "aspect-[3/1] max-h-[40dvh] w-full" }
                 },
                 Some(Err(_)) => rsx! {
                     Alert { variant: AlertVariant::Danger,
