@@ -89,6 +89,42 @@ async fn rows_sharing_an_episode_or_holding_a_linked_one_conflict() {
 }
 
 #[tokio::test]
+async fn a_row_kept_beside_the_others_neither_has_nor_causes_conflicts() {
+    let app = App::new().await;
+    app.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E03.mkv", 10);
+    let id = pending(&app).await;
+    app.reviewer.match_row(id, 1, app.episodes(1, 2, 2)).await.unwrap();
+    app.reviewer.match_row(id, 2, app.episodes(1, 2, 2)).await.unwrap();
+    app.reviewer.match_row(id, 3, app.episodes(1, 3, 3)).await.unwrap();
+
+    app.reviewer.keep_both_row(id, 2).await.unwrap();
+    app.reviewer.keep_both_row(id, 3).await.unwrap();
+
+    let review = app.reviewer.get(id).await.unwrap();
+    assert!(review.rows.iter().all(|row| row.conflicts.is_empty()), "{review:?}");
+    assert_eq!(review.rows[2].row.resolution, Resolution::KeepBoth);
+    app.reviewer.match_row(id, 3, app.episodes(1, 3, 3)).await.unwrap();
+    assert_eq!(app.reviewer.get(id).await.unwrap().rows[2].conflicts, [Conflict::AlreadyHasFile]);
+}
+
+#[tokio::test]
+async fn a_scanned_file_kept_beside_the_library_file_is_linked_where_it_is() {
+    let app = App::new().await;
+    app.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E03.mkv", 10);
+    let id = pending(&app).await;
+    app.reviewer.match_row(id, 1, app.episodes(1, 3, 3)).await.unwrap();
+    app.reviewer.keep_both_row(id, 1).await.unwrap();
+    app.reviewer.skip_row(id, 2).await.unwrap();
+    app.reviewer.skip_row(id, 3).await.unwrap();
+
+    let Approval::Linked(files) = app.reviewer.approve(id).await.unwrap() else { panic!("scan imports are linked") };
+
+    assert_eq!(files.iter().map(|file| file.path.clone()).collect::<Vec<_>>(), [app.path("tv/Frieren (2023)/a.mkv")]);
+    let episode = app.db_files().await.into_iter().filter(|file| file.target == app.episodes(1, 3, 3)).count();
+    assert_eq!(episode, 2);
+}
+
+#[tokio::test]
 async fn skipping_a_row_clears_its_conflicts() {
     let app = App::new().await;
     let id = pending(&app).await;

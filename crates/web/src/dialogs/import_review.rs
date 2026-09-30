@@ -7,7 +7,8 @@ use crate::{
         failure,
         library::{Entry, detail, library},
         review::{
-            Confidence, Conflict, Imported, Match, ReviewFile, approve, match_file, replace_file, review, skip_file,
+            Confidence, Conflict, Imported, Match, Resolution, ReviewFile, approve, keep_both_file, match_file,
+            replace_file, review, skip_file,
         },
     },
     components::{
@@ -171,6 +172,7 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
         let done = match action {
             RowAction::Skip => skip_file(import, row).await,
             RowAction::Replace => replace_file(import, row).await,
+            RowAction::KeepBoth => keep_both_file(import, row).await,
         };
         match done {
             Ok(()) => on_change(()),
@@ -179,7 +181,8 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
         busy.set(false);
     };
     let target = file.target.clone();
-    let can_replace = from_download && !file.replace && file.conflicts.contains(&Conflict::AlreadyHasFile);
+    let can_replace = from_download && file.conflicts.contains(&Conflict::AlreadyHasFile);
+    let can_keep_both = !file.conflicts.is_empty();
     rsx! {
         li { class: "grid gap-2 border-b border-line py-3",
             div { class: "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1",
@@ -206,8 +209,14 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
                             Status { tone: Tone::Warning, label: "No match" }
                         },
                     }
-                    if file.replace {
-                        span { class: "text-caption text-warning", "replaces the library file" }
+                    match file.resolution {
+                        Resolution::Replace => rsx! {
+                            span { class: "text-caption text-warning", "replaces the library file" }
+                        },
+                        Resolution::KeepBoth => rsx! {
+                            span { class: "text-caption text-muted", "kept beside the other files" }
+                        },
+                        Resolution::Unresolved => rsx! {},
                     }
                     for conflict in file.conflicts.clone() {
                         span { class: "text-caption text-danger", "{conflict.label()}" }
@@ -234,6 +243,19 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
                             title: "The library file is deleted when this one is imported",
                             onclick: move |_| act(RowAction::Replace),
                             "Replace library file"
+                        }
+                    }
+                    if can_keep_both {
+                        Button {
+                            size: ButtonSize::Sm,
+                            disabled: busy(),
+                            title: if from_download {
+                                "Both are kept; this one gets a numbered name where its own is taken"
+                            } else {
+                                "Both are kept, each where it is"
+                            },
+                            onclick: move |_| act(RowAction::KeepBoth),
+                            "Keep both"
                         }
                     }
                     if !file.skipped {
@@ -450,4 +472,5 @@ fn MatchEditor(
 enum RowAction {
     Skip,
     Replace,
+    KeepBoth,
 }

@@ -82,19 +82,22 @@ pub struct ImportRow {
     pub resolution: Resolution,
 }
 
-/// How a row settles a library file that already holds its target (FR-4.12).
+/// How a row settles a library file, or another row, that holds its target (FR-4.12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Resolution {
-    /// The library file is a conflict the user resolves.
+    /// Either is a conflict the user resolves.
     #[default]
     Unresolved,
-    /// Replaces the library file.
+    /// Replaces the library file; another row is still a conflict.
     Replace,
+    /// Imported beside both; a download's file takes a numbered name where its own is taken.
+    KeepBoth,
 }
 
 yokoku_domain::string_enum!(Resolution, "resolution" {
     Unresolved => "unresolved",
     Replace => "replace",
+    KeepBoth => "keep-both",
 });
 
 /// Streams a probe read from a video file (FR-8.6).

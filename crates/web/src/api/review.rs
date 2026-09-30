@@ -27,13 +27,24 @@ pub struct ReviewFile {
     pub target: Option<Target>,
     pub confidence: Confidence,
     pub skipped: bool,
-    /// Replaces the library file that holds its target.
-    pub replace: bool,
+    pub resolution: Resolution,
     /// Why it cannot be imported as matched, like "already has a file".
     pub conflicts: Vec<Conflict>,
     /// Its path once imported, relative to its item's folder; none while skipped or unmatched,
     /// and for files a scan found, which stay where they are.
     pub name: Option<String>,
+}
+
+/// How a file settles a library file, or another file, that holds its match.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Resolution {
+    /// Either is a conflict.
+    Unresolved,
+    /// Replaces the library file.
+    Replace,
+    /// Imported beside both; a download's file takes a numbered name where its own is taken.
+    KeepBoth,
 }
 
 /// What a file is matched to.
@@ -120,6 +131,12 @@ pub async fn replace_file(import: ImportId, row: usize) -> Result<(), ServerFnEr
     reviewer.replace_row(import, row).await.map_err(server::failure)
 }
 
+/// The file is imported beside the library file and other files that hold its match.
+#[post("/api/review/keep-both", reviewer: Dep<Reviewer>)]
+pub async fn keep_both_file(import: ImportId, row: usize) -> Result<(), ServerFnError> {
+    reviewer.keep_both_row(import, row).await.map_err(server::failure)
+}
+
 /// Every row not skipped needs a match free of conflicts.
 #[post("/api/review/approve", reviewer: Dep<Reviewer>)]
 pub async fn approve(import: ImportId) -> Result<Imported, ServerFnError> {
@@ -138,7 +155,9 @@ mod server {
     use yokoku_library::{LibraryFilter, LibrarySort};
     use yokoku_media::{Approval, ImportRow, MediaError};
 
-    use super::{Confidence, Conflict, Imported, Importer, Library, Match, Review, ReviewFile, Reviewer, Target};
+    use super::{
+        Confidence, Conflict, Imported, Importer, Library, Match, Resolution, Review, ReviewFile, Reviewer, Target,
+    };
 
     pub(super) async fn review(
         reviewer: &Reviewer,
@@ -190,7 +209,11 @@ mod server {
                         yokoku_domain::Confidence::Unknown => Confidence::Unknown,
                     },
                     skipped: row.skipped,
-                    replace: row.resolution == yokoku_media::Resolution::Replace,
+                    resolution: match row.resolution {
+                        yokoku_media::Resolution::Unresolved => Resolution::Unresolved,
+                        yokoku_media::Resolution::Replace => Resolution::Replace,
+                        yokoku_media::Resolution::KeepBoth => Resolution::KeepBoth,
+                    },
                     conflicts: reviewed
                         .conflicts
                         .iter()

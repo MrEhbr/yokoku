@@ -3,6 +3,7 @@ mod common;
 use std::{fs, os::unix::fs::MetadataExt, path::Path};
 
 use common::{App, relative};
+use rstest::rstest;
 use yokoku_domain::{DownloadId, ImportId, ItemId};
 use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, LinkedFile};
 use yokoku_library::ports::SeriesRepo;
@@ -216,6 +217,50 @@ async fn a_failed_import_keeps_the_files_it_placed_and_completes_on_retry() {
     let files = app.db_files().await;
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01, E02]);
     assert_eq!(files[0].id, placed[0].id);
+}
+
+/// A library file of 5 bytes at `E01` and a download of S01E01 kept beside it, approved.
+async fn approved_beside(app: &App) -> ImportId {
+    app.write(E01, 5);
+    app.scanner.scan().await.unwrap();
+    app.write(SOURCE, 10);
+    let import = app
+        .planner
+        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)))
+        .await
+        .unwrap()
+        .unwrap();
+    app.reviewer.keep_both_row(import.id, 1).await.unwrap();
+    assert_eq!(app.reviewer.approve(import.id).await.unwrap(), Approval::Queued);
+    import.id
+}
+
+#[rstest]
+#[case::next_number(&[], "Frieren (2023) - S01E01 - Episode 1 (2).mkv")]
+#[case::past_a_taken_number(&["Frieren (2023) - S01E01 - Episode 1 (2).mkv"], "Frieren (2023) - S01E01 - Episode 1 (3).mkv")]
+#[tokio::test]
+async fn a_file_kept_beside_the_library_file_gets_the_next_free_name(#[case] taken: &[&str], #[case] name: &str) {
+    let app = App::new().await;
+    let id = approved_beside(&app).await;
+    for other in taken {
+        app.write(&format!("tv/Frieren (2023)/Season 01/{other}"), 3);
+    }
+    let rows = MediaRepo::import(&app.db, id).await.unwrap().unwrap().rows;
+    let planned = app.importer(ImportMode::HardLink).destinations(&rows).await.unwrap();
+
+    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+
+    let kept = format!("tv/Frieren (2023)/Season 01/{name}");
+    assert_eq!(finished[0].status, ImportStatus::Done);
+    assert_eq!(planned[0].as_ref().map(|destination| destination.path()), Some(app.path(&kept)));
+    assert_eq!(fs::read(app.path(E01)).unwrap().len(), 5);
+    assert_eq!(inode(&app.path(&kept)), inode(&app.path(SOURCE)));
+    let mut files = relative(&app, app.db_files().await.iter().map(|file| file.path.as_path()));
+    let mut expected = [E01.to_owned(), kept];
+    files.sort();
+    expected.sort();
+    assert_eq!(files, expected);
+    assert!(replaced(&app).await.is_empty());
 }
 
 /// A library file of `size` bytes at `old` replaced by an approved download of S01E01.

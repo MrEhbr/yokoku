@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io,
     path::{Path, PathBuf},
     sync::Arc,
@@ -190,11 +190,14 @@ impl Importer {
     async fn place_all(&self, import: &Import, placed: &mut Placed) -> Result<(), MediaError> {
         let library = self.repo.files().await?;
         let subtitles = self.subtitles(&import.source).await?;
+        let destinations = self.destinations(&import.rows).await?;
         let now = self.clock.now().timestamp();
 
-        for (number, row) in (1..).zip(&import.rows).filter(|(_, row)| !row.skipped) {
+        for ((number, row), destination) in
+            (1..).zip(&import.rows).zip(destinations).filter(|((_, row), _)| !row.skipped)
+        {
             let target = row.target.ok_or(MediaError::RowUnmatched(number))?;
-            let destination = self.destination(target, &row.path).await?.path();
+            let destination = destination.ok_or(MediaError::RowUnmatched(number))?.path();
             let linked = library.iter().any(|file| file.path == destination && file.target == target);
             if linked && self.already_placed(&row.path, &destination).await? {
                 debug!(path = %destination.display(), "already in the library");
@@ -241,7 +244,8 @@ impl Importer {
         Ok(())
     }
 
-    /// Where each row would be placed, in row order; `None` for a skipped or unmatched row.
+    /// Where each row would be placed, in row order; `None` for a skipped or unmatched row. A row
+    /// kept beside others takes the first free numbered name after the other rows took theirs.
     pub async fn destinations(&self, rows: &[ImportRow]) -> Result<Vec<Option<Destination>>, MediaError> {
         let mut destinations = Vec::with_capacity(rows.len());
         for row in rows {
@@ -250,7 +254,45 @@ impl Importer {
                 None => None,
             });
         }
+
+        let kept = |row: &ImportRow| row.resolution == Resolution::KeepBoth;
+        let library: HashSet<PathBuf> = self.repo.files().await?.into_iter().map(|file| file.path).collect();
+        let mut taken: HashSet<PathBuf> = rows
+            .iter()
+            .zip(&destinations)
+            .filter(|(row, _)| !kept(row))
+            .filter_map(|(_, destination)| destination.as_ref().map(Destination::path))
+            .collect();
+        for (row, destination) in rows.iter().zip(&mut destinations) {
+            let Some(destination) = destination.as_mut().filter(|_| kept(row)) else { continue };
+            destination.name = self.free_name(&row.path, destination, &library, &taken).await?;
+            taken.insert(destination.path());
+        }
         Ok(destinations)
+    }
+
+    /// The destination's name or the first of `name (2)`, `name (3)`, … that already holds
+    /// `source`, or holds nothing: no file on disk, in the library, or in `taken`. Ends because
+    /// only finitely many of those names are occupied.
+    async fn free_name(
+        &self,
+        source: &Path,
+        destination: &Destination,
+        library: &HashSet<PathBuf>,
+        taken: &HashSet<PathBuf>,
+    ) -> Result<PathBuf, MediaError> {
+        let mut number = 1;
+        loop {
+            let name = numbered(&destination.name, number);
+            let path = destination.folder.join(&name);
+            if !taken.contains(&path)
+                && (self.already_placed(source, &path).await?
+                    || (!library.contains(&path) && self.fs.stat(&path).await?.is_none()))
+            {
+                return Ok(name);
+            }
+            number += 1;
+        }
     }
 
     /// The naming path in the item's folder.
@@ -338,4 +380,17 @@ impl Importer {
         debug!(from = %source.display(), to = %destination.display(), ?mode, "placed");
         Ok(())
     }
+}
+
+/// `name` for 1, else `name (number)` before its extension.
+fn numbered(name: &Path, number: u32) -> PathBuf {
+    if number == 1 {
+        return name.to_owned();
+    }
+    let stem = name.file_stem().unwrap_or_default().to_string_lossy();
+    let file = match name.extension() {
+        Some(extension) => format!("{stem} ({number}).{}", extension.to_string_lossy()),
+        None => format!("{stem} ({number})"),
+    };
+    name.with_file_name(file)
 }

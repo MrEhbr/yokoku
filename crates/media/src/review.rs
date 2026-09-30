@@ -101,6 +101,15 @@ impl Reviewer {
         .await
     }
 
+    /// Marks a row to be imported beside the library file and other rows that hold its target.
+    pub async fn keep_both_row(&self, id: ImportId, row: usize) -> Result<(), MediaError> {
+        self.update_row(id, row, |row| {
+            row.resolution = Resolution::KeepBoth;
+            row.skipped = false;
+        })
+        .await
+    }
+
     /// Every row that is not skipped needs a match free of conflicts. Files found by a scan are
     /// linked where they are; files from a download wait for `Importer` to place them.
     pub async fn approve(&self, id: ImportId) -> Result<Approval, MediaError> {
@@ -192,10 +201,10 @@ impl Reviewer {
     }
 
     /// Per row: another row holds the same episode or movie, or a library file already does and the
-    /// row does not replace it.
+    /// row does not replace it. A row kept beside both has neither, and causes none.
     async fn conflicts(&self, import: &Import) -> Result<Vec<Vec<Conflict>>, MediaError> {
         let linked: Vec<FileTarget> = self.repo.files().await?.into_iter().map(|file| file.target).collect();
-        let active = |row: &ImportRow| row.target.filter(|_| !row.skipped);
+        let active = |row: &ImportRow| row.target.filter(|_| !row.skipped && row.resolution != Resolution::KeepBoth);
 
         Ok(import
             .rows
@@ -208,7 +217,8 @@ impl Reviewer {
                     .iter()
                     .enumerate()
                     .any(|(other, row)| other != index && active(row).is_some_and(|other| other.overlaps(&target)));
-                let taken = row.resolution != Resolution::Replace && linked.iter().any(|file| file.overlaps(&target));
+                let taken =
+                    row.resolution == Resolution::Unresolved && linked.iter().any(|file| file.overlaps(&target));
                 [(shared, Conflict::SharedTarget), (taken, Conflict::AlreadyHasFile)]
                     .into_iter()
                     .filter_map(|(present, conflict)| present.then_some(conflict))
