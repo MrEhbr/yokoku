@@ -32,6 +32,7 @@ use crate::{
 };
 
 /// Use cases wired to their adapters, each reading the settings in effect when it runs.
+#[derive(Clone)]
 pub struct App {
     pub settings: Settings,
     pub library: Arc<Library>,

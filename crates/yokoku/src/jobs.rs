@@ -13,7 +13,7 @@ use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_core::events::correlation::correlate;
-use yokoku_domain::{CorrelationId, Live};
+use yokoku_domain::CorrelationId;
 
 use crate::app::App;
 
@@ -99,60 +99,84 @@ pub struct InvalidSchedule {
 /// Starts each job on its schedule, one tick at a time; each stops when `shutdown` is cancelled,
 /// after the tick it is running.
 pub fn spawn(app: &App, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
-    let (downloads, importer, scanner, metadata, rescans) =
-        (app.downloads.clone(), app.importer.clone(), app.scanner.clone(), app.metadata.clone(), app.rescans.clone());
-    let active = downloads.clone();
-    let shutdown = || shutdown.clone();
-    let schedule =
-        |pick: fn(&ScheduleSettings) -> &Cron| app.settings.live(move |config| pick(&config.serve).schedule.clone());
-    vec![
-        tokio::spawn(every("sync-downloads", schedule(|s| &s.sync_downloads), shutdown(), async move || {
-            downloads.sync().await
-        })),
-        tokio::spawn(every(
-            "sync-active-downloads",
-            schedule(|s| &s.sync_active_downloads),
-            shutdown(),
-            async move || active.sync_active().await,
-        )),
-        tokio::spawn(every("execute-imports", schedule(|s| &s.execute_imports), shutdown(), async move || {
-            importer.run_pending().await
-        })),
-        tokio::spawn(every("scan-library", schedule(|s| &s.scan_library), shutdown(), async move || {
-            scanner.scan().await
-        })),
-        tokio::spawn(every("refresh-metadata", schedule(|s| &s.refresh_metadata), shutdown(), async move || {
-            let report = metadata.refresh_due().await?;
-            for failure in &report.failures {
-                warn!(item = ?failure.item, error = %failure.error, "metadata refresh failed");
-            }
-            info!(refreshed = report.refreshed, failed = report.failures.len(), "metadata refreshed");
-            Ok::<_, BoxError>(())
-        })),
-        tokio::spawn(every("rescan-media-server", schedule(|s| &s.rescan_media_server), shutdown(), async move || {
-            rescans.run_due(RESCAN_QUIET).await
-        })),
-    ]
+    Job::ALL.into_iter().map(|job| tokio::spawn(job.every(app.clone(), shutdown.clone()))).collect()
 }
 
-/// Runs `job` on each tick of `schedule` in UTC, reading `schedule` again before each tick and at
-/// least every `RECHECK`; a tick missed while `job` runs is skipped.
-async fn every<T, E: Into<BoxError>>(
-    name: &'static str,
-    schedule: Live<Schedule>,
-    shutdown: CancellationToken,
-    job: impl AsyncFn() -> Result<T, E>,
-) {
-    loop {
-        let next = schedule.current().upcoming(TimeZone::UTC).next();
-        let wait = next.as_ref().map_or(RECHECK, |tick| until(tick).min(RECHECK));
-        tokio::select! {
-            biased;
-            () = shutdown.cancelled() => return,
-            () = sleep(wait) => {}
+/// A scheduled job; `[serve]` holds its schedule under the same name.
+#[derive(Debug, Clone, Copy)]
+enum Job {
+    SyncDownloads,
+    SyncActiveDownloads,
+    ExecuteImports,
+    ScanLibrary,
+    RefreshMetadata,
+    RescanMediaServer,
+}
+
+impl Job {
+    const ALL: [Self; 6] = [
+        Self::SyncDownloads,
+        Self::SyncActiveDownloads,
+        Self::ExecuteImports,
+        Self::ScanLibrary,
+        Self::RefreshMetadata,
+        Self::RescanMediaServer,
+    ];
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::SyncDownloads => "sync-downloads",
+            Self::SyncActiveDownloads => "sync-active-downloads",
+            Self::ExecuteImports => "execute-imports",
+            Self::ScanLibrary => "scan-library",
+            Self::RefreshMetadata => "refresh-metadata",
+            Self::RescanMediaServer => "rescan-media-server",
         }
-        if next.is_some_and(|tick| Zoned::now() >= tick) {
-            _ = run(name, async { job().await.map(drop).map_err(Into::into) }).await;
+    }
+
+    fn schedule(self, serve: &ScheduleSettings) -> &Cron {
+        match self {
+            Self::SyncDownloads => &serve.sync_downloads,
+            Self::SyncActiveDownloads => &serve.sync_active_downloads,
+            Self::ExecuteImports => &serve.execute_imports,
+            Self::ScanLibrary => &serve.scan_library,
+            Self::RefreshMetadata => &serve.refresh_metadata,
+            Self::RescanMediaServer => &serve.rescan_media_server,
+        }
+    }
+
+    async fn run(self, app: &App) -> Result<(), BoxError> {
+        match self {
+            Self::SyncDownloads => app.downloads.sync().await.map(drop)?,
+            Self::SyncActiveDownloads => app.downloads.sync_active().await.map(drop)?,
+            Self::ExecuteImports => app.importer.run_pending().await.map(drop)?,
+            Self::ScanLibrary => app.scanner.scan().await.map(drop)?,
+            Self::RefreshMetadata => {
+                let report = app.metadata.refresh_due().await?;
+                for failure in &report.failures {
+                    warn!(item = ?failure.item, error = %failure.error, "metadata refresh failed");
+                }
+                info!(refreshed = report.refreshed, failed = report.failures.len(), "metadata refreshed");
+            },
+            Self::RescanMediaServer => app.rescans.run_due(RESCAN_QUIET).await.map(drop)?,
+        }
+        Ok(())
+    }
+
+    /// Runs on each tick of the job's schedule in UTC, reading the schedule again before each tick
+    /// and at least every `RECHECK`; a tick missed while the job runs is skipped.
+    async fn every(self, app: App, shutdown: CancellationToken) {
+        loop {
+            let next = self.schedule(&app.settings.current().serve).schedule.upcoming(TimeZone::UTC).next();
+            let wait = next.as_ref().map_or(RECHECK, |tick| until(tick).min(RECHECK));
+            tokio::select! {
+                biased;
+                () = shutdown.cancelled() => return,
+                () = sleep(wait) => {}
+            }
+            if next.is_some_and(|tick| Zoned::now() >= tick) {
+                _ = run(self.name(), self.run(&app)).await;
+            }
         }
     }
 }
