@@ -6,11 +6,11 @@ use std::{
 use async_trait::async_trait;
 use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
+use yokoku_core::library::ports::SeriesRepo;
 use yokoku_domain::{
     Artwork, Description, Episode, EpisodeId, ExternalId, ItemFolder, MediaFileId, Numbering, Season, Series, SeriesId,
     SourceStatus, StorageError,
 };
-use yokoku_library::ports::SeriesRepo;
 
 use crate::db::{
     Database, DbError,

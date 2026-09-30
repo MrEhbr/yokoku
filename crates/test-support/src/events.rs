@@ -1,4 +1,4 @@
-use yokoku_events::{EventLog, Publisher};
+use yokoku_core::events::{EventLog, Publisher};
 use yokoku_infra::db::Database;
 
 pub fn publisher(db: &Database) -> Publisher {

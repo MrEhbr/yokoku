@@ -112,7 +112,7 @@ pub async fn missing_count() -> Result<usize, ServerFnError> {
 mod server {
     use dioxus::{logger::tracing::error, prelude::*};
     use jiff::{ToSpan, civil::Date};
-    use yokoku_library::{CalendarEntry, CalendarRelease, month_of, week_of};
+    use yokoku_core::library::{CalendarEntry, CalendarRelease, month_of, week_of};
 
     use super::{
         Agenda, AgendaEntry, AgendaRelease, Calendar, Missing, MissingEpisode, MissingMovie, MissingSeries, Period,

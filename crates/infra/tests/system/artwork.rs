@@ -1,8 +1,8 @@
 use std::path::Path;
 
+use yokoku_core::library::ports::ArtworkCache;
 use yokoku_domain::{ArtworkKind, ItemId, MovieId, SeriesId};
 use yokoku_infra::system::ArtworkFiles;
-use yokoku_library::ports::ArtworkCache;
 
 /// Every file under `dir`, relative to it.
 fn files(dir: &Path) -> Vec<String> {

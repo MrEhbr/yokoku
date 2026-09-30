@@ -7,8 +7,8 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_json::Value;
 use tracing::info;
+use yokoku_core::events::{Handler, HandlerError, SettingsChanged};
 use yokoku_domain::{Live, SettingsStore};
-use yokoku_events::{Handler, HandlerError, SettingsChanged};
 
 use crate::Config;
 

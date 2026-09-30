@@ -9,12 +9,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+yokoku-core.workspace = true
 yokoku-domain.workspace = true
-yokoku-downloads.workspace = true
-yokoku-events.workspace = true
-yokoku-integrations.workspace = true
-yokoku-library.workspace = true
-yokoku-media.workspace = true
 
 jiff.workspace = true
 serde.workspace = true

@@ -6047,15 +6047,10 @@ dependencies = [
  "tracing-subscriber",
  "wiremock",
  "yokoku-config",
+ "yokoku-core",
  "yokoku-domain",
- "yokoku-downloads",
- "yokoku-events",
  "yokoku-infra",
- "yokoku-integrations",
  "yokoku-jobs",
- "yokoku-library",
- "yokoku-media",
- "yokoku-naming",
  "yokoku-test-support",
  "yokoku-web",
 ]
@@ -6072,30 +6067,34 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "yokoku-core",
  "yokoku-domain",
- "yokoku-downloads",
- "yokoku-events",
  "yokoku-infra",
  "yokoku-jobs",
- "yokoku-library",
- "yokoku-media",
- "yokoku-naming",
 ]
 
 [[package]]
-name = "yokoku-detect"
+name = "yokoku-core"
 version = "0.0.1"
 dependencies = [
+ "async-trait",
  "hunch",
  "isolang",
  "jiff",
  "proptest",
  "regex",
  "rstest",
+ "serde",
  "strsim",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
+ "tracing",
  "unicode-normalization",
  "yokoku-domain",
- "yokoku-naming",
+ "yokoku-infra",
+ "yokoku-test-support",
 ]
 
 [[package]]
@@ -6113,41 +6112,6 @@ dependencies = [
  "thiserror 2.0.21",
  "toml",
  "uuid",
-]
-
-[[package]]
-name = "yokoku-downloads"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "jiff",
- "rstest",
- "serde",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "yokoku-domain",
- "yokoku-events",
- "yokoku-infra",
- "yokoku-test-support",
-]
-
-[[package]]
-name = "yokoku-events"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "jiff",
- "proptest",
- "rstest",
- "tempfile",
- "tokio",
- "tokio-util",
- "tracing",
- "yokoku-domain",
- "yokoku-infra",
- "yokoku-test-support",
 ]
 
 [[package]]
@@ -6172,28 +6136,8 @@ dependencies = [
  "uuid",
  "walkdir",
  "wiremock",
- "yokoku-detect",
+ "yokoku-core",
  "yokoku-domain",
- "yokoku-downloads",
- "yokoku-events",
- "yokoku-integrations",
- "yokoku-library",
- "yokoku-media",
- "yokoku-test-support",
-]
-
-[[package]]
-name = "yokoku-integrations"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "jiff",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "yokoku-domain",
- "yokoku-events",
- "yokoku-infra",
  "yokoku-test-support",
 ]
 
@@ -6209,62 +6153,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
- "yokoku-domain",
- "yokoku-downloads",
- "yokoku-events",
- "yokoku-integrations",
- "yokoku-library",
- "yokoku-media",
-]
-
-[[package]]
-name = "yokoku-library"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "jiff",
- "rstest",
- "serde",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "yokoku-domain",
- "yokoku-events",
- "yokoku-infra",
- "yokoku-test-support",
-]
-
-[[package]]
-name = "yokoku-media"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "jiff",
- "rstest",
- "serde",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "yokoku-detect",
- "yokoku-domain",
- "yokoku-events",
- "yokoku-infra",
- "yokoku-library",
- "yokoku-naming",
- "yokoku-test-support",
-]
-
-[[package]]
-name = "yokoku-naming"
-version = "0.0.1"
-dependencies = [
- "jiff",
- "proptest",
- "rstest",
- "serde",
- "thiserror 2.0.21",
+ "yokoku-core",
  "yokoku-domain",
 ]
 
@@ -6276,8 +6165,8 @@ dependencies = [
  "serde_json",
  "sqlx",
  "wiremock",
+ "yokoku-core",
  "yokoku-domain",
- "yokoku-events",
  "yokoku-infra",
 ]
 
@@ -6297,12 +6186,8 @@ dependencies = [
  "serde_json",
  "tokio",
  "uuid",
+ "yokoku-core",
  "yokoku-domain",
- "yokoku-downloads",
- "yokoku-events",
- "yokoku-library",
- "yokoku-media",
- "yokoku-naming",
 ]
 
 [[package]]

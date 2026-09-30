@@ -60,8 +60,8 @@ pub async fn delete_file(target: FileOf) -> Result<(), ServerFnError> {
 #[cfg(feature = "server")]
 mod server {
     use dioxus::{logger::tracing::error, prelude::*};
+    use yokoku_core::media::MediaError;
     use yokoku_domain::{EpisodeRef, EpisodeSpan, FileTarget, ItemId, SeriesId};
-    use yokoku_media::MediaError;
 
     use super::{Deleter, FileOf, Library, MetadataService, MonitorTarget, Numbering};
     use crate::api::library_failure;

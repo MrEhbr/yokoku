@@ -101,7 +101,7 @@ mod server {
 
     use dioxus::{logger::tracing::error, prelude::*};
     use serde_json::Value;
-    use yokoku_media::MediaError;
+    use yokoku_core::media::MediaError;
 
     use super::{Connection, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess};
     use crate::api::{root_listing_failed, unexpected};

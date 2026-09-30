@@ -1,8 +1,8 @@
 use jiff::Timestamp;
 use rstest::rstest;
 use support::db;
+use yokoku_core::integrations::ports::RescanStore;
 use yokoku_infra::db::Database;
-use yokoku_integrations::ports::RescanStore;
 
 use crate::support;
 

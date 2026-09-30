@@ -5,12 +5,12 @@ use proptest::prelude::*;
 use rstest::rstest;
 use support::{SIZE_BEYOND_U32, block_on, db};
 use uuid::Uuid;
-use yokoku_domain::{FileTarget, MediaFileId, MovieId};
-use yokoku_infra::db::Database;
-use yokoku_media::{
+use yokoku_core::media::{
     AudioStream, MediaFile, MediaInfo, SubtitleStream, VideoStream,
     ports::{Changes, MediaRepo},
 };
+use yokoku_domain::{FileTarget, MediaFileId, MovieId};
+use yokoku_infra::db::Database;
 
 use crate::support;
 

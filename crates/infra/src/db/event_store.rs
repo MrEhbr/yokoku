@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use sqlx::types::Json;
+use yokoku_core::events::{Correlated, DeliveryFailure, Event, EventId, EventStore, Recorded};
 use yokoku_domain::StorageError;
-use yokoku_events::{Correlated, DeliveryFailure, Event, EventId, EventStore, Recorded};
 
 use crate::db::Database;
 

@@ -54,8 +54,8 @@ mod server {
     use std::path::Path;
 
     use dioxus::prelude::*;
+    use yokoku_core::media::{Rename, RenameScope, Skipped};
     use yokoku_domain::{FileTarget, ItemId, MediaFileId};
-    use yokoku_media::{Rename, RenameScope, Skipped};
 
     use super::{RenamePlan, RenameResult, RenameRow, Renamer, SkippedFile};
     use crate::api::unexpected;

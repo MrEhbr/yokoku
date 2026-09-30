@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
+use yokoku_core::library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
 };
-use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 use crate::metadata::{
     MetadataSettings,

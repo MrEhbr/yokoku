@@ -130,13 +130,15 @@ mod server {
     use std::{collections::HashMap, sync::Arc, time::Duration};
 
     use dioxus::{fullstack::ServerEvents, logger::tracing::error, prelude::*};
-    use yokoku_domain::{DownloadId, ImportId, ItemId};
-    use yokoku_downloads::{
-        Download, DownloadError,
-        ports::{ClientError, TorrentSource},
+    use yokoku_core::{
+        downloads::{
+            Download, DownloadError,
+            ports::{ClientError, TorrentSource},
+        },
+        library::{LibraryFilter, LibrarySort},
+        media::{Import, ImportStatus, MediaError},
     };
-    use yokoku_library::{LibraryFilter, LibrarySort};
-    use yokoku_media::{Import, ImportStatus, MediaError};
+    use yokoku_domain::{DownloadId, ImportId, ItemId};
 
     use super::{
         DownloadEntry, DownloadState, Downloads, ImportEntry, ImportState, Importer, ItemLink, Library, NewTorrent,
@@ -201,7 +203,7 @@ mod server {
 
         Ok(listed
             .into_iter()
-            .filter(|download| download.status.state != yokoku_downloads::DownloadState::Removed)
+            .filter(|download| download.status.state != yokoku_core::downloads::DownloadState::Removed)
             .map(|download| {
                 let item =
                     download.item.and_then(|id| titles.get(&id).map(|title| ItemLink { id, title: title.clone() }));
@@ -252,7 +254,7 @@ mod server {
     }
 
     fn entry(download: Download, item: Option<ItemLink>, import: Option<ImportEntry>) -> DownloadEntry {
-        use yokoku_downloads::DownloadState as Client;
+        use yokoku_core::downloads::DownloadState as Client;
         let status = &download.status;
         let state = match (&status.error, status.state) {
             (Some(error), _) => DownloadState::Error(error.clone()),

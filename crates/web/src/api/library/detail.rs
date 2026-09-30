@@ -215,12 +215,14 @@ mod server {
 
     use dioxus::{logger::tracing::error, prelude::*};
     use jiff::civil::Date;
+    use yokoku_core::{
+        library::{LibraryError, LibraryStatus, artwork_name},
+        media::{FileDetails, MediaInfo},
+    };
     use yokoku_domain::{
         Artwork, ArtworkKind, Episode, EpisodeRef, ExternalId, ItemFolder, ItemId, MediaFileId, MediaKind, Movie,
         MovieId, ReleaseKind, Series, SeriesId,
     };
-    use yokoku_library::{LibraryError, LibraryStatus, artwork_name};
-    use yokoku_media::{FileDetails, MediaInfo};
 
     use super::{
         Description, EpisodeRow, FileInfo, Images, Library, MovieDetail, Numbering, Prober, Release, Reviewer,

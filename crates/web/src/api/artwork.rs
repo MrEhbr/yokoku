@@ -18,8 +18,8 @@ use dioxus::{
     },
 };
 use serde::Deserialize;
+use yokoku_core::library::{LibraryError, ports::MetadataError};
 use yokoku_domain::{ArtworkKind, ExternalId, ItemId};
-use yokoku_library::{LibraryError, ports::MetadataError};
 
 use super::{Artworks, Dep};
 

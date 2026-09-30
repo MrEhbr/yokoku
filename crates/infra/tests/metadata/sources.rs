@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use rstest::rstest;
+use yokoku_core::library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_domain::{
     Artwork, Description, ExternalId, Live, MediaKind, MovieMetadata, Releases, SeriesMetadata, SourceStatus,
 };
 use yokoku_infra::metadata::Sources;
-use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 /// Answers every lookup with the id it was asked for; searches find one series and one movie.
 struct Stub(fn(u64) -> ExternalId);

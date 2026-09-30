@@ -2,9 +2,9 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{header, method, path},
 };
+use yokoku_core::integrations::ports::{MediaServer, MediaServerError};
 use yokoku_domain::{Live, Secret};
 use yokoku_infra::media_servers::{JellyfinClient, JellyfinSettings};
-use yokoku_integrations::ports::{MediaServer, MediaServerError};
 use yokoku_test_support::jellyfin::system_info;
 
 const AUTHORIZATION: &str = "MediaBrowser Token=\"secret\"";

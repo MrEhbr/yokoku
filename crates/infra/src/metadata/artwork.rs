@@ -1,6 +1,6 @@
 use async_trait::async_trait;
+use yokoku_core::library::ports::{ArtworkSource, MetadataError};
 use yokoku_domain::{ArtworkKind, ExternalId};
-use yokoku_library::ports::{ArtworkSource, MetadataError};
 
 use crate::metadata::http::{Http, invalid, unavailable};
 
@@ -88,8 +88,8 @@ impl ArtworkSource for ArtworkFetcher {
 mod tests {
     use rstest::rstest;
     use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
+    use yokoku_core::library::ports::{ArtworkSource, MetadataError};
     use yokoku_domain::{ArtworkKind, ExternalId};
-    use yokoku_library::ports::{ArtworkSource, MetadataError};
 
     use super::ArtworkFetcher;
 

@@ -1,0 +1,35 @@
+[package]
+name = "yokoku-core"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+yokoku-domain.workspace = true
+
+async-trait.workspace = true
+isolang.workspace = true
+jiff.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
+tokio-util.workspace = true
+tracing.workspace = true
+
+hunch = { version = "2.0.2", default-features = false }
+regex = "1.13"
+strsim = "0.11"
+unicode-normalization = "0.1"
+
+[dev-dependencies]
+yokoku-infra.workspace = true
+yokoku-test-support.workspace = true
+
+proptest.workspace = true
+rstest.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }

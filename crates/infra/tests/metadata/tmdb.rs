@@ -5,9 +5,9 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{header, method, path, query_param},
 };
+use yokoku_core::library::ports::{MetadataError, MetadataProvider};
 use yokoku_domain::{ExternalId, Live, MediaKind, Secret, SourceStatus};
 use yokoku_infra::metadata::{MetadataSettings, TmdbClient, TmdbSettings};
-use yokoku_library::ports::{MetadataError, MetadataProvider};
 use yokoku_test_support::metadata::fixture;
 
 const TOKEN: &str = "test-token";

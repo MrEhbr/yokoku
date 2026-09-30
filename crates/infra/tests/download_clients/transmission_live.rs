@@ -9,12 +9,14 @@ use std::{
 
 use jiff::{Timestamp, Zoned, tz::TimeZone};
 use tokio::{process::Command, time::sleep};
-use yokoku_domain::{Clock, Live};
-use yokoku_downloads::{
-    DownloadOptions, DownloadState, Downloads,
-    ports::{DownloadClient, TorrentSource},
+use yokoku_core::{
+    downloads::{
+        DownloadOptions, DownloadState, Downloads,
+        ports::{DownloadClient, TorrentSource},
+    },
+    events::{DownloadCompleted, Event, EventLog, QueueChanges},
 };
-use yokoku_events::{DownloadCompleted, Event, EventLog, QueueChanges};
+use yokoku_domain::{Clock, Live};
 use yokoku_infra::{
     db::Database,
     download_clients::{TransmissionClient, TransmissionSettings},

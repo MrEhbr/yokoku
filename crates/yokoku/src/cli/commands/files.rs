@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use yokoku_media::{MediaError, ports::ProbeError};
+use yokoku_core::media::{MediaError, ports::ProbeError};
 
 use crate::{
     app::App,

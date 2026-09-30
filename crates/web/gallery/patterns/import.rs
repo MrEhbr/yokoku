@@ -12,9 +12,10 @@ use dioxus_icons::lucide::X;
 use jiff::Timestamp;
 use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
-    SeriesMetadata, SourceStatus, title_with_year,
+    SeriesMetadata, SourceStatus,
+    naming::{Naming, NamingTemplates},
+    title_with_year,
 };
-use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_web::components::{
     button::{Button, ButtonSize, ButtonVariant},
     checkbox::{Checkbox, CheckboxState},

@@ -11,8 +11,8 @@ use anyhow::{Result, bail};
 use config::{ConfigBuilder, Environment, File, FileFormat, builder::DefaultState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use yokoku_domain::Secret;
-use yokoku_downloads::DownloadOptions;
+use yokoku_core::{downloads::DownloadOptions, media::ImportSettings};
+use yokoku_domain::{Secret, naming::Naming};
 use yokoku_infra::{
     download_clients::TransmissionSettings,
     media_servers::JellyfinSettings,
@@ -20,8 +20,6 @@ use yokoku_infra::{
     system::{ClockSettings, ProbeSettings},
 };
 use yokoku_jobs::ScheduleSettings;
-use yokoku_media::ImportSettings;
-use yokoku_naming::Naming;
 
 pub use crate::{
     log::{LogConfig, LogFormat, LogOutput},

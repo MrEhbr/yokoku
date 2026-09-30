@@ -61,13 +61,15 @@ mod server {
     use std::{collections::HashMap, path::Path};
 
     use dioxus::{logger::tracing::error, prelude::*};
-    use yokoku_domain::{FileTarget, ItemId};
-    use yokoku_events::{
-        DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, EventId, FileDeleted, FileRenamed, FilesFound,
-        FilesImported, ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, SeriesAdded,
-        SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
+    use yokoku_core::{
+        events::{
+            DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, EventId, FileDeleted, FileRenamed, FilesFound,
+            FilesImported, ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, SeriesAdded,
+            SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
+        },
+        library::{LibraryFilter, LibrarySort},
     };
-    use yokoku_library::{LibraryFilter, LibrarySort};
+    use yokoku_domain::{FileTarget, ItemId};
 
     use super::{Clock, History, HistoryEntry, HistoryPage, Library, Part};
 

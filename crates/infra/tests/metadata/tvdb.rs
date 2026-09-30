@@ -7,9 +7,9 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{body_json, header, method, path, query_param},
 };
+use yokoku_core::library::ports::{MetadataError, MetadataProvider};
 use yokoku_domain::{ExternalId, Live, MediaKind, Secret, SourceStatus};
 use yokoku_infra::metadata::{MetadataSettings, TvdbClient, TvdbSettings};
-use yokoku_library::ports::{MetadataError, MetadataProvider};
 
 const TOKEN: &str = "test-token";
 

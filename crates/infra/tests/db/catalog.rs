@@ -8,13 +8,15 @@ use jiff::{
 use proptest::prelude::*;
 use rstest::rstest;
 use support::{block_on, db, now};
+use yokoku_core::{
+    library::ports::{MovieRepo, SeriesRepo},
+    media::ports::Catalog,
+};
 use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieId,
     MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
 };
 use yokoku_infra::db::Database;
-use yokoku_library::ports::{MovieRepo, SeriesRepo};
-use yokoku_media::ports::Catalog;
 
 use crate::support;
 

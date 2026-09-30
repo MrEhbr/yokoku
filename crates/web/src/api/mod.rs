@@ -16,11 +16,11 @@ use dioxus::prelude::ServerFnError;
 #[cfg(feature = "server")]
 use {
     crate::state::{AddSettings, Dep},
+    yokoku_core::downloads::Downloads,
+    yokoku_core::events::{History, QueueChanges},
+    yokoku_core::library::{Artworks, Calendar, Library, MetadataService},
+    yokoku_core::media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner},
     yokoku_domain::Clock,
-    yokoku_downloads::Downloads,
-    yokoku_events::{History, QueueChanges},
-    yokoku_library::{Artworks, Calendar, Library, MetadataService},
-    yokoku_media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner},
 };
 
 /// What a failed server function call tells the user: the server's message, or that it was not reached.
@@ -33,8 +33,8 @@ pub fn failure(error: &ServerFnError) -> String {
 
 /// A library use case's error as a message for the user; unexpected ones go to the log.
 #[cfg(feature = "server")]
-fn library_failure(error: yokoku_library::LibraryError, doing: &str) -> ServerFnError {
-    use yokoku_library::{LibraryError, ports::MetadataError};
+fn library_failure(error: yokoku_core::library::LibraryError, doing: &str) -> ServerFnError {
+    use yokoku_core::library::{LibraryError, ports::MetadataError};
 
     let message = match &error {
         LibraryError::AlreadyInLibrary(_) => "It is already in the library".to_owned(),
@@ -64,7 +64,7 @@ fn unexpected(error: &dyn std::fmt::Display, doing: &str) -> ServerFnError {
 }
 
 #[cfg(feature = "server")]
-fn root_listing_failed(error: yokoku_media::MediaError) -> ServerFnError {
+fn root_listing_failed(error: yokoku_core::media::MediaError) -> ServerFnError {
     dioxus::logger::tracing::error!(%error, "listing root folders failed");
     ServerFnError::new("The root folders could not be loaded")
 }

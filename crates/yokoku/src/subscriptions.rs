@@ -4,15 +4,17 @@
 use std::sync::Arc;
 
 use yokoku_config::Settings;
-use yokoku_downloads::Downloads;
-use yokoku_events::{
-    DownloadCompleted, EpisodesRenumbered, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded,
-    MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged, Subscription,
+use yokoku_core::{
+    downloads::Downloads,
+    events::{
+        DownloadCompleted, EpisodesRenumbered, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded,
+        MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged, Subscription,
+    },
+    integrations::Rescans,
+    library::{Artworks, FileTracker},
+    media::{Deleter, ImportPlanner, Prober, Scanner},
 };
 use yokoku_infra::db::Database;
-use yokoku_integrations::Rescans;
-use yokoku_library::{Artworks, FileTracker};
-use yokoku_media::{Deleter, ImportPlanner, Prober, Scanner};
 
 #[expect(clippy::too_many_arguments, reason = "one argument per subscriber")]
 pub fn subscribers(

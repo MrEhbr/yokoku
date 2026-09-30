@@ -7,8 +7,8 @@ pub mod settings;
 
 use anyhow::{Context, Result};
 use clap::ValueEnum;
+use yokoku_core::library::Library;
 use yokoku_domain::{ExternalId, ItemId, MediaKind};
-use yokoku_library::Library;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Kind {

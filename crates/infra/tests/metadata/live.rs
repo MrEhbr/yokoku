@@ -1,7 +1,7 @@
 use jiff::civil::date;
+use yokoku_core::library::ports::MetadataProvider;
 use yokoku_domain::{ExternalId, Live, MediaKind, Secret};
 use yokoku_infra::metadata::{MetadataSettings, TmdbClient, TvdbClient};
-use yokoku_library::ports::MetadataProvider;
 
 fn client() -> TmdbClient {
     let token = std::env::var("APP__METADATA__TMDB__TOKEN").expect("APP__METADATA__TMDB__TOKEN is set");

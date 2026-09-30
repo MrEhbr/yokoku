@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use yokoku_core::library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_domain::{ExternalId, Live, MediaKind, MovieMetadata, SeriesMetadata};
-use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 /// Looks each item up at the source its id names. While `use_tvdb`, searches find series only there.
 pub struct Sources {

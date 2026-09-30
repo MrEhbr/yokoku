@@ -5,13 +5,15 @@ use proptest::prelude::*;
 use rstest::rstest;
 use support::{SIZE_BEYOND_U32, block_on, db, now};
 use uuid::Uuid;
+use yokoku_core::{
+    library::ports::MediaFiles,
+    media::{
+        Import, ImportRow, ImportStatus, MediaFile, Resolution, RootFolder, RootKind,
+        ports::{Changes, MediaRepo},
+    },
+};
 use yokoku_domain::{Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId};
 use yokoku_infra::db::Database;
-use yokoku_library::ports::MediaFiles;
-use yokoku_media::{
-    Import, ImportRow, ImportStatus, MediaFile, Resolution, RootFolder, RootKind,
-    ports::{Changes, MediaRepo},
-};
 
 use crate::support;
 

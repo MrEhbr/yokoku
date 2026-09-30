@@ -1,7 +1,6 @@
 use async_trait::async_trait;
+use yokoku_core::{library::ports::MediaFiles, media::MediaFile};
 use yokoku_domain::{FileTarget, MediaFileId, StorageError};
-use yokoku_library::ports::MediaFiles;
-use yokoku_media::MediaFile;
 
 use crate::db::{Database, DbError, media_repo::MediaFileRow};
 

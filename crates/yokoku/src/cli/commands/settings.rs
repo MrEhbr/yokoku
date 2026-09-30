@@ -4,8 +4,8 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 use yokoku_config::Config;
+use yokoku_core::events::{EventLog, Publisher, SettingsChanged};
 use yokoku_domain::SettingsStore;
-use yokoku_events::{EventLog, Publisher, SettingsChanged};
 use yokoku_infra::db::Database;
 
 use crate::cli::args::EVENTS_LOST;

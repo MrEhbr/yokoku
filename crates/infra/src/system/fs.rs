@@ -9,8 +9,10 @@ use async_trait::async_trait;
 use tokio::task;
 use tracing::warn;
 use walkdir::{DirEntry, WalkDir};
-use yokoku_detect::ListedFile;
-use yokoku_media::ports::{FileStat, FileSystem, FsError};
+use yokoku_core::media::{
+    detect::ListedFile,
+    ports::{FileStat, FileSystem, FsError},
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct LocalFileSystem;

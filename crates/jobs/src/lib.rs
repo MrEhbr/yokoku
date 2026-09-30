@@ -13,12 +13,14 @@ use serde::{Deserialize, Serialize};
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
+use yokoku_core::{
+    downloads::Downloads,
+    events::{CorrelationId, correlation::correlate},
+    integrations::Rescans,
+    library::MetadataService,
+    media::{Importer, Scanner},
+};
 use yokoku_domain::Live;
-use yokoku_downloads::Downloads;
-use yokoku_events::{CorrelationId, correlation::correlate};
-use yokoku_integrations::Rescans;
-use yokoku_library::MetadataService;
-use yokoku_media::{Importer, Scanner};
 
 /// Changes must stop arriving for this long before the media server rescans.
 const RESCAN_QUIET: SignedDuration = SignedDuration::from_secs(30);

@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
+use yokoku_core::integrations::ports::{MediaServer, MediaServerError};
 use yokoku_domain::{Live, Secret};
-use yokoku_integrations::ports::{MediaServer, MediaServerError};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const TIMEOUT: Duration = Duration::from_secs(30);

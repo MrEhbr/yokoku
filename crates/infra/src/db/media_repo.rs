@@ -3,12 +3,12 @@ use std::path::{Path, PathBuf};
 use async_trait::async_trait;
 use jiff::Timestamp;
 use sqlx::{Sqlite, query::Query, sqlite::SqliteArguments};
-use yokoku_domain::{
-    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId, StorageError,
-};
-use yokoku_media::{
+use yokoku_core::media::{
     Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
     ports::{Changes, MediaRepo},
+};
+use yokoku_domain::{
+    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId, StorageError,
 };
 
 use crate::db::{

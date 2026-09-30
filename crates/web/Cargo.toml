@@ -20,12 +20,8 @@ name = "gallery"
 path = "gallery/main.rs"
 
 [dependencies]
+yokoku-core = { workspace = true, optional = true }
 yokoku-domain.workspace = true
-yokoku-downloads = { workspace = true, optional = true }
-yokoku-events = { workspace = true, optional = true }
-yokoku-library = { workspace = true, optional = true }
-yokoku-media = { workspace = true, optional = true }
-yokoku-naming.workspace = true
 
 async-trait = { workspace = true, optional = true }
 jiff = { workspace = true, features = ["serde"] }
@@ -51,4 +47,4 @@ rstest.workspace = true
 [features]
 default = []
 web = ["dioxus/web"]
-server = ["dioxus/server", "dep:async-trait", "dep:yokoku-downloads", "dep:yokoku-events", "dep:yokoku-library", "dep:yokoku-media"]
+server = ["dioxus/server", "dep:async-trait", "dep:yokoku-core"]

@@ -2,8 +2,8 @@ use jiff::Timestamp;
 use proptest::prelude::*;
 use rstest::rstest;
 use support::{block_on, db};
+use yokoku_core::downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
 use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId, StorageError};
-use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
 use yokoku_infra::db::Database;
 
 use crate::support;

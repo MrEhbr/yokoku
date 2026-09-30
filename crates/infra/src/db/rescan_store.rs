@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use jiff::Timestamp;
+use yokoku_core::integrations::ports::RescanStore;
 use yokoku_domain::StorageError;
-use yokoku_integrations::ports::RescanStore;
 
 use crate::db::{Database, DbError};
 

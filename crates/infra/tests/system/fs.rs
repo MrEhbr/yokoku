@@ -5,9 +5,8 @@ use std::{
 };
 
 use tempfile::TempDir;
-use yokoku_detect::ListedFile;
+use yokoku_core::media::{detect::ListedFile, ports::FileSystem};
 use yokoku_infra::system::LocalFileSystem;
-use yokoku_media::ports::FileSystem;
 
 fn write(root: &Path, relative: &str, size: usize) -> PathBuf {
     let path = root.join(relative);

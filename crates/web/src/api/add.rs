@@ -85,8 +85,8 @@ mod server {
     use std::path::Path;
 
     use dioxus::{logger::tracing::error, prelude::*};
+    use yokoku_core::media::{MediaError, RootKind};
     use yokoku_domain::{ArtworkKind, ExternalId, ItemId, MonitorPreset};
-    use yokoku_media::{MediaError, RootKind};
 
     use super::{AddOptions, AddSettings, Kind, MetadataService, NewItem, RootChoice, RootFolders, SearchHit};
     use crate::api::{artwork, library_failure, root_listing_failed};

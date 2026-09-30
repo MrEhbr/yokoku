@@ -4,10 +4,10 @@ use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use tokio::sync::Mutex;
 use tracing::debug;
+use yokoku_core::library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
 };
-use yokoku_library::ports::{MetadataError, MetadataProvider, SearchResult};
 
 use crate::metadata::{
     MetadataSettings,
@@ -219,8 +219,8 @@ fn tvdb_id(source: ExternalId) -> Result<u64, MetadataError> {
 mod tests {
     use serde_json::json;
     use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
+    use yokoku_core::library::ports::MetadataError;
     use yokoku_domain::{ExternalId, Live, Secret};
-    use yokoku_library::ports::MetadataError;
 
     use super::TvdbClient;
     use crate::metadata::{MetadataSettings, TvdbSettings};

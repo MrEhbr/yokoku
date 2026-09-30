@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use yokoku_core::media::{AudioStream, MediaInfo, SubtitleStream, VideoStream};
 use yokoku_domain::MediaFileId;
-use yokoku_media::{AudioStream, MediaInfo, SubtitleStream, VideoStream};
 
 use crate::db::{Database, DbError, codec::Int};
 

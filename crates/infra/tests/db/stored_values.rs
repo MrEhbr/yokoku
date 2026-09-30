@@ -3,13 +3,15 @@ use std::path::PathBuf;
 use jiff::{Timestamp, civil::date};
 use rstest::rstest;
 use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
+use yokoku_core::{
+    downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo},
+    library::ports::SeriesRepo,
+};
 use yokoku_domain::{
     Artwork, Description, DownloadId, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
     SeriesMetadata, SourceStatus,
 };
-use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
 use yokoku_infra::db::Database;
-use yokoku_library::ports::SeriesRepo;
 
 fn now() -> Timestamp {
     "2026-09-26T12:00:00Z".parse().unwrap()
@@ -106,7 +108,7 @@ async fn saving_a_download_size_beyond_i64_fails() {
 async fn adding_a_non_utf8_root_folder_fails() {
     use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
 
-    use yokoku_media::{RootFolder, RootKind, ports::MediaRepo};
+    use yokoku_core::media::{RootFolder, RootKind, ports::MediaRepo};
 
     let db = Database::open_in_memory().await.unwrap();
     let root = RootFolder { kind: RootKind::Series, path: PathBuf::from(OsStr::from_bytes(b"/media/\xff")) };

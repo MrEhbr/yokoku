@@ -8,11 +8,11 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::{process::Command, time::timeout};
 use tracing::debug;
-use yokoku_domain::Live;
-use yokoku_media::{
+use yokoku_core::media::{
     AudioStream, MediaInfo, SubtitleStream, VideoStream,
     ports::{MediaProbe, ProbeError},
 };
+use yokoku_domain::Live;
 
 const TIME_LIMIT: Duration = Duration::from_secs(60);
 
@@ -144,7 +144,7 @@ mod tests {
     use std::time::Duration;
 
     use rstest::rstest;
-    use yokoku_media::{AudioStream, MediaInfo, SubtitleStream, VideoStream};
+    use yokoku_core::media::{AudioStream, MediaInfo, SubtitleStream, VideoStream};
 
     use super::Report;
 

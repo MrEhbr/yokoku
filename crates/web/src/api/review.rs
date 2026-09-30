@@ -163,9 +163,11 @@ mod server {
         logger::tracing::{error, warn},
         prelude::*,
     };
+    use yokoku_core::{
+        library::{LibraryFilter, LibrarySort},
+        media::{Approval, ImportRow, MediaError},
+    };
     use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
-    use yokoku_library::{LibraryFilter, LibrarySort};
-    use yokoku_media::{Approval, ImportRow, MediaError};
 
     use super::{
         Confidence, Conflict, Imported, Importer, Library, Match, Resolution, Review, ReviewFile, Reviewer, Target,
@@ -223,16 +225,16 @@ mod server {
                     },
                     skipped: row.skipped,
                     resolution: match row.resolution {
-                        yokoku_media::Resolution::Unresolved => Resolution::Unresolved,
-                        yokoku_media::Resolution::Replace => Resolution::Replace,
-                        yokoku_media::Resolution::KeepBoth => Resolution::KeepBoth,
+                        yokoku_core::media::Resolution::Unresolved => Resolution::Unresolved,
+                        yokoku_core::media::Resolution::Replace => Resolution::Replace,
+                        yokoku_core::media::Resolution::KeepBoth => Resolution::KeepBoth,
                     },
                     conflicts: reviewed
                         .conflicts
                         .iter()
                         .map(|conflict| match conflict {
-                            yokoku_media::Conflict::SharedTarget => Conflict::SharedTarget,
-                            yokoku_media::Conflict::AlreadyHasFile => Conflict::AlreadyHasFile,
+                            yokoku_core::media::Conflict::SharedTarget => Conflict::SharedTarget,
+                            yokoku_core::media::Conflict::AlreadyHasFile => Conflict::AlreadyHasFile,
                         })
                         .collect(),
                     name,

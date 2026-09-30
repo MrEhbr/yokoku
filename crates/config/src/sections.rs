@@ -4,8 +4,8 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use yokoku_core::library::LibrarySort;
 use yokoku_domain::MonitorPreset;
-use yokoku_library::LibrarySort;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DatabaseConfig {

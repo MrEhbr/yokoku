@@ -4,13 +4,15 @@ use assert_cmd::prelude::*;
 use jiff::{Timestamp, ToSpan, civil::Date, tz::TimeZone};
 use predicates::prelude::*;
 use tempfile::TempDir;
+use yokoku_core::{
+    events::EventLog,
+    library::ports::{MovieRepo, SeriesRepo},
+};
 use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, EpisodeRef, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata,
     Releases, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
 };
-use yokoku_events::EventLog;
 use yokoku_infra::db::Database;
-use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_test_support::{
     events::{accept_events, refuse_events},
     metadata::movie_metadata,

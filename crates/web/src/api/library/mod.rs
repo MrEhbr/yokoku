@@ -153,9 +153,11 @@ pub async fn library(
 #[cfg(feature = "server")]
 mod server {
     use dioxus::{logger::tracing::error, prelude::*};
+    use yokoku_core::{
+        library::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus, artwork_name},
+        media::RootKind,
+    };
     use yokoku_domain::{ArtworkKind, MediaKind, MovieStatus, SeriesStatus};
-    use yokoku_library::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus, artwork_name};
-    use yokoku_media::RootKind;
 
     use super::{Entry, FileStatus, Kind, Library, Sort, Status};
     use crate::api::artwork;

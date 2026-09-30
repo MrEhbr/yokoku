@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use tempfile::TempDir;
 use tokio::time::timeout;
+use yokoku_core::media::ports::LibraryLock;
 use yokoku_infra::system::LockFile;
-use yokoku_media::ports::LibraryLock;
 
 #[tokio::test]
 async fn a_second_holder_waits_until_the_first_releases() {

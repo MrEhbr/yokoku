@@ -1,6 +1,6 @@
 use async_trait::async_trait;
+use yokoku_core::media::ports::Catalog;
 use yokoku_domain::{Movie, MovieId, Series, SeriesId, StorageError};
-use yokoku_media::ports::Catalog;
 
 use crate::db::Database;
 

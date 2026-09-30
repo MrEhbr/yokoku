@@ -1,7 +1,7 @@
 use std::{fs::OpenOptions, path::PathBuf};
 
 use async_trait::async_trait;
-use yokoku_media::ports::{FsError, LibraryLock, LockGuard};
+use yokoku_core::media::ports::{FsError, LibraryLock, LockGuard};
 
 use crate::system::fs::{at, blocking};
 

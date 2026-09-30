@@ -10,9 +10,9 @@ publish = false
 workspace = true
 
 [dependencies]
-yokoku-infra.workspace = true
+yokoku-core.workspace = true
 yokoku-domain.workspace = true
-yokoku-events.workspace = true
+yokoku-infra.workspace = true
 
 jiff.workspace = true
 serde_json.workspace = true

@@ -6,8 +6,8 @@ use reqwest::{Client, IntoUrl, RequestBuilder, Response, StatusCode, header::RET
 use serde::{Deserialize, de::DeserializeOwned};
 use tokio::time::{Instant, sleep};
 use tracing::debug;
+use yokoku_core::library::ports::MetadataError;
 use yokoku_domain::ExternalId;
-use yokoku_library::ports::MetadataError;
 
 const USER_AGENT: &str = concat!("yokoku/", env!("CARGO_PKG_VERSION"));
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
@@ -163,7 +163,7 @@ mod tests {
 
     use tokio::time::Instant;
     use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
-    use yokoku_library::ports::MetadataError;
+    use yokoku_core::library::ports::MetadataError;
 
     use super::{Http, SPACING};
 

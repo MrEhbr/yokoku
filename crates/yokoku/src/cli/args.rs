@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use tracing::{Instrument, error, info_span};
 use yokoku_config::{Config, LogOutput};
-use yokoku_events::{CorrelationId, correlation::correlate};
+use yokoku_core::events::{CorrelationId, correlation::correlate};
 
 use crate::{app::App, cli::commands, logging};
 

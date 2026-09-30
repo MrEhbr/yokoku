@@ -9,11 +9,11 @@ use reqwest::{StatusCode, header::HeaderValue};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use tracing::debug;
-use yokoku_domain::{Live, Secret};
-use yokoku_downloads::{
+use yokoku_core::downloads::{
     DownloadState, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
+use yokoku_domain::{Live, Secret};
 
 use crate::download_clients::transmission_wire as wire;
 

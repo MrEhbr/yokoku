@@ -4,11 +4,11 @@ use wiremock::{
     Mock, MockServer, Request, ResponseTemplate,
     matchers::{basic_auth, body_partial_json, header},
 };
-use yokoku_domain::{Live, Secret};
-use yokoku_downloads::{
+use yokoku_core::downloads::{
     DownloadState,
     ports::{ClientError, DownloadClient, TorrentSource},
 };
+use yokoku_domain::{Live, Secret};
 use yokoku_infra::download_clients::{TransmissionClient, TransmissionSettings};
 use yokoku_test_support::transmission::{RPC, SESSION, answer, server, success};
 

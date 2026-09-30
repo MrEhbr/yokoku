@@ -7,12 +7,12 @@ use std::{
 };
 
 use tempfile::TempDir;
-use yokoku_domain::Live;
-use yokoku_infra::system::FfProbe;
-use yokoku_media::{
+use yokoku_core::media::{
     AudioStream, MediaInfo, SubtitleStream, VideoStream,
     ports::{MediaProbe, ProbeError},
 };
+use yokoku_domain::Live;
+use yokoku_infra::system::FfProbe;
 
 /// A stand-in for `ffprobe` that prints `stdout` and `stderr` and exits with `code`.
 fn stand_in(dir: &Path, stdout: &str, stderr: &str, code: i32) -> PathBuf {

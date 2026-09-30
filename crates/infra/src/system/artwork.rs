@@ -5,8 +5,8 @@ use std::{
 
 use async_trait::async_trait;
 use tokio::fs;
+use yokoku_core::library::ports::ArtworkCache;
 use yokoku_domain::{ArtworkKind, ItemId, StorageError};
-use yokoku_library::ports::ArtworkCache;
 
 /// Artwork as files, one folder per item, each file named after its kind and image:
 /// `series/<id>/poster-81189-10.jpg`.

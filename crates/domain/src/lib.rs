@@ -6,6 +6,7 @@ mod item;
 mod live;
 mod matching;
 mod movie;
+pub mod naming;
 mod ports;
 mod secret;
 mod series;

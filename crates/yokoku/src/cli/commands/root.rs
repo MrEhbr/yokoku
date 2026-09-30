@@ -52,7 +52,7 @@ pub async fn run(app: &App, args: Args) -> Result<()> {
     Ok(())
 }
 
-impl From<RootKind> for yokoku_media::RootKind {
+impl From<RootKind> for yokoku_core::media::RootKind {
     fn from(kind: RootKind) -> Self {
         match kind {
             RootKind::Series => Self::Series,
