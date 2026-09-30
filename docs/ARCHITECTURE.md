@@ -8,7 +8,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 
 1. **MVP limits features, not architecture.** Boundaries are right from the first commit.
 2. **The core knows nothing about infrastructure.** Business logic never imports sqlx, reqwest or the web framework. It talks to the outside world through ports (traits) it owns.
-3. **Modules are independent.** Feature modules never depend on each other. They share only value types and the event contract (`domain`) and event delivery (`events`). The compiler enforces this through crate boundaries.
+3. **Modules are independent.** Feature modules never depend on each other. They share only value types and the event contract (`domain`) and event delivery (`core::events`). Crate boundaries enforce the layers (`domain`, `core`, `infra`); review enforces the modules inside `core`.
 4. **Consistency where it matters, decoupling everywhere else.** A command inside a module is synchronous and transactional. Reactions across modules happen through a durable event log, appended after the command's change is saved.
 5. **Pure logic is isolated.** Filename detection and naming are pure functions with no IO and no async, tested with plain input/output tables.
 6. **No speculative generality.** Every abstraction sits on a real boundary: IO, time, or a third-party library.
@@ -23,7 +23,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 | Async runtime | `tokio` | |
 | Web / UI | Dioxus 0.7 (fullstack) | Pre-1.0. Pages render on the server and hydrate in the browser (WASM); server functions call use cases. Components are Dioxus Components restyled to Paper (`docs/design-system`). Kept in one adapter crate, `web`, which the service serves (§9, Runtime). |
 | Database | SQLite through `sqlx` (0.9) | WAL mode, `foreign_keys=ON`, `busy_timeout`. |
-| Migrations | `sqlx::migrate!` | One ordered set, owned by `db`. |
+| Migrations | `sqlx::migrate!` | One ordered set in `crates/infra/migrations`, owned by `infra::db`. |
 | Background jobs, cron | Own loop on `tokio`, `jiff-cron` | See §8 and §10. |
 | HTTP client | `reqwest` (rustls) | |
 | Metadata | Own TMDB and TVDB v4 clients | Need only a handful of endpoints. |
@@ -47,76 +47,66 @@ Versions are pinned in `[workspace.dependencies]` when the workspace is set up.
 
 ```
 crates/
-  domain/            yokoku-domain            Shared value types and rules, event contract
-  events/            yokoku-events            Event log (SQLite), publisher, handlers, subscriptions, delivery loop; re-exports the event contract
-  detect/            yokoku-detect            Pure: downloaded files → ImportPlan
-  naming/            yokoku-naming            Pure: NamingTemplate parse/render, sanitising
-
-  library/           yokoku-library           Catalog, monitoring, metadata refresh, calendar queries
-  downloads/         yokoku-downloads         Torrents, Transmission sync, seeding cleanup
-  media/             yokoku-media             Import pipeline, review, scan, rename, delete
-  integrations/      yokoku-integrations      Jellyfin rescan
-
-  db/                yokoku-db                sqlx: migrations (the event tables too), all repository impls
-  metadata/          yokoku-metadata          MetadataProvider impls: TMDB, TVDB
-  download-clients/  yokoku-download-clients  DownloadClient impls (Transmission)
-  media-servers/     yokoku-media-servers     MediaServer impls (Jellyfin)
-  jobs/              yokoku-jobs              cron loops; queue port impls
-  system/            yokoku-system            FileSystem, LibraryLock, Clock, MediaProbe (ffprobe)
-  web/               yokoku-web               Web UI on Dioxus: pages, server functions, components, component gallery
-
-  config/            yokoku-config            Configuration: composes every crate's settings section, layers and validates them
-
-  yokoku/            yokoku (bin)             Composition root, service, subscription registry, CLI
+  domain/        yokoku-domain        Shared value types and rules, the event contract (domain::events), naming (domain::naming, pure)
+  core/          yokoku-core          Use cases and the ports they own, one module per feature:
+                                        events        event log over EventStore, publisher, handlers, subscriptions, delivery loop
+                                        library       catalog, monitoring, metadata refresh, calendar queries
+                                        downloads     torrents, download client sync, seeding cleanup
+                                        media         import pipeline (media::import), review, scan, rename, delete;
+                                                      media::detect (pure): downloaded files → ImportPlan
+                                        integrations  Jellyfin rescan
+  infra/         yokoku-infra         Adapters, one module per kind:
+                                        db               sqlx: migrations (the event tables too), all repository and store impls
+                                        metadata         MetadataProvider impls: TMDB, TVDB
+                                        download_clients DownloadClient impls (Transmission)
+                                        media_servers    MediaServer impls (Jellyfin)
+                                        system           FileSystem, LibraryLock, Clock, MediaProbe (ffprobe)
+  web/           yokoku-web           Web UI on Dioxus: pages, server functions, components, component gallery
+  yokoku/        yokoku (bin)         Composition root, service, jobs (cron loops), config (composes every settings
+                                      section, layers and validates them), subscription registry, CLI
+  test-support/  yokoku-test-support  Fakes, fixtures and mock servers shared by tests
 ```
 
 ### Dependency rules
 
 ```
-              domain ◀──────────── detect, naming
-                ▲                      ▲
-   events ──────┤                      │
-     ▲          │                      │
-     └── library · downloads · media · integrations      (feature modules)
-                          ▲
-   db · metadata · download-clients · media-servers · jobs · system · web    (adapters)
-                          ▲
-                        config
-                          ▲
-                       yokoku (bin)
+   domain ◀── core ◀── infra ◀── yokoku (bin)
+     ▲         ▲                    │
+     └──────── web ◀────────────────┘
 ```
 
-| Crate kind | May depend on | Must not depend on |
+| Crate | May depend on | Must not depend on |
 |---|---|---|
 | `domain` | std, `serde`, `serde_json`, `jiff`, `thiserror`, `async-trait`, `secrecy` | anything else in the workspace |
-| `detect`, `naming` | `domain` | IO, async, any module |
-| `events` | `domain` | any module or adapter |
-| Feature module | `domain`, `events`, pure crates it needs | other modules, any adapter, sqlx/reqwest/dioxus |
-| Adapter | modules whose ports it implements | other adapters |
-| `web` (driving adapter) | modules whose use cases it calls | other adapters, sqlx/reqwest |
-| `config` | modules and adapters whose settings it composes | `db`, `web` |
+| `core` | `domain`; pure helpers such as `hunch` and `regex` | `infra`, `web`, sqlx/reqwest/dioxus |
+| `infra` | `core`, `domain` | `web` |
+| `web` (driving adapter) | `domain`; `core` only in its server build | `infra`, sqlx/reqwest |
 | `yokoku` | everything | — |
 
-`web` is the one adapter that drives the core instead of serving it: it calls use cases the way the CLI does, and receives them from `yokoku`, which wires the concrete adapters.
+`web` is the one adapter that drives the core instead of serving it: it calls use cases the way the CLI does, and receives them from `yokoku`, which wires the concrete adapters. Its browser build compiles `domain` alone.
+
+Inside `core`, feature modules never import each other; review holds this line, since they share a crate. They share only `domain` and `core::events`. `media::detect` and `domain::naming` do no IO and no async.
 
 When a module needs another module's data, it declares its own narrow **read port**, and `db` implements it. Example: `media` needs a series' episode list for detection, so it declares `media::ports::Catalog`.
 
 ### 3.1 Where things live
 
-A feature's code spans crates by design (§3): its use case in a feature module, its storage in
-`db`, its outside services in an adapter crate, its wiring in `yokoku`, its screens in `web`. Four
-naming rules make each hop predictable:
+A feature's code spans crates by design (§3): its use case in a `core` module, its storage in
+`infra::db`, its outside services in another `infra` module, its wiring in `yokoku`, its screens in
+`web`. Four naming rules make each hop predictable:
 
-- **Feature modules:** one file per use case, named after it: `media/src/scan.rs` holds `Scanner`,
-  `library/src/calendar.rs` holds `Calendar`. Event handlers sit next to the use case they call.
-  Entities are in `model.rs`, ports in `ports.rs`.
-- **`db`:** one file per port, named after the trait in snake case: `series_repo.rs` implements
-  `SeriesRepo`, `catalog.rs` implements `media::ports::Catalog`, `settings_store.rs` implements
-  `SettingsStore`. `media_info.rs` is the probe-details half of `media_repo.rs`.
-- **Adapters for outside services:** one crate per port and one module per product, named after
-  the product: `download-clients/src/transmission.rs`, `media-servers/src/jellyfin.rs`,
-  `metadata/src/tmdb.rs` and `tvdb.rs`. Response shapes live in `<product>_wire.rs`.
-  `system` holds only local-host adapters: filesystem, library lock, clock, ffprobe.
+- **Feature modules:** one file per use case, named after it: `core/src/media/scan.rs` holds
+  `Scanner`, `core/src/library/calendar.rs` holds `Calendar`; a module's main type sits in its
+  `mod.rs` (`Library`, `Downloads`). Event handlers sit next to the use case they call. Entities
+  are in `model.rs`, ports in `ports.rs`.
+- **`infra::db`:** one file per port, named after the trait in snake case: `series_repo.rs` implements
+  `SeriesRepo`, `catalog.rs` implements `media::ports::Catalog`, `event_store.rs` implements
+  `EventStore`, `settings_store.rs` implements `SettingsStore`. `media_info.rs` is the probe-details
+  half of `media_repo.rs`.
+- **Adapters for outside services:** one `infra` module per port and one file per product, named
+  after the product: `download_clients/transmission.rs`, `media_servers/jellyfin.rs`,
+  `metadata/tmdb.rs` and `tvdb.rs`. Response shapes live in `<product>_wire.rs`.
+  `infra::system` holds only local-host adapters: filesystem, library lock, clock, ffprobe.
 - **`web`:** one folder per role a file plays in the UI:
 
   ```
@@ -204,37 +194,37 @@ naming rules make each hop predictable:
   - **Tests:** `yokoku/tests/service.rs` starts the binary on a seeded database and fetches pages
     and api routes over HTTP; wire conversions and page rules are covered through it.
 
-Tests mirror sources: `crates/<crate>/tests/<module>.rs` tests `crates/<crate>/src/<module>.rs`.
+Tests mirror sources: `crates/<crate>/tests/<module>/<file>.rs` tests `crates/<crate>/src/<module>/<file>.rs`, and each `tests/<module>/` folder is one test binary with a `main.rs`.
 CLI commands are `yokoku/src/cli/commands/<verb>.rs` for `yokoku <verb>`; their tests are grouped
 by module in `yokoku/tests/<module>_commands.rs`.
 
-| Feature | Use case (entry point) | Rules / pure logic | Storage (`db/src`) | Outside world | Driven from |
+| Feature | Use case (entry point) | Rules / pure logic | Storage (`infra/src/db`) | Outside world | Driven from |
 |---|---|---|---|---|---|
-| Search and add (FR-1.1, 2.2) | `library/src/metadata.rs` `MetadataService::search` (with each hit's default folder), `add_series`, `add_movie`; existing and taken folders from `media/src/roots.rs` `RootFolders::folders`, `item_folders` | `domain/src/series.rs` `Series::add`, `movie.rs`; folder name `naming/src/naming.rs` via `yokoku/src/app.rs` `NamedFolders` | `series_repo.rs`, `movie_repo.rs` | `metadata/src/sources.rs`, `tmdb.rs`, `tvdb.rs` | web `api/add.rs`, `pages/add/` (the search page at `/add`, with the options in a dialog) |
-| List, detail, monitoring, numbering, remove (FR-1, FR-2) | `library/src/library.rs` `Library` | `domain/src/series.rs` (monitoring, numbering), `library/src/listing.rs` | `series_repo.rs`, `movie_repo.rs` | none | web `api/library/` (changes in `manage.rs`), `pages/library/`, `series_detail/` (numbering in `numbering.rs`), `movie_detail/`, `components/monitor_toggle.rs`, `remove_item.rs` |
-| Metadata refresh (FR-1.6) | `library/src/metadata.rs` `refresh_*` | `Series::refresh`, `needs_refresh` in `domain/src/series.rs`; `movie.rs` | as above | `metadata` | job `refresh-metadata` (`jobs/src/lib.rs`); `refresh.rs`; web `api/library/manage.rs`, `components/refresh_button.rs` on detail pages |
-| Next / last aired (FR-6.1, 6.2) | `library/src/listing.rs` | `domain/src/series.rs` `next_episode`, `last_aired` | as above | none | web `pages/series_detail/` |
-| Calendar and missing (FR-6.3, 6.4, FR-7) | `library/src/calendar.rs` `Calendar::entries`, `missing` | `domain/src/series.rs`, `movie.rs` | as above | none | web `api/library/calendar.rs`, `pages/upcoming/`, `missing/` |
-| File projection on items | `library/src/files.rs` `FileTracker` (`library.files`) | none | `media_files.rs` | none | `yokoku/src/subscriptions.rs` |
-| Artwork: poster, backdrop, logo (FR-1.2) | `library/src/artwork.rs` `Artworks` (`library.artwork`) | `domain/src/artwork.rs` `Artwork`; choice in `metadata/src/tmdb_wire.rs`, `tvdb_wire.rs` | `series_repo.rs`, `movie_repo.rs` (`artwork` JSON column) | `metadata/src/artwork.rs` `ArtworkFetcher`; `system/src/artwork.rs` `ArtworkFiles` | `web/src/api/artwork.rs`, which also serves search result posters uncached (`Artworks::preview`) |
-| Description: overview, genres, runtime; episode overviews | `library/src/metadata.rs` (with refresh) | `domain/src/description.rs` `Description`; `Series::refresh`, `Movie::refresh` | `series_repo.rs`, `movie_repo.rs` (`description` JSON column, episode `overview`) | `metadata/src/tmdb.rs`, `tvdb.rs` | `web/src/api/library/detail.rs` |
-| Downloads: add, sync, pick up, seeding cleanup (FR-3) | `downloads/src/downloads.rs` `Downloads` | `downloads/src/model.rs` | `download_repo.rs` | `download-clients/src/transmission.rs` | jobs `sync-downloads`, `sync-active-downloads`; web `api/downloads.rs` (live over server-sent events, woken by `events::QueueChanges`, which `Downloads`, `ImportPlanner`, `Scanner`, `Reviewer` and `Importer` notify after saving downloads or imports), `pages/downloads/`, adding torrents in `dialogs/add_torrent.rs` (from Downloads and detail pages) |
-| Detection (FR-4.1–4.10, 4.13) | `detect` `ImportPlan::new` (`plan.rs`) | `classify.rs`, `parse.rs`, `titles.rs` (title and year), `plan.rs` (episodes) | none | none | `media/src/planner.rs`, `scan.rs` |
-| Import: plan, review, execute, retry (FR-3.5, 3.6, 4.11, 4.12, 9.2) | `media/src/planner.rs` `ImportPlanner` → `review.rs` `Reviewer` → `importer.rs` `Importer` | `detect`, `naming` | `media_repo.rs` | `system/src/fs.rs` | job `execute-imports`; web: status and retry on torrent rows (`api/downloads.rs`, `pages/downloads/`), scan imports on detail pages, review in `api/review.rs` and `dialogs/import_review/` (from both), with bulk re-detection and ordered assignment of selected files (`Reviewer::redetect`, `bulk.rs`) |
-| Episode spans (`S01E01-E03`) | none | `domain/src/episode_span.rs` | none | none | none |
-| Naming (FR-5.1–5.6) | none | `naming/src/naming.rs`, `template.rs`, `sanitize.rs`, `subtitle.rs` | none | none | `media` |
-| Rename with preview (FR-5.7) | `media/src/rename.rs` `Renamer` | `naming` | `media_repo.rs` | `system/src/fs.rs` | web `api/rename.rs`, `dialogs/rename.rs` (from detail pages; renames the selected files) |
-| Root folders (FR-8.1) | `media/src/roots.rs` `RootFolders` | `media/src/model.rs` `RootFolder` | `media_repo.rs` | `system/src/fs.rs` | `root.rs`; web `api/settings.rs`, `pages/settings/roots.rs` |
-| Scan (FR-8.2, 8.3, 8.7, 8.8) | `media/src/scan.rs` `Scanner` | `detect` | `media_repo.rs`, `catalog.rs` | `system/src/fs.rs` | job `scan-library`; `media.scan_added`; `scan.rs` |
-| Retarget files on renumber | `media/src/scan/renumber.rs` (`media.renumbered`) | `domain/src/series.rs` `Series::refresh` | `media_repo.rs` | none | `subscriptions.rs` |
-| Delete files (FR-8.4, 8.5, FR-1.7) | `media/src/deleter.rs` `Deleter` | none | `media_repo.rs` | `system/src/fs.rs` | web `api/library/manage.rs`, `components/delete_file.rs`, `remove_item.rs` |
-| File details (FR-8.6) | `media/src/prober.rs` `Prober` (`media.probe`) | `media/src/model.rs` `MediaInfo` | `media_info.rs` | `system/src/probe.rs` | `files.rs`; web `api/library/detail.rs` |
-| Library lock | `media/src/ports.rs` `LibraryLock` | none | none | `system/src/lock.rs` | every media use case |
-| Jellyfin rescan (FR-10.4) | `integrations/src/rescans.rs` `Rescans` | none | `rescan_store.rs` | `media-servers/src/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
-| History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display`; the web words events with item links in `web/src/api/history.rs` | `events/src/event_log.rs` | none | web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
-| Event contract, delivery | `domain/src/events.rs`; `events/src/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `events/src/event_log.rs` | none | `yokoku/src/subscriptions.rs`, `app.rs` |
-| Settings (FR-10.3) | `config/src/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `config/src/lib.rs` (layering) | `settings_store.rs` | none | `settings.rs`; web `api/settings.rs`, `pages/settings/` (through `SettingsAccess` in `web/src/state.rs`, implemented by `yokoku/src/web_settings.rs`) |
-| Jobs and schedules | `jobs/src/lib.rs` | none | none | none | `yokoku/src/service.rs` |
+| Search and add (FR-1.1, 2.2) | `core/src/library/metadata.rs` `MetadataService::search` (with each hit's default folder), `add_series`, `add_movie`; existing and taken folders from `core/src/media/roots.rs` `RootFolders::folders`, `item_folders` | `domain/src/series.rs` `Series::add`, `movie.rs`; folder name `domain/src/naming/mod.rs` via `yokoku/src/app.rs` `NamedFolders` | `series_repo.rs`, `movie_repo.rs` | `infra/src/metadata/sources.rs`, `tmdb.rs`, `tvdb.rs` | web `api/add.rs`, `pages/add/` (the search page at `/add`, with the options in a dialog) |
+| List, detail, monitoring, numbering, remove (FR-1, FR-2) | `core/src/library/mod.rs` `Library` | `domain/src/series.rs` (monitoring, numbering), `core/src/library/listing.rs` | `series_repo.rs`, `movie_repo.rs` | none | web `api/library/` (changes in `manage.rs`), `pages/library/`, `series_detail/` (numbering in `numbering.rs`), `movie_detail/`, `components/monitor_toggle.rs`, `remove_item.rs` |
+| Metadata refresh (FR-1.6) | `core/src/library/metadata.rs` `refresh_*` | `Series::refresh`, `needs_refresh` in `domain/src/series.rs`; `movie.rs` | as above | `metadata` | job `refresh-metadata` (`yokoku/src/jobs.rs`); `refresh.rs`; web `api/library/manage.rs`, `components/refresh_button.rs` on detail pages |
+| Next / last aired (FR-6.1, 6.2) | `core/src/library/listing.rs` | `domain/src/series.rs` `next_episode`, `last_aired` | as above | none | web `pages/series_detail/` |
+| Calendar and missing (FR-6.3, 6.4, FR-7) | `core/src/library/calendar.rs` `Calendar::entries`, `missing` | `domain/src/series.rs`, `movie.rs` | as above | none | web `api/library/calendar.rs`, `pages/upcoming/`, `missing/` |
+| File projection on items | `core/src/library/files.rs` `FileTracker` (`library.files`) | none | `media_files.rs` | none | `yokoku/src/subscriptions.rs` |
+| Artwork: poster, backdrop, logo (FR-1.2) | `core/src/library/artwork.rs` `Artworks` (`library.artwork`) | `domain/src/item.rs` `Artwork`; choice in `infra/src/metadata/tmdb_wire.rs`, `tvdb_wire.rs` | `series_repo.rs`, `movie_repo.rs` (`artwork` JSON column) | `infra/src/metadata/artwork.rs` `ArtworkFetcher`; `infra/src/system/artwork.rs` `ArtworkFiles` | `web/src/api/artwork.rs`, which also serves search result posters uncached (`Artworks::preview`) |
+| Description: overview, genres, runtime; episode overviews | `core/src/library/metadata.rs` (with refresh) | `domain/src/item.rs` `Description`; `Series::refresh`, `Movie::refresh` | `series_repo.rs`, `movie_repo.rs` (`description` JSON column, episode `overview`) | `infra/src/metadata/tmdb.rs`, `tvdb.rs` | `web/src/api/library/detail.rs` |
+| Downloads: add, sync, pick up, seeding cleanup (FR-3) | `core/src/downloads/mod.rs` `Downloads` | `core/src/downloads/model.rs` | `download_repo.rs` | `infra/src/download_clients/transmission.rs` | jobs `sync-downloads`, `sync-active-downloads`; web `api/downloads.rs` (live over server-sent events, woken by `events::QueueChanges`, which `Downloads`, `ImportPlanner`, `Scanner`, `Reviewer` and `Importer` notify after saving downloads or imports), `pages/downloads/`, adding torrents in `dialogs/add_torrent.rs` (from Downloads and detail pages) |
+| Detection (FR-4.1–4.10, 4.13) | `media::detect` `ImportPlan::new` (`plan.rs`) | `classify.rs`, `parse.rs`, `titles.rs` (title and year), `plan.rs` (episodes) | none | none | `core/src/media/import/planner.rs`, `scan.rs` |
+| Import: plan, review, execute, retry (FR-3.5, 3.6, 4.11, 4.12, 9.2) | `core/src/media/import/planner.rs` `ImportPlanner` → `review.rs` `Reviewer` → `importer.rs` `Importer` | `media::detect`, `domain::naming` | `media_repo.rs` | `infra/src/system/fs.rs` | job `execute-imports`; web: status and retry on torrent rows (`api/downloads.rs`, `pages/downloads/`), scan imports on detail pages, review in `api/review.rs` and `dialogs/import_review/` (from both), with bulk re-detection and ordered assignment of selected files (`Reviewer::redetect`, `bulk.rs`) |
+| Episode spans (`S01E01-E03`) | none | `domain/src/matching.rs` | none | none | none |
+| Naming (FR-5.1–5.6) | none | `domain/src/naming/mod.rs`, `template.rs`, `sanitize.rs`, `subtitle.rs` | none | none | `media` |
+| Rename with preview (FR-5.7) | `core/src/media/rename.rs` `Renamer` | `domain::naming` | `media_repo.rs` | `infra/src/system/fs.rs` | web `api/rename.rs`, `dialogs/rename.rs` (from detail pages; renames the selected files) |
+| Root folders (FR-8.1) | `core/src/media/roots.rs` `RootFolders` | `core/src/media/model.rs` `RootFolder` | `media_repo.rs` | `infra/src/system/fs.rs` | `root.rs`; web `api/settings.rs`, `pages/settings/roots.rs` |
+| Scan (FR-8.2, 8.3, 8.7, 8.8) | `core/src/media/scan.rs` `Scanner` | `media::detect` | `media_repo.rs`, `catalog.rs` | `infra/src/system/fs.rs` | job `scan-library`; `media.scan_added`; `scan.rs` |
+| Retarget files on renumber | `core/src/media/scan/renumber.rs` (`media.renumbered`) | `domain/src/series.rs` `Series::refresh` | `media_repo.rs` | none | `subscriptions.rs` |
+| Delete files (FR-8.4, 8.5, FR-1.7) | `core/src/media/deleter.rs` `Deleter` | none | `media_repo.rs` | `infra/src/system/fs.rs` | web `api/library/manage.rs`, `components/delete_file.rs`, `remove_item.rs` |
+| File details (FR-8.6) | `core/src/media/prober.rs` `Prober` (`media.probe`) | `core/src/media/model.rs` `MediaInfo` | `media_info.rs` | `infra/src/system/probe.rs` | `files.rs`; web `api/library/detail.rs` |
+| Library lock | `core/src/media/ports.rs` `LibraryLock` | none | none | `infra/src/system/lock.rs` | every media use case |
+| Jellyfin rescan (FR-10.4) | `core/src/integrations/rescans.rs` `Rescans` | none | `rescan_store.rs` | `infra/src/media_servers/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
+| History (FR-9.1) | `core/src/events/history.rs` `History` | text: `domain/src/events.rs` `Display`; the web words events with item links in `web/src/api/history.rs` | `event_store.rs` | none | web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
+| Event contract, delivery | `domain/src/events.rs`; `core/src/events/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `event_store.rs` | none | `yokoku/src/subscriptions.rs`, `app.rs` |
+| Settings (FR-10.3) | `yokoku/src/config/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `yokoku/src/config/mod.rs` (layering) | `settings_store.rs` | none | `settings.rs`; web `api/settings.rs`, `pages/settings/` (through `SettingsAccess` in `web/src/state.rs`, implemented by `yokoku/src/web_settings.rs`) |
+| Jobs and schedules | `yokoku/src/jobs.rs` | none | none | none | `yokoku/src/service.rs` |
 | Attribution (FR-10.5) | none | none | none | none | `cli/args.rs` `DATA_SOURCES` |
 
 ---
@@ -246,15 +236,15 @@ Value types and rules shared by all modules. Examples:
 - Identifiers: `SeriesId`, `MovieId`, `EpisodeId`, and later `DownloadId`, `ImportId`, `MediaFileId`. UUIDv7 newtypes created by the domain, so an aggregate and its events are complete before they are saved. Users refer to items by source id (`tmdb:1396`).
 - `ExternalId { Tmdb(u64), Tvdb(u64) }`. An item stays bound to the provider it was added with: `metadata::Sources` looks it up there. Movies come from TMDB; series from TMDB, or from TVDB once a TVDB API key is set, which then also answers series searches.
 - `Series` → `Season` → `Episode` and `Movie`: aggregates with public fields. Seasons and episodes are kept ordered by number. Each carries its root folder path (`root`) and its folder name in that root (`folder`), both set when it is added and never changed.
-- `RootFolder { kind, path }` and `RootKind { Series, Movies }` (FR-8.1) are in `media` (`media/src/model.rs`), not here: `library` checks an item's root against its kind; `media` stores the root folders.
+- `RootFolder { kind, path }` and `RootKind { Series, Movies }` (FR-8.1) are in `media` (`core/src/media/model.rs`), not here: `library` checks an item's root against its kind; `media` stores the root folders.
 - `SeriesMetadata`, `MovieMetadata`: an item as its source describes it. `library::MetadataProvider` returns these.
 - `EpisodeRef { season, episode }` (`S01E02`) and `EpisodeSpan`, consecutive episodes of one season for multi-episode files (`S01E01-E03`).
-- `FileTarget { Episodes { series, span }, Movie(movie) }`: what a video file holds. `detect` produces it; `media` stores it.
+- `FileTarget { Episodes { series, span }, Movie(movie) }`: what a video file holds. `media::detect` produces it; `media` stores it.
 - `Numbering { Standard, Absolute }` (FR-1.8).
 - Air dates are dates only (`jiff::civil::Date`). TMDB provides no time; a nullable time column is added when a source provides one.
 - `MonitorPreset { All, Future, LatestSeason, None }` (FR-2.2).
 - `SeriesStatus { Continuing, OnBreak, Ended }`, `MovieStatus { Announced, InCinemas, Released }`, `FileStatus { Downloaded, Missing, Upcoming }`: derived from dates, files and today, never stored.
-- `Confidence { Unknown, Guess, Certain }` (FR-4.10) and `SubtitleTags` (language, SDH, forced), shared by `detect` and `naming`.
+- `Confidence { Unknown, Guess, Certain }` (FR-4.10) and `SubtitleTags` (language, SDH, forced), shared by `media::detect` and `domain::naming`.
 - `Clock`: the one port every module needs, so it lives here rather than in a module.
 - Later: `ImportMode { HardLink, Copy, Move }` (FR-3.6).
 
@@ -308,7 +298,7 @@ Owns movies, series, seasons, episodes, monitoring flags, and a projection of th
 
 Artwork (FR-1.2): TMDB gives a poster and backdrop path per item and a logo from its `images`, the best-voted one in the metadata language, else one without text. TVDB gives the series image as poster and, from `series/{id}/artworks`, the best-scored background without text (else in the language) and clear logo in the language (else without text). `ArtworkFetcher` downloads from `image.tmdb.org` (posters 342, backdrops 1280, logos 500 pixels wide) and from URLs under `https://artworks.thetvdb.com/`, and refuses any other address. `ArtworkFiles` keeps one folder per item next to the database, `artwork/series/<id>/poster-81189-10.jpg`; `web` serves them at `/artwork/{series|movie}/{id}/{kind}/{name}` with an immutable cache header, since the name changes with the image.
 
-`yokoku-metadata` sends at most 40 requests a second to each source, gives up on a request after 30 s (5 s to connect), and tries a request up to three times on 429, 502, 503, 504, a timeout or a failed connection, waiting as `Retry-After` says (at most 30 s) or 1 s, then 2 s. A 404 for an item is `NotFound`; 401 and 403 are `Refused` and not retried; an answer of another shape is `Invalid`. The TVDB client logs in once for all callers and logs in again once when its token is refused.
+`infra::metadata` sends at most 40 requests a second to each source, gives up on a request after 30 s (5 s to connect), and tries a request up to three times on 429, 502, 503, 504, a timeout or a failed connection, waiting as `Retry-After` says (at most 30 s) or 1 s, then 2 s. A 404 for an item is `NotFound`; 401 and 403 are `Refused` and not retried; an answer of another shape is `Invalid`. The TVDB client logs in once for all callers and logs in again once when its token is refused.
 
 ### 5.2 `downloads`
 
@@ -327,7 +317,7 @@ Owns the downloads Yokoku knows about and the Transmission connection settings.
 
 Transmission runs on the same host as Yokoku. The paths it reports are used as-is; no path mapping.
 
-`yokoku-download-clients` (module `transmission`) speaks Transmission's RPC: it repeats a call once with the session id a 409 answer carries, sends basic auth when configured, labels added torrents `yokoku`, and gives up on a request after 30 s (5 s to connect). A torrent counts as complete when its metadata is known, its selected size is above zero, nothing is left and it is not being checked. Tests replay recorded answers with wiremock; an ignored live test starts `transmission-daemon`, adds a torrent made from local data and syncs it to completion.
+`infra::download_clients` (file `transmission.rs`) speaks Transmission's RPC: it repeats a call once with the session id a 409 answer carries, sends basic auth when configured, labels added torrents `yokoku`, and gives up on a request after 30 s (5 s to connect). A torrent counts as complete when its metadata is known, its selected size is above zero, nothing is left and it is not being checked. Tests replay recorded answers with wiremock; an ignored live test starts `transmission-daemon`, adds a torrent made from local data and syncs it to completion.
 
 ### 5.3 `media`
 
@@ -352,12 +342,12 @@ Owns library files, root folders, naming settings and imports.
 ### 5.4 `integrations`
 
 - Rescans Jellyfin after `FilesImported`, `FileRenamed` and `FileDeleted` (FR-10.4). The `Rescans` subscriber only records that a rescan is due (the latest request time, one row); `run_due(quiet)` rescans once no request arrived for the quiet period and clears the request only if it was not renewed meanwhile, so a burst leads to one rescan, a request made during a rescan is kept, and a failed rescan stays pending. `serve` checks every 10 s with a 30 s quiet period; `yokoku jellyfin rescan` rescans at once. Off unless `[jellyfin] url` is set; `api_key` is a secret.
-- **Ports:** `MediaServer` (`JellyfinClient` in `media-servers`: `POST /Library/Refresh`, `GET /System/Info`, `Authorization: MediaBrowser Token`, 30 s per request, 5 s to connect), `RescanStore`.
+- **Ports:** `MediaServer` (`JellyfinClient` in `infra::media_servers`: `POST /Library/Refresh`, `GET /System/Info`, `Authorization: MediaBrowser Token`, 30 s per request, 5 s to connect), `RescanStore`.
 - Future notifications (REQUIREMENTS §6) go here.
 
 ### 5.5 Settings
 
-Each crate owns the settings its code reads, as a serde type next to that code: `MetadataSettings` in `metadata`, `TransmissionSettings` in `download-clients`, `DownloadOptions` (`[downloads]`) in `downloads`, `ImportSettings` in `media`, `Naming` (parsed from `[naming]`, so a bad pattern fails when the configuration loads) in `naming`, `JellyfinSettings` in `media-servers`, `ClockSettings` and `ProbeSettings` (`[files]`) in `system`, `ScheduleSettings` (`[serve]`) in `jobs`. `yokoku-config` composes them into `Config`, next to the sections only the binary reads (`database`, `log`, `web`, and the CLI defaults `add`, `list`, `calendar`). Stored settings are reached through the `SettingsStore` port in `domain`, which `db` implements, so `config` does not depend on `db`.
+Each module owns the settings its code reads, as a serde type next to that code: `MetadataSettings` in `infra::metadata`, `TransmissionSettings` in `infra::download_clients`, `DownloadOptions` (`[downloads]`) in `downloads`, `ImportSettings` in `media`, `Naming` (parsed from `[naming]`, so a bad pattern fails when the configuration loads) in `domain::naming`, `JellyfinSettings` in `infra::media_servers`, `ClockSettings` and `ProbeSettings` (`[files]`) in `infra::system`, `ScheduleSettings` (`[serve]`) in the binary's `jobs`. The binary's `config` module composes them into `Config`, next to the sections only the binary reads (`database`, `log`, `web`, and the CLI defaults `add`, `list`, `calendar`). Stored settings are reached through the `SettingsStore` port in `domain`, which `infra::db` implements.
 
 No use case or adapter keeps a copy of its settings. Each takes a `Live<T>` (`domain`), which `Settings::live` projects from the configuration in effect and which it reads each time it is used: `Importer` reads the naming patterns and import mode per file, the TMDB, TVDB, Transmission and Jellyfin clients read their URL and credentials per request (TVDB logs in again once the API key or PIN changes), `SystemClock` reads the time zone, each job reads its `[serve]` schedule before each tick and at least every second. A missing TMDB token, TVDB API key or Jellyfin URL is checked when a call needs it, so every service and job is wired even while it is not configured: a rescan stays pending until Jellyfin is set up. `database`, `log` and `web` are read once at start.
 
@@ -434,7 +424,7 @@ The payload carries the event's `type` tag, so no separate kind column is needed
 
 ### 7.2 Contract
 
-`domain::events` defines one struct per event and an `Event` enum wrapping them, serialised with an explicit `type` tag; `events` re-exports them. Events are built with `into()` and read with `Event::get::<E>()`. A stored event never changes meaning. A breaking change adds a new variant.
+`domain::events` defines one struct per event and an `Event` enum wrapping them, serialised with an explicit `type` tag. Events are built with `into()` and read with `Event::get::<E>()`. A stored event never changes meaning. A breaking change adds a new variant.
 
 ### 7.3 Catalog
 
@@ -466,7 +456,7 @@ All subscriptions are declared in one file in the `yokoku` binary (`subscription
 
 ---
 
-## 8. Jobs (`yokoku-jobs`)
+## 8. Jobs (`yokoku/src/jobs.rs`)
 
 Jobs run **work to do** on a schedule. They are not used to deliver events.
 
@@ -479,7 +469,7 @@ Jobs run **work to do** on a schedule. They are not used to deliver events.
 | `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` or Settings' Scan now (`scan_library`) | `Scanner::scan` (FR-8.7) |
 | `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
 
-Each job is a closure that calls one use case. Schedules are cron expressions with seconds in UTC, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`). `yokoku_jobs::spawn` starts one task per job, which sleeps until the next tick, runs the job and repeats, so a job never overlaps itself; a tick missed while the job runs is skipped. The task reads its schedule again before each tick and at least every second, so a changed schedule applies while the service runs. Each task stops when its `CancellationToken` is cancelled, after the tick it is running. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
+Each job is a closure that calls one use case. Schedules are cron expressions with seconds in UTC, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`). `jobs::spawn` starts one task per job, which sleeps until the next tick, runs the job and repeats, so a job never overlaps itself; a tick missed while the job runs is skipped. The task reads its schedule again before each tick and at least every second, so a changed schedule applies while the service runs. Each task stops when its `CancellationToken` is cancelled, after the tick it is running. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
 
 ---
 
@@ -514,13 +504,13 @@ One binary; the service is the application, and the CLI is a second interface to
 
 | Layer | How |
 |---|---|
-| `domain`, `detect`, `naming` | Case tables with `rstest`, invariants with `proptest`. `detect` has a corpus of real release names with expected results. |
-| Modules | Use cases against real adapters: storage through `yokoku-db` on SQLite `:memory:`, the real filesystem on a temporary directory, and a fixed `Clock`. No in-memory fakes of storage. |
+| `domain`, `media::detect`, `domain::naming` | Case tables with `rstest`, invariants with `proptest`. `media::detect` has a corpus of real release names with expected results. |
+| Modules | Use cases against real adapters: storage through `infra::db` on SQLite `:memory:`, the real filesystem on a temporary directory, and a fixed `Clock`. No in-memory fakes of storage. |
 | `db` | In-memory SQLite with real migrations. |
-| `metadata`, `download-clients`, `media-servers` | HTTP adapters against `wiremock`. |
+| `infra::metadata`, `download_clients`, `media_servers` | HTTP adapters against `wiremock`. |
 | End-to-end | Binary with a temporary directory, a real SQLite file and Transmission RPC served by `wiremock`. |
 
-Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modules) take it as a dev-dependency and live in `tests/`. Cargo allows that cycle for integration tests. `#[cfg(test)]` unit tests would compile the crate a second time, so their trait implementations would not match.
+`core` tests use `yokoku-infra`, which depends on `core`, so they take it as a dev-dependency and live in `tests/`. Cargo allows that cycle for integration tests. `#[cfg(test)]` unit tests would compile the crate a second time, so their trait implementations would not match.
 
 ### Workspace conventions
 
@@ -546,7 +536,7 @@ Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modu
 | Own TMDB client | `tmdb-api` crate | Few endpoints needed; low adoption. |
 | `Arc<dyn Port>` + `async-trait` | Generic `App<I: Infra>` | Generics would spread through every signature. |
 | SQLite | PostgreSQL | Single user, self-hosted, one file to back up. |
-| Dioxus behind a thin web crate | topcoat, Leptos | Client-side state in Rust for selection-heavy dialogs, and the same crates (such as `naming`) on server and browser. Pre-1.0; a breaking upgrade affects only the web crate. |
+| Dioxus behind a thin web crate | topcoat, Leptos | Client-side state in Rust for selection-heavy dialogs, and the same code (such as `domain::naming`) on server and browser. Pre-1.0; a breaking upgrade affects only the web crate. |
 
 ---
 
@@ -556,12 +546,12 @@ Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modu
 |---|---|
 | FR-1 Library | `library`, `metadata` |
 | FR-2 Monitoring | `domain` (presets), `library` |
-| FR-3 Download client | `downloads`, `download-clients` |
-| FR-4 Detection | `detect` (pure), `media` (plan, review, conflicts) |
-| FR-5 Naming | `naming` (pure), `media` (apply, rename preview) |
+| FR-3 Download client | `downloads`, `infra::download_clients` |
+| FR-4 Detection | `media::detect` (pure), `media` (plan, review, conflicts) |
+| FR-5 Naming | `domain::naming` (pure), `media` (apply, rename preview) |
 | FR-6 Next episode | `domain` (`FileStatus`), `library` queries |
 | FR-7 Calendar | `library` queries; iCal in `web` |
-| FR-8 File management | `media`, `system` |
+| FR-8 File management | `media`, `infra::system` |
 | FR-9 History | event log (`events`, `db`) |
 | FR-10 General | `yokoku`, `web`, settings per module |
 

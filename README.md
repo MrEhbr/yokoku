@@ -85,14 +85,18 @@ crates/
       service.rs      # The service: web UI, events, scheduled jobs
       subscriptions.rs  # Every event subscription
       logging.rs      # tracing setup
+      jobs.rs         # Scheduled jobs
+      config/         # Configuration: layered settings
       cli/
         args.rs       # CLI root, global flags, command dispatch
         commands/     # One module per subcommand
     benches/          # Criterion benchmarks
     tests/            # Integration tests
-  config/             # Configuration crate: layered settings
+  domain/             # Value types, rules, event contract, naming
+  core/               # Use cases and their ports
+  infra/              # Adapters: SQLite, TMDB/TVDB, Transmission, Jellyfin, local system
   web/                # Web UI on Dioxus: pages, server functions, components, gallery
-  <name>/             # Library crates, see docs/ARCHITECTURE.md §3
+  test-support/       # Fakes and fixtures shared by tests
 config/               # Configuration files
 docs/                 # Requirements and architecture
 ```
@@ -107,14 +111,14 @@ own config section and two subcommands. Paths below are relative to
 1. Copy it to `src/cli/commands/<name>.rs` and adjust its `Args` and `run`.
 2. Register the module in `src/cli/commands/mod.rs`.
 3. Add a variant to `Command` in `src/cli/args.rs` and dispatch it in `dispatch`.
-4. Add its config section to `Config` in `crates/config/src/lib.rs` (binary-only sections go in `crates/config/src/sections.rs`).
+4. Add its config section to `Config` in `src/config/mod.rs` (binary-only sections go in `src/config/sections.rs`).
 
 Configuration and logging are resolved once in `route`, so a command only
 receives `&Config` and its own parsed `Args`. `--config` and `--verbosity`
 are global and work on either side of the subcommand.
 
-A command's config section lives in `crates/config`, the way
-`crates/config/src/log.rs` owns `LogConfig`. Declare optional flags and layer them over
+A command's config section lives in `src/config/`, the way
+`src/config/log.rs` owns `LogConfig`. Declare optional flags and layer them over
 the loaded values in `apply_overrides`:
 
 ```rust
