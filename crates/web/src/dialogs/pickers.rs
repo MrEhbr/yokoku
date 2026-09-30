@@ -62,6 +62,7 @@ pub(crate) fn SeasonPicker(
     series: SeriesId,
     season: Signal<Option<u16>>,
     none: Option<&'static str>,
+    #[props(default)] aria_describedby: Option<&'static str>,
 ) -> Element {
     let seasons = use_resource(move || async move {
         let detail = detail::series(series).await.ok().flatten();
@@ -89,6 +90,7 @@ pub(crate) fn SeasonPicker(
             } else {
                 Select::<Option<u16>> {
                     id,
+                    aria_describedby,
                     value: Some(choice.into()),
                     placeholder: label(season()),
                     on_value_change: move |next: Option<Option<u16>>| season.set(next.flatten()),

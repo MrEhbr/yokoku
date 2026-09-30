@@ -6,7 +6,7 @@ use crate::{
     api::{
         downloads::{ItemLink, NewTorrent, add_torrent},
         failure,
-        library::{Entry, detail, library},
+        library::{Entry, library},
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
@@ -15,9 +15,9 @@ use crate::{
         field::{Field, FieldError, FieldHint},
         input::Input,
         label::Label,
-        select::{Select, SelectOption},
         skeleton::Skeleton,
     },
+    dialogs::pickers::SeasonPicker,
     route::Route,
 };
 
@@ -179,49 +179,17 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
     }
 }
 
-/// The season of the series' files whose names give none, or none to leave it to their names;
-/// cleared when mounted for another series.
+/// The season of the series' files whose names give none, or none to leave it to their names.
 #[component]
 fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
-    let seasons = use_resource(move || async move {
-        let detail = detail::series(series).await.ok().flatten();
-        let mut numbers: Vec<u16> =
-            detail.map(|detail| detail.seasons.iter().map(|season| season.number).collect()).unwrap_or_default();
-        numbers.sort_by_key(|&number| (number == 0, number));
-        numbers
-    });
-    use_effect(move || season.set(None));
-    let choice = use_memo(move || Some(season()));
-    let label = |number: Option<u16>| match number {
-        None => "From the file names".to_owned(),
-        Some(0) => "Specials".to_owned(),
-        Some(number) => format!("Season {number}"),
-    };
     rsx! {
         Field {
-            Label { html_for: "torrent-season", "Season" }
-            match &*seasons.read() {
-                None => rsx! {
-                    Skeleton { class: "h-9 w-full" }
-                },
-                Some(numbers) => rsx! {
-                    Select::<Option<u16>> {
-                        id: "torrent-season",
-                        aria_describedby: "torrent-season-hint",
-                        value: Some(choice.into()),
-                        placeholder: label(season()),
-                        on_value_change: move |next: Option<Option<u16>>| season.set(next.flatten()),
-                        for (index, number) in std::iter::once(None).chain(numbers.iter().copied().map(Some)).enumerate() {
-                            SelectOption::<Option<u16>> {
-                                key: "{number:?}",
-                                index,
-                                value: number,
-                                text_value: label(number),
-                                {label(number)}
-                            }
-                        }
-                    }
-                },
+            SeasonPicker {
+                id: "torrent-season",
+                series,
+                season,
+                none: Some("From the file names"),
+                aria_describedby: Some("torrent-season-hint"),
             }
             FieldHint { id: "torrent-season-hint",
                 "For files named without a season, like “Frieren - 05.mkv”; names with one keep it."
