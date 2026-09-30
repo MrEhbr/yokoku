@@ -9,6 +9,7 @@ use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, EpisodeRef, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata,
     Releases, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
 };
+use yokoku_events::EventLog;
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_test_support::metadata::movie_metadata;
 
@@ -110,15 +111,18 @@ async fn root_folders_are_added_as_absolute_paths_listed_and_removed() {
 }
 
 #[tokio::test]
-async fn scanned_files_mark_their_episodes_downloaded() {
+async fn a_scan_records_its_files_and_leaves_their_handling_to_the_service() {
     let setup = Setup::new().await;
     setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
 
     let stdout = setup.stdout(&["scan"]);
 
     assert_eq!(stdout, "Linked 1 new files\n");
-    assert!(setup.episode_downloaded(1, 1).await);
-    assert!(!setup.episode_downloaded(1, 2).await);
+    let log = Database::open(&setup.database).await.unwrap().event_log();
+    let events: Vec<&str> =
+        log.read_after(None, 10).await.unwrap().iter().map(|recorded| recorded.event.name()).collect();
+    assert_eq!(events, ["FilesFound"]);
+    assert!(!setup.episode_downloaded(1, 1).await, "no handler runs outside the service");
 }
 
 #[tokio::test]
@@ -137,20 +141,6 @@ async fn the_jellyfin_api_key_can_be_read_from_a_file() {
         .assert()
         .success()
         .stdout("Connected to Jellyfin 10.10.7\n");
-}
-
-#[tokio::test]
-async fn an_unreachable_jellyfin_does_not_fail_the_change() {
-    let setup = Setup::new().await;
-    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
-
-    setup
-        .command()
-        .arg("scan")
-        .env("APP__JELLYFIN__URL", "http://127.0.0.1:9")
-        .assert()
-        .success()
-        .stdout("Linked 1 new files\n");
 }
 
 /// A stand-in for ffprobe that reports the recorded sample: 320x180 h264, English and Japanese
@@ -172,6 +162,7 @@ async fn found_files_are_probed_and_shown_with_their_details() {
     let ffprobe = stand_in_ffprobe(setup.dir.path());
 
     setup.command().arg("scan").env("APP__FILES__FFPROBE", &ffprobe).assert().success();
+    setup.command().args(["files", "probe"]).env("APP__FILES__FFPROBE", &ffprobe).assert().success();
     let shown = setup.stdout(&["files", "show", "series", "tmdb:1"]);
 
     let path = setup.path("tv").canonicalize().unwrap().join("Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
@@ -228,6 +219,7 @@ async fn a_movie_file_is_shown_with_its_details() {
     let ffprobe = stand_in_ffprobe(setup.dir.path());
 
     setup.command().arg("scan").env("APP__FILES__FFPROBE", &ffprobe).assert().success();
+    setup.command().args(["files", "probe"]).env("APP__FILES__FFPROBE", &ffprobe).assert().success();
     let shown = setup.stdout(&["files", "show", "movie", "tmdb:2"]);
 
     let path = films.join("Dune (2021)/Dune (2021).mkv");

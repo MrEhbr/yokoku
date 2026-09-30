@@ -1,10 +1,8 @@
 use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result, bail};
-use jiff::SignedDuration;
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
-use tracing::warn;
 use yokoku_config::{Config, Settings};
 use yokoku_db::Database;
 use yokoku_domain::{Clock, ItemId, Live, title_with_year};
@@ -173,21 +171,6 @@ impl App {
         })
     }
 
-    /// Appends spooled events, delivers pending events to every subscriber, then asks Jellyfin to
-    /// rescan if they changed library files; a Jellyfin that cannot be reached is only reported.
-    pub async fn deliver_events(&self) -> Result<()> {
-        self.events.replay().await;
-        for subscriber in &self.subscribers {
-            let log = Arc::new(self.db.event_log());
-            let delivery = Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), quick_delivery());
-            delivery.catch_up().await.context("Failed to deliver events")?;
-        }
-        if let Err(error) = self.rescans.run_due(SignedDuration::ZERO).await {
-            warn!(%error, "Jellyfin rescan failed; it will be tried again");
-        }
-        Ok(())
-    }
-
     /// Starts one delivery loop per subscriber and one that appends spooled events every
     /// `REPLAY_INTERVAL`; each stops when `shutdown` is cancelled.
     pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
@@ -254,13 +237,3 @@ impl FolderNames for NamedFolders {
 }
 
 const REPLAY_INTERVAL: Duration = Duration::from_secs(60);
-
-/// Gives up after three quick attempts; the event is tried again on the next catch-up or by `serve`.
-fn quick_delivery() -> DeliveryConfig {
-    DeliveryConfig {
-        max_attempts: 3,
-        initial_backoff: Duration::from_millis(100),
-        max_backoff: Duration::from_secs(1),
-        ..DeliveryConfig::default()
-    }
-}

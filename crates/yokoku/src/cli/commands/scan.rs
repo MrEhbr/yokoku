@@ -13,7 +13,6 @@ pub async fn run(app: &App, _args: Args) -> Result<()> {
     }
 
     let report = app.scanner.scan().await?;
-    app.deliver_events().await?;
 
     success!("Linked {} new files", report.found)?;
     if report.vanished > 0 {
