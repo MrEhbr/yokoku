@@ -51,3 +51,16 @@ impl WebConfig {
         SocketAddr::new(self.host, self.port)
     }
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct EventsConfig {
+    /// Milliseconds between checks for events another process stored, such as a setting changed
+    /// from the command line.
+    pub poll_interval_ms: u64,
+}
+
+impl Default for EventsConfig {
+    fn default() -> Self {
+        Self { poll_interval_ms: 5000 }
+    }
+}

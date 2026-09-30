@@ -23,7 +23,7 @@ use yokoku_system::{ClockSettings, ProbeSettings};
 
 pub use crate::{
     log::{LogConfig, LogFormat, LogOutput},
-    sections::{AddConfig, CalendarConfig, DatabaseConfig, ListConfig, WebConfig},
+    sections::{AddConfig, CalendarConfig, DatabaseConfig, EventsConfig, ListConfig, WebConfig},
     settings::Settings,
 };
 
@@ -43,6 +43,7 @@ pub struct Config {
     pub list: ListConfig,
     pub calendar: CalendarConfig,
     pub serve: ScheduleSettings,
+    pub events: EventsConfig,
     pub import: ImportSettings,
     pub jellyfin: JellyfinSettings,
     pub files: ProbeSettings,

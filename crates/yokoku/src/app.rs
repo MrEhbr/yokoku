@@ -191,12 +191,13 @@ impl App {
     /// Starts one delivery loop per subscriber and one that appends spooled events every
     /// `REPLAY_INTERVAL`; each stops when `shutdown` is cancelled.
     pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
+        let poll_interval = Duration::from_millis(self.settings.current().events.poll_interval_ms);
+        let config = DeliveryConfig { poll_interval, ..DeliveryConfig::default() };
         self.subscribers
             .iter()
             .map(|subscriber| {
                 let log = Arc::new(self.db.event_log());
-                let delivery =
-                    Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), DeliveryConfig::default());
+                let delivery = Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), config.clone());
                 tokio::spawn(delivery.run(shutdown.clone()))
             })
             .chain([self.spawn_replay(shutdown)])
