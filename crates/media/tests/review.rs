@@ -207,6 +207,54 @@ async fn downloaded(app: &App) -> ImportId {
     import.id
 }
 
+/// An import of a season pack whose names give no season, detection left unmatched.
+async fn seasonless_pack(app: &App) -> ImportId {
+    let row = |name: &str| ImportRow {
+        path: app.path(&format!("downloads/Frieren Pack/{name}")),
+        size: 10,
+        target: None,
+        confidence: Confidence::Unknown,
+        skipped: false,
+        resolution: Resolution::Unresolved,
+    };
+    let import = Import {
+        id: ImportId::generate(),
+        source: app.path("downloads/Frieren Pack"),
+        download: Some(DownloadId::generate()),
+        status: ImportStatus::NeedsReview,
+        error: None,
+        rows: vec![row("Frieren - 01.mkv"), row("Frieren - 02.mkv"), row("extra.mkv")],
+        created_at: common::now(),
+    };
+    MediaRepo::save(&app.db, &Changes { imports: vec![import.clone()], ..Changes::default() }).await.unwrap();
+    import.id
+}
+
+#[rstest]
+#[case::in_a_season(Some(2), [((2, 1), Confidence::Certain), ((2, 2), Confidence::Certain)])]
+#[case::across_the_library(None, [((1, 1), Confidence::Guess), ((1, 2), Confidence::Guess)])]
+#[tokio::test]
+async fn selected_rows_are_detected_again(
+    #[case] season: Option<u16>,
+    #[case] expected: [((u16, u16), Confidence); 2],
+) {
+    let app = App::new().await;
+    let id = seasonless_pack(&app).await;
+    let series = season.map(|_| app.frieren.id);
+
+    app.reviewer.redetect(id, &[1, 2], series, season).await.unwrap();
+
+    let rows = app.reviewer.get(id).await.unwrap().rows;
+    let detected: Vec<_> = rows[..2].iter().map(|row| (row.row.target, row.row.confidence)).collect();
+    let expected: Vec<_> = expected
+        .iter()
+        .map(|&((season, episode), confidence)| (Some(app.episodes(season, episode, episode)), confidence))
+        .collect();
+    assert_eq!(detected, expected);
+    assert_eq!(rows[2].row.target, None);
+    assert!(matches!(app.reviewer.redetect(id, &[4], None, None).await, Err(MediaError::RowNotFound(4))));
+}
+
 #[tokio::test]
 async fn approving_a_download_queues_it_for_placing() {
     let app = App::new().await;

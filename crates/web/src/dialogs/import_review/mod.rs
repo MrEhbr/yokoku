@@ -1,7 +1,12 @@
+mod bulk;
+
+use std::collections::BTreeSet;
+
 use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
 use yokoku_domain::{ImportId, ItemId, title_with_year};
 
+use self::bulk::BulkTools;
 use crate::{
     api::{
         failure,
@@ -13,6 +18,7 @@ use crate::{
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
+        checkbox::{Checkbox, CheckboxState},
         combobox::{Combobox, ComboboxEmpty, ComboboxOption},
         dialog::{Dialog, DialogDescription, DialogFooter, DialogTitle},
         label::Label,
@@ -60,12 +66,18 @@ pub fn ReviewButton(
 }
 
 /// The import's files, read again after each change; changes are saved as they are made.
+/// Selected files get the bulk tools.
 #[component]
 fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
     let mut loaded = use_resource(move || review(import));
     let mut importing = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
+    let mut selected = use_signal(BTreeSet::<usize>::new);
     let reload = use_callback(move |()| loaded.restart());
+    let bulk_done = use_callback(move |()| {
+        selected.write().clear();
+        loaded.restart();
+    });
     let current = loaded.read().clone();
     let Some(result) = current else {
         return rsx! {
@@ -97,6 +109,14 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
     let count = included.len();
     let blocked = unmatched > 0 || conflicting > 0 || count == 0;
     let noun = if count == 1 { "file" } else { "files" };
+    let all: BTreeSet<usize> = review.rows.iter().map(|row| row.row).collect();
+    let chosen: Vec<ReviewFile> =
+        review.rows.iter().filter(|row| selected.read().contains(&row.row)).cloned().collect();
+    let header = match chosen.len() {
+        0 => CheckboxState::Unchecked,
+        picked if picked == all.len() => CheckboxState::Checked,
+        _ => CheckboxState::Indeterminate,
+    };
     rsx! {
         DialogDescription {
             span { class: "yk-code [overflow-wrap:anywhere]", "{review.source}" }
@@ -106,6 +126,19 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
                 " · the files are linked where they are."
             }
         }
+        div { class: "flex items-center gap-2",
+            Checkbox {
+                id: "review-all",
+                checked: header,
+                on_checked_change: move |state| {
+                    selected.set(if state == CheckboxState::Checked { all.clone() } else { BTreeSet::new() })
+                },
+            }
+            Label { html_for: "review-all", class: "text-caption text-muted", "Select files for the bulk tools" }
+        }
+        if !chosen.is_empty() {
+            BulkTools { import, files: chosen, on_change: bulk_done }
+        }
         ul { class: "border-t border-line",
             for file in review.rows.clone() {
                 FileRow {
@@ -113,6 +146,7 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
                     import,
                     file,
                     from_download: review.from_download,
+                    selected,
                     on_change: reload,
                 }
             }
@@ -156,7 +190,13 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
 
 /// A file with its match, confidence and conflicts, and what can be done with it.
 #[component]
-fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: Callback) -> Element {
+fn FileRow(
+    import: ImportId,
+    file: ReviewFile,
+    from_download: bool,
+    selected: Signal<BTreeSet<usize>>,
+    on_change: Callback,
+) -> Element {
     let mut editing = use_signal(|| false);
     let mut busy = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
@@ -186,9 +226,25 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
     rsx! {
         li { class: "grid gap-2 border-b border-line py-3",
             div { class: "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1",
-                span { class: "yk-code min-w-0 text-caption [overflow-wrap:anywhere]",
-                    span { class: "text-muted", "{row}. " }
-                    "{file.path}"
+                div { class: "flex min-w-0 items-baseline gap-2",
+                    Checkbox {
+                        id: "review-row-{row}",
+                        class: "shrink-0 self-center",
+                        checked: if selected.read().contains(&row) { CheckboxState::Checked } else { CheckboxState::Unchecked },
+                        on_checked_change: move |state| {
+                            if state == CheckboxState::Checked {
+                                selected.write().insert(row);
+                            } else {
+                                selected.write().remove(&row);
+                            }
+                        },
+                    }
+                    label {
+                        r#for: "review-row-{row}",
+                        class: "yk-code min-w-0 cursor-pointer text-caption [overflow-wrap:anywhere]",
+                        span { class: "text-muted", "{row}. " }
+                        "{file.path}"
+                    }
                 }
                 span { class: "flex shrink-0 items-center gap-3 text-caption text-muted",
                     "{size(file.size)}"

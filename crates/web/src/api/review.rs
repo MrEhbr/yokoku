@@ -137,6 +137,18 @@ pub async fn keep_both_file(import: ImportId, row: usize) -> Result<(), ServerFn
     reviewer.keep_both_row(import, row).await.map_err(server::failure)
 }
 
+/// Detects the files of `rows` again: against `series`, placing its names without a season in
+/// `season` when given, or against the whole library.
+#[post("/api/review/redetect", reviewer: Dep<Reviewer>)]
+pub async fn redetect_files(
+    import: ImportId,
+    rows: Vec<usize>,
+    series: Option<SeriesId>,
+    season: Option<u16>,
+) -> Result<(), ServerFnError> {
+    reviewer.redetect(import, &rows, series, season).await.map_err(server::failure)
+}
+
 /// Every row not skipped needs a match free of conflicts.
 #[post("/api/review/approve", reviewer: Dep<Reviewer>)]
 pub async fn approve(import: ImportId) -> Result<Imported, ServerFnError> {

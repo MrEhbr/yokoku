@@ -1,8 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use jiff::Timestamp;
-use yokoku_detect::Conflict;
-use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, MediaFileId};
+use yokoku_detect::{Conflict, ImportPlan, ListedFile, MatchScope};
+use yokoku_domain::{Clock, Confidence, DownloadId, FileTarget, ImportId, MediaFileId, SeriesId};
 use yokoku_events::{FilesImported, Publisher, QueueChanges};
 
 use crate::{
@@ -99,6 +99,59 @@ impl Reviewer {
             row.skipped = false;
         })
         .await
+    }
+
+    /// Detects the files of `rows` again: against `series`, placing its names without a season in
+    /// `season` when given, or against the whole library. Each keeps no match when nothing fits,
+    /// and none keeps its resolution.
+    pub async fn redetect(
+        &self,
+        id: ImportId,
+        rows: &[usize],
+        series: Option<SeriesId>,
+        season: Option<u16>,
+    ) -> Result<(), MediaError> {
+        let mut import = self.pending_import(id).await?;
+        let indexes: Vec<usize> = rows
+            .iter()
+            .map(|&row| {
+                row.checked_sub(1).filter(|&index| index < import.rows.len()).ok_or(MediaError::RowNotFound(row))
+            })
+            .collect::<Result<_, _>>()?;
+        let base = import.source.parent().unwrap_or(&import.source).to_owned();
+        let files: Vec<ListedFile> = indexes
+            .iter()
+            .map(|&index| {
+                let row = &import.rows[index];
+                ListedFile { path: row.path.strip_prefix(&base).unwrap_or(&row.path).to_owned(), size: row.size }
+            })
+            .collect();
+
+        let plan = match series {
+            Some(id) => {
+                let series = self.catalog.series(id).await?.ok_or(MediaError::SeriesNotFound(id))?;
+                let scope = match season {
+                    Some(season) => MatchScope::SeriesSeason { series: &series, season },
+                    None => MatchScope::Series(&series),
+                };
+                ImportPlan::new(&files, scope)
+            },
+            None => {
+                let (series, movies) = (self.catalog.all_series().await?, self.catalog.all_movies().await?);
+                ImportPlan::new(&files, MatchScope::Library { series: &series, movies: &movies })
+            },
+        };
+        for (index, file) in indexes.into_iter().zip(&files) {
+            let detected = plan.rows.iter().find(|row| row.video.path == file.path);
+            let row = &mut import.rows[index];
+            row.target = detected.and_then(|row| row.target);
+            row.confidence = detected.map_or(Confidence::Unknown, |row| row.confidence);
+            row.skipped = false;
+            row.resolution = Resolution::Unresolved;
+        }
+        self.repo.save(&Changes { imports: vec![import], ..Changes::default() }).await?;
+        self.changes.notify();
+        Ok(())
     }
 
     /// Marks a row to be imported beside the library file and other rows that hold its target.
