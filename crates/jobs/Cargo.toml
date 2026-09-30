@@ -18,12 +18,11 @@ yokoku-media.workspace = true
 jiff.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "time", "macros"] }
+tokio-util.workspace = true
 tracing.workspace = true
 
-apalis = "1.0.0-rc.10"
-apalis-cron = { version = "1.0.0-rc.9", default-features = false, features = ["jiff"] }
 jiff-cron = "0.3"
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt", "macros"] }
 tracing-subscriber.workspace = true

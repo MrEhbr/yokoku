@@ -38,7 +38,8 @@ pub async fn run(app: &App) -> Result<()> {
 
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);
-    let monitor = yokoku_jobs::monitor(
+    let stop_jobs = shutdown.child_token();
+    let jobs = yokoku_jobs::spawn(
         Jobs {
             downloads: app.downloads.clone(),
             importer: app.importer.clone(),
@@ -47,18 +48,23 @@ pub async fn run(app: &App) -> Result<()> {
             rescans: app.rescans.clone(),
         },
         schedules,
+        &stop_jobs,
     );
     let web = tokio::spawn(web.serve(shutdown.clone().cancelled_owned()));
     info!("running");
-    let result = monitor.run_with_signal(stop_signal()).await;
+    let result = stop_signal().await;
 
+    stop_jobs.cancel();
+    for job in jobs {
+        job.await.context("Job failed")?;
+    }
     shutdown.cancel();
     for delivery in deliveries {
         delivery.await.context("Event delivery failed")?;
     }
     web.await.context("Web server failed")?.context("Web server failed")?;
     info!("stopped");
-    result.context("Jobs failed")
+    result.context("Failed to wait for a stop signal")
 }
 
 async fn stop_signal() -> io::Result<()> {

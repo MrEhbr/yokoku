@@ -1,12 +1,17 @@
-//! apalis workers and schedules.
+//! Scheduled jobs.
 
-use std::{error::Error, str::FromStr, sync::Arc, time::Instant};
+use std::{
+    error::Error,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use apalis::prelude::{BoxDynError, Data, Monitor, WorkerBuilder, WorkerBuilderExt};
-use apalis_cron::{CronScheduler, Tick};
-use jiff::SignedDuration;
-use jiff_cron::{Schedule, jiff::tz::TimeZone};
+use jiff::{SignedDuration, Zoned, tz::TimeZone};
+use jiff_cron::Schedule;
 use serde::{Deserialize, Serialize};
+use tokio::{task::JoinHandle, time::sleep};
+use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_downloads::Downloads;
 use yokoku_events::{CorrelationId, correlation::correlate};
@@ -16,6 +21,8 @@ use yokoku_media::{Importer, Scanner};
 
 /// Changes must stop arriving for this long before the media server rescans.
 const RESCAN_QUIET: SignedDuration = SignedDuration::from_secs(30);
+
+type BoxError = Box<dyn Error + Send + Sync>;
 
 /// Use cases the jobs call.
 #[derive(Clone)]
@@ -92,45 +99,58 @@ fn schedule(expression: &str) -> Result<Schedule, InvalidSchedule> {
     Schedule::from_str(expression).map_err(|source| InvalidSchedule { expression: expression.to_owned(), source })
 }
 
-/// Registers every job, each running one tick at a time; run it with `Monitor::run_with_signal`.
-pub fn monitor(jobs: Jobs, schedules: Schedules) -> Monitor {
-    let mut monitor = Monitor::new();
-    monitor = register(monitor, "sync-downloads", schedules.sync_downloads, jobs.downloads.clone(), sync_downloads);
-    monitor = register(
-        monitor,
-        "sync-active-downloads",
-        schedules.sync_active_downloads,
-        jobs.downloads,
-        sync_active_downloads,
-    );
-    monitor = register(monitor, "execute-imports", schedules.execute_imports, jobs.importer, execute_imports);
-    monitor = register(monitor, "scan-library", schedules.scan_library, jobs.scanner, scan_library);
-    monitor = register(monitor, "refresh-metadata", schedules.refresh_metadata, jobs.metadata, refresh_metadata);
-    monitor =
-        register(monitor, "rescan-media-server", schedules.rescan_media_server, jobs.rescans, rescan_media_server);
-    monitor
+/// Starts each job on its schedule, one tick at a time; each stops when `shutdown` is cancelled,
+/// after the tick it is running.
+pub fn spawn(jobs: Jobs, schedules: Schedules, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
+    let Jobs { downloads, importer, scanner, metadata, rescans } = jobs;
+    let active = downloads.clone();
+    let shutdown = || shutdown.clone();
+    vec![
+        tokio::spawn(every("sync-downloads", schedules.sync_downloads, shutdown(), async move || {
+            downloads.sync().await
+        })),
+        tokio::spawn(every("sync-active-downloads", schedules.sync_active_downloads, shutdown(), async move || {
+            active.sync_active().await
+        })),
+        tokio::spawn(every("execute-imports", schedules.execute_imports, shutdown(), async move || {
+            importer.run_pending().await
+        })),
+        tokio::spawn(every("scan-library", schedules.scan_library, shutdown(), async move || scanner.scan().await)),
+        tokio::spawn(every("refresh-metadata", schedules.refresh_metadata, shutdown(), async move || {
+            refresh_metadata(&metadata).await
+        })),
+        tokio::spawn(every("rescan-media-server", schedules.rescan_media_server, shutdown(), async move || {
+            rescans.run_due(RESCAN_QUIET).await
+        })),
+    ]
 }
 
-fn register<T, F, Fut>(monitor: Monitor, name: &'static str, schedule: Schedule, data: Arc<T>, job: F) -> Monitor
-where
-    T: Send + Sync + 'static,
-    F: Fn(Tick<TimeZone>, Data<Arc<T>>) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), BoxDynError>> + Send + 'static,
-{
-    monitor.register(move |_| {
-        WorkerBuilder::new(name)
-            .backend(CronScheduler::new(schedule.clone()).with_timezone(TimeZone::UTC))
-            .concurrency(1)
-            .data(data.clone())
-            .build({
-                let job = job.clone();
-                move |tick: Tick<TimeZone>, data: Data<Arc<T>>| run(name, job(tick, data))
-            })
-    })
+/// Runs `job` on each tick of `schedule` in UTC; a tick missed while `job` runs follows right after it.
+async fn every<T, E: Into<BoxError>>(
+    name: &'static str,
+    schedule: Schedule,
+    shutdown: CancellationToken,
+    job: impl AsyncFn() -> Result<T, E>,
+) {
+    let mut next = schedule.upcoming(TimeZone::UTC).next();
+    while let Some(tick) = next {
+        tokio::select! {
+            biased;
+            () = shutdown.cancelled() => return,
+            () = sleep(until(&tick)) => {}
+        }
+        next = schedule.upcoming(TimeZone::UTC).next();
+        _ = run(name, async { job().await.map(drop).map_err(Into::into) }).await;
+    }
+}
+
+/// Zero once `tick` has passed.
+fn until(tick: &Zoned) -> Duration {
+    Zoned::now().duration_until(tick).try_into().unwrap_or_default()
 }
 
 /// Runs one tick in a root `job` span under a new correlation id, logging its duration and any failure.
-async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynError>>) -> Result<(), BoxDynError> {
+async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxError>>) -> Result<(), BoxError> {
     let correlation = CorrelationId::generate();
     let work = async {
         let started = Instant::now();
@@ -145,37 +165,12 @@ async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxDynErro
     correlate(correlation, work.instrument(info_span!(parent: None, "job", name, %correlation))).await
 }
 
-async fn sync_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) -> Result<(), BoxDynError> {
-    downloads.sync().await?;
-    Ok(())
-}
-
-async fn sync_active_downloads(_tick: Tick<TimeZone>, downloads: Data<Arc<Downloads>>) -> Result<(), BoxDynError> {
-    downloads.sync_active().await?;
-    Ok(())
-}
-
-async fn execute_imports(_tick: Tick<TimeZone>, importer: Data<Arc<Importer>>) -> Result<(), BoxDynError> {
-    importer.run_pending().await?;
-    Ok(())
-}
-
-async fn scan_library(_tick: Tick<TimeZone>, scanner: Data<Arc<Scanner>>) -> Result<(), BoxDynError> {
-    scanner.scan().await?;
-    Ok(())
-}
-
-async fn refresh_metadata(_tick: Tick<TimeZone>, metadata: Data<Arc<MetadataService>>) -> Result<(), BoxDynError> {
+async fn refresh_metadata(metadata: &MetadataService) -> Result<(), BoxError> {
     let report = metadata.refresh_due().await?;
     for failure in &report.failures {
         warn!(item = ?failure.item, error = %failure.error, "metadata refresh failed");
     }
     info!(refreshed = report.refreshed, failed = report.failures.len(), "metadata refreshed");
-    Ok(())
-}
-
-async fn rescan_media_server(_tick: Tick<TimeZone>, rescans: Data<Arc<Rescans>>) -> Result<(), BoxDynError> {
-    rescans.run_due(RESCAN_QUIET).await?;
     Ok(())
 }
 

@@ -7,7 +7,7 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 ## 1. Principles
 
 1. **MVP limits features, not architecture.** Boundaries are right from the first commit.
-2. **The core knows nothing about infrastructure.** Business logic never imports sqlx, reqwest, apalis or the web framework. It talks to the outside world through ports (traits) it owns.
+2. **The core knows nothing about infrastructure.** Business logic never imports sqlx, reqwest or the web framework. It talks to the outside world through ports (traits) it owns.
 3. **Modules are independent.** Feature modules never depend on each other. They share only value types and the event contract (`domain`) and event delivery (`events`). The compiler enforces this through crate boundaries.
 4. **Consistency where it matters, decoupling everywhere else.** A command inside a module is synchronous and transactional. Reactions across modules happen through a durable event log, appended after the command's change is saved.
 5. **Pure logic is isolated.** Filename detection and naming are pure functions with no IO and no async, tested with plain input/output tables.
@@ -22,9 +22,9 @@ This document describes **how** Yokoku is built. For **what** it does, see [REQU
 | Language | Rust, edition 2024 | |
 | Async runtime | `tokio` | |
 | Web / UI | Dioxus 0.7 (fullstack) | Pre-1.0. Pages render on the server and hydrate in the browser (WASM); server functions call use cases. Components are Dioxus Components restyled to Paper (`docs/design-system`). Kept in one adapter crate, `web`, which the service serves (§9, Runtime). |
-| Database | SQLite through `sqlx` (0.9) | Version set by `apalis-sqlite`. WAL mode, `foreign_keys=ON`, `busy_timeout`. |
+| Database | SQLite through `sqlx` (0.9) | WAL mode, `foreign_keys=ON`, `busy_timeout`. |
 | Migrations | `sqlx::migrate!` | One ordered set, owned by `db`. |
-| Background jobs, cron | `apalis`, `apalis-sqlite`, `apalis-cron` | Jobs share the app's SQLite database. `apalis-workflow` is not used (see §10). |
+| Background jobs, cron | Own loop on `tokio`, `jiff-cron` | See §8 and §10. |
 | HTTP client | `reqwest` (rustls) | |
 | Metadata | Own TMDB and TVDB v4 clients | Need only a handful of endpoints. |
 | Download client | `transmission-rpc` | Wrapped behind the `DownloadClient` port. |
@@ -61,7 +61,7 @@ crates/
   metadata/          yokoku-metadata          MetadataProvider impls: TMDB, TVDB
   download-clients/  yokoku-download-clients  DownloadClient impls (Transmission)
   media-servers/     yokoku-media-servers     MediaServer impls (Jellyfin)
-  jobs/              yokoku-jobs              apalis workers and cron; queue port impls
+  jobs/              yokoku-jobs              cron loops; queue port impls
   system/            yokoku-system            FileSystem, LibraryLock, Clock, MediaProbe (ffprobe), EventSpool
   web/               yokoku-web               Web UI on Dioxus: pages, server functions, components, component gallery
 
@@ -91,9 +91,9 @@ crates/
 | `domain` | std, `serde`, `serde_json`, `jiff`, `thiserror`, `async-trait`, `secrecy` | anything else in the workspace |
 | `detect`, `naming` | `domain` | IO, async, any module |
 | `events` | `domain` | any module or adapter |
-| Feature module | `domain`, `events`, pure crates it needs | other modules, any adapter, sqlx/reqwest/apalis/dioxus |
+| Feature module | `domain`, `events`, pure crates it needs | other modules, any adapter, sqlx/reqwest/dioxus |
 | Adapter | modules whose ports it implements | other adapters |
-| `web` (driving adapter) | modules whose use cases it calls | other adapters, sqlx/reqwest/apalis |
+| `web` (driving adapter) | modules whose use cases it calls | other adapters, sqlx/reqwest |
 | `config` | modules and adapters whose settings it composes | `db`, `web` |
 | `yokoku` | everything | — |
 
@@ -468,7 +468,7 @@ All subscriptions are declared in one file in the `yokoku` binary (`subscription
 
 ## 8. Jobs (`yokoku-jobs`)
 
-apalis runs **work to do**: long-running, retryable jobs and schedules. It is not used to deliver events.
+Jobs run **work to do** on a schedule. They are not used to deliver events.
 
 | Job | Trigger | Calls |
 |---|---|---|
@@ -479,7 +479,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` or Settings' Scan now (`scan_library`) | `Scanner::scan` (FR-8.7) |
 | `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
 
-Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and the service runs them with `Monitor::run_with_signal`. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
+Each job is a closure that calls one use case. Schedules are cron expressions with seconds in UTC, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`). `yokoku_jobs::spawn` starts one task per job, which sleeps until the next tick, runs the job and repeats, so a job never overlaps itself; a tick missed while the job runs follows right after it. Each task stops when its `CancellationToken` is cancelled, after the tick it is running. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
 
 ---
 
@@ -488,7 +488,7 @@ Job handlers are thin. They decode the job and call one use case. Schedules are 
 ### Runtime
 
 One binary; the service is the application, and the CLI is a second interface to it.
-- `yokoku` without a command runs the service: the web UI, the event subscribers and the apalis `Monitor`. The web server binds first, on `[web] host` and `port` (default `127.0.0.1:8080`; under `dx serve`, the address `dx` assigns), and the service stops at startup when the address is taken or the web assets are missing (`public/` next to the binary, or `DIOXUS_PUBLIC_PATH`). Server functions reach the use cases through `yokoku_web::AppState`, which `yokoku` builds. Each subscriber gets its own `Delivery` loop. A signal stops the monitor first; then the deliveries and the web server are cancelled and awaited.
+- `yokoku` without a command runs the service: the web UI, the event subscribers and the scheduled jobs. The web server binds first, on `[web] host` and `port` (default `127.0.0.1:8080`; under `dx serve`, the address `dx` assigns), and the service stops at startup when the address is taken or the web assets are missing (`public/` next to the binary, or `DIOXUS_PUBLIC_PATH`). Server functions reach the use cases through `yokoku_web::AppState`, which `yokoku` builds. Each subscriber gets its own `Delivery` loop. A signal stops the jobs first; then the deliveries and the web server are cancelled and awaited.
 - `just web serve` runs the whole app in development: `dx` builds `yokoku-web` for the browser and runs the `yokoku` service as its server (`dx serve @client --package yokoku-web @server --package yokoku`), and it provides the web assets.
 - Releases are Linux only (x86_64, aarch64). GoReleaser builds the browser part once (`dx bundle --fullstack false` into `target/web/public`) and each server with `cargo zigbuild`, unstripped; `dx tools assets` then writes the asset paths into the server binary, which a plain `cargo` build leaves as placeholders and which need its symbols, and `zig objcopy --strip-all` strips it. The archive and the Docker image hold `yokoku` with `public/` beside it. The image runs with `--config /config/app.toml`, which is `config/docker.toml` (database in `/data`, web on `0.0.0.0`) unless a mounted `/config` replaces it. macOS is not built: linking it needs Apple's SDK frameworks.
 - Subcommands are the command-line interface for setup and operations: `settings`, `root`, `scan`, `refresh`, `files`, `jellyfin`. They call the same use cases against the same database, so they need no running service. A command that writes events delivers them to every subscriber (`Delivery::catch_up`) before it exits.
@@ -540,6 +540,7 @@ Tests that use `yokoku-db` from a crate that `db` depends on (`events`, the modu
 | In-process delivery | External broker (NATS, Redis, Kafka) | Adds deployment weight for a single-user, self-hosted app. |
 | Import state machine in our tables | `apalis-workflow` | Review can pause for days, and the UI must query import state. |
 | Approved imports in our table are the job queue, claimed atomically | apalis storage-backed `ExecuteImport` queue | Import state lives in one place, and the claim lets the CLI and `serve` run imports side by side. |
+| Own cron loop over `tokio` (~40 lines) | `apalis`, `apalis-cron` | Only in-process cron ticks were used, and apalis is pre-1.0 and stops on its own signal instead of the service's `CancellationToken`. |
 | No actor framework | kameo, ractor | Mailboxes are in memory (not durable), and it would be a third messaging model next to events and jobs. The one real race (concurrent imports) is solved by concurrency 1. |
 | One lock file around library file changes | In-process mutex; locking rows in SQLite | A mutex does not reach the CLI in another process; a write transaction held while a file copies would block every other writer. |
 | Own TMDB client | `tmdb-api` crate | Few endpoints needed; low adoption. |

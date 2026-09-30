@@ -104,56 +104,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
-name = "apalis"
-version = "1.0.0-rc.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc96f8162b465147c3bbf0fe27b3803d468456823d1e2e5db17a3cc9206f1ccc"
-dependencies = [
- "apalis-core",
- "futures-util",
- "pin-project",
- "serde",
- "thiserror 2.0.21",
- "tower",
- "tracing",
-]
-
-[[package]]
-name = "apalis-core"
-version = "1.0.0-rc.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "736bb41e6475dafb9489fe67302f787381d5a511dbfa039cfe69e585bda6956a"
-dependencies = [
- "dashmap",
- "futures-channel",
- "futures-core",
- "futures-sink",
- "futures-timer",
- "futures-util",
- "pin-project",
- "rand 0.10.3",
- "thiserror 2.0.21",
- "tower-layer",
- "tower-service",
- "tracing",
- "ulid",
-]
-
-[[package]]
-name = "apalis-cron"
-version = "1.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab0ac8eee2bbd32f599e9d2d768ede83f9ec3e7f1639db2ffa30e5fc3a6e2699"
-dependencies = [
- "apalis-core",
- "futures-util",
- "jiff-cron",
- "thiserror 2.0.21",
- "tracing",
- "ulid",
-]
-
-[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5450,18 +5400,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
 
 [[package]]
-name = "ulid"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "947dde63b6d514cc5e044edad4e0ca7261afd1099d16c83d942cb2b2f348689c"
-dependencies = [
- "rand 0.10.3",
- "serde",
- "uuid",
- "web-time",
-]
-
-[[package]]
 name = "unarray"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6282,13 +6220,12 @@ dependencies = [
 name = "yokoku-jobs"
 version = "0.0.1"
 dependencies = [
- "apalis",
- "apalis-cron",
  "jiff",
  "jiff-cron",
  "serde",
  "thiserror 2.0.21",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "yokoku-downloads",
