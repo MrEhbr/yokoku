@@ -8,7 +8,7 @@ use yokoku_db::Database;
 use yokoku_downloads::Downloads;
 use yokoku_events::{
     DownloadCompleted, EpisodesRenumbered, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded,
-    MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged, Subscriber, Subscription,
+    MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged, Subscription,
 };
 use yokoku_integrations::Rescans;
 use yokoku_library::{Artworks, FileTracker};
@@ -25,7 +25,7 @@ pub fn subscribers(
     rescans: &Arc<Rescans>,
     artworks: &Arc<Artworks>,
     settings: &Settings,
-) -> Vec<Arc<dyn Subscriber>> {
+) -> Vec<Arc<Subscription>> {
     let tracker = Arc::new(FileTracker::new(db.clone(), db.clone(), db.clone()));
     [
         Subscription::new("media.scan_added").on::<SeriesAdded>(scanner.clone()).on::<MovieAdded>(scanner.clone()),
@@ -46,6 +46,6 @@ pub fn subscribers(
         Subscription::new("config.settings").on::<SettingsChanged>(Arc::new(settings.clone())),
     ]
     .into_iter()
-    .map(|subscription| Arc::new(subscription) as Arc<dyn Subscriber>)
+    .map(Arc::new)
     .collect()
 }

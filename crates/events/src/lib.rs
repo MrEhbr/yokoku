@@ -7,7 +7,6 @@ mod event_log;
 mod history;
 mod publisher;
 mod signal;
-mod subscriber;
 mod subscription;
 
 pub use delivery::{Delivery, DeliveryConfig};
@@ -15,8 +14,7 @@ pub use event_log::{Correlated, DeliveryFailure, EventId, EventLog, Recorded};
 pub use history::History;
 pub use publisher::Publisher;
 pub use signal::QueueChanges;
-pub use subscriber::{HandlerError, Subscriber};
-pub use subscription::{Handler, Subscription};
+pub use subscription::{Handler, HandlerError, Subscription};
 pub use yokoku_domain::{
     CorrelationId,
     events::{

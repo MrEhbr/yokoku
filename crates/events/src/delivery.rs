@@ -5,7 +5,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_domain::{CorrelationId, StorageError};
 
-use crate::{DeliveryFailure, EventLog, Recorded, Subscriber, correlation::correlate, signal::Listener};
+use crate::{DeliveryFailure, EventLog, Recorded, Subscription, correlation::correlate, signal::Listener};
 
 #[derive(Debug, Clone)]
 pub struct DeliveryConfig {
@@ -42,13 +42,13 @@ impl DeliveryConfig {
 /// Delivers the event log to one subscriber, in order, at least once.
 pub struct Delivery {
     log: EventLog,
-    subscriber: Arc<dyn Subscriber>,
+    subscriber: Arc<Subscription>,
     listener: Listener,
     config: DeliveryConfig,
 }
 
 impl Delivery {
-    pub fn new(log: EventLog, subscriber: Arc<dyn Subscriber>, config: DeliveryConfig) -> Self {
+    pub fn new(log: EventLog, subscriber: Arc<Subscription>, config: DeliveryConfig) -> Self {
         Self { listener: log.listen(), log, subscriber, config }
     }
 
@@ -102,7 +102,7 @@ impl Delivery {
         let mut resolved = 0;
         for (recorded, failure) in self.log.failed(subscriber).await? {
             let retried = async {
-                match self.subscriber.handle(&recorded).await {
+                match self.subscriber.handle(&recorded.event).await {
                     Ok(()) => {
                         info!("event handled on retry");
                         self.log.resolve(subscriber, recorded.id).await?;
@@ -146,7 +146,7 @@ impl Delivery {
         let mut attempt = 1;
         loop {
             let started = Instant::now();
-            match self.subscriber.handle(recorded).await {
+            match self.subscriber.handle(&recorded.event).await {
                 Ok(()) => {
                     debug!(elapsed_ms = started.elapsed().as_millis(), "event handled");
                     return self.log.mark_delivered(subscriber, recorded.id).await;

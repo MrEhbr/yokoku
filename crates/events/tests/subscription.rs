@@ -1,11 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use jiff::Timestamp;
 use yokoku_domain::{MovieId, SeriesId};
-use yokoku_events::{
-    Event, EventId, Handler, HandlerError, MovieAdded, Recorded, SeriesAdded, SeriesRemoved, Subscriber, Subscription,
-};
+use yokoku_events::{Event, Handler, HandlerError, MovieAdded, SeriesAdded, SeriesRemoved, Subscription};
 
 #[derive(Default)]
 struct Recorder {
@@ -47,12 +44,8 @@ impl Handler<SeriesAdded> for Failing {
     }
 }
 
-fn recorded(event: impl Into<Event>) -> Recorded {
-    Recorded { id: EventId(1), occurred_at: Timestamp::UNIX_EPOCH, event: event.into(), correlation: None }
-}
-
-fn series_added(title: &str) -> Recorded {
-    recorded(SeriesAdded { series: SeriesId::generate(), title: title.into() })
+fn series_added(title: &str) -> Event {
+    SeriesAdded { series: SeriesId::generate(), title: title.into() }.into()
 }
 
 #[tokio::test]
@@ -65,7 +58,7 @@ async fn each_event_goes_to_the_handlers_of_its_type_in_the_order_added() {
         .on::<SeriesAdded>(second.clone());
 
     subscription.handle(&series_added("Frieren")).await.unwrap();
-    subscription.handle(&recorded(MovieAdded { movie: MovieId::generate(), title: "Dune".into() })).await.unwrap();
+    subscription.handle(&MovieAdded { movie: MovieId::generate(), title: "Dune".into() }.into()).await.unwrap();
 
     assert_eq!(first.handled(), ["series Frieren", "movie Dune"]);
     assert_eq!(second.handled(), ["series Frieren"]);
@@ -77,7 +70,7 @@ async fn events_without_a_handler_are_skipped() {
     let subscription = Subscription::new("recorder").on::<SeriesAdded>(recorder.clone());
 
     let removed = SeriesRemoved { series: SeriesId::generate(), title: "Frieren".into(), delete_files: true };
-    subscription.handle(&recorded(removed)).await.unwrap();
+    subscription.handle(&removed.into()).await.unwrap();
 
     assert!(recorder.handled().is_empty());
 }

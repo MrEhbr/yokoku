@@ -9,7 +9,7 @@ use yokoku_db::Database;
 use yokoku_domain::{Clock, ItemId, Live, title_with_year};
 use yokoku_download_clients::TransmissionClient;
 use yokoku_downloads::Downloads;
-use yokoku_events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges, Subscriber};
+use yokoku_events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges, Subscription};
 use yokoku_integrations::Rescans;
 use yokoku_library::{Artworks, Calendar, Library, MetadataService, ports::FolderNames};
 use yokoku_media::{
@@ -45,7 +45,7 @@ pub struct App {
     metadata: Arc<MetadataService>,
     pub events: Publisher,
     log: EventLog,
-    subscribers: Vec<Arc<dyn Subscriber>>,
+    subscribers: Vec<Arc<Subscription>>,
 }
 
 impl App {

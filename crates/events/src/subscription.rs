@@ -1,8 +1,10 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{error::Error, marker::PhantomData, sync::Arc};
 
 use async_trait::async_trait;
 
-use crate::{Event, EventKind, HandlerError, Recorded, Subscriber};
+use crate::{Event, EventKind};
+
+pub type HandlerError = Box<dyn Error + Send + Sync>;
 
 /// Reacts to one type of event, at least once per event; handlers must be idempotent.
 #[async_trait]
@@ -10,8 +12,9 @@ pub trait Handler<E: EventKind>: Send + Sync {
     async fn handle(&self, event: &E) -> Result<(), HandlerError>;
 }
 
-/// A subscriber built from handlers: each event goes to the handlers of its type, in the order
-/// they were added, and the first failure fails the delivery.
+/// A subscriber built from handlers: it receives every event in log order, at least once, and each
+/// event goes to the handlers of its type, in the order they were added; the first failure fails the
+/// delivery. An event the delivery gave up on is tried again later, after newer events.
 pub struct Subscription {
     name: &'static str,
     handlers: Vec<Box<dyn Dispatch>>,
@@ -27,17 +30,14 @@ impl Subscription {
         self.handlers.push(Box::new(On { handler, event: PhantomData }));
         self
     }
-}
 
-#[async_trait]
-impl Subscriber for Subscription {
-    fn name(&self) -> &'static str {
+    pub fn name(&self) -> &'static str {
         self.name
     }
 
-    async fn handle(&self, recorded: &Recorded) -> Result<(), HandlerError> {
+    pub async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
         for handler in &self.handlers {
-            handler.dispatch(&recorded.event).await?;
+            handler.dispatch(event).await?;
         }
         Ok(())
     }
