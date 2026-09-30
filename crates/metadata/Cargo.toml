@@ -28,5 +28,5 @@ governor = { version = "0.10", default-features = false, features = ["std"] }
 yokoku-test-support.workspace = true
 
 rstest.workspace = true
-tokio = { workspace = true, features = ["rt", "macros"] }
+tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
 wiremock.workspace = true

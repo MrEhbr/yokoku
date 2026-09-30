@@ -181,7 +181,7 @@ mod tests {
         assert!(started.elapsed() >= SPACING * 4);
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn slow_answers_time_out() {
         let server = MockServer::start().await;
         let slow = ResponseTemplate::new(200).set_delay(Duration::from_secs(5));

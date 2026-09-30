@@ -318,23 +318,6 @@ async fn a_token_refused_twice_is_not_renewed_again() {
 
 #[rstest]
 #[tokio::test]
-async fn endless_episode_pages_are_invalid(#[future(awt)] server: MockServer) {
-    mount_frieren(&server).await;
-    Mock::given(path("/series/424536/episodes/default/eng"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": { "episodes": [] }, "links": { "next": "more" },
-        })))
-        .with_priority(1)
-        .mount(&server)
-        .await;
-
-    let error = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap_err();
-
-    assert!(matches!(error, MetadataError::Invalid(_)), "{error:?}");
-}
-
-#[rstest]
-#[tokio::test]
 async fn missing_series_are_not_found(#[future(awt)] server: MockServer) {
     Mock::given(path("/series/404/extended")).respond_with(ResponseTemplate::new(404)).mount(&server).await;
 

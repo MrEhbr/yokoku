@@ -27,6 +27,7 @@ pub struct TvdbClient {
     settings: Live<MetadataSettings>,
     /// The token with the API key and PIN it was issued for.
     token: Mutex<Option<(Credentials, String)>>,
+    max_episode_pages: usize,
 }
 
 #[derive(PartialEq, Eq)]
@@ -37,7 +38,7 @@ struct Credentials {
 
 impl TvdbClient {
     pub fn new(settings: Live<MetadataSettings>) -> Self {
-        Self { http: Http::new("TVDB"), settings, token: Mutex::new(None) }
+        Self { http: Http::new("TVDB"), settings, token: Mutex::new(None), max_episode_pages: MAX_EPISODE_PAGES }
     }
 
     /// Logs in on first use, and once more when the token is refused.
@@ -104,7 +105,7 @@ impl TvdbClient {
     ) -> Result<Vec<tvdb_wire::EpisodeItem>, MetadataError> {
         let endpoint = format!("series/{id}/episodes/default/{language}");
         let mut episodes = Vec::new();
-        for page in 0..MAX_EPISODE_PAGES {
+        for page in 0..self.max_episode_pages {
             let page = page.to_string();
             let envelope: Envelope<EpisodePage> = self.get(&endpoint, &[("page", &page)], Some(source)).await?;
             episodes.extend(envelope.data.episodes);
@@ -112,7 +113,7 @@ impl TvdbClient {
                 return Ok(episodes);
             }
         }
-        Err(MetadataError::Invalid(format!("{source} has more than {MAX_EPISODE_PAGES} episode pages").into()))
+        Err(MetadataError::Invalid(format!("{source} has more than {} episode pages", self.max_episode_pages).into()))
     }
 }
 
@@ -211,5 +212,38 @@ fn tvdb_id(source: ExternalId) -> Result<u64, MetadataError> {
     match source {
         ExternalId::Tvdb(id) => Ok(id),
         ExternalId::Tmdb(_) => Err(MetadataError::Unavailable(format!("TVDB cannot look up {source}").into())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
+    use yokoku_domain::{ExternalId, Live, Secret};
+    use yokoku_library::ports::MetadataError;
+
+    use super::TvdbClient;
+    use crate::{MetadataSettings, TvdbSettings};
+
+    #[tokio::test]
+    async fn endless_episode_pages_are_invalid() {
+        let server = MockServer::start().await;
+        let answer = |body| ResponseTemplate::new(200).set_body_json(body);
+        Mock::given(path("/login"))
+            .respond_with(answer(json!({ "status": "success", "data": { "token": "token" } })))
+            .mount(&server)
+            .await;
+        Mock::given(path("/series/424536/episodes/default/eng"))
+            .respond_with(answer(json!({ "data": { "episodes": [] }, "links": { "next": "more" } })))
+            .expect(2)
+            .mount(&server)
+            .await;
+        let tvdb = TvdbSettings { api_key: Some(Secret::new("key")), pin: None, url: server.uri() };
+        let settings = Live::fixed(MetadataSettings { tvdb, ..MetadataSettings::default() });
+        let client = TvdbClient { max_episode_pages: 2, ..TvdbClient::new(settings) };
+
+        let error = client.episodes(424536, ExternalId::Tvdb(424536), "eng").await.unwrap_err();
+
+        assert!(matches!(error, MetadataError::Invalid(_)), "{error:?}");
     }
 }
