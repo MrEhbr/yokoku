@@ -567,24 +567,24 @@ The slowest tests are now the single-spawn `yokoku` CLI wiring tests, at 2.7–3
 | T-S1, the test-support crate | Applied, `78ea529`. Its modules are `clock`, `events`, `transmission`, `jellyfin` and `metadata`. Each crate moved over in its own commit |
 | Flaky `a_torrent_can_be_added_for_an_item` | Applied, `d828e9d`. Every job schedule is set to never by default; the test passed 20 of 20 runs |
 | T-A1, T-A2, T-A3, T-A4 | Applied, `32f1db0` |
-| T-A6 | Applied, `ca853a1`. The first version generated a stem of `.` and failed; `eb355fc` generates stems the way the naming patterns do (passed 20 000 cases) |
+| T-A6 | Applied, `ca853a1`. The first version generated a stem of `.` and failed; `76b7e82` generates stems the way the naming patterns do (passed 20 000 cases) |
 | T-A11 | Skipped. `Config::load` reads the environment, and setting environment variables in-process is `unsafe` in edition 2024, which the workspace forbids. The CLI test stays |
 | T-A12, and the bare-section case of T-X1 | Applied, `9972d90` |
 | T-B1–T-B6 | Applied, `14f118e` |
 | T-B9 | Applied, `82e7c7e` |
-| T-C1 | Applied as a unit test on tokio's paused clock, with no production change, 3.2 s → 0.09 s. Commit `aed792b` |
-| T-C2 | The page cap became a field, tested as a unit test through struct update, 3.0 s → 0.09 s. Commit `aed792b` |
-| T-C3, T-C4, T-C5, the shared fixture loader | Applied, but they landed in `eb355fc`, whose message names only the naming fix; a split of that commit was not allowed |
-| T-C6–T-C11 | Applied, `7e013ad`. T-C9 skips the three multi-line `matches!` in `library/tests/library.rs`, where the value would first need its own binding |
-| T-D1, T-D3, T-D4, T-D5, T-D6 | Applied, `4311645` |
+| T-C1 | Applied as a unit test on tokio's paused clock, with no production change, 3.2 s → 0.09 s. Commit `2638a0a` |
+| T-C2 | The page cap became a field, tested as a unit test through struct update, 3.0 s → 0.09 s. Commit `2638a0a` |
+| T-C3, T-C4, T-C5, the shared fixture loader | Applied, `e3bd8f5` |
+| T-C6–T-C11 | Applied, `aee2711`. T-C9 skips the three multi-line `matches!` in `library/tests/library.rs`, where the value would first need its own binding |
+| T-D1, T-D3, T-D4, T-D5, T-D6 | Applied, `e5eac4a` |
 | T-D7 | Skipped. Checking for root needs `unsafe` libc or a new dependency, and nothing runs these tests as root |
-| T-D2 | Applied, `b5397c8` |
-| T-E3, T-E4, T-E5 | Applied, `b24b68c` |
-| T-E1, T-E6 | Applied, `380afa0` |
-| T-E2 | Applied, `a3c96ec` |
-| T-X1, T-F3, T-F4, T-F5, the CLI gaps (a movie's files, a movies root, `settings get` on an unknown key) | Applied, `f365cf0` |
-| T-F8 | `[events] poll_interval_ms` added, `765545d`; the test runs with 100 ms, 5.2 s → 0.5 s, `00e4010` |
-| T-W2, and the extracted `typed()` | Applied, `53371a9` (structural) |
-| T-W1, T-W3, and the `typed()` gap | Applied, `ac85b92`. `dioxus-ssr` renders `SettingField` inside an `Unsaved` context |
+| T-D2 | Applied, `0abb5bc` |
+| T-E3, T-E4, T-E5 | Applied, `c337193` |
+| T-E1, T-E6 | Applied, `c0d7ae3` |
+| T-E2 | Applied, `78f7136` |
+| T-X1, T-F3, T-F4, T-F5, the CLI gaps (a movie's files, a movies root, `settings get` on an unknown key) | Applied, `57c8797` |
+| T-F8 | `[events] poll_interval_ms` added, `e2ad0bb`; the test runs with 100 ms, 5.2 s → 0.5 s, `2d9d35c` |
+| T-W2, and the extracted `typed()` | Applied, `7e9409d` (structural) |
+| T-W1, T-W3, and the `typed()` gap | Applied, `40827a3`. `dioxus-ssr` renders `SettingField` inside an `Unsaved` context |
 | The combobox pointerdown guard gap | Skipped. It is trivial and would only restate `!open() && !disabled()` |
 | T-M (mockall) | Not adopted, as §2 recommends |
