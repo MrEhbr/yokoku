@@ -9,7 +9,7 @@ use std::{
 use jiff::{SignedDuration, Zoned, tz::TimeZone};
 use jiff_cron::Schedule;
 use serde::{Deserialize, Serialize};
-use tokio::{task::JoinHandle, time::sleep};
+use tokio::{task::JoinSet, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_core::events::correlation::correlate;
@@ -98,8 +98,8 @@ pub struct InvalidSchedule {
 
 /// Starts each job on its schedule, one tick at a time; each stops when `shutdown` is cancelled,
 /// after the tick it is running.
-pub fn spawn(app: &App, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
-    Job::ALL.into_iter().map(|job| tokio::spawn(job.every(app.clone(), shutdown.clone()))).collect()
+pub fn spawn(app: &App, shutdown: &CancellationToken) -> JoinSet<()> {
+    Job::ALL.into_iter().map(|job| job.every(app.clone(), shutdown.clone())).collect()
 }
 
 /// A scheduled job; `[serve]` holds its schedule under the same name.

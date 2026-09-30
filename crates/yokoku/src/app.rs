@@ -1,7 +1,7 @@
 use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
-use tokio::{task::JoinHandle, time::sleep};
+use tokio::{task::JoinSet, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_core::{
@@ -171,23 +171,22 @@ impl App {
 
     /// Starts one delivery loop per subscriber and one that appends kept events every
     /// `FLUSH_INTERVAL`; each stops when `shutdown` is cancelled.
-    pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
+    pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> JoinSet<()> {
         let poll_interval = Duration::from_millis(self.settings.current().events.poll_interval_ms);
         let config = DeliveryConfig { poll_interval, ..DeliveryConfig::default() };
-        self.subscriptions()
+        let mut deliveries: JoinSet<()> = self
+            .subscriptions()
             .into_iter()
-            .map(|subscriber| {
-                let delivery = Delivery::new(self.log.clone(), subscriber, config.clone());
-                tokio::spawn(delivery.run(shutdown.clone()))
-            })
-            .chain([self.spawn_flush(shutdown)])
-            .collect()
+            .map(|subscriber| Delivery::new(self.log.clone(), subscriber, config.clone()).run(shutdown.clone()))
+            .collect();
+        deliveries.spawn(self.flush_kept(shutdown.clone()));
+        deliveries
     }
 
-    fn spawn_flush(&self, shutdown: &CancellationToken) -> JoinHandle<()> {
+    fn flush_kept(&self, shutdown: CancellationToken) -> impl Future<Output = ()> + Send + 'static {
         const FLUSH_INTERVAL: Duration = Duration::from_secs(60);
-        let (events, shutdown) = (self.events.clone(), shutdown.clone());
-        tokio::spawn(async move {
+        let events = self.events.clone();
+        async move {
             shutdown
                 .run_until_cancelled(async {
                     loop {
@@ -198,6 +197,6 @@ impl App {
                     }
                 })
                 .await;
-        })
+        }
     }
 }

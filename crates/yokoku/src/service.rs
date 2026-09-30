@@ -9,7 +9,6 @@ use crate::app::App;
 
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App) -> Result<()> {
-    let config = app.settings.current();
     let state = yokoku_web::AppState {
         library: app.library.clone(),
         artworks: app.artworks.clone(),
@@ -33,30 +32,27 @@ pub async fn run(app: &App) -> Result<()> {
             monitor: app.settings.live(|config| config.add.monitor),
         }),
     };
-    let web = yokoku_web::Server::bind(config.web.address(), state).await.context("Failed to start the web server")?;
+    let web = yokoku_web::Server::bind(app.settings.current().web.address(), state)
+        .await
+        .context("Failed to start the web server")?;
 
-    let shutdown = CancellationToken::new();
-    let deliveries = app.spawn_deliveries(&shutdown);
-    let stop_jobs = shutdown.child_token();
+    let (stop_jobs, stop_service) = (CancellationToken::new(), CancellationToken::new());
     let jobs = crate::jobs::spawn(app, &stop_jobs);
-    let web = tokio::spawn(web.serve(shutdown.clone().cancelled_owned()));
+    let deliveries = app.spawn_deliveries(&stop_service);
+    let web = tokio::spawn(web.serve(stop_service.clone().cancelled_owned()));
     info!("running");
-    let result = stop_signal().await;
+    let signal = stop_signal().await;
 
     stop_jobs.cancel();
-    for job in jobs {
-        job.await.context("Job failed")?;
-    }
-    shutdown.cancel();
-    for delivery in deliveries {
-        delivery.await.context("Event delivery failed")?;
-    }
-    web.await.context("Web server failed")?.context("Web server failed")?;
+    jobs.join_all().await;
+    stop_service.cancel();
+    deliveries.join_all().await;
+    web.await.context("Web server failed")??;
     if let Err(error) = app.events.flush().await {
         error!(%error, "events of saved changes were lost; their handlers will not run");
     }
     info!("stopped");
-    result.context("Failed to wait for a stop signal")
+    signal.context("Failed to wait for a stop signal")
 }
 
 async fn stop_signal() -> io::Result<()> {
