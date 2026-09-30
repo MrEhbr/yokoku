@@ -60,7 +60,7 @@ Fonts are bundled locally with their OFL licenses. No external font requests are
 | Utility | Typeface | Size / line height | Use |
 |---|---|---|---|
 | `font-display text-display` | IBM Plex Mono 400 | 48 / 52.8 | Design reference or exceptional welcome screen only |
-| `yk-page-title` | IBM Plex Mono 400 | 32 / 38.4 | Library, Upcoming, Downloads |
+| `yk-page-title` | IBM Plex Mono 400 | 32 / 38.4 | Library, Upcoming, Queue |
 | `text-section font-medium` | DM Sans 500 | 18 / 25.2 | Dialog and section headings |
 | `text-body` | DM Sans 400 | 14 / 21 | Main interface text and controls |
 | `text-caption` | DM Sans 400/500 | 12 / 18 | Field labels, helper text, status |
@@ -172,9 +172,9 @@ Default output: `Shows/Title (Year)/Season 01/Title (Year) - S01E01 - Episode Ti
 
 ## 9. Navigation and screen composition
 
-Primary destinations: Library, Upcoming, Downloads, Activity, Settings. Review is a badge/action within Downloads and unmatched-file management; it does not require another large permanent screen. Missing is a Library filter/grouped view. Upcoming offers list/week/month views of monitored items.
+Primary destinations: Library, Wanted, Upcoming, Queue, History, Settings. Wanted lists what is missing (§6), grouped by series. Queue is the downloads with their imports; review is an action within it and unmatched-file management, not another permanent screen. Upcoming offers list/week/month views of monitored items.
 
-Destinations are text links in a top bar, the current one underlined in ink; Settings and the theme switch are icons at its right. The bar and the page share one width, capped at 1920px (120rem) so table rows stay scannable on wide windows. Below `md` the links take their own row, which scrolls sideways when it doesn't fit.
+Destinations are text links in a top bar, the current one underlined in ink; Settings and the theme switch are icons at its right. Badges after a label count what waits there: Wanted, the missing episodes and movies; Queue, the active downloads, and in a warning badge with an alert icon the downloads that need review, failed to import, or have a client error. Counts over 99 show “99+”; a zero count shows no badge; each count is also in the link's accessible name. The bar and the page share one width, capped at 1920px (120rem) so table rows stay scannable on wide windows. Below `md` the links take their own row, which scrolls sideways when it doesn't fit.
 
 Library: poster or compact list, type/status filters, title/date-added/next-release sorting. Series detail: next/last episode, monitoring, seasons, episode/file rows. Movie detail: release dates by type, monitoring, file details. Downloads: compact rows, selection, progress, linked media, review/retry. Settings: one screen grouped by connections, roots/import, naming, metadata/numbering, history, appearance.
 

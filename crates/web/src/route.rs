@@ -21,7 +21,7 @@ pub(crate) enum Route {
     #[layout(Shell)]
     #[route("/")]
     Library {},
-    #[route("/missing")]
+    #[route("/wanted")]
     Missing {},
     #[route("/add?:query&:kind")]
     Add { query: SearchText, kind: Kind },
@@ -31,7 +31,7 @@ pub(crate) enum Route {
     MovieDetail { id: MovieId },
     #[route("/upcoming")]
     Upcoming {},
-    #[route("/downloads")]
+    #[route("/queue")]
     Downloads {},
     #[route("/history")]
     History {},
@@ -48,14 +48,13 @@ impl Route {
         }
     }
 
-    /// The main destination this page belongs to: items, Missing and Add are part of the Library.
+    /// The main destination this page belongs to: items and Add are part of the Library.
     pub(crate) fn section(&self) -> Self {
         match self {
-            Self::Library {}
-            | Self::Missing {}
-            | Self::Add { .. }
-            | Self::SeriesDetail { .. }
-            | Self::MovieDetail { .. } => Self::Library {},
+            Self::Library {} | Self::Add { .. } | Self::SeriesDetail { .. } | Self::MovieDetail { .. } => {
+                Self::Library {}
+            },
+            Self::Missing {} => Self::Missing {},
             Self::Upcoming {} => Self::Upcoming {},
             Self::Downloads {} => Self::Downloads {},
             Self::History {} => Self::History {},

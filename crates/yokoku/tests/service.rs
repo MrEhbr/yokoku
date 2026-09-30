@@ -239,12 +239,12 @@ async fn the_calendar_api_lists_the_monitored_releases_of_a_period() {
 }
 
 #[tokio::test]
-async fn the_missing_page_lists_aired_episodes_without_a_file() {
+async fn the_wanted_page_lists_aired_episodes_without_a_file() {
     let dir = tempfile::tempdir().unwrap();
     seed(&dir.path().join("yokoku.db")).await;
     let service = Service::start(dir.path());
 
-    let page = service.get("/missing");
+    let page = service.get("/wanted");
 
     assert!(page.starts_with("HTTP/1.1 200"), "{page}");
     assert!(page.contains("Frieren") && page.contains("Departure"), "{page}");
@@ -261,11 +261,31 @@ async fn an_unmonitored_episode_is_no_longer_missing() {
 
     let off = service.post_json("/api/monitoring", &episode(1));
     let unknown = service.post_json("/api/monitoring", &episode(9));
-    let missing = service.get("/missing");
+    let missing = service.get("/wanted");
 
     assert!(off.starts_with("HTTP/1.1 200"), "{off}");
     assert!(!unknown.starts_with("HTTP/1.1 200") && unknown.contains("no longer lists it"), "{unknown}");
     assert!(missing.starts_with("HTTP/1.1 200") && !missing.contains("Departure"), "{missing}");
+}
+
+#[tokio::test]
+async fn the_wanted_count_drops_when_an_episode_is_unmonitored() {
+    let dir = tempfile::tempdir().unwrap();
+    let (frieren, _) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+    let count = || {
+        let response = service.get("/api/missing/count");
+        let body = response.split_once("\r\n\r\n").map(|(_, body)| body).unwrap_or_default();
+        body.trim().parse::<usize>().unwrap_or_else(|_| panic!("{response}"))
+    };
+    let off = format!(r#"{{"target":{{"kind":"episode","id":"{frieren}","season":1,"episode":1}},"monitored":false}}"#);
+
+    let before = count();
+    service.post_json("/api/monitoring", &off);
+    let after = count();
+
+    assert!(before > 0);
+    assert_eq!(after, before - 1);
 }
 
 #[tokio::test]
@@ -638,7 +658,7 @@ async fn the_downloads_page_shows_each_torrent_with_its_import() {
     seed_downloads(&path, frieren, dune).await;
     let service = Service::start(dir.path());
 
-    let page = service.get("/downloads");
+    let page = service.get("/queue");
 
     assert!(page.starts_with("HTTP/1.1 200"), "{page}");
     for text in [

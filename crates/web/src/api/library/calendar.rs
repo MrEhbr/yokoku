@@ -101,6 +101,13 @@ pub async fn missing() -> Result<Missing, ServerFnError> {
     server::missing(&calendar).await
 }
 
+/// The episodes and movies [`missing`] lists.
+#[get("/api/missing/count", calendar: Dep<Calendar>)]
+pub async fn missing_count() -> Result<usize, ServerFnError> {
+    let missing = server::missing(&calendar).await?;
+    Ok(missing.series.iter().map(|series| series.episodes.len()).sum::<usize>() + missing.movies.len())
+}
+
 #[cfg(feature = "server")]
 mod server {
     use dioxus::{logger::tracing::error, prelude::*};

@@ -164,7 +164,9 @@ naming rules make each hop predictable:
     - Large nested state edited per item, like the rows of an import review: a store
       (`#[derive(Store)]`, `use_store`), so a row re-renders alone.
     - State a subtree shares: context (`use_context_provider` / `use_context`), as `BackButton`'s
-      in-app history does; not for server data.
+      in-app history does; not for server data, except one stream the shell follows for several
+      readers: `LiveDownloads` feeds the Queue badge and the Queue page, which still renders its
+      first list on the server.
     - A child that edits page state takes the signal as a prop (`FilterBar { filters }`); a
       child that only shows it takes the value.
   - **Page states** follow the design system (§6 of DESIGN-SYSTEM.md): loading (`Skeleton`),
@@ -178,7 +180,9 @@ naming rules make each hop predictable:
     server; the vendored `Accordion` mounts its content only in the browser.
   - **Navigation:** a main destination is one `NavItem` in `layout/` `Shell`, a router link in
     the top bar, whose links wrap to their own row below `md`; Settings is an icon link beside
-    the theme switch. The bar and the page share one width, capped at 120rem. Every other page
+    the theme switch. The bar and the page share one width, capped at 120rem. Badges after a
+    label (`layout/nav_badges.rs`) count what waits there: Wanted reads `missing_count` again on
+    each navigation and finished import; Queue counts from `LiveDownloads`. Every other page
     belongs to one (`Route::section`), which stays highlighted, and starts with `BackButton`:
     back after an in-app link, or to its section when opened directly.
   - **Server functions:** a file in `api/` holds, compiled for both builds, its wire types and

@@ -103,14 +103,14 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
     };
     let presets: &[(MonitorPreset, &str, &str)] = match hit.kind {
         Kind::Series => &[
-            (MonitorPreset::All, "All episodes", "Every episode, aired or not, counts toward Missing and Upcoming."),
+            (MonitorPreset::All, "All episodes", "Every episode, aired or not, counts toward Wanted and Upcoming."),
             (MonitorPreset::Future, "Future episodes", "Only episodes that have not aired yet."),
             (MonitorPreset::LatestSeason, "Latest season", "Only the episodes of the latest season."),
-            (MonitorPreset::None, "Nothing", "No episode shows in Missing or Upcoming."),
+            (MonitorPreset::None, "Nothing", "No episode shows in Wanted or Upcoming."),
         ],
         Kind::Movie => &[
-            (MonitorPreset::All, "Monitored", "Shows in Missing and Upcoming until it has a file."),
-            (MonitorPreset::None, "Not monitored", "Never shows in Missing or Upcoming."),
+            (MonitorPreset::All, "Monitored", "Shows in Wanted and Upcoming until it has a file."),
+            (MonitorPreset::None, "Not monitored", "Never shows in Wanted or Upcoming."),
         ],
     };
     let monitor_hint = presets.iter().find(|(preset, ..)| Some(*preset) == monitor()).map(|(.., hint)| *hint);

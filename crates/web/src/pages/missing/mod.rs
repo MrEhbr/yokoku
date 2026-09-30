@@ -9,8 +9,6 @@ use crate::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         skeleton::Skeleton,
     },
-    layout::BackButton,
-    route::Route,
 };
 
 /// Monitored episodes that aired without a file, grouped by series, and released monitored
@@ -20,9 +18,8 @@ pub fn Missing() -> Element {
     let missing = use_server_future(missing)?;
 
     rsx! {
-        document::Title { "Missing · Yokoku" }
-        BackButton { fallback: Route::Library {} }
-        h1 { class: "yk-page-title mt-4", "Missing" }
+        document::Title { "Wanted · Yokoku" }
+        h1 { class: "yk-page-title", "Wanted" }
         p { class: "mt-2 text-muted",
             "Monitored episodes that have aired and released monitored movies, without a file."
         }

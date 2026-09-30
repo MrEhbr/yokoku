@@ -1,11 +1,18 @@
 mod back_button;
 pub mod document_head;
+mod live_downloads;
+mod nav_badges;
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide::Settings;
 
-pub(crate) use self::back_button::BackButton;
-use self::{back_button::use_in_app_history, document_head::DocumentHead};
+pub(crate) use self::{back_button::BackButton, live_downloads::LiveDownloads};
+use self::{
+    back_button::use_in_app_history,
+    document_head::DocumentHead,
+    live_downloads::use_live_downloads,
+    nav_badges::{QueueBadge, WantedBadge},
+};
 use crate::{components::theme_switch::ThemeSwitch, route::Route};
 
 /// Page width and side padding, shared by the top bar and the page so their edges line up.
@@ -16,6 +23,7 @@ const CONTAINER: &str = "mx-auto w-full max-w-[120rem] px-4 sm:px-6 lg:px-10";
 #[component]
 pub fn Shell() -> Element {
     use_in_app_history();
+    use_live_downloads();
     let section = use_route::<Route>().section();
     rsx! {
         document::Title { "Yokoku" }
@@ -32,8 +40,9 @@ pub fn Shell() -> Element {
                         aria_label: "Main",
                         class: "order-last flex w-full overflow-x-auto md:order-none md:w-auto",
                         NavItem { to: Route::Library {}, label: "Library" }
+                        NavItem { to: Route::Missing {}, label: "Wanted", WantedBadge {} }
                         NavItem { to: Route::Upcoming {}, label: "Upcoming" }
-                        NavItem { to: Route::Downloads {}, label: "Downloads" }
+                        NavItem { to: Route::Downloads {}, label: "Queue", QueueBadge {} }
                         NavItem { to: Route::History {}, label: "History" }
                     }
                     div { class: "ml-auto flex items-center gap-1",
@@ -57,18 +66,19 @@ pub fn Shell() -> Element {
     }
 }
 
-/// A main destination, marked current on its own pages.
+/// A main destination, marked current on its own pages, with its badges after the label.
 #[component]
-fn NavItem(to: Route, label: &'static str) -> Element {
+fn NavItem(to: Route, label: &'static str, children: Element) -> Element {
     let active = use_route::<Route>().section() == to;
     rsx! {
         Link {
             to: to.clone(),
-            class: "-mb-px shrink-0 border-b-2 border-transparent px-3 py-3 text-body whitespace-nowrap text-muted \
-                    transition-colors hover:text-ink aria-[current=page]:border-ink aria-[current=page]:font-medium \
-                    aria-[current=page]:text-ink",
+            class: "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-3 text-body \
+                    whitespace-nowrap text-muted transition-colors hover:text-ink aria-[current=page]:border-ink \
+                    aria-[current=page]:font-medium aria-[current=page]:text-ink",
             aria_current: if active { "page" } else { "false" },
             "{label}"
+            {children}
         }
     }
 }

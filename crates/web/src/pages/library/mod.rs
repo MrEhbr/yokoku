@@ -4,7 +4,7 @@ mod grid;
 mod table;
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide::{CircleAlert, LayoutGrid, Plus, Rows3};
+use dioxus_icons::lucide::{LayoutGrid, Plus, Rows3};
 
 use self::{
     filters::{FilterBar, Filters},
@@ -49,10 +49,6 @@ pub fn Library() -> Element {
                 },
                 Plus {}
                 "Add"
-            }
-            Link { class: "yk-button [&>svg]:size-4", to: Route::Missing {},
-                CircleAlert {}
-                "Missing"
             }
             div { role: "group", aria_label: "View", class: "flex gap-1",
                 for (option, label, icon) in [
