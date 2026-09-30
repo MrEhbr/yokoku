@@ -121,10 +121,12 @@ async fn a_value_that_does_not_load_is_refused_and_not_stored() {
 
     let wrong_value = settings.set("import.mode", json!("teleport")).await.unwrap_err();
     let unknown_key = settings.set("import.speed", json!(1)).await.unwrap_err();
+    let section = settings.set("naming", json!("x")).await.unwrap_err();
     let too_early = settings.set("database.path", json!("/tmp/other.db")).await.unwrap_err();
 
     assert!(format!("{wrong_value:#}").contains("teleport"), "{wrong_value:#}");
     assert!(format!("{unknown_key:#}").contains("not a setting"), "{unknown_key:#}");
+    assert!(format!("{section:#}").contains("naming is not a setting"), "{section:#}");
     assert!(format!("{too_early:#}").contains("before the database opens"), "{too_early:#}");
     assert_eq!(settings.stored_keys().await.unwrap(), Vec::<String>::new());
 }
