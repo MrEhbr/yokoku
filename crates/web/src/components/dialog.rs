@@ -13,7 +13,7 @@ use dioxus_primitives::{
 #[component]
 pub fn Dialog(props: DialogRootProps) -> Element {
     let base = attributes!(div {
-        class: "relative my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-dialog flex-col gap-4 overflow-y-auto \
+        class: "relative my-auto flex w-full max-w-dialog flex-col gap-4 \
                 border border-ink bg-surface p-5 text-ink shadow-dialog",
     });
     let merged = merge_attributes(vec![base, props.attributes]);
