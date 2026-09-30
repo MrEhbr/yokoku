@@ -4,11 +4,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-use jiff::{
-    Zoned,
-    civil::{Date, date},
-    tz::TimeZone,
-};
 use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
@@ -18,20 +13,11 @@ use yokoku_downloads::{
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
 use yokoku_events::{
-    DownloadCompleted, Event, EventLog, FilesImported, Handler, Publisher, QueueChanges, TorrentAdded, TorrentRemoved,
+    DownloadCompleted, Event, EventLog, FilesImported, Handler, QueueChanges, TorrentAdded, TorrentRemoved,
 };
-use yokoku_system::FileSpool;
+use yokoku_test_support::{clock::TestClock, events::publisher};
 
-const TODAY: Date = date(2026, 9, 26);
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
-
-struct FixedClock;
-
-impl Clock for FixedClock {
-    fn now(&self) -> Zoned {
-        TODAY.at(12, 0, 0, 0).to_zoned(TimeZone::UTC).unwrap()
-    }
-}
 
 /// Holds torrents by hash, as a download client would.
 #[derive(Default)]
@@ -142,9 +128,9 @@ async fn setup_with(options: DownloadOptions) -> Setup {
     let downloads = Downloads::new(
         Arc::new(db.clone()),
         client.clone(),
-        Arc::new(FixedClock),
+        Arc::new(TestClock::default()),
         Live::fixed(options),
-        Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool")))),
+        publisher(&db, dir.path()),
         changes.clone(),
     );
     Setup { _dir: dir, db, client, changes, downloads }
@@ -219,7 +205,7 @@ async fn a_download_completes_once_however_often_it_syncs() {
     assert!(again.completed.is_empty());
     let download = setup.only_download().await;
     assert_eq!(download.status.state, DownloadState::Seeding);
-    assert_eq!(download.completed_at, Some(FixedClock.now().timestamp()));
+    assert_eq!(download.completed_at, Some(TestClock::default().now().timestamp()));
     let events = setup.events().await;
     assert_eq!(events.iter().filter_map(Event::get::<DownloadCompleted>).count(), 1);
     assert_eq!(events.last(), Some(&completed(&download)));
@@ -309,7 +295,7 @@ async fn an_import_from_a_download_marks_it_imported_once() {
     let first = setup.only_download().await;
     setup.downloads.handle(&imported(Some(added.id))).await.unwrap();
 
-    assert_eq!(first.imported_at, Some(FixedClock.now().timestamp()));
+    assert_eq!(first.imported_at, Some(TestClock::default().now().timestamp()));
     assert_eq!(setup.only_download().await.revision, first.revision);
 }
 
@@ -422,6 +408,18 @@ async fn qualifying_torrents_from_outside_are_taken_on_once(#[case] options: Dow
             .into(),
         ]
     );
+}
+
+#[tokio::test]
+async fn concurrent_syncs_take_on_an_outside_torrent_once() {
+    let setup = setup_with(picking_up(&["tv"], None)).await;
+    setup.client.put(outside("aa", &["tv"], "/downloads/tv/shows"));
+
+    let (first, second) = tokio::join!(setup.downloads.sync(), setup.downloads.sync());
+
+    assert_eq!(first.unwrap().picked_up + second.unwrap().picked_up, 1);
+    assert_eq!(setup.downloads.list().await.unwrap().len(), 1);
+    assert_eq!(setup.events().await.iter().filter_map(Event::get::<TorrentAdded>).count(), 1);
 }
 
 #[tokio::test]

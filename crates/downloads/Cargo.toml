@@ -20,7 +20,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 yokoku-db.workspace = true
-yokoku-system.workspace = true
+yokoku-test-support.workspace = true
 
 rstest.workspace = true
 tempfile.workspace = true

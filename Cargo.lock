@@ -6243,7 +6243,7 @@ dependencies = [
  "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
- "yokoku-system",
+ "yokoku-test-support",
 ]
 
 [[package]]
