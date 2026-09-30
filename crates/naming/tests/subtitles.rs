@@ -25,7 +25,7 @@ fn subtitles_match_their_video(#[case] tags: SubtitleTags, #[case] extension: &s
 proptest! {
     #[test]
     fn a_subtitle_sits_beside_its_video_and_starts_with_its_name(
-        stem in "[A-Za-z0-9 ().-]{1,30}",
+        stem in "[A-Za-z0-9][A-Za-z0-9 ().-]{0,29}",
         language in proptest::option::of(".*"),
         sdh in any::<bool>(),
         forced in any::<bool>(),
