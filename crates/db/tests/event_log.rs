@@ -1,10 +1,14 @@
 use jiff::{SignedDuration, Timestamp};
-use rstest::{fixture, rstest};
+use rstest::rstest;
 use yokoku_db::Database;
 use yokoku_domain::{MovieId, SeriesId};
 use yokoku_events::{
     Correlated, CorrelationId, DeliveryFailure, Event, EventId, EventLog, MovieAdded, Recorded, SeriesAdded,
 };
+
+mod support;
+
+use support::db;
 
 fn series_added(id: i64) -> Event {
     SeriesAdded { series: SeriesId::generate(), title: format!("Series {id}") }.into()
@@ -12,11 +16,6 @@ fn series_added(id: i64) -> Event {
 
 fn ids(recorded: &[Recorded]) -> Vec<i64> {
     recorded.iter().map(|recorded| recorded.id.0).collect()
-}
-
-#[fixture]
-async fn db() -> Database {
-    Database::open_in_memory().await.unwrap()
 }
 
 /// Appends `events`, each under a new correlation id.
@@ -65,6 +64,25 @@ async fn read_after_returns_later_events_up_to_the_limit(
     append(&db, &[series_added(1), series_added(2), series_added(3), series_added(4)]).await;
 
     let recorded = db.event_log().read_after(after.map(EventId), limit).await.unwrap();
+
+    assert_eq!(ids(&recorded), expected);
+}
+
+#[rstest]
+#[case::from_the_end(None, 10, vec![4, 3, 2, 1])]
+#[case::before_a_position(Some(3), 10, vec![2, 1])]
+#[case::limited(None, 2, vec![4, 3])]
+#[case::before_the_start(Some(1), 10, vec![])]
+#[tokio::test]
+async fn read_before_returns_earlier_events_newest_first_up_to_the_limit(
+    #[future(awt)] db: Database,
+    #[case] before: Option<i64>,
+    #[case] limit: u32,
+    #[case] expected: Vec<i64>,
+) {
+    append(&db, &[series_added(1), series_added(2), series_added(3), series_added(4)]).await;
+
+    let recorded = db.event_log().read_before(before.map(EventId), limit).await.unwrap();
 
     assert_eq!(ids(&recorded), expected);
 }

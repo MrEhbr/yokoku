@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
 use jiff::{
-    Timestamp, ToSpan,
+    ToSpan,
     civil::{Date, date},
     tz::TimeZone,
 };
 use proptest::prelude::*;
-use rstest::{fixture, rstest};
+use rstest::rstest;
 use yokoku_db::Database;
 use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieId,
@@ -15,16 +15,11 @@ use yokoku_domain::{
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::ports::Catalog;
 
+mod support;
+
+use support::{block_on, db, now};
+
 const TODAY: Date = date(2026, 9, 26);
-
-#[fixture]
-async fn db() -> Database {
-    Database::open_in_memory().await.unwrap()
-}
-
-fn now() -> Timestamp {
-    "2026-09-26T12:00:00.123456789Z".parse().unwrap()
-}
 
 fn folder(name: &str) -> ItemFolder {
     ItemFolder::new("/library/tv".into(), name.into()).unwrap()
@@ -232,10 +227,6 @@ fn any_metadata() -> impl Strategy<Value = SeriesMetadata> {
     })
 }
 
-fn block_on<T>(future: impl Future<Output = T>) -> T {
-    tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(future)
-}
-
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(64))]
 
@@ -258,8 +249,7 @@ proptest! {
 
 #[rstest]
 #[tokio::test]
-async fn every_save_bumps_the_revision(#[future] db: Database) {
-    let db = db.await;
+async fn every_save_bumps_the_revision(#[future(awt)] db: Database) {
     let mut series =
         Series::add(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
     let mut movie = Movie::add(movie_metadata(2), ItemFolder::default(), true, now());
@@ -275,8 +265,7 @@ async fn every_save_bumps_the_revision(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
-async fn a_save_from_an_older_revision_changes_nothing(#[future] db: Database) {
-    let db = db.await;
+async fn a_save_from_an_older_revision_changes_nothing(#[future(awt)] db: Database) {
     let mut series =
         Series::add(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
     SeriesRepo::save(&db, &mut series).await.unwrap();
@@ -294,8 +283,7 @@ async fn a_save_from_an_older_revision_changes_nothing(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
-async fn a_removed_item_is_not_saved_back(#[future] db: Database) {
-    let db = db.await;
+async fn a_removed_item_is_not_saved_back(#[future(awt)] db: Database) {
     let mut movie = Movie::add(movie_metadata(2), ItemFolder::default(), true, now());
     MovieRepo::save(&db, &mut movie).await.unwrap();
     MovieRepo::remove(&db, movie.id).await.unwrap();
@@ -308,8 +296,7 @@ async fn a_removed_item_is_not_saved_back(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
-async fn the_catalog_reads_the_library(#[future] db: Database) {
-    let db = db.await;
+async fn the_catalog_reads_the_library(#[future(awt)] db: Database) {
     let mut series = Series::add(
         SeriesMetadata {
             source: ExternalId::Tmdb(1),

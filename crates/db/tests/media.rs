@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use jiff::{Timestamp, ToSpan};
 use proptest::prelude::*;
-use rstest::{fixture, rstest};
+use rstest::rstest;
 use uuid::Uuid;
 use yokoku_db::Database;
 use yokoku_domain::{Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId};
@@ -12,21 +12,16 @@ use yokoku_media::{
     ports::{Changes, MediaRepo},
 };
 
-#[fixture]
-async fn db() -> Database {
-    Database::open_in_memory().await.unwrap()
-}
+mod support;
 
-fn now() -> Timestamp {
-    "2026-09-26T12:00:00.123456789Z".parse().unwrap()
-}
+use support::{SIZE_BEYOND_U32, block_on, db, now};
 
 fn episodes(first: u16, last: u16) -> FileTarget {
     FileTarget::Episodes { series: SeriesId(Uuid::from_u128(1)), span: EpisodeSpan::new(1, first, last).unwrap() }
 }
 
 fn file(path: &str, target: FileTarget) -> MediaFile {
-    MediaFile { id: MediaFileId::generate(), path: path.into(), size: 1 << 33, target, added_at: now() }
+    MediaFile { id: MediaFileId::generate(), path: path.into(), size: SIZE_BEYOND_U32, target, added_at: now() }
 }
 
 fn import(source: &str, created_at: Timestamp, rows: Vec<ImportRow>) -> Import {
@@ -54,8 +49,7 @@ fn row(path: &str, target: Option<FileTarget>) -> ImportRow {
 
 #[rstest]
 #[tokio::test]
-async fn root_folders_are_listed_by_path_and_removed_by_path(#[future] db: Database) {
-    let db = db.await;
+async fn root_folders_are_listed_by_path_and_removed_by_path(#[future(awt)] db: Database) {
     let series = RootFolder { kind: RootKind::Series, path: "/media/tv".into() };
     let movies = RootFolder { kind: RootKind::Movies, path: "/media/movies".into() };
     db.add_root_folder(&series).await.unwrap();
@@ -70,8 +64,7 @@ async fn root_folders_are_listed_by_path_and_removed_by_path(#[future] db: Datab
 
 #[rstest]
 #[tokio::test]
-async fn commit_adds_and_removes_files(#[future] db: Database) {
-    let db = db.await;
+async fn commit_adds_and_removes_files(#[future(awt)] db: Database) {
     let (kept, gone) =
         (file("/tv/a.mkv", episodes(1, 2)), file("/movies/b.mkv", FileTarget::Movie(MovieId(Uuid::from_u128(3)))));
     MediaRepo::save(&db, &Changes { added_files: vec![kept.clone(), gone.clone()], ..Changes::default() })
@@ -85,8 +78,7 @@ async fn commit_adds_and_removes_files(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
-async fn a_failed_commit_changes_nothing(#[future] db: Database) {
-    let db = db.await;
+async fn a_failed_commit_changes_nothing(#[future(awt)] db: Database) {
     let existing = file("/tv/a.mkv", episodes(1, 1));
     MediaRepo::save(&db, &Changes { added_files: vec![existing.clone()], ..Changes::default() }).await.unwrap();
     let pending = import("/tv/b", now(), vec![row("/tv/b/1.mkv", None)]);
@@ -101,8 +93,7 @@ async fn a_failed_commit_changes_nothing(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
-async fn imports_are_listed_by_status_oldest_first(#[future] db: Database) {
-    let db = db.await;
+async fn imports_are_listed_by_status_oldest_first(#[future(awt)] db: Database) {
     let newer = import("/tv/newer", now() + 1.hour(), vec![row("/tv/newer/1.mkv", None)]);
     let older = import("/tv/older", now(), vec![row("/tv/older/1.mkv", Some(episodes(1, 1)))]);
     let mut done = import("/tv/done", now(), vec![]);
@@ -116,8 +107,7 @@ async fn imports_are_listed_by_status_oldest_first(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
-async fn saving_an_import_again_replaces_its_rows(#[future] db: Database) {
-    let db = db.await;
+async fn saving_an_import_again_replaces_its_rows(#[future(awt)] db: Database) {
     let mut pending = import("/tv/b", now(), vec![row("/tv/b/1.mkv", None), row("/tv/b/2.mkv", None)]);
     MediaRepo::save(&db, &Changes { imports: vec![pending.clone()], ..Changes::default() }).await.unwrap();
 
@@ -128,10 +118,6 @@ async fn saving_an_import_again_replaces_its_rows(#[future] db: Database) {
     MediaRepo::save(&db, &Changes { imports: vec![pending.clone()], ..Changes::default() }).await.unwrap();
 
     assert_eq!(db.import(pending.id).await.unwrap(), Some(pending));
-}
-
-fn block_on<T>(future: impl Future<Output = T>) -> T {
-    tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(future)
 }
 
 fn any_target() -> impl Strategy<Value = FileTarget> {
@@ -202,8 +188,7 @@ proptest! {
 
 #[rstest]
 #[tokio::test]
-async fn renamed_files_keep_their_id_and_target(#[future] db: Database) {
-    let db = db.await;
+async fn renamed_files_keep_their_id_and_target(#[future(awt)] db: Database) {
     let moved = file("/tv/a.mkv", episodes(1, 1));
     MediaRepo::save(&db, &Changes { added_files: vec![moved.clone()], ..Changes::default() }).await.unwrap();
 
@@ -215,8 +200,7 @@ async fn renamed_files_keep_their_id_and_target(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
-async fn claimed_paths_are_rows_of_unfinished_imports_and_skipped_rows(#[future] db: Database) {
-    let db = db.await;
+async fn claimed_paths_are_rows_of_unfinished_imports_and_skipped_rows(#[future(awt)] db: Database) {
     let mut imports = Vec::new();
     for (status, name) in [
         (ImportStatus::NeedsReview, "review"),
@@ -244,8 +228,7 @@ async fn claimed_paths_are_rows_of_unfinished_imports_and_skipped_rows(#[future]
 
 #[rstest]
 #[tokio::test]
-async fn the_library_reads_where_a_file_is_now(#[future] db: Database) {
-    let db = db.await;
+async fn the_library_reads_where_a_file_is_now(#[future(awt)] db: Database) {
     let linked = file("/tv/a.mkv", episodes(1, 1));
     MediaRepo::save(&db, &Changes { added_files: vec![linked.clone()], ..Changes::default() }).await.unwrap();
     let changes = Changes { retargeted_files: vec![(linked.id, episodes(3, 4))], ..Changes::default() };
@@ -257,8 +240,7 @@ async fn the_library_reads_where_a_file_is_now(#[future] db: Database) {
 
 #[rstest]
 #[tokio::test]
-async fn approved_imports_are_claimed_oldest_first_and_once(#[future] db: Database) {
-    let db = db.await;
+async fn approved_imports_are_claimed_oldest_first_and_once(#[future(awt)] db: Database) {
     let approved = |source: &str, created_at: Timestamp| Import {
         status: ImportStatus::Approved,
         ..import(source, created_at, vec![row(&format!("{source}/a.mkv"), None)])
@@ -281,8 +263,7 @@ async fn approved_imports_are_claimed_oldest_first_and_once(#[future] db: Databa
 
 #[rstest]
 #[tokio::test]
-async fn a_download_has_at_most_one_import(#[future] db: Database) {
-    let db = db.await;
+async fn a_download_has_at_most_one_import(#[future(awt)] db: Database) {
     let download = DownloadId::generate();
     let first = Import { download: Some(download), ..import("/downloads/a", now(), vec![]) };
     let second = Import { download: Some(download), ..import("/downloads/a", now(), vec![]) };

@@ -10,11 +10,16 @@ use yokoku_media::{
     ports::{Changes, MediaRepo},
 };
 
+mod support;
+
+use rstest::rstest;
+use support::{SIZE_BEYOND_U32, block_on, db};
+
 fn file(path: &str) -> MediaFile {
     MediaFile {
         id: MediaFileId::generate(),
         path: path.into(),
-        size: 1 << 33,
+        size: SIZE_BEYOND_U32,
         target: FileTarget::Movie(MovieId(Uuid::from_u128(1))),
         added_at: Timestamp::UNIX_EPOCH,
     }
@@ -36,9 +41,9 @@ async fn stored(db: &Database, files: &[MediaFile]) {
     db.save(&Changes { added_files: files.to_vec(), ..Changes::default() }).await.unwrap();
 }
 
+#[rstest]
 #[tokio::test]
-async fn details_are_replaced_and_go_with_their_file() {
-    let db = Database::open_in_memory().await.unwrap();
+async fn details_are_replaced_and_go_with_their_file(#[future(awt)] db: Database) {
     let dune = file("/movies/Dune.mkv");
     stored(&db, std::slice::from_ref(&dune)).await;
 
@@ -51,9 +56,9 @@ async fn details_are_replaced_and_go_with_their_file() {
     assert_eq!(db.media_info(dune.id).await.unwrap(), None);
 }
 
+#[rstest]
 #[tokio::test]
-async fn details_of_a_file_no_longer_stored_are_left_out() {
-    let db = Database::open_in_memory().await.unwrap();
+async fn details_of_a_file_no_longer_stored_are_left_out(#[future(awt)] db: Database) {
     let gone = MediaFileId::generate();
 
     db.save_media_info(gone, &info()).await.unwrap();
@@ -61,9 +66,9 @@ async fn details_of_a_file_no_longer_stored_are_left_out() {
     assert_eq!(db.media_info(gone).await.unwrap(), None);
 }
 
+#[rstest]
 #[tokio::test]
-async fn files_never_probed_are_listed_by_path() {
-    let db = Database::open_in_memory().await.unwrap();
+async fn files_never_probed_are_listed_by_path(#[future(awt)] db: Database) {
     let (a, b, c) = (file("/movies/a.mkv"), file("/movies/b.mkv"), file("/movies/c.mkv"));
     stored(&db, &[c.clone(), b.clone(), a.clone()]).await;
     db.save_media_info(b.id, &info()).await.unwrap();
@@ -99,7 +104,7 @@ proptest! {
 
     #[test]
     fn stored_details_read_back_unchanged(info in any_info()) {
-        let stored_info = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
+        let stored_info = block_on(async {
             let db = Database::open_in_memory().await.unwrap();
             let dune = file("/movies/Dune.mkv");
             stored(&db, std::slice::from_ref(&dune)).await;
