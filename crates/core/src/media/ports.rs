@@ -45,6 +45,18 @@ pub trait FileSystem: Send + Sync {
 
     /// A file that is already gone counts as removed.
     async fn remove_file(&self, path: &Path) -> Result<(), FsError>;
+
+    /// Renames the file, or copies and then deletes it when the two paths are on different file
+    /// systems.
+    async fn move_file(&self, from: &Path, to: &Path) -> Result<(), FsError> {
+        match self.rename(from, to).await {
+            Err(error) if error.source.kind() == io::ErrorKind::CrossesDevices => {
+                self.copy(from, to).await?;
+                self.remove_file(from).await
+            },
+            result => result,
+        }
+    }
 }
 
 /// Reads the streams of video files.

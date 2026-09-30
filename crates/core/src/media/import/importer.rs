@@ -18,7 +18,6 @@ use crate::{
     media::{
         Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
         detect::{Classified, ListedFile},
-        files,
         ports::{Catalog, Changes, FileSystem, FsError, LibraryLock, MediaRepo},
     },
 };
@@ -380,7 +379,7 @@ impl Importer {
                 result => result,
             },
             ImportMode::Copy => self.fs.copy(source, destination).await,
-            ImportMode::Move => files::move_file(self.fs.as_ref(), source, destination).await,
+            ImportMode::Move => self.fs.move_file(source, destination).await,
         };
         result?;
         debug!(from = %source.display(), to = %destination.display(), ?mode, "placed");

@@ -23,15 +23,3 @@ pub(crate) async fn sidecar_subtitles(fs: &dyn FileSystem, video: &Path) -> Resu
     let owner = Classified::from_files(&candidates).videos.into_iter().find(|candidate| candidate.path == video);
     Ok(owner.map(|video| video.subtitles).unwrap_or_default())
 }
-
-/// Renames the file, or copies and then deletes it when the two paths are on different file
-/// systems.
-pub(crate) async fn move_file(fs: &dyn FileSystem, from: &Path, to: &Path) -> Result<(), FsError> {
-    match fs.rename(from, to).await {
-        Err(error) if error.source.kind() == io::ErrorKind::CrossesDevices => {
-            fs.copy(from, to).await?;
-            fs.remove_file(from).await
-        },
-        result => result,
-    }
-}
