@@ -47,7 +47,7 @@ impl Seeded {
 
         for number in 0..items / 2 {
             let folder = ItemFolder::new(tv.clone(), format!("Series {number:04} (2020)")).unwrap();
-            let mut series = Series::add(series_metadata(number), folder, MonitorPreset::All, today, now);
+            let mut series = Series::new(series_metadata(number), folder, MonitorPreset::All, today, now);
             for season in 1..=SEASONS {
                 for episode in 1..=EPISODES {
                     let span = EpisodeSpan::single(EpisodeRef { season, episode });
@@ -61,7 +61,7 @@ impl Seeded {
         }
         for number in 0..items / 2 {
             let folder = ItemFolder::new(movies.clone(), format!("Movie {number:04} (2020)")).unwrap();
-            let mut movie = Movie::add(movie_metadata(number), folder, true, now);
+            let mut movie = Movie::new(movie_metadata(number), folder, true, now);
             let file = media_file(&movie.folder.path().join("movie.mkv"), FileTarget::Movie(movie.id));
             movie.file = Some(file.id);
             changes.added_files.push(file);

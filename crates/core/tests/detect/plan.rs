@@ -55,7 +55,7 @@ fn series(spec: SeriesSpec<'_>) -> Series {
             })
             .collect(),
     };
-    Series::add(metadata, ItemFolder::default(), MonitorPreset::All, TODAY, Timestamp::UNIX_EPOCH)
+    Series::new(metadata, ItemFolder::default(), MonitorPreset::All, TODAY, Timestamp::UNIX_EPOCH)
 }
 
 fn numbered(count: usize) -> Vec<String> {
@@ -73,7 +73,7 @@ fn movie(source: u64, title: &str, original_title: &str, year: i16) -> Movie {
         description: Description::default(),
         releases: Releases::default(),
     };
-    Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
+    Movie::new(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
 }
 
 struct Library {

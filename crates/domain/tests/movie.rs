@@ -22,7 +22,7 @@ fn movie(cinema: Option<i64>, digital: Option<i64>, physical: Option<i64>) -> Mo
         description: Description::default(),
         releases: Releases { cinema: from_today(cinema), digital: from_today(digital), physical: from_today(physical) },
     };
-    Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
+    Movie::new(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
 }
 
 #[rstest]

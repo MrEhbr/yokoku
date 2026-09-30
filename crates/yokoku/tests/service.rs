@@ -160,9 +160,9 @@ async fn seed(path: &Path) -> (SeriesId, MovieId) {
         releases: Releases::default(),
     };
     let today = now.to_zoned(jiff::tz::TimeZone::UTC).date();
-    let mut series = Series::add(frieren, ItemFolder::default(), MonitorPreset::All, today, now);
+    let mut series = Series::new(frieren, ItemFolder::default(), MonitorPreset::All, today, now);
     SeriesRepo::save(&db, &mut series).await.unwrap();
-    let mut movie = Movie::add(dune, ItemFolder::default(), true, now);
+    let mut movie = Movie::new(dune, ItemFolder::default(), true, now);
     MovieRepo::save(&db, &mut movie).await.unwrap();
     let file = MediaFile {
         id: MediaFileId::generate(),
@@ -434,7 +434,7 @@ async fn seed_unscanned_movie(dir: &Path) {
         description: Description::default(),
         releases: Releases::default(),
     };
-    MovieRepo::save(&db, &mut Movie::add(dune, folder, true, Timestamp::now())).await.unwrap();
+    MovieRepo::save(&db, &mut Movie::new(dune, folder, true, Timestamp::now())).await.unwrap();
 }
 
 /// Waits up to 15 s for a scan of `dir`'s library to find a file.

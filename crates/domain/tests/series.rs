@@ -89,7 +89,7 @@ fn status_follows_source_and_schedule(
     #[case] latest_air_date: Option<Date>,
     #[case] expected: SeriesStatus,
 ) {
-    let series = Series::add(
+    let series = Series::new(
         metadata(source_status, &[(1, &[Some(date(2020, 1, 1)), latest_air_date])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -119,7 +119,7 @@ fn series_follow_sonarrs_refresh_rules(
     #[case] title: &str,
     #[case] expected: bool,
 ) {
-    let mut series = Series::add(
+    let mut series = Series::new(
         metadata(source_status, &[(season, &[Some(TODAY + aired_days_from_today.days())])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -137,7 +137,7 @@ fn series_follow_sonarrs_refresh_rules(
 #[case::no_date(None, false, FileStatus::Upcoming)]
 #[case::downloaded(Some(YESTERDAY), true, FileStatus::Downloaded)]
 fn episode_file_status(#[case] air_date: Option<Date>, #[case] has_file: bool, #[case] expected: FileStatus) {
-    let mut series = Series::add(
+    let mut series = Series::new(
         metadata(SourceStatus::Returning, &[(1, &[air_date])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -160,7 +160,7 @@ fn presets_choose_monitored_episodes(
     #[case] expected: &[(u16, u16)],
 ) {
     let past = Some(YESTERDAY);
-    let series = Series::add(
+    let series = Series::new(
         metadata(SourceStatus::Returning, &[(0, &[past]), (1, &[past, past]), (2, &[past, Some(TOMORROW), None])]),
         ItemFolder::default(),
         preset,
@@ -177,7 +177,7 @@ fn seasons_and_episodes_are_ordered_by_number() {
     let mut unordered = metadata(SourceStatus::Returning, &[(2, &[None, None]), (1, &[None])]);
     unordered.seasons[0].episodes.reverse();
 
-    let series = Series::add(unordered, ItemFolder::default(), MonitorPreset::All, TODAY, now());
+    let series = Series::new(unordered, ItemFolder::default(), MonitorPreset::All, TODAY, now());
 
     let order: Vec<_> =
         series.seasons.iter().flat_map(|s| s.episodes.iter().map(move |e| (s.number, e.number))).collect();
@@ -187,7 +187,7 @@ fn seasons_and_episodes_are_ordered_by_number() {
 #[test]
 fn refresh_keeps_identity_flags_and_files_of_renumbered_episodes() {
     let original = metadata(SourceStatus::Returning, &[(1, &[None, None])]);
-    let mut series = Series::add(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+    let mut series = Series::new(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
     let moved = find(&series, 1, 2).clone();
     let file = MediaFileId::generate();
     series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().file = Some(file);
@@ -216,7 +216,7 @@ fn refresh_keeps_identity_flags_and_files_of_renumbered_episodes() {
 #[test]
 fn refresh_unlinks_a_file_whose_episodes_are_no_longer_consecutive() {
     let original = metadata(SourceStatus::Returning, &[(1, &[None, None])]);
-    let mut series = Series::add(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+    let mut series = Series::new(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
     let file = MediaFileId::generate();
     for episode in [1, 2] {
         series.episode_mut(EpisodeRef { season: 1, episode }).unwrap().file = Some(file);
@@ -234,7 +234,7 @@ fn refresh_unlinks_a_file_whose_episodes_are_no_longer_consecutive() {
 #[test]
 fn refresh_without_renumbering_reports_no_files() {
     let original = metadata(SourceStatus::Returning, &[(1, &[None, None])]);
-    let mut series = Series::add(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+    let mut series = Series::new(original.clone(), ItemFolder::default(), MonitorPreset::All, TODAY, now());
     series.episode_mut(EpisodeRef { season: 1, episode: 2 }).unwrap().file = Some(MediaFileId::generate());
 
     assert!(series.refresh(original, now()).is_empty());
@@ -244,7 +244,7 @@ fn refresh_without_renumbering_reports_no_files() {
 #[case::monitored_season(true, true)]
 #[case::unmonitored_season(false, false)]
 fn refresh_monitors_new_episodes_like_their_season(#[case] season_monitored: bool, #[case] expected: bool) {
-    let mut series = Series::add(
+    let mut series = Series::new(
         metadata(SourceStatus::Returning, &[(1, &[None])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -264,7 +264,7 @@ fn refresh_monitors_new_episodes_like_their_season(#[case] season_monitored: boo
 #[case::unmonitored_series(MonitorPreset::None, false)]
 fn refresh_monitors_new_seasons_like_the_series(#[case] preset: MonitorPreset, #[case] expected: bool) {
     let mut series =
-        Series::add(metadata(SourceStatus::Returning, &[(1, &[None])]), ItemFolder::default(), preset, TODAY, now());
+        Series::new(metadata(SourceStatus::Returning, &[(1, &[None])]), ItemFolder::default(), preset, TODAY, now());
 
     series.refresh(metadata(SourceStatus::Returning, &[(0, &[None]), (1, &[None]), (2, &[None])]), now());
 
@@ -274,7 +274,7 @@ fn refresh_monitors_new_seasons_like_the_series(#[case] preset: MonitorPreset, #
 
 #[test]
 fn refresh_drops_episodes_gone_from_the_source() {
-    let mut series = Series::add(
+    let mut series = Series::new(
         metadata(SourceStatus::Returning, &[(1, &[None, None])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -295,7 +295,7 @@ fn refresh_drops_episodes_gone_from_the_source() {
 #[case::past_the_end(5, None)]
 #[case::zero(0, None)]
 fn absolute_numbers_skip_specials(#[case] absolute: u32, #[case] expected: Option<(u16, u16)>) {
-    let series = Series::add(
+    let series = Series::new(
         metadata(SourceStatus::Returning, &[(0, &[None]), (1, &[None, None]), (2, &[None, None])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -319,7 +319,7 @@ fn a_span_needs_every_episode_in_it(
     #[case] episodes: &[u16],
     #[case] expected: Option<(u16, u16, u16)>,
 ) {
-    let series = Series::add(
+    let series = Series::new(
         metadata(SourceStatus::Returning, &[(1, &[None, None]), (2, &[None, None])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -338,7 +338,7 @@ fn a_span_needs_every_episode_in_it(
 #[case::past_the_end(&[5], None)]
 #[case::none(&[], None)]
 fn an_absolute_span_falls_in_one_season(#[case] episodes: &[u16], #[case] expected: Option<(u16, u16, u16)>) {
-    let series = Series::add(
+    let series = Series::new(
         metadata(SourceStatus::Returning, &[(0, &[None]), (1, &[None, None]), (2, &[None, None])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -376,14 +376,14 @@ fn any_preset() -> impl Strategy<Value = MonitorPreset> {
 proptest! {
     #[test]
     fn presets_never_monitor_specials(metadata in any_metadata(), preset in any_preset(), today in any_date()) {
-        let series = Series::add(metadata, ItemFolder::default(), preset, today, now());
+        let series = Series::new(metadata, ItemFolder::default(), preset, today, now());
 
         prop_assert!(monitored(&series).iter().all(|reference| reference.season != 0));
     }
 
     #[test]
     fn future_preset_monitors_exactly_the_unaired_episodes(metadata in any_metadata(), today in any_date()) {
-        let series = Series::add(metadata, ItemFolder::default(), MonitorPreset::Future, today, now());
+        let series = Series::new(metadata, ItemFolder::default(), MonitorPreset::Future, today, now());
 
         for season in series.seasons.iter().filter(|season| season.number != 0) {
             for episode in &season.episodes {
@@ -399,7 +399,7 @@ proptest! {
         preset in any_preset(),
         today in any_date(),
     ) {
-        let original = Series::add(metadata.clone(), ItemFolder::default(), preset, today, now());
+        let original = Series::new(metadata.clone(), ItemFolder::default(), preset, today, now());
         let mut refreshed = original.clone();
 
         refreshed.refresh(metadata, now());
@@ -409,7 +409,7 @@ proptest! {
 
     #[test]
     fn absolute_numbers_cover_every_regular_episode_once(metadata in any_metadata()) {
-        let series = Series::add(metadata, ItemFolder::default(), MonitorPreset::All, date(2026, 1, 1), now());
+        let series = Series::new(metadata, ItemFolder::default(), MonitorPreset::All, date(2026, 1, 1), now());
         let regular = series.seasons.iter().filter(|s| s.number != 0).map(|s| s.episodes.len()).sum::<usize>();
         let count = u32::try_from(regular).unwrap();
 
@@ -430,7 +430,7 @@ fn next_and_last_aired_episodes(
     #[case] next: Option<(u16, u16)>,
     #[case] last: Option<(u16, u16)>,
 ) {
-    let series = Series::add(
+    let series = Series::new(
         metadata(SourceStatus::Returning, &[(1, dates)]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -445,7 +445,7 @@ fn next_and_last_aired_episodes(
 
 #[test]
 fn same_day_episodes_are_ordered_by_number() {
-    let series = Series::add(
+    let series = Series::new(
         metadata(
             SourceStatus::Returning,
             &[(1, &[Some(TOMORROW), Some(TOMORROW)]), (2, &[Some(YESTERDAY), Some(YESTERDAY)])],
@@ -478,7 +478,7 @@ fn next_and_last_aired_include_only_followed_specials(
 ) {
     let seasons: &[(u16, &[Option<Date>])] =
         &[(0, &[Some(YESTERDAY), Some(TOMORROW)]), (1, &[Some(date(2026, 9, 1)), Some(date(2026, 10, 10))])];
-    let mut series = Series::add(
+    let mut series = Series::new(
         metadata(SourceStatus::Returning, seasons),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -498,7 +498,7 @@ fn next_and_last_aired_include_only_followed_specials(
 #[case::monitored_special(true, SeriesStatus::Continuing)]
 fn only_followed_specials_keep_a_series_continuing(#[case] follow: bool, #[case] expected: SeriesStatus) {
     let seasons: &[(u16, &[Option<Date>])] = &[(0, &[Some(TOMORROW)]), (1, &[Some(YESTERDAY)])];
-    let mut series = Series::add(
+    let mut series = Series::new(
         metadata(SourceStatus::Returning, seasons),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -515,7 +515,7 @@ fn only_followed_specials_keep_a_series_continuing(#[case] follow: bool, #[case]
 proptest! {
     #[test]
     fn next_episode_is_the_earliest_on_or_after_today(metadata in any_metadata(), today in any_date()) {
-        let series = Series::add(metadata, ItemFolder::default(), MonitorPreset::All, today, now());
+        let series = Series::new(metadata, ItemFolder::default(), MonitorPreset::All, today, now());
         let upcoming: Vec<Date> = regular_air_dates(&series).filter(|&d| d >= today).collect();
 
         let next = series.next_episode(today).and_then(|(_, episode)| episode.air_date);
@@ -525,7 +525,7 @@ proptest! {
 
     #[test]
     fn last_aired_is_the_latest_before_today(metadata in any_metadata(), today in any_date()) {
-        let series = Series::add(metadata, ItemFolder::default(), MonitorPreset::All, today, now());
+        let series = Series::new(metadata, ItemFolder::default(), MonitorPreset::All, today, now());
         let aired: Vec<Date> = regular_air_dates(&series).filter(|&d| d < today).collect();
 
         let last = series.last_aired(today).and_then(|(_, episode)| episode.air_date);

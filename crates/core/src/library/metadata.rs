@@ -100,7 +100,7 @@ impl MetadataService {
         }
         let now = self.clock.now();
 
-        let mut series = Series::add(metadata, folder, preset, now.date(), now.timestamp());
+        let mut series = Series::new(metadata, folder, preset, now.date(), now.timestamp());
         self.series.save(&mut series).await?;
         info!(series = %series.id, title = %series.title, "series added");
         self.events.publish(SeriesAdded { series: series.id, title: series.title.clone() }).await;
@@ -127,7 +127,7 @@ impl MetadataService {
             return Err(LibraryError::FolderTaken(folder.path()));
         }
 
-        let mut movie = Movie::add(metadata, folder, monitored, self.clock.now().timestamp());
+        let mut movie = Movie::new(metadata, folder, monitored, self.clock.now().timestamp());
         self.movies.save(&mut movie).await?;
         info!(movie = %movie.id, title = %movie.title, "movie added");
         self.events.publish(MovieAdded { movie: movie.id, title: movie.title.clone() }).await;

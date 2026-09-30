@@ -154,7 +154,7 @@ pub struct Episode {
 
 impl Series {
     /// Specials are never monitored by a preset.
-    pub fn add(
+    pub fn new(
         metadata: SeriesMetadata,
         folder: ItemFolder,
         preset: MonitorPreset,

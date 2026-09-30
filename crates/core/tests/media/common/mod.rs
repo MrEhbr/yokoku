@@ -87,8 +87,8 @@ impl App {
 
         let tv = ItemFolder::new(dir.path().join("tv"), "Frieren (2023)".into()).unwrap();
         let movies = ItemFolder::new(dir.path().join("movies"), "Dune (2021)".into()).unwrap();
-        let mut frieren = Series::add(frieren_metadata(), tv, MonitorPreset::All, TODAY, now());
-        let mut dune = Movie::add(dune_metadata(), movies, true, now());
+        let mut frieren = Series::new(frieren_metadata(), tv, MonitorPreset::All, TODAY, now());
+        let mut dune = Movie::new(dune_metadata(), movies, true, now());
         SeriesRepo::save(&db, &mut frieren).await.unwrap();
         MovieRepo::save(&db, &mut dune).await.unwrap();
 

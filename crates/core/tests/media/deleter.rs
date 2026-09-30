@@ -91,7 +91,7 @@ async fn files_kept_when_removing_a_series_return_when_it_is_added_again() {
         .await
         .unwrap();
     let folder = ItemFolder::new(app.path("tv"), "Frieren (2023)".into()).unwrap();
-    let mut readded = Series::add(frieren_metadata(), folder, MonitorPreset::All, TODAY, now());
+    let mut readded = Series::new(frieren_metadata(), folder, MonitorPreset::All, TODAY, now());
     SeriesRepo::save(&app.db, &mut readded).await.unwrap();
     app.scanner.handle(&SeriesAdded { series: readded.id, title: "Frieren".into() }).await.unwrap();
 

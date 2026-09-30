@@ -31,7 +31,7 @@ fn series(title: String, year: i16, episode_titles: Vec<String>) -> Series {
         status: SourceStatus::Returning,
         seasons: vec![SeasonMetadata { number: 1, episodes }],
     };
-    Series::add(metadata, ItemFolder::default(), MonitorPreset::All, date(2026, 9, 26), Timestamp::UNIX_EPOCH)
+    Series::new(metadata, ItemFolder::default(), MonitorPreset::All, date(2026, 9, 26), Timestamp::UNIX_EPOCH)
 }
 
 fn movie(title: String, year: i16) -> Movie {
@@ -45,7 +45,7 @@ fn movie(title: String, year: i16) -> Movie {
         description: Description::default(),
         releases: Releases::default(),
     };
-    Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
+    Movie::new(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
 }
 
 proptest! {

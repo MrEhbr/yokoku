@@ -38,7 +38,7 @@ fn series(episode_source_id: u64) -> Series {
             }],
         }],
     };
-    Series::add(metadata, ItemFolder::default(), MonitorPreset::All, date(2026, 9, 26), now())
+    Series::new(metadata, ItemFolder::default(), MonitorPreset::All, date(2026, 9, 26), now())
 }
 
 #[rstest]

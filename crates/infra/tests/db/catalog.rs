@@ -89,7 +89,7 @@ fn movie_metadata(source: u64) -> MovieMetadata {
 #[rstest]
 #[tokio::test]
 async fn saved_series_loads_back_equal(#[future(awt)] db: Database) {
-    let mut series = Series::add(
+    let mut series = Series::new(
         series_metadata(1, &[(0, &[None]), (1, &[Some(TODAY), None])]),
         folder("Frieren (2023)"),
         MonitorPreset::Future,
@@ -116,14 +116,14 @@ async fn all_items_load_as_each_one_does(#[future(awt)] db: Database) {
         series_metadata(3, &[(1, &[None]), (2, &[None, None, None])]),
     ];
     for (number, metadata) in (1..).zip(metadata) {
-        let mut series = Series::add(metadata, folder(&format!("{number}")), MonitorPreset::All, TODAY, now());
+        let mut series = Series::new(metadata, folder(&format!("{number}")), MonitorPreset::All, TODAY, now());
         if let Some(season) = series.seasons.last_mut() {
             season.episodes[0].file = Some(MediaFileId::generate());
         }
         SeriesRepo::save(&db, &mut series).await.unwrap();
     }
     for source in [10, 11] {
-        let mut movie = Movie::add(movie_metadata(source), folder(&format!("{source}")), true, now());
+        let mut movie = Movie::new(movie_metadata(source), folder(&format!("{source}")), true, now());
         MovieRepo::save(&db, &mut movie).await.unwrap();
     }
 
@@ -143,7 +143,7 @@ async fn all_items_load_as_each_one_does(#[future(awt)] db: Database) {
 #[rstest]
 #[tokio::test]
 async fn saving_a_refreshed_series_replaces_its_seasons_and_episodes(#[future(awt)] db: Database) {
-    let mut series = Series::add(
+    let mut series = Series::new(
         series_metadata(1, &[(1, &[None, None]), (2, &[None])]),
         ItemFolder::default(),
         MonitorPreset::All,
@@ -162,7 +162,7 @@ async fn saving_a_refreshed_series_replaces_its_seasons_and_episodes(#[future(aw
 #[tokio::test]
 async fn removing_a_saved_series_deletes_it(#[future(awt)] db: Database) {
     let mut series =
-        Series::add(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+        Series::new(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
 
     SeriesRepo::save(&db, &mut series).await.unwrap();
     SeriesRepo::remove(&db, series.id).await.unwrap();
@@ -174,8 +174,8 @@ async fn removing_a_saved_series_deletes_it(#[future(awt)] db: Database) {
 #[rstest]
 #[tokio::test]
 async fn rejects_a_second_series_with_the_same_source(#[future(awt)] db: Database) {
-    let mut first = Series::add(series_metadata(1, &[]), folder("first"), MonitorPreset::All, TODAY, now());
-    let mut second = Series::add(series_metadata(1, &[]), folder("second"), MonitorPreset::All, TODAY, now());
+    let mut first = Series::new(series_metadata(1, &[]), folder("first"), MonitorPreset::All, TODAY, now());
+    let mut second = Series::new(series_metadata(1, &[]), folder("second"), MonitorPreset::All, TODAY, now());
     SeriesRepo::save(&db, &mut first).await.unwrap();
 
     assert!(SeriesRepo::save(&db, &mut second).await.is_err());
@@ -184,9 +184,9 @@ async fn rejects_a_second_series_with_the_same_source(#[future(awt)] db: Databas
 #[rstest]
 #[tokio::test]
 async fn items_are_found_by_folder_and_cannot_share_one(#[future(awt)] db: Database) {
-    let mut series = Series::add(series_metadata(1, &[]), folder("Frieren"), MonitorPreset::All, TODAY, now());
-    let mut sharing = Series::add(series_metadata(2, &[]), folder("Frieren"), MonitorPreset::All, TODAY, now());
-    let mut movie = Movie::add(movie_metadata(438631), folder("Dune"), true, now());
+    let mut series = Series::new(series_metadata(1, &[]), folder("Frieren"), MonitorPreset::All, TODAY, now());
+    let mut sharing = Series::new(series_metadata(2, &[]), folder("Frieren"), MonitorPreset::All, TODAY, now());
+    let mut movie = Movie::new(movie_metadata(438631), folder("Dune"), true, now());
     SeriesRepo::save(&db, &mut series).await.unwrap();
     MovieRepo::save(&db, &mut movie).await.unwrap();
 
@@ -199,7 +199,7 @@ async fn items_are_found_by_folder_and_cannot_share_one(#[future(awt)] db: Datab
 #[rstest]
 #[tokio::test]
 async fn movies_round_trip_and_update(#[future(awt)] db: Database) {
-    let mut movie = Movie::add(movie_metadata(438631), folder("Dune (2021)"), true, now());
+    let mut movie = Movie::new(movie_metadata(438631), folder("Dune (2021)"), true, now());
     MovieRepo::save(&db, &mut movie).await.unwrap();
     assert_eq!(MovieRepo::get(&db, movie.id).await.unwrap(), Some(movie.clone()));
 
@@ -235,7 +235,7 @@ proptest! {
     fn stored_series_matches_memory_after_any_refresh(before in any_metadata(), after in any_metadata()) {
         let (stored, expected) = block_on(async {
             let db = Database::open_in_memory().await.unwrap();
-            let mut series = Series::add(before, ItemFolder::default(), MonitorPreset::All, TODAY, now());
+            let mut series = Series::new(before, ItemFolder::default(), MonitorPreset::All, TODAY, now());
             SeriesRepo::save(&db, &mut series).await.unwrap();
 
             series.refresh(after, now() + 1.hour());
@@ -252,8 +252,8 @@ proptest! {
 #[tokio::test]
 async fn every_save_bumps_the_revision(#[future(awt)] db: Database) {
     let mut series =
-        Series::add(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
-    let mut movie = Movie::add(movie_metadata(2), ItemFolder::default(), true, now());
+        Series::new(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+    let mut movie = Movie::new(movie_metadata(2), ItemFolder::default(), true, now());
 
     SeriesRepo::save(&db, &mut series).await.unwrap();
     SeriesRepo::save(&db, &mut series).await.unwrap();
@@ -268,7 +268,7 @@ async fn every_save_bumps_the_revision(#[future(awt)] db: Database) {
 #[tokio::test]
 async fn a_save_from_an_older_revision_changes_nothing(#[future(awt)] db: Database) {
     let mut series =
-        Series::add(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+        Series::new(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
     SeriesRepo::save(&db, &mut series).await.unwrap();
     let mut stale = series.clone();
     series.monitored = false;
@@ -285,7 +285,7 @@ async fn a_save_from_an_older_revision_changes_nothing(#[future(awt)] db: Databa
 #[rstest]
 #[tokio::test]
 async fn a_removed_item_is_not_saved_back(#[future(awt)] db: Database) {
-    let mut movie = Movie::add(movie_metadata(2), ItemFolder::default(), true, now());
+    let mut movie = Movie::new(movie_metadata(2), ItemFolder::default(), true, now());
     MovieRepo::save(&db, &mut movie).await.unwrap();
     MovieRepo::remove(&db, movie.id).await.unwrap();
 
@@ -298,7 +298,7 @@ async fn a_removed_item_is_not_saved_back(#[future(awt)] db: Database) {
 #[rstest]
 #[tokio::test]
 async fn the_catalog_reads_the_library(#[future(awt)] db: Database) {
-    let mut series = Series::add(
+    let mut series = Series::new(
         SeriesMetadata {
             source: ExternalId::Tmdb(1),
             title: "Frieren".into(),
@@ -315,7 +315,7 @@ async fn the_catalog_reads_the_library(#[future(awt)] db: Database) {
         now().to_zoned(TimeZone::UTC).date(),
         now(),
     );
-    let mut movie = Movie::add(
+    let mut movie = Movie::new(
         MovieMetadata {
             source: ExternalId::Tmdb(2),
             title: "Dune".into(),

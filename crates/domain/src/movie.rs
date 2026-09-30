@@ -85,7 +85,7 @@ pub struct Movie {
 }
 
 impl Movie {
-    pub fn add(metadata: MovieMetadata, folder: ItemFolder, monitored: bool, now: Timestamp) -> Self {
+    pub fn new(metadata: MovieMetadata, folder: ItemFolder, monitored: bool, now: Timestamp) -> Self {
         Self {
             id: MovieId::generate(),
             source: metadata.source,

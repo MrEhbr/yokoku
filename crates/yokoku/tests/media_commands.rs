@@ -51,7 +51,7 @@ impl Setup {
             status: SourceStatus::Returning,
             seasons: vec![SeasonMetadata { number: 1, episodes: vec![episode(1), episode(2)] }],
         };
-        SeriesRepo::save(&db, &mut Series::add(frieren, folder, MonitorPreset::All, today(), Timestamp::now()))
+        SeriesRepo::save(&db, &mut Series::new(frieren, folder, MonitorPreset::All, today(), Timestamp::now()))
             .await
             .unwrap();
 
@@ -232,7 +232,7 @@ async fn a_movie_file_is_shown_with_its_details() {
     let db = Database::open(&setup.database).await.unwrap();
     let dune = MovieMetadata { year: Some(2021), ..movie_metadata(2, "Dune", Releases::default()) };
     let folder = ItemFolder::new(films.clone(), "Dune (2021)".into()).unwrap();
-    MovieRepo::save(&db, &mut Movie::add(dune, folder, true, Timestamp::now())).await.unwrap();
+    MovieRepo::save(&db, &mut Movie::new(dune, folder, true, Timestamp::now())).await.unwrap();
     setup.stdout(&["root", "add", "movies", "films"]);
     setup.write("films/Dune (2021)/Dune (2021).mkv");
     let ffprobe = stand_in_ffprobe(setup.dir.path());

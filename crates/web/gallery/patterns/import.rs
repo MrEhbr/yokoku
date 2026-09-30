@@ -172,7 +172,7 @@ fn to_series(info: &SeriesInfo) -> Series {
         status: SourceStatus::Returning,
         seasons,
     };
-    Series::add(
+    Series::new(
         metadata,
         ItemFolder::default(),
         MonitorPreset::All,

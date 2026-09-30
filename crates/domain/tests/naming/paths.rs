@@ -20,7 +20,7 @@ fn movie(title: &str, year: Option<i16>) -> Movie {
         description: Description::default(),
         releases: Releases::default(),
     };
-    Movie::add(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
+    Movie::new(metadata, ItemFolder::default(), true, Timestamp::UNIX_EPOCH)
 }
 
 /// Seasons as `(number, episode titles)`.
@@ -56,7 +56,7 @@ fn series(title: &str, year: Option<i16>, seasons: &[(u16, &[&str])]) -> Series 
             })
             .collect(),
     };
-    Series::add(
+    Series::new(
         metadata,
         ItemFolder::default(),
         MonitorPreset::All,

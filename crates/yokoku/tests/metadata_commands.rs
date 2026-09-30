@@ -61,10 +61,10 @@ async fn tmdb() -> Tmdb {
         description: Description::default(),
         releases: Releases::default(),
     };
-    SeriesRepo::save(&db, &mut Series::add(frieren, ItemFolder::default(), MonitorPreset::All, today, now))
+    SeriesRepo::save(&db, &mut Series::new(frieren, ItemFolder::default(), MonitorPreset::All, today, now))
         .await
         .unwrap();
-    MovieRepo::save(&db, &mut Movie::add(dune, ItemFolder::default(), true, now)).await.unwrap();
+    MovieRepo::save(&db, &mut Movie::new(dune, ItemFolder::default(), true, now)).await.unwrap();
 
     Tmdb { server, _dir: dir, database }
 }
