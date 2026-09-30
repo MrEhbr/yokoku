@@ -168,7 +168,9 @@ impl Job {
     async fn every(self, app: App, shutdown: CancellationToken) {
         loop {
             let next = self.schedule(&app.settings.current().serve).schedule.upcoming(TimeZone::UTC).next();
-            let wait = next.as_ref().map_or(RECHECK, |tick| until(tick).min(RECHECK));
+            let wait = next.as_ref().map_or(RECHECK, |tick| {
+                Duration::try_from(Zoned::now().duration_until(tick)).unwrap_or_default().min(RECHECK)
+            });
             tokio::select! {
                 biased;
                 () = shutdown.cancelled() => return,
@@ -179,11 +181,6 @@ impl Job {
             }
         }
     }
-}
-
-/// Zero once `tick` has passed.
-fn until(tick: &Zoned) -> Duration {
-    Zoned::now().duration_until(tick).try_into().unwrap_or_default()
 }
 
 /// Runs one tick in a root `job` span under a new correlation id, logging its duration and any failure.
