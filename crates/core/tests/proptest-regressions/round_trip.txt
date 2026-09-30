@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc c1cf8a6f3496ba042079d646808ecb6f5f6fd66cd65a243cfaca6eff32bf5dbf # shrinks to title = "a?A", year = 1950
 cc 4bc4ad021de546803022cb40428a6044c3edecfe6da2f1bc442e3c7e029a9369 # shrinks to title = "A?A", year = 1950, episode_titles = ["", "", ""], first = 1, length = 0
+cc 56ad4e72fbc7d3791f6ceecb9e2a2d667d989c86da5ebc54ab566e593b6ccaa6 # shrinks to title = "A s0E0&", year = 1950, episode_titles = ["", "", ""], first = 1, length = 0

@@ -89,6 +89,10 @@ fn aired(year: i16, month: i8, day: i8) -> EpisodeHint {
 #[case("Proper Manors (2012)/Season 01/Proper Manors (2012) - S01E02.mkv", Some("Proper Manors"), Some(2012), episodes(1, &[2]))]
 #[case("Proper Manors (2012)/Season 01/03.mkv", Some("Proper Manors"), Some(2012), episodes(1, &[3]))]
 #[case("300.2006.1080p.BluRay.mkv", Some("300"), Some(2006), EpisodeHint::None)]
+// titles that look like episode numbers
+#[case("A s0E0& (1950)/Season 01/A s0E0& (1950) - S01E01.mkv", Some("A s0E0&"), Some(1950), episodes(1, &[1]))]
+#[case("A s0E0& (1950)/Season 01/03.mkv", Some("A s0E0&"), Some(1950), episodes(1, &[3]))]
+#[case("S01E05 (2020)/S01E05 (2020).mkv", Some("S01E05"), Some(2020), EpisodeHint::None)]
 // movies
 #[case("The.Matrix.1999.1080p.BluRay.x264-GROUP.mkv", Some("The Matrix"), Some(1999), EpisodeHint::None)]
 #[case("2001.A.Space.Odyssey.1968.1080p.BluRay.mkv", Some("2001 A Space Odyssey"), Some(1968), EpisodeHint::None)]
@@ -125,6 +129,7 @@ fn movie_years_are_reliable_when_titles_are_not(#[case] path: &str, #[case] year
 #[case("Breaking Bad/Season 2/03.Grilled.mkv", Some("Grilled"))]
 #[case("Breaking Bad/Season 2/03.mkv", None)]
 #[case("Frieren (2023)/Season 01/Frieren (2023) - S01E01 - The Journey's End.mkv", Some("The Journey's End"))]
+#[case("A s0E0& (1950)/Season 01/A s0E0& (1950) - S01E01 - Pilot.mkv", Some("Pilot"))]
 fn keeps_episode_titles(#[case] path: &str, #[case] episode_title: Option<&str>) {
     assert_eq!(ParsedName::parse(Path::new(path)).episode_title.as_deref(), episode_title);
 }

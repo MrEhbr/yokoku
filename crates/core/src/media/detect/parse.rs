@@ -10,7 +10,7 @@ static BARE_NUMBER: LazyLock<Regex> =
 
 /// Jellyfin naming: `Title (Year)`, optionally followed by ` - ` and the rest of the name.
 static TITLE_WITH_YEAR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(?P<title>.+?) \((?P<year>[0-9]{4})\)(?: - .+)?$").expect("valid regex"));
+    LazyLock::new(|| Regex::new(r"^(?P<title>.+?) \((?P<year>[0-9]{4})\)(?: - (?P<rest>.+))?$").expect("valid regex"));
 
 /// What a file's name and folders say about it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,9 +39,10 @@ pub enum EpisodeHint {
 impl ParsedName {
     /// Parses a file path relative to its download or root folder.
     pub fn parse(path: &Path) -> Self {
-        let result = hunch(&Self::hunch_input(path));
+        let named = Self::title_with_year(path);
+        let result = hunch(&Self::hunch_input(path, named.is_some()));
         let date = result.date().and_then(|date| date.parse::<Date>().ok());
-        let (title, year) = match Self::title_with_year(path) {
+        let (title, year) = match named {
             Some((title, year)) => (Some(title), year),
             None if date.is_some() => (result.title().map(str::to_owned), None),
             None => (
@@ -69,8 +70,15 @@ impl ParsedName {
         })
     }
 
-    /// The path with `Specials` folders as season 0 and a bare leading episode number marked `E`.
-    fn hunch_input(path: &Path) -> String {
+    /// The path with `Specials` folders as season 0 and a bare leading episode number marked `E`; when
+    /// `named`, each `Title (Year)` name keeps only what follows it.
+    fn hunch_input(path: &Path, named: bool) -> String {
+        let untitled = |name: Cow<'_, str>| -> Option<String> {
+            match TITLE_WITH_YEAR.captures(&name) {
+                Some(captures) if named => captures.name("rest").map(|rest| rest.as_str().to_owned()),
+                _ => Some(name.into_owned()),
+            }
+        };
         let folders = path.parent().into_iter().flat_map(Path::iter).map(|folder| match folder.to_string_lossy() {
             folder if ["special", "specials"].iter().any(|name| folder.eq_ignore_ascii_case(name)) => {
                 Cow::Borrowed("Season 0")
@@ -78,9 +86,10 @@ impl ParsedName {
             folder => folder,
         });
         let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-        let file_name = path.file_name().unwrap_or_default().to_string_lossy();
-        let file_name = if BARE_NUMBER.is_match(&stem) { Cow::Owned(format!("E{file_name}")) } else { file_name };
-        folders.chain([file_name]).collect::<Vec<_>>().join("/")
+        let stem = if BARE_NUMBER.is_match(&stem) { Cow::Owned(format!("E{stem}")) } else { stem };
+        let extension = path.extension().map(|extension| format!(".{}", extension.to_string_lossy()));
+        let file_name = untitled(stem).map(|stem| stem + extension.as_deref().unwrap_or_default());
+        folders.filter_map(untitled).chain(file_name).collect::<Vec<_>>().join("/")
     }
 }
 
