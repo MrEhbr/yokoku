@@ -13,7 +13,7 @@ use crate::{
         table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
     },
     dialogs::import_review::ReviewButton,
-    format::{rate, runtime, size},
+    format::{plural, rate, runtime, size},
     route::Route,
 };
 
@@ -27,13 +27,7 @@ pub(super) fn Torrents(downloads: Vec<DownloadEntry>) -> Element {
     let count = downloads.len();
     rsx! {
         Table { class: "table-fixed",
-            TableCaption {
-                if count == 1 {
-                    "1 torrent"
-                } else {
-                    "{count} torrents"
-                }
-            }
+            TableCaption { {plural(count, "torrent", "torrents")} }
             TableHeader {
                 TableRow {
                     TableHead { "Name" }

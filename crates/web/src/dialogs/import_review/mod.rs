@@ -25,7 +25,7 @@ use crate::{
         status::{Status, Tone},
     },
     dialogs::ClosableDialog,
-    format::{episode as code, size},
+    format::{episode as code, plural, size},
 };
 
 /// A button that opens the review of `import` (FR-4.11, 4.12, 8.3); `on_done` is called once
@@ -98,7 +98,7 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
     let conflicting = included.iter().filter(|row| !row.conflicts.is_empty()).count();
     let count = included.len();
     let blocked = unmatched > 0 || conflicting > 0 || count == 0;
-    let noun = if count == 1 { "file" } else { "files" };
+    let files = plural(count, "file", "files");
     let all: BTreeSet<usize> = review.rows.iter().map(|row| row.row).collect();
     let chosen: Vec<ReviewFile> =
         review.rows.iter().filter(|row| selected.read().contains(&row.row)).cloned().collect();
@@ -172,7 +172,7 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
                         },
                     }
                 },
-                "Import {count} {noun}"
+                "Import {files}"
             }
         }
     }

@@ -28,6 +28,11 @@ pub fn relative(date: Date, today: Date) -> String {
     if days > 0 { format!("in {count} {unit}") } else { format!("{count} {unit} ago") }
 }
 
+/// `1 episode`, `3 episodes`.
+pub fn plural(n: usize, one: &str, many: &str) -> String {
+    if n == 1 { format!("1 {one}") } else { format!("{n} {many}") }
+}
+
 /// `S01E02`.
 pub fn episode(season: u16, number: u16) -> String {
     format!("S{season:02}E{number:02}")
@@ -72,7 +77,7 @@ mod tests {
     use jiff::civil::date;
     use rstest::rstest;
 
-    use super::{relative, resolution, runtime, size};
+    use super::{plural, relative, resolution, runtime, size};
 
     #[rstest]
     #[case(date(2026, 3, 10), "today")]
@@ -86,6 +91,14 @@ mod tests {
     #[case(date(2023, 3, 10), "3 years ago")]
     fn writes_a_date_relative_to_today(#[case] day: jiff::civil::Date, #[case] expected: &str) {
         assert_eq!(relative(day, date(2026, 3, 10)), expected);
+    }
+
+    #[rstest]
+    #[case(0, "0 files")]
+    #[case(1, "1 file")]
+    #[case(2, "2 files")]
+    fn writes_a_count(#[case] n: usize, #[case] expected: &str) {
+        assert_eq!(plural(n, "file", "files"), expected);
     }
 
     #[rstest]

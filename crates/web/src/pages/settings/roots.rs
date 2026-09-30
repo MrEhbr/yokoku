@@ -14,6 +14,7 @@ use crate::{
         select::{Select, SelectOption},
         skeleton::Skeleton,
     },
+    format::plural,
 };
 
 /// The folders that hold series and movies (FR-8.1); one holding items cannot be removed.
@@ -64,13 +65,7 @@ pub(super) fn RootFolders() -> Element {
                                     }
                                 }
                                 span { class: "yk-code min-w-0 flex-1 [overflow-wrap:anywhere]", "{folder.path}" }
-                                span { class: "text-caption text-muted",
-                                    if folder.items == 1 {
-                                        "1 item"
-                                    } else {
-                                        "{folder.items} items"
-                                    }
-                                }
+                                span { class: "text-caption text-muted", {plural(folder.items, "item", "items")} }
                                 Button {
                                     variant: ButtonVariant::Quiet,
                                     size: ButtonSize::Sm,
@@ -167,16 +162,18 @@ fn ScanLibrary() -> Element {
 }
 
 fn summary(scanned: Scanned) -> String {
-    let count = |count: usize, noun: &str| if count == 1 { format!("1 {noun}") } else { format!("{count} {noun}s") };
     let mut parts = Vec::new();
     if scanned.found > 0 {
-        parts.push(format!("Linked {}", count(scanned.found, "new file")));
+        parts.push(format!("Linked {}", plural(scanned.found, "new file", "new files")));
     }
     if scanned.vanished > 0 {
-        parts.push(format!("Forgot {} gone from disk", count(scanned.vanished, "file")));
+        parts.push(format!("Forgot {} gone from disk", plural(scanned.vanished, "file", "files")));
     }
     if scanned.unrecognised > 0 {
-        parts.push(format!("{} with files to match on their item pages", count(scanned.unrecognised, "folder")));
+        parts.push(format!(
+            "{} with files to match on their item pages",
+            plural(scanned.unrecognised, "folder", "folders")
+        ));
     }
     if parts.is_empty() {
         return "Nothing changed since the last scan.".to_owned();

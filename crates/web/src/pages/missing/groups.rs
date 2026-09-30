@@ -6,7 +6,7 @@ use crate::{
         disclosure::Disclosure,
         table::{Table, TableBody, TableCell, TableHead, TableHeader, TableRow},
     },
-    format::{date, episode as code, year},
+    format::{date, episode as code, plural, year},
     route::Route,
 };
 
@@ -16,9 +16,13 @@ pub(super) fn Groups(missing: Missing) -> Element {
     let episodes: usize = missing.series.iter().map(|series| series.episodes.len()).sum();
     let parts: Vec<String> = [
         (episodes > 0).then(|| {
-            format!("{} in {}", count(episodes, "episode", "episodes"), count(missing.series.len(), "series", "series"))
+            format!(
+                "{} in {}",
+                plural(episodes, "episode", "episodes"),
+                plural(missing.series.len(), "series", "series")
+            )
         }),
-        (!missing.movies.is_empty()).then(|| count(missing.movies.len(), "movie", "movies")),
+        (!missing.movies.is_empty()).then(|| plural(missing.movies.len(), "movie", "movies")),
     ]
     .into_iter()
     .flatten()
@@ -59,7 +63,7 @@ fn SeriesGroup(series: MissingSeries) -> Element {
     let mut episodes = series.episodes;
     episodes.reverse();
     let latest = episodes.first().map(|episode| format!("latest {}", code(episode.season, episode.number)));
-    let count = count(episodes.len(), "episode", "episodes");
+    let count = plural(episodes.len(), "episode", "episodes");
     rsx! {
         Disclosure {
             summary: rsx! {
@@ -100,9 +104,4 @@ fn SeriesGroup(series: MissingSeries) -> Element {
             }
         }
     }
-}
-
-/// `1 episode`, `3 episodes`.
-fn count(n: usize, one: &str, many: &str) -> String {
-    if n == 1 { format!("1 {one}") } else { format!("{n} {many}") }
 }
