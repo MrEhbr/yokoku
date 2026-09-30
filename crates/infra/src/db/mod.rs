@@ -3,16 +3,15 @@
 mod catalog;
 mod codec;
 mod database;
-mod download_repo;
+mod downloads;
 mod error;
-mod event_store;
-mod media_files;
+mod events;
+mod media;
 mod media_info;
-mod media_repo;
-mod movie_repo;
-mod rescan_store;
-mod series_repo;
-mod settings_store;
+mod movies;
+mod rescans;
+mod series;
+mod settings;
 
 pub use database::Database;
 pub use error::DbError;

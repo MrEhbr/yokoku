@@ -2,9 +2,12 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use jiff::Timestamp;
-use yokoku_core::media::{
-    Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
-    ports::{Changes, MediaRepo},
+use yokoku_core::{
+    library::ports::MediaFiles,
+    media::{
+        Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
+        ports::{Changes, MediaRepo},
+    },
 };
 use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId, StorageError,
@@ -22,7 +25,7 @@ struct RootFolderRow {
 }
 
 #[derive(sqlx::FromRow)]
-pub(crate) struct MediaFileRow {
+struct MediaFileRow {
     id: Text<MediaFileId>,
     path: String,
     size: u64,
@@ -205,6 +208,21 @@ impl MediaRepo for Database {
 
     async fn save(&self, changes: &Changes) -> Result<(), StorageError> {
         Ok(self.save_changes(changes).await?)
+    }
+}
+
+#[async_trait]
+impl MediaFiles for Database {
+    async fn target(&self, file: MediaFileId) -> Result<Option<FileTarget>, StorageError> {
+        let row: Option<MediaFileRow> = sqlx::query_as(
+            "SELECT id, path, size, series_id, season, first_episode, last_episode, movie_id, added_at
+             FROM media_files WHERE id = ?",
+        )
+        .bind(file.to_string())
+        .fetch_optional(self.pool())
+        .await
+        .map_err(DbError::from)?;
+        Ok(row.map(MediaFile::try_from).transpose()?.map(|file| file.target))
     }
 }
 
