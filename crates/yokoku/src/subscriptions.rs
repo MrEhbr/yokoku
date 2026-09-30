@@ -3,51 +3,38 @@
 
 use std::sync::Arc;
 
-use yokoku_core::{
-    downloads::Downloads,
-    events::Subscription,
-    integrations::Rescans,
-    library::{Artworks, FileTracker},
-    media::{Deleter, ImportPlanner, Prober, Scanner},
-};
+use yokoku_core::events::Subscription;
 use yokoku_domain::events::{
     DownloadCompleted, EpisodesRenumbered, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded,
     MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged,
 };
-use yokoku_infra::db::Database;
 
-use crate::config::Settings;
+use crate::app::App;
 
-#[expect(clippy::too_many_arguments, reason = "one argument per subscriber")]
-pub fn subscribers(
-    db: &Arc<Database>,
-    planner: &Arc<ImportPlanner>,
-    deleter: &Arc<Deleter>,
-    downloads: &Arc<Downloads>,
-    prober: &Arc<Prober>,
-    scanner: &Arc<Scanner>,
-    rescans: &Arc<Rescans>,
-    artworks: &Arc<Artworks>,
-    settings: &Settings,
-) -> Vec<Arc<Subscription>> {
-    let tracker = Arc::new(FileTracker::new(db.clone(), db.clone(), db.clone()));
+pub fn subscribers(app: &App) -> Vec<Arc<Subscription>> {
     [
-        Subscription::new("media.scan_added").on::<SeriesAdded>(scanner.clone()).on::<MovieAdded>(scanner.clone()),
+        Subscription::new("media.scan_added")
+            .on::<SeriesAdded>(app.scanner.clone())
+            .on::<MovieAdded>(app.scanner.clone()),
         Subscription::new("library.files")
-            .on::<FilesFound>(tracker.clone())
-            .on::<FilesImported>(tracker.clone())
-            .on::<FileDeleted>(tracker),
-        Subscription::new("library.artwork").on::<SeriesRemoved>(artworks.clone()).on::<MovieRemoved>(artworks.clone()),
-        Subscription::new("media.imports").on::<DownloadCompleted>(planner.clone()),
-        Subscription::new("media.removals").on::<SeriesRemoved>(deleter.clone()).on::<MovieRemoved>(deleter.clone()),
-        Subscription::new("media.renumbered").on::<EpisodesRenumbered>(scanner.clone()),
-        Subscription::new("downloads.imports").on::<FilesImported>(downloads.clone()),
-        Subscription::new("media.probe").on::<FilesFound>(prober.clone()).on::<FilesImported>(prober.clone()),
+            .on::<FilesFound>(app.tracker.clone())
+            .on::<FilesImported>(app.tracker.clone())
+            .on::<FileDeleted>(app.tracker.clone()),
+        Subscription::new("library.artwork")
+            .on::<SeriesRemoved>(app.artworks.clone())
+            .on::<MovieRemoved>(app.artworks.clone()),
+        Subscription::new("media.imports").on::<DownloadCompleted>(app.planner.clone()),
+        Subscription::new("media.removals")
+            .on::<SeriesRemoved>(app.deleter.clone())
+            .on::<MovieRemoved>(app.deleter.clone()),
+        Subscription::new("media.renumbered").on::<EpisodesRenumbered>(app.scanner.clone()),
+        Subscription::new("downloads.imports").on::<FilesImported>(app.downloads.clone()),
+        Subscription::new("media.probe").on::<FilesFound>(app.prober.clone()).on::<FilesImported>(app.prober.clone()),
         Subscription::new("integrations.rescans")
-            .on::<FilesImported>(rescans.clone())
-            .on::<FileRenamed>(rescans.clone())
-            .on::<FileDeleted>(rescans.clone()),
-        Subscription::new("config.settings").on::<SettingsChanged>(Arc::new(settings.clone())),
+            .on::<FilesImported>(app.rescans.clone())
+            .on::<FileRenamed>(app.rescans.clone())
+            .on::<FileDeleted>(app.rescans.clone()),
+        Subscription::new("config.settings").on::<SettingsChanged>(Arc::new(app.settings.clone())),
     ]
     .into_iter()
     .map(Arc::new)

@@ -8,9 +8,9 @@ use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_core::{
     downloads::{DownloadError, Downloads, ports::DownloadClient},
-    events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges, Subscription},
+    events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges},
     integrations::{Rescans, ports::MediaServer},
-    library::{Artworks, Calendar, Library, MetadataService, ports::FolderNames},
+    library::{Artworks, Calendar, FileTracker, Library, MetadataService, ports::FolderNames},
     media::{
         Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
         ports::{FileSystem, LibraryLock},
@@ -53,8 +53,10 @@ pub struct App {
     pub rescans: Arc<Rescans>,
     pub metadata: Arc<MetadataService>,
     pub events: Publisher,
+    /// Handlers that only events reach.
+    pub planner: Arc<ImportPlanner>,
+    pub tracker: Arc<FileTracker>,
     log: EventLog,
-    subscribers: Vec<Arc<Subscription>>,
 }
 
 impl App {
@@ -155,24 +157,15 @@ impl App {
             queue_changes: queue_changes.clone(),
             events: events.clone(),
             log,
-            subscribers: subscriptions::subscribers(
-                &db,
-                &Arc::new(ImportPlanner::new(
-                    db.clone(),
-                    db.clone(),
-                    fs.clone(),
-                    clock.clone(),
-                    events.clone(),
-                    queue_changes.clone(),
-                )),
-                &deleter,
-                &downloads,
-                &prober,
-                &scanner,
-                &rescans,
-                &artworks,
-                &settings,
-            ),
+            planner: Arc::new(ImportPlanner::new(
+                db.clone(),
+                db.clone(),
+                fs.clone(),
+                clock.clone(),
+                events.clone(),
+                queue_changes.clone(),
+            )),
+            tracker: Arc::new(FileTracker::new(db.clone(), db.clone(), db.clone())),
             settings,
             deleter,
             prober,
@@ -187,10 +180,10 @@ impl App {
     pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
         let poll_interval = Duration::from_millis(self.settings.current().events.poll_interval_ms);
         let config = DeliveryConfig { poll_interval, ..DeliveryConfig::default() };
-        self.subscribers
-            .iter()
+        subscriptions::subscribers(self)
+            .into_iter()
             .map(|subscriber| {
-                let delivery = Delivery::new(self.log.clone(), subscriber.clone(), config.clone());
+                let delivery = Delivery::new(self.log.clone(), subscriber, config.clone());
                 tokio::spawn(delivery.run(shutdown.clone()))
             })
             .chain([self.spawn_flush(shutdown)])
