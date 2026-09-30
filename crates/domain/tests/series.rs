@@ -307,6 +307,49 @@ fn absolute_numbers_skip_specials(#[case] absolute: u32, #[case] expected: Optio
     assert_eq!(series.absolute_to_ref(absolute), expected);
 }
 
+#[rstest]
+#[case::one(1, &[2], Some((1, 2, 2)))]
+#[case::consecutive(1, &[1, 2], Some((1, 1, 2)))]
+#[case::a_gap(1, &[1, 3], None)]
+#[case::past_the_season(1, &[2, 3], None)]
+#[case::unknown_season(3, &[1], None)]
+#[case::none(1, &[], None)]
+fn a_span_needs_every_episode_in_it(
+    #[case] season: u16,
+    #[case] episodes: &[u16],
+    #[case] expected: Option<(u16, u16, u16)>,
+) {
+    let series = Series::add(
+        metadata(SourceStatus::Returning, &[(1, &[None, None]), (2, &[None, None])]),
+        ItemFolder::default(),
+        MonitorPreset::All,
+        TODAY,
+        now(),
+    );
+
+    let expected = expected.and_then(|(season, first, last)| EpisodeSpan::new(season, first, last));
+    assert_eq!(series.span(season, episodes), expected);
+}
+
+#[rstest]
+#[case::within_a_season(&[1, 2], Some((1, 1, 2)))]
+#[case::skipping_specials(&[3], Some((2, 1, 1)))]
+#[case::across_seasons(&[2, 3], None)]
+#[case::past_the_end(&[5], None)]
+#[case::none(&[], None)]
+fn an_absolute_span_falls_in_one_season(#[case] episodes: &[u16], #[case] expected: Option<(u16, u16, u16)>) {
+    let series = Series::add(
+        metadata(SourceStatus::Returning, &[(0, &[None]), (1, &[None, None]), (2, &[None, None])]),
+        ItemFolder::default(),
+        MonitorPreset::All,
+        TODAY,
+        now(),
+    );
+
+    let expected = expected.and_then(|(season, first, last)| EpisodeSpan::new(season, first, last));
+    assert_eq!(series.absolute_span(episodes), expected);
+}
+
 fn any_date() -> impl Strategy<Value = Date> {
     (0..3_650i64).prop_map(|days| date(2020, 1, 1) + days.days())
 }

@@ -213,6 +213,10 @@ mod stored {
         ImportFailed { import: ImportId(Uuid::from_u128(9)), source: "/downloads/Dune".into(), reason: "disk full".into() }.into(),
         json!({ "type": "ImportFailed", "import": "00000000-0000-0000-0000-000000000009", "source": "/downloads/Dune", "reason": "disk full" }),
     )]
+    #[case::settings_changed(
+        SettingsChanged { key: "import.mode".into() }.into(),
+        json!({ "type": "SettingsChanged", "key": "import.mode" }),
+    )]
     fn stored_format_is_stable(#[case] event: Event, #[case] stored: serde_json::Value) {
         assert_eq!(serde_json::to_value(&event).unwrap(), stored);
         assert_eq!(serde_json::from_value::<Event>(stored).unwrap(), event);
@@ -370,6 +374,7 @@ mod stored {
                     season,
                 }
                 .into()),
+            any::<String>().prop_map(|key| SettingsChanged { key }.into()),
         ]
     }
 

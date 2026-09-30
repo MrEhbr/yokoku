@@ -79,6 +79,7 @@ impl Serialize for Secret {
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
     use rstest::rstest;
 
     use super::*;
@@ -130,6 +131,15 @@ mod tests {
     #[case::multibyte("пароль-секрет", "паро…крет")]
     fn masks_all_but_its_ends(#[case] value: &str, #[case] masked: &str) {
         assert_eq!(Secret::new(value).masked(), masked);
+    }
+
+    proptest! {
+        #[test]
+        fn masking_shows_at_most_eight_characters_and_never_all(value in ".*") {
+            let shown = Secret::new(value.as_str()).masked().chars().count() - 1;
+            let length = value.chars().count();
+            prop_assert!(shown <= 2 * SHOWN && (shown < length || length == 0), "{shown} of {length}");
+        }
     }
 
     #[test]
