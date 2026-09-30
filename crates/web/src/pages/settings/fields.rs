@@ -73,12 +73,7 @@ pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static
         }
         saving.set(false);
     };
-    let typed = move || match control {
-        Control::List => {
-            Value::Array(draft().split(',').map(str::trim).filter(|item| !item.is_empty()).map(Into::into).collect())
-        },
-        _ => Value::String(draft()),
-    };
+    let typed = move || typed(&draft(), control);
     let Unsaved(mut unsaved) = use_context();
     use_effect(move || {
         let key = current.read().key.clone();
@@ -107,11 +102,7 @@ pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static
                     }
                 },
                 Control::Choice(choices) => {
-                    let mut options: Vec<(String, String)> =
-                        choices.iter().map(|(value, text)| (value.to_string(), text.to_string())).collect();
-                    if !draft().is_empty() && !options.iter().any(|(value, _)| *value == draft()) {
-                        options.insert(0, (draft(), draft()));
-                    }
+                    let options = choice_options(choices, &draft());
                     let placeholder =
                         options.iter().find(|(value, _)| *value == draft()).map(|(_, text)| text.clone()).unwrap_or_default();
                     let pick = move |next: Option<String>| {
@@ -228,4 +219,24 @@ fn text(value: &Value, control: Control) -> String {
         (_, Value::String(text)) => text.clone(),
         (_, value) => value.to_string(),
     }
+}
+
+/// The value to save for `draft`; a list is split at commas.
+fn typed(draft: &str, control: Control) -> Value {
+    match control {
+        Control::List => {
+            Value::Array(draft.split(',').map(str::trim).filter(|item| !item.is_empty()).map(Into::into).collect())
+        },
+        _ => Value::String(draft.to_owned()),
+    }
+}
+
+/// `choices` as values and labels, with `current` first when it is set and not among them.
+fn choice_options(choices: &[(&str, &str)], current: &str) -> Vec<(String, String)> {
+    let mut options: Vec<(String, String)> =
+        choices.iter().map(|(value, text)| (value.to_string(), text.to_string())).collect();
+    if !current.is_empty() && !options.iter().any(|(value, _)| value == current) {
+        options.insert(0, (current.to_owned(), current.to_owned()));
+    }
+    options
 }
