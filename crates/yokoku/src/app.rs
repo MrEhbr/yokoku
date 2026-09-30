@@ -16,7 +16,7 @@ use yokoku_core::{
         ports::{FileSystem, LibraryLock},
     },
 };
-use yokoku_domain::{Clock, ItemId, ItemName, Live, naming::Naming};
+use yokoku_domain::{Clock, Live, naming::Naming};
 use yokoku_infra::{
     db::Database,
     download_clients::TransmissionClient,
@@ -210,18 +210,6 @@ impl App {
                 })
                 .await;
         })
-    }
-
-    /// The item's title with its year; `removed series` or `removed movie` once it left the library.
-    pub async fn title(&self, item: ItemId) -> String {
-        let found = match item {
-            ItemId::Series(id) => self.library.series(id).await.map(|series| (series.title, series.year)),
-            ItemId::Movie(id) => self.library.movie(id).await.map(|movie| (movie.title, movie.year)),
-        };
-        found.map_or_else(
-            |_| format!("removed {}", item.kind()),
-            |(title, year)| ItemName::new(&title, year).to_string(),
-        )
     }
 }
 

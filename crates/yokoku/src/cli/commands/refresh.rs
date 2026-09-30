@@ -1,6 +1,6 @@
 use anyhow::{Result, bail};
 use clap::Parser;
-use yokoku_domain::{ExternalId, ItemId};
+use yokoku_domain::{ExternalId, ItemId, ItemName};
 
 use crate::{
     app::App,
@@ -29,7 +29,14 @@ pub async fn run(app: &App, args: Args) -> Result<()> {
         let report = metadata.refresh_all().await?;
         success!("Refreshed {} items", report.refreshed)?;
         for failure in &report.failures {
-            let name = app.title(failure.item).await;
+            let found = match failure.item {
+                ItemId::Series(id) => app.library.series(id).await.map(|series| (series.title, series.year)),
+                ItemId::Movie(id) => app.library.movie(id).await.map(|movie| (movie.title, movie.year)),
+            };
+            let name = found.map_or_else(
+                |_| format!("removed {}", failure.item.kind()),
+                |(title, year)| ItemName::new(&title, year).to_string(),
+            );
             failure!("Failed {name}: {}", failure.error)?;
         }
         if !report.failures.is_empty() {
