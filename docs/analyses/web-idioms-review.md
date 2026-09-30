@@ -726,3 +726,27 @@ their own batches.
 | 12 | `Label`/`Badge` class merge | W-B2 | fix | low (browser check first) |
 | 13 | Detail pages reload through `restart()` | W-D2 | refactor with a behavior change | low (needs your yes) |
 | — | Informational only | W-B5, W-B6, W-C2, W-C3 | — | — |
+
+## 6. Outcomes
+
+Net change to `crates/web`: 417 insertions, 559 deletions (−142 lines).
+
+| Finding | Outcome |
+|---|---|
+| W-A4 | Applied, `ae756ef` |
+| W-X4, W-X5 | Applied, `2fae967`. The new `From` impls are about as long as the free functions they replace, so the net is −8, not −24 |
+| W-X2 | Applied, `0babcb9` |
+| W-B4 | Applied, `c0adf41` |
+| W-E1 | Applied, `6e08ba5`. The shared shell costs about what the copies did, so the net is −2 |
+| W-D1 | Applied, `2ad5076` |
+| W-X1 | Applied as `format::plural`, with a test, `a3ef0fe` |
+| W-X3 | Applied, `8a06296`. The stream loop is now a browser-only `follow` fn, because the server build otherwise reports the import and the constant as unused |
+| W-D4, D5, D6, D8, D9, D10, E4, E5, E6, E7, E8, E11 | Applied, `3977736` |
+| W-D7 | Skipped. The tuple arms need one type, so `.to_owned()` would only become `.into()` |
+| W-D11 | Reverted. `query` moves into the search's `use_reactive!`, so it can't be borrowed for display |
+| W-E2, E3, E9, E10, E12 | Applied, `916bcb3` |
+| W-B7, B8, B9 | Applied, `4b6bfde` |
+| W-B2 | Applied, `10f3c12`. Confirmed in the browser: `review-all` had dropped the caller's `text-muted` and now renders muted |
+| W-D2 | Skipped. `use_server_future` suspends while its resource is pending (`dioxus-fullstack-core-0.7.10/src/server_future.rs:130-136`), so `restart()` would blank the page on every change |
+| W-B5 | Kept, by decision |
+| W-B6, W-C2, W-C3 | Left as they are, as this report recommended |
