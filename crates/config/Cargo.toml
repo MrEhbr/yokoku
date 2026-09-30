@@ -10,16 +10,13 @@ workspace = true
 
 [dependencies]
 yokoku-domain.workspace = true
-yokoku-download-clients.workspace = true
+yokoku-infra.workspace = true
 yokoku-downloads.workspace = true
 yokoku-events.workspace = true
 yokoku-jobs.workspace = true
 yokoku-library.workspace = true
 yokoku-media.workspace = true
-yokoku-media-servers.workspace = true
-yokoku-metadata.workspace = true
 yokoku-naming.workspace = true
-yokoku-system.workspace = true
 
 anyhow.workspace = true
 async-trait.workspace = true

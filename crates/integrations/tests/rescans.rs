@@ -2,9 +2,9 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use jiff::{SignedDuration, Timestamp, tz::TimeZone};
-use yokoku_db::Database;
 use yokoku_domain::{Clock, MediaFileId, MovieId};
 use yokoku_events::{DeleteReason, EventKind, FileDeleted, FileRenamed, Handler};
+use yokoku_infra::db::Database;
 use yokoku_integrations::{
     Rescans,
     ports::{MediaServer, MediaServerError, RescanStore},

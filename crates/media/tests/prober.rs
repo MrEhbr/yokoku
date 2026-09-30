@@ -10,11 +10,11 @@ use async_trait::async_trait;
 use common::App;
 use yokoku_domain::{ItemId, SubtitleTags};
 use yokoku_events::{EventLog, FilesFound, Handler};
+use yokoku_infra::system::LocalFileSystem;
 use yokoku_media::{
     MediaError, MediaInfo, Prober, VideoStream,
     ports::{MediaProbe, ProbeError},
 };
-use yokoku_system::LocalFileSystem;
 
 const DUNE: &str = "movies/Dune (2021)/Dune (2021).mkv";
 

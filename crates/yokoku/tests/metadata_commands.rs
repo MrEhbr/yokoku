@@ -8,11 +8,11 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{path, query_param},
 };
-use yokoku_db::Database;
 use yokoku_domain::{
     Artwork, Description, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata,
     Series, SeriesMetadata, SourceStatus,
 };
+use yokoku_infra::db::Database;
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_test_support::metadata::fixture;
 

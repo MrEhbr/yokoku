@@ -6047,19 +6047,15 @@ dependencies = [
  "tracing-subscriber",
  "wiremock",
  "yokoku-config",
- "yokoku-db",
  "yokoku-domain",
- "yokoku-download-clients",
  "yokoku-downloads",
  "yokoku-events",
+ "yokoku-infra",
  "yokoku-integrations",
  "yokoku-jobs",
  "yokoku-library",
  "yokoku-media",
- "yokoku-media-servers",
- "yokoku-metadata",
  "yokoku-naming",
- "yokoku-system",
  "yokoku-test-support",
  "yokoku-web",
 ]
@@ -6077,38 +6073,13 @@ dependencies = [
  "tokio",
  "tracing",
  "yokoku-domain",
- "yokoku-download-clients",
  "yokoku-downloads",
  "yokoku-events",
+ "yokoku-infra",
  "yokoku-jobs",
  "yokoku-library",
  "yokoku-media",
- "yokoku-media-servers",
- "yokoku-metadata",
  "yokoku-naming",
- "yokoku-system",
-]
-
-[[package]]
-name = "yokoku-db"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "jiff",
- "proptest",
- "rstest",
- "serde_json",
- "sqlx",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "uuid",
- "yokoku-domain",
- "yokoku-downloads",
- "yokoku-events",
- "yokoku-integrations",
- "yokoku-library",
- "yokoku-media",
 ]
 
 [[package]]
@@ -6145,28 +6116,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "yokoku-download-clients"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "base64 0.22.1",
- "jiff",
- "reqwest 0.13.5",
- "rstest",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tracing",
- "wiremock",
- "yokoku-db",
- "yokoku-domain",
- "yokoku-downloads",
- "yokoku-events",
- "yokoku-test-support",
-]
-
-[[package]]
 name = "yokoku-downloads"
 version = "0.0.1"
 dependencies = [
@@ -6178,9 +6127,9 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
- "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-infra",
  "yokoku-test-support",
 ]
 
@@ -6196,8 +6145,40 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "yokoku-db",
  "yokoku-domain",
+ "yokoku-infra",
+ "yokoku-test-support",
+]
+
+[[package]]
+name = "yokoku-infra"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "governor",
+ "isolang",
+ "jiff",
+ "proptest",
+ "reqwest 0.13.5",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "uuid",
+ "walkdir",
+ "wiremock",
+ "yokoku-detect",
+ "yokoku-domain",
+ "yokoku-downloads",
+ "yokoku-events",
+ "yokoku-integrations",
+ "yokoku-library",
+ "yokoku-media",
  "yokoku-test-support",
 ]
 
@@ -6210,9 +6191,9 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
- "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-infra",
  "yokoku-test-support",
 ]
 
@@ -6248,10 +6229,9 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
- "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
- "yokoku-system",
+ "yokoku-infra",
  "yokoku-test-support",
 ]
 
@@ -6267,49 +6247,12 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
- "yokoku-db",
  "yokoku-detect",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-infra",
  "yokoku-library",
  "yokoku-naming",
- "yokoku-system",
- "yokoku-test-support",
-]
-
-[[package]]
-name = "yokoku-media-servers"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "reqwest 0.13.5",
- "serde",
- "tokio",
- "tracing",
- "wiremock",
- "yokoku-domain",
- "yokoku-integrations",
- "yokoku-test-support",
-]
-
-[[package]]
-name = "yokoku-metadata"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "governor",
- "isolang",
- "jiff",
- "reqwest 0.13.5",
- "rstest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "wiremock",
- "yokoku-domain",
- "yokoku-library",
  "yokoku-test-support",
 ]
 
@@ -6326,25 +6269,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "yokoku-system"
-version = "0.0.1"
-dependencies = [
- "async-trait",
- "jiff",
- "rstest",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tracing",
- "walkdir",
- "yokoku-detect",
- "yokoku-domain",
- "yokoku-library",
- "yokoku-media",
-]
-
-[[package]]
 name = "yokoku-test-support"
 version = "0.0.1"
 dependencies = [
@@ -6352,9 +6276,9 @@ dependencies = [
  "serde_json",
  "sqlx",
  "wiremock",
- "yokoku-db",
  "yokoku-domain",
  "yokoku-events",
+ "yokoku-infra",
 ]
 
 [[package]]

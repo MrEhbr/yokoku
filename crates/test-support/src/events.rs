@@ -1,5 +1,5 @@
-use yokoku_db::Database;
 use yokoku_events::{EventLog, Publisher};
+use yokoku_infra::db::Database;
 
 pub fn publisher(db: &Database) -> Publisher {
     Publisher::new(EventLog::new(db.clone()))

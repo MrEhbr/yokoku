@@ -4,12 +4,12 @@ use assert_cmd::prelude::*;
 use jiff::{Timestamp, ToSpan, civil::Date, tz::TimeZone};
 use predicates::prelude::*;
 use tempfile::TempDir;
-use yokoku_db::Database;
 use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, EpisodeRef, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata,
     Releases, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
 };
 use yokoku_events::EventLog;
+use yokoku_infra::db::Database;
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_test_support::{
     events::{accept_events, refuse_events},
@@ -163,7 +163,7 @@ async fn the_jellyfin_api_key_can_be_read_from_a_file() {
 /// A stand-in for ffprobe that reports the recorded sample: 320x180 h264, English and Japanese
 /// audio, and forced Russian subtitles.
 fn stand_in_ffprobe(dir: &std::path::Path) -> PathBuf {
-    let report = format!("{}/../system/tests/fixtures/ffprobe_sample.json", env!("CARGO_MANIFEST_DIR"));
+    let report = format!("{}/../infra/tests/system/fixtures/ffprobe_sample.json", env!("CARGO_MANIFEST_DIR"));
     let program = dir.join("ffprobe");
     fs::write(&program, format!("#!/bin/sh\ncat '{report}'\n")).unwrap();
     fs::set_permissions(&program, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();

@@ -1,8 +1,8 @@
-use yokoku_db::Database;
 use yokoku_domain::{MovieId, SeriesId};
 use yokoku_events::{
     CorrelationId, Event, EventLog, MovieAdded, Publisher, Recorded, SeriesAdded, correlation::correlate,
 };
+use yokoku_infra::db::Database;
 use yokoku_test_support::events::{accept_events, refuse_events};
 
 fn series_added(title: &str) -> Event {

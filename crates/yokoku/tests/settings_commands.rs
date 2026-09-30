@@ -7,8 +7,8 @@ use std::{
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use tempfile::TempDir;
-use yokoku_db::Database;
 use yokoku_events::{EventLog, SettingsChanged};
+use yokoku_infra::db::Database;
 use yokoku_test_support::events::refuse_events;
 
 struct Setup {

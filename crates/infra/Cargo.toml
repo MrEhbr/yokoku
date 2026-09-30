@@ -1,0 +1,43 @@
+[package]
+name = "yokoku-infra"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+yokoku-detect.workspace = true
+yokoku-domain.workspace = true
+yokoku-downloads.workspace = true
+yokoku-events.workspace = true
+yokoku-integrations.workspace = true
+yokoku-library.workspace = true
+yokoku-media.workspace = true
+
+async-trait.workspace = true
+isolang.workspace = true
+jiff = { workspace = true, features = ["serde"] }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "process", "rt", "sync", "time"] }
+tracing.workspace = true
+
+base64 = "0.22"
+governor = { version = "0.10", default-features = false, features = ["std"] }
+walkdir = "2.5"
+
+[dev-dependencies]
+yokoku-test-support.workspace = true
+
+proptest.workspace = true
+rstest.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "process", "sync", "time", "test-util"] }
+uuid.workspace = true
+wiremock.workspace = true

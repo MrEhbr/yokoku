@@ -1,10 +1,10 @@
 use jiff::{SignedDuration, Timestamp};
 use rstest::{fixture, rstest};
-use yokoku_db::Database;
 use yokoku_domain::{MovieId, SeriesId};
 use yokoku_events::{
     Correlated, CorrelationId, DeliveryFailure, Event, EventId, EventLog, MovieAdded, Recorded, SeriesAdded,
 };
+use yokoku_infra::db::Database;
 
 #[fixture]
 async fn log() -> EventLog {

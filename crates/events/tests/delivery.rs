@@ -12,12 +12,12 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tokio_util::sync::CancellationToken;
-use yokoku_db::Database;
 use yokoku_domain::SeriesId;
 use yokoku_events::{
     Correlated, CorrelationId, Delivery, DeliveryConfig, DeliveryFailure, EventId, EventLog, Handler, HandlerError,
     SeriesAdded, Subscription, correlation,
 };
+use yokoku_infra::db::Database;
 
 const SUBSCRIBER: &str = "recorder";
 const WAIT: Duration = Duration::from_secs(5);

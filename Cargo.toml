@@ -9,20 +9,16 @@ repository = "https://github.com/mrehbr/yokoku"
 license = "MIT"
 
 [workspace.dependencies]
-yokoku-db = { path = "crates/db" }
+yokoku-infra = { path = "crates/infra" }
 yokoku-detect = { path = "crates/detect" }
 yokoku-domain = { path = "crates/domain" }
-yokoku-download-clients = { path = "crates/download-clients" }
 yokoku-downloads = { path = "crates/downloads" }
 yokoku-events = { path = "crates/events" }
 yokoku-integrations = { path = "crates/integrations" }
 yokoku-jobs = { path = "crates/jobs" }
 yokoku-library = { path = "crates/library" }
 yokoku-media = { path = "crates/media" }
-yokoku-media-servers = { path = "crates/media-servers" }
-yokoku-metadata = { path = "crates/metadata" }
 yokoku-naming = { path = "crates/naming" }
-yokoku-system = { path = "crates/system" }
 yokoku-test-support = { path = "crates/test-support" }
 yokoku-web = { path = "crates/web" }
 

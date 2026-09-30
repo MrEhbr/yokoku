@@ -4,10 +4,9 @@ use async_trait::async_trait;
 use serde_json::Value;
 use yokoku_config::Settings;
 use yokoku_domain::{Live, StorageError};
-use yokoku_download_clients::TransmissionClient;
 use yokoku_downloads::{DownloadError, ports::DownloadClient};
+use yokoku_infra::{download_clients::TransmissionClient, media_servers::JellyfinClient};
 use yokoku_integrations::ports::MediaServer;
-use yokoku_media_servers::JellyfinClient;
 use yokoku_web::{Connection, SettingsAccess};
 
 /// The configuration, as the web Settings page reaches it.

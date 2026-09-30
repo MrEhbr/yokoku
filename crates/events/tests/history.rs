@@ -1,6 +1,6 @@
-use yokoku_db::Database;
 use yokoku_domain::{ItemId, MovieId, SeriesId};
 use yokoku_events::{Correlated, CorrelationId, EventId, EventLog, History, MovieAdded, Recorded, SeriesAdded};
+use yokoku_infra::db::Database;
 
 fn ids(entries: &[Recorded]) -> Vec<i64> {
     entries.iter().map(|recorded| recorded.id.0).collect()

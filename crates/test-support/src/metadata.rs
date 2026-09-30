@@ -5,9 +5,9 @@ use yokoku_domain::{
     SourceStatus,
 };
 
-/// A recorded TMDB or TVDB answer from `crates/metadata/tests/fixtures`.
+/// A recorded TMDB or TVDB answer from `crates/infra/tests/metadata/fixtures`.
 pub fn fixture(name: &str) -> Value {
-    let file = format!("{}/../metadata/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+    let file = format!("{}/../infra/tests/metadata/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
     serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap()
 }
 

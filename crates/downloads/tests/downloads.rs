@@ -6,7 +6,6 @@ use std::{
 use async_trait::async_trait;
 use rstest::rstest;
 use tempfile::TempDir;
-use yokoku_db::Database;
 use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, Live, MovieId, SeriesId};
 use yokoku_downloads::{
     Download, DownloadError, DownloadOptions, DownloadState, Downloads, TorrentStatus,
@@ -15,6 +14,7 @@ use yokoku_downloads::{
 use yokoku_events::{
     DownloadCompleted, Event, EventLog, FilesImported, Handler, QueueChanges, TorrentAdded, TorrentRemoved,
 };
+use yokoku_infra::db::Database;
 use yokoku_test_support::{clock::TestClock, events::publisher};
 
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";

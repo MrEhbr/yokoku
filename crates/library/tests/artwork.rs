@@ -14,11 +14,11 @@ use yokoku_domain::{
     SourceStatus,
 };
 use yokoku_events::{Handler, SeriesRemoved};
+use yokoku_infra::system::ArtworkFiles;
 use yokoku_library::{
     Artworks, Image, LibraryError, artwork_name,
     ports::{ArtworkSource, MetadataError, SeriesRepo},
 };
-use yokoku_system::ArtworkFiles;
 
 /// The metadata sources' image servers: every path has an image, and each fetch is recorded.
 #[derive(Default)]

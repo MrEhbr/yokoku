@@ -7,9 +7,9 @@ use std::{
 
 use async_trait::async_trait;
 use tempfile::TempDir;
-use yokoku_db::Database;
 use yokoku_domain::{ExternalId, MediaKind, MovieMetadata, SeriesMetadata, title_with_year};
 use yokoku_events::{Event, EventLog};
+use yokoku_infra::db::Database;
 use yokoku_library::{
     Calendar, Library, MetadataService,
     ports::{FolderNames, MetadataError, MetadataProvider, SearchResult},

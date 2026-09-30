@@ -10,7 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
-yokoku-db.workspace = true
+yokoku-infra.workspace = true
 yokoku-domain.workspace = true
 yokoku-events.workspace = true
 

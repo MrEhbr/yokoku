@@ -8,16 +8,18 @@ use std::{
 
 use jiff::{Timestamp, civil::date};
 use tempfile::TempDir;
-use yokoku_db::Database;
 use yokoku_domain::{
     Clock, EpisodeSpan, FileTarget, ItemFolder, Live, MonitorPreset, Movie, MovieMetadata, Releases, Series,
     SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog, Publisher, QueueChanges};
+use yokoku_infra::{
+    db::Database,
+    system::{LocalFileSystem, LockFile},
+};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{ImportPlanner, Renamer, Reviewer, RootFolders, RootKind, Scanner};
 use yokoku_naming::Naming;
-use yokoku_system::{LocalFileSystem, LockFile};
 pub use yokoku_test_support::clock::TODAY;
 use yokoku_test_support::{
     clock::TestClock,
