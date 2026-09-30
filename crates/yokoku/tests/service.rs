@@ -388,6 +388,17 @@ async fn root_folders_can_be_added_and_removed() {
 }
 
 #[tokio::test]
+async fn the_library_can_be_scanned_on_demand() {
+    let dir = tempfile::tempdir().unwrap();
+    let service = Service::start(dir.path());
+
+    let scanned = service.post("/api/library/scan");
+
+    assert!(scanned.starts_with("HTTP/1.1 200"), "{scanned}");
+    assert!(scanned.contains(r#"{"found":0,"vanished":0,"unrecognised":0}"#), "{scanned}");
+}
+
+#[tokio::test]
 async fn refreshing_says_why_it_cannot() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;

@@ -1,5 +1,5 @@
-//! The settings in effect and the root folders, as the Settings page edits them (FR-10.1, 3.1,
-//! 8.1).
+//! The settings in effect, the root folders and the library scan, as the Settings page edits them
+//! (FR-10.1, 3.1, 8.1, 8.2).
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,7 @@ use serde_json::Value;
 use super::library::Kind;
 #[cfg(feature = "server")]
 use crate::{
-    api::{Dep, Downloads, RootFolders},
+    api::{Dep, Downloads, RootFolders, Scanner},
     state::SettingsAccess,
 };
 
@@ -77,6 +77,23 @@ pub async fn remove_root(path: String) -> Result<(), ServerFnError> {
     server::remove_root(&roots, &path).await
 }
 
+/// What a library scan changed.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Scanned {
+    /// New files linked to their items.
+    pub found: usize,
+    /// Linked files no longer on disk.
+    pub vanished: usize,
+    /// Folders with files to match by hand.
+    pub unrecognised: usize,
+}
+
+/// Links new files in the item folders and forgets those gone from disk (FR-8.2, 8.7).
+#[post("/api/library/scan", scanner: Dep<Scanner>)]
+pub async fn scan_library() -> Result<Scanned, ServerFnError> {
+    server::scan(&scanner).await
+}
+
 #[cfg(feature = "server")]
 mod server {
     use std::path::Path;
@@ -85,7 +102,7 @@ mod server {
     use serde_json::Value;
     use yokoku_media::{MediaError, RootKind};
 
-    use super::{Connection, Downloads, Kind, Root, RootFolders, Setting, SettingsAccess};
+    use super::{Connection, Downloads, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess};
 
     /// The settings the page shows; no other key can be changed through it.
     const KEYS: &[&str] = &[
@@ -176,6 +193,14 @@ mod server {
 
     pub(super) async fn remove_root(roots: &RootFolders, path: &str) -> Result<(), ServerFnError> {
         roots.remove(Path::new(path)).await.map_err(root_failure)
+    }
+
+    pub(super) async fn scan(scanner: &Scanner) -> Result<Scanned, ServerFnError> {
+        let report = scanner.scan().await.map_err(|error| {
+            error!(%error, "scanning the library failed");
+            ServerFnError::new("The library could not be scanned; the server log has the cause")
+        })?;
+        Ok(Scanned { found: report.found, vanished: report.vanished, unrecognised: report.needs_review.len() })
     }
 
     fn setting(access: &dyn SettingsAccess, stored: &[String], key: &str) -> Option<Setting> {

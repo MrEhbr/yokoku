@@ -20,7 +20,7 @@ use {
     yokoku_downloads::Downloads,
     yokoku_events::{History, QueueChanges},
     yokoku_library::{Artworks, Calendar, Library, MetadataService},
-    yokoku_media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders},
+    yokoku_media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner},
 };
 
 /// What a failed server function call tells the user: the server's message, or that it was not reached.

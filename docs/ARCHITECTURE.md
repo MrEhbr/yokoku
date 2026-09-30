@@ -476,7 +476,7 @@ apalis runs **work to do**: long-running, retryable jobs and schedules. It is no
 | `SyncActiveDownloads` | cron, every 5 s, one tick at a time | `Downloads::sync_active`: syncs only while a download is queued, checking or downloading |
 | `ExecuteImports` | cron, every 5 s, one tick at a time | `Importer::run_pending` |
 | `RefreshMetadata` | cron, every 12 h; only with a TMDB token; everything on demand with `yokoku refresh` | `MetadataService::refresh_due` (one item's failure is logged and the rest continue) |
-| `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` | `Scanner::scan` (FR-8.7) |
+| `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` or Settings' Scan now (`scan_library`) | `Scanner::scan` (FR-8.7) |
 | `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
 
 Job handlers are thin. They decode the job and call one use case. Schedules are cron expressions with seconds, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`); `yokoku_jobs::monitor` registers the workers and the service runs them with `Monitor::run_with_signal`. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.

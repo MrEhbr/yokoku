@@ -4,7 +4,7 @@ use crate::{
     api::{
         failure,
         library::Kind,
-        settings::{add_root, remove_root, roots},
+        settings::{Scanned, add_root, remove_root, roots, scan_library},
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
@@ -136,6 +136,50 @@ pub(super) fn RootFolders() -> Element {
                 }
                 FieldHint { id: "root-hint", "An absolute path to an existing folder on the server." }
             }
+            ScanLibrary {}
         }
     }
+}
+
+/// Scans the item folders now, as the daily scan does at 05:00, and says what changed.
+#[component]
+fn ScanLibrary() -> Element {
+    let mut scanning = use_signal(|| false);
+    let mut outcome = use_signal(|| None::<Result<Scanned, String>>);
+    let scan = move |_| async move {
+        scanning.set(true);
+        outcome.set(Some(scan_library().await.map_err(|failed| failure(&failed))));
+        scanning.set(false);
+    };
+    rsx! {
+        div { class: "flex flex-wrap items-center gap-x-4 gap-y-2 pt-2",
+            Button { disabled: scanning(), aria_busy: scanning(), onclick: scan, "Scan now" }
+            p { role: "status", class: "text-caption text-muted",
+                match outcome() {
+                    None if scanning() => "Scanning the item folders…".to_owned(),
+                    None => "The item folders are scanned daily at 05:00 for new and removed files.".to_owned(),
+                    Some(Ok(scanned)) => summary(scanned),
+                    Some(Err(message)) => message,
+                }
+            }
+        }
+    }
+}
+
+fn summary(scanned: Scanned) -> String {
+    let count = |count: usize, noun: &str| if count == 1 { format!("1 {noun}") } else { format!("{count} {noun}s") };
+    let mut parts = Vec::new();
+    if scanned.found > 0 {
+        parts.push(format!("Linked {}", count(scanned.found, "new file")));
+    }
+    if scanned.vanished > 0 {
+        parts.push(format!("Forgot {} gone from disk", count(scanned.vanished, "file")));
+    }
+    if scanned.unrecognised > 0 {
+        parts.push(format!("{} with files to match on their item pages", count(scanned.unrecognised, "folder")));
+    }
+    if parts.is_empty() {
+        return "Nothing changed since the last scan.".to_owned();
+    }
+    format!("{}.", parts.join(". "))
 }

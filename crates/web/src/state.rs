@@ -9,7 +9,7 @@ use yokoku_domain::{Clock, Live, MonitorPreset};
 use yokoku_downloads::Downloads;
 use yokoku_events::{History, QueueChanges};
 use yokoku_library::{Artworks, Calendar, Library, MetadataService};
-use yokoku_media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders};
+use yokoku_media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner};
 
 /// The use cases server functions call, wired by the composition root.
 #[derive(Clone)]
@@ -29,6 +29,7 @@ pub struct AppState {
     pub add: Arc<AddSettings>,
     pub deleter: Arc<Deleter>,
     pub renamer: Arc<Renamer>,
+    pub scanner: Arc<Scanner>,
     pub settings: Arc<dyn SettingsAccess>,
 }
 
@@ -147,6 +148,12 @@ impl Provides<Deleter> for AppState {
 impl Provides<Renamer> for AppState {
     fn provide(&self) -> Arc<Renamer> {
         self.renamer.clone()
+    }
+}
+
+impl Provides<Scanner> for AppState {
+    fn provide(&self) -> Arc<Scanner> {
+        self.scanner.clone()
     }
 }
 
