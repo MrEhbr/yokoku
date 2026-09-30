@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide::X;
 use yokoku_domain::{ItemId, MediaFileId};
 
 use crate::{
@@ -10,12 +9,13 @@ use crate::{
         rename::{RenamePlan, RenameResult, RenameRow, rename_files, rename_preview},
     },
     components::{
-        button::{Button, ButtonSize, ButtonVariant},
+        button::{Button, ButtonVariant},
         checkbox::{Checkbox, CheckboxState},
-        dialog::{Dialog, DialogDescription, DialogFooter, DialogTitle},
+        dialog::{DialogDescription, DialogFooter},
         label::Label,
         skeleton::Skeleton,
     },
+    dialogs::ClosableDialog,
 };
 
 /// A "Rename files…" button that previews and renames the item's files (FR-5.7) and calls
@@ -25,17 +25,7 @@ pub fn RenameButton(item: ItemId, on_change: Callback) -> Element {
     let mut open = use_signal(|| false);
     rsx! {
         Button { onclick: move |_| open.set(true), "Rename files…" }
-        Dialog { open: Some(open()), on_open_change: move |next| open.set(next),
-            div { class: "flex items-start justify-between gap-4",
-                DialogTitle { "Rename files" }
-                Button {
-                    variant: ButtonVariant::Quiet,
-                    size: ButtonSize::Icon,
-                    aria_label: "Close",
-                    onclick: move |_| open.set(false),
-                    X {}
-                }
-            }
+        ClosableDialog { title: "Rename files", open,
             DialogDescription { "Files move to the names the naming patterns give them, inside the item's folder." }
             if open() {
                 Preview { item, on_change, on_close: move |()| open.set(false) }

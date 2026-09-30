@@ -3,7 +3,6 @@ mod bulk;
 use std::collections::BTreeSet;
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide::X;
 use yokoku_domain::{ImportId, ItemId, title_with_year};
 
 use self::bulk::BulkTools;
@@ -20,11 +19,12 @@ use crate::{
         button::{Button, ButtonSize, ButtonVariant},
         checkbox::{Checkbox, CheckboxState},
         combobox::{Combobox, ComboboxEmpty, ComboboxOption},
-        dialog::{Dialog, DialogDescription, DialogFooter, DialogTitle},
+        dialog::{DialogDescription, DialogFooter},
         label::Label,
         skeleton::Skeleton,
         status::{Status, Tone},
     },
+    dialogs::ClosableDialog,
     format::{episode as code, size},
 };
 
@@ -40,17 +40,7 @@ pub fn ReviewButton(
     let mut open = use_signal(|| false);
     rsx! {
         Button { size, onclick: move |_| open.set(true), "{label}" }
-        Dialog { open: Some(open()), on_open_change: move |next| open.set(next),
-            div { class: "flex items-start justify-between gap-4",
-                DialogTitle { "Review files" }
-                Button {
-                    variant: ButtonVariant::Quiet,
-                    size: ButtonSize::Icon,
-                    aria_label: "Close",
-                    onclick: move |_| open.set(false),
-                    X {}
-                }
-            }
+        ClosableDialog { title: "Review files", open,
             if open() {
                 Rows {
                     import,

@@ -11,13 +11,13 @@ use crate::{
     components::{
         button::{Button, ButtonSize, ButtonVariant},
         combobox::{Combobox, ComboboxEmpty, ComboboxOption},
-        dialog::{Dialog, DialogFooter, DialogTitle},
+        dialog::DialogFooter,
         field::{Field, FieldError, FieldHint},
         input::Input,
         label::Label,
         skeleton::Skeleton,
     },
-    dialogs::pickers::SeasonPicker,
+    dialogs::{ClosableDialog, pickers::SeasonPicker},
     route::Route,
 };
 
@@ -47,17 +47,7 @@ pub fn AddTorrentButton(#[props(default)] item: Option<ItemLink>) -> Element {
 #[component]
 fn AddTorrent(open: Signal<bool>, item: Option<ItemLink>) -> Element {
     rsx! {
-        Dialog { open: Some(open()), on_open_change: move |next| open.set(next),
-            div { class: "flex items-start justify-between gap-4",
-                DialogTitle { "Add torrent" }
-                Button {
-                    variant: ButtonVariant::Quiet,
-                    size: ButtonSize::Icon,
-                    aria_label: "Close",
-                    onclick: move |_| open.set(false),
-                    X {}
-                }
-            }
+        ClosableDialog { title: "Add torrent", open,
             if open() {
                 Form { item: item.clone(), on_close: move |()| open.set(false) }
             }
