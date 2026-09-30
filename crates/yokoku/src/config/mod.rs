@@ -19,13 +19,13 @@ use yokoku_infra::{
     metadata::MetadataSettings,
     system::{ClockSettings, ProbeSettings},
 };
-use yokoku_jobs::ScheduleSettings;
 
-pub use crate::{
+pub use crate::config::{
     log::{LogConfig, LogFormat, LogOutput},
     sections::{AddConfig, CalendarConfig, DatabaseConfig, EventsConfig, ListConfig, WebConfig},
     settings::Settings,
 };
+use crate::jobs::ScheduleSettings;
 
 const ENV_PREFIX: &str = "APP";
 
@@ -109,3 +109,6 @@ impl Config {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

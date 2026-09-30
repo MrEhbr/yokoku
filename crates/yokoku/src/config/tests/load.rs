@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use serde_json::json;
 use tracing::Level;
-use yokoku_config::{Config, LogFormat, LogOutput};
+
+use crate::config::{Config, LogFormat, LogOutput};
 
 #[test]
 fn stored_settings_go_over_the_config_file_and_it_over_the_defaults() {

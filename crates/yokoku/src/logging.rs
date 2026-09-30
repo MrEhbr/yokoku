@@ -4,7 +4,8 @@ use anyhow::{Context, Result};
 use tracing::level_filters::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
-use yokoku_config::{LogConfig, LogFormat, LogOutput};
+
+use crate::config::{LogConfig, LogFormat, LogOutput};
 
 /// Directives added to the configured level when `RUST_LOG` is unset.
 const QUIET_DEPENDENCIES: &str =

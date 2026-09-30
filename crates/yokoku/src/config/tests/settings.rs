@@ -2,9 +2,10 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use serde_json::{Value, json};
-use yokoku_config::Settings;
 use yokoku_core::media::ImportMode;
 use yokoku_domain::{SettingsStore, StorageError};
+
+use crate::config::Settings;
 
 #[derive(Default)]
 struct MemoryStore(Mutex<Vec<(String, Value)>>);

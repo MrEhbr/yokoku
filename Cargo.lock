@@ -6033,44 +6033,28 @@ dependencies = [
  "async-trait",
  "clap",
  "clap-verbosity-flag",
+ "config",
  "console-subscriber",
  "criterion",
  "jiff",
+ "jiff-cron",
  "owo-colors",
  "predicates",
+ "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "tokio-util",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
  "wiremock",
- "yokoku-config",
  "yokoku-core",
  "yokoku-domain",
  "yokoku-infra",
- "yokoku-jobs",
  "yokoku-test-support",
  "yokoku-web",
-]
-
-[[package]]
-name = "yokoku-config"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "config",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tracing",
- "yokoku-core",
- "yokoku-domain",
- "yokoku-infra",
- "yokoku-jobs",
 ]
 
 [[package]]
@@ -6139,22 +6123,6 @@ dependencies = [
  "yokoku-core",
  "yokoku-domain",
  "yokoku-test-support",
-]
-
-[[package]]
-name = "yokoku-jobs"
-version = "0.0.1"
-dependencies = [
- "jiff",
- "jiff-cron",
- "serde",
- "thiserror 2.0.21",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
- "yokoku-core",
- "yokoku-domain",
 ]
 
 [[package]]

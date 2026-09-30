@@ -4,11 +4,15 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use tracing::{Instrument, error, info_span};
-use yokoku_config::{Config, LogOutput};
 use yokoku_core::events::correlation::correlate;
 use yokoku_domain::CorrelationId;
 
-use crate::{app::App, cli::commands, logging};
+use crate::{
+    app::App,
+    cli::commands,
+    config::{Config, LogOutput},
+    logging,
+};
 
 /// Attribution TMDB and TheTVDB require.
 const DATA_SOURCES: &str = "This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise \

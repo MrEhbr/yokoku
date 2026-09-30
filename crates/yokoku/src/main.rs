@@ -4,6 +4,8 @@
 mod cli;
 
 mod app;
+mod config;
+mod jobs;
 mod logging;
 mod service;
 mod subscriptions;

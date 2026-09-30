@@ -10,7 +10,7 @@ use tracing::info;
 use yokoku_core::events::{Handler, HandlerError};
 use yokoku_domain::{Live, SettingsStore, events::SettingsChanged};
 
-use crate::Config;
+use crate::config::Config;
 
 /// The configuration in effect: the config file, then the stored settings, then the environment.
 #[derive(Clone)]

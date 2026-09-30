@@ -2,7 +2,6 @@ use std::env;
 
 use async_trait::async_trait;
 use serde_json::Value;
-use yokoku_config::Settings;
 use yokoku_core::{
     downloads::{DownloadError, ports::DownloadClient},
     integrations::ports::MediaServer,
@@ -10,6 +9,8 @@ use yokoku_core::{
 use yokoku_domain::{Live, StorageError};
 use yokoku_infra::{download_clients::TransmissionClient, media_servers::JellyfinClient};
 use yokoku_web::{Connection, SettingsAccess};
+
+use crate::config::Settings;
 
 /// The configuration, as the web Settings page reaches it.
 pub struct WebSettings {

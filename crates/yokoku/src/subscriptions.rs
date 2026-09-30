@@ -3,7 +3,6 @@
 
 use std::sync::Arc;
 
-use yokoku_config::Settings;
 use yokoku_core::{
     downloads::Downloads,
     events::Subscription,
@@ -16,6 +15,8 @@ use yokoku_domain::events::{
     MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged,
 };
 use yokoku_infra::db::Database;
+
+use crate::config::Settings;
 
 #[expect(clippy::too_many_arguments, reason = "one argument per subscriber")]
 pub fn subscribers(

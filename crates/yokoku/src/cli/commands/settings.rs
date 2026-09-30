@@ -3,12 +3,11 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use serde_json::Value;
-use yokoku_config::Config;
 use yokoku_core::events::{EventLog, Publisher};
 use yokoku_domain::{SettingsStore, events::SettingsChanged};
 use yokoku_infra::db::Database;
 
-use crate::cli::args::EVENTS_LOST;
+use crate::{cli::args::EVENTS_LOST, config::Config};
 
 #[derive(Parser)]
 pub struct Args {

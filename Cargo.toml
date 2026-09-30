@@ -12,7 +12,6 @@ license = "MIT"
 yokoku-core = { path = "crates/core" }
 yokoku-domain = { path = "crates/domain" }
 yokoku-infra = { path = "crates/infra" }
-yokoku-jobs = { path = "crates/jobs" }
 yokoku-test-support = { path = "crates/test-support" }
 yokoku-web = { path = "crates/web" }
 

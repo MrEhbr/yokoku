@@ -4,9 +4,8 @@ use anyhow::{Context, Result};
 use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
-use yokoku_jobs::Jobs;
 
-use crate::{app::App, web_settings::WebSettings};
+use crate::{app::App, jobs::Jobs, web_settings::WebSettings};
 
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App) -> Result<()> {
@@ -38,7 +37,7 @@ pub async fn run(app: &App) -> Result<()> {
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);
     let stop_jobs = shutdown.child_token();
-    let jobs = yokoku_jobs::spawn(
+    let jobs = crate::jobs::spawn(
         Jobs {
             downloads: app.downloads.clone(),
             importer: app.importer.clone(),

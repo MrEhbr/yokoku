@@ -4,7 +4,6 @@ use anyhow::{Context, Result, bail};
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
-use yokoku_config::{Config, Settings};
 use yokoku_core::{
     downloads::Downloads,
     events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges, Subscription},
@@ -24,7 +23,10 @@ use yokoku_infra::{
     system::{ArtworkFiles, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
 
-use crate::subscriptions;
+use crate::{
+    config::{Config, Settings},
+    subscriptions,
+};
 
 /// Use cases wired to their adapters, each reading the settings in effect when it runs.
 pub struct App {
