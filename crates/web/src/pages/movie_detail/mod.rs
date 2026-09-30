@@ -22,7 +22,7 @@ use crate::{
         unrecognised_files::UnrecognisedFiles,
     },
     dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, rename::RenameButton},
-    format::{date, relative, year},
+    format::{date, relative, size, year},
     layout::BackButton,
     route::Route,
 };
@@ -104,6 +104,9 @@ fn Page(movie: detail::MovieDetail) -> Element {
             div { class: "flex flex-wrap gap-x-4 gap-y-1",
                 Lifecycle { status: movie.status }
                 FileState { status: movie.file, monitored: movie.monitored }
+                if let Some(info) = &movie.file_info {
+                    span { class: "text-caption text-muted", "{size(info.size)} on disk" }
+                }
             }
             div { class: "flex flex-wrap items-center gap-x-6 gap-y-2",
                 MonitorToggle {
@@ -120,7 +123,7 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     RemoveItem {
                         item: ItemId::Movie(id),
                         title: movie.title.clone(),
-                        files: usize::from(movie.file_info.is_some()),
+                        usage: movie.disk_usage(),
                     }
                 }
             }

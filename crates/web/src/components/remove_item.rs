@@ -2,20 +2,25 @@ use dioxus::prelude::*;
 use yokoku_domain::ItemId;
 
 use crate::{
-    api::{failure, library::manage::remove},
+    api::{
+        failure,
+        library::{detail::DiskUsage, manage::remove},
+    },
     components::{
         alert_dialog::{AlertDialog, AlertDialogActions, AlertDialogCancel, AlertDialogDescription, AlertDialogTitle},
         button::{Button, ButtonVariant},
         checkbox::{Checkbox, CheckboxState},
         label::Label,
     },
+    format::size,
     route::Route,
 };
 
-/// Removes the item from the library after a confirmation that can also delete its `files`
+/// Removes the item from the library after a confirmation that can also delete its files, `usage`
 /// (FR-1.7, 8.5); the Library opens once it is removed.
 #[component]
-pub fn RemoveItem(item: ItemId, title: String, files: usize) -> Element {
+pub fn RemoveItem(item: ItemId, title: String, usage: DiskUsage) -> Element {
+    let DiskUsage { files, size: bytes } = usage;
     let mut open = use_signal(|| false);
     let mut delete_files = use_signal(|| false);
     let mut busy = use_signal(|| false);
@@ -56,10 +61,12 @@ pub fn RemoveItem(item: ItemId, title: String, files: usize) -> Element {
                             checked: if delete_files() { CheckboxState::Checked } else { CheckboxState::Unchecked },
                             on_checked_change: move |state| delete_files.set(state == CheckboxState::Checked),
                         }
-                        Label { html_for: "remove-delete-files", "Also delete {its_files}" }
+                        Label { html_for: "remove-delete-files", "Also delete {its_files} ({size(bytes)})" }
                     }
                     if delete_files() {
-                        p { class: "pl-6 text-caption text-danger", "Deleted files are gone for good." }
+                        p { class: "pl-6 text-caption text-danger",
+                            "Frees up to {size(bytes)}; a file hard-linked to a seeding torrent keeps its space until the torrent is removed. Deleted files are gone for good."
+                        }
                     }
                 }
             }

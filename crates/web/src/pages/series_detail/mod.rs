@@ -25,7 +25,7 @@ use crate::{
         unrecognised_files::UnrecognisedFiles,
     },
     dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, rename::RenameButton},
-    format::year,
+    format::{size, year},
     layout::BackButton,
     route::Route,
 };
@@ -81,6 +81,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
         })));
     });
     let series = current();
+    let usage = series.disk_usage();
     let images = series.images.clone();
     let today = series.today;
     let (regular, specials): (Vec<_>, Vec<_>) = series.seasons.iter().cloned().partition(|season| season.number != 0);
@@ -106,6 +107,16 @@ fn Page(series: detail::SeriesDetail) -> Element {
             }
             div { class: "flex flex-wrap gap-x-4 gap-y-1",
                 Lifecycle { status: series.status }
+                if usage.files > 0 {
+                    span { class: "text-caption text-muted",
+                        if usage.files == 1 {
+                            "1 file"
+                        } else {
+                            "{usage.files} files"
+                        }
+                        " · {size(usage.size)} on disk"
+                    }
+                }
             }
             div { class: "flex flex-wrap items-center gap-x-6 gap-y-2",
                 MonitorToggle {
@@ -120,7 +131,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     AddTorrentButton { item: ItemId::Series(id) }
                     RefreshButton { item: ItemId::Series(id), on_change: reload }
                     RenameButton { item: ItemId::Series(id), on_change: reload }
-                    RemoveItem { item: ItemId::Series(id), title: series.title.clone(), files: series.files() }
+                    RemoveItem { item: ItemId::Series(id), title: series.title.clone(), usage }
                 }
             }
             ItemDescription { description: series.description.clone(), per_episode: true }

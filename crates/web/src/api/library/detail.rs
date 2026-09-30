@@ -160,16 +160,30 @@ impl Release {
     }
 }
 
+/// An item's library files and their size, subtitles left out.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DiskUsage {
+    pub files: usize,
+    /// Bytes.
+    pub size: u64,
+}
+
 impl SeriesDetail {
-    /// How many files hold its episodes; a file holding several episodes counts once.
-    pub fn files(&self) -> usize {
-        let paths: std::collections::HashSet<&str> = self
+    /// A file holding several episodes counts once.
+    pub fn disk_usage(&self) -> DiskUsage {
+        let files: std::collections::HashMap<&str, u64> = self
             .seasons
             .iter()
             .flat_map(|season| &season.episodes)
-            .filter_map(|episode| episode.file_info.as_ref().map(|info| info.path.as_str()))
+            .filter_map(|episode| episode.file_info.as_ref().map(|info| (info.path.as_str(), info.size)))
             .collect();
-        paths.len()
+        DiskUsage { files: files.len(), size: files.values().sum() }
+    }
+}
+
+impl MovieDetail {
+    pub fn disk_usage(&self) -> DiskUsage {
+        self.file_info.as_ref().map_or_else(DiskUsage::default, |info| DiskUsage { files: 1, size: info.size })
     }
 }
 

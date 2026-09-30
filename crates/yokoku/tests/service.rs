@@ -204,7 +204,9 @@ async fn detail_pages_show_descriptions_episodes_releases_and_files() {
     {
         assert!(series.contains(text), "{text}: {series}");
     }
-    for text in ["2h 35m", "/movies/Dune (2021)/Dune (2021).mkv", "1.4 GB", "1080p · 1920x800 h264", "eng eac3 5.1"] {
+    for text in
+        ["2h 35m", "/movies/Dune (2021)/Dune (2021).mkv", "1.4 GB on disk", "1080p · 1920x800 h264", "eng eac3 5.1"]
+    {
         assert!(movie.contains(text), "{text}: {movie}");
     }
 }
