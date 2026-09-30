@@ -1,82 +1,11 @@
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use yokoku_domain::{MovieId, SeriesId, StorageError};
 use yokoku_events::{
-    Correlated, CorrelationId, DeliveryFailure, Event, EventId, EventLog, EventSpool, MovieAdded, Publisher, Recorded,
-    SeriesAdded, correlation::correlate,
+    Correlated, CorrelationId, Event, EventLog, EventSpool, MovieAdded, Publisher, SeriesAdded, correlation::correlate,
 };
-
-/// Keeps appended events; refuses them while `failing`.
-#[derive(Default)]
-struct MemoryLog {
-    events: Mutex<Vec<Correlated>>,
-    failing: AtomicBool,
-}
-
-impl MemoryLog {
-    fn failing() -> Self {
-        Self { failing: AtomicBool::new(true), ..Self::default() }
-    }
-
-    fn recover(&self) {
-        self.failing.store(false, Ordering::SeqCst);
-    }
-
-    fn events(&self) -> Vec<Event> {
-        self.events.lock().unwrap().iter().map(|stored| stored.event.clone()).collect()
-    }
-
-    fn correlations(&self) -> Vec<CorrelationId> {
-        self.events.lock().unwrap().iter().map(|stored| stored.correlation).collect()
-    }
-}
-
-#[async_trait]
-impl EventLog for MemoryLog {
-    async fn append(&self, events: &[Correlated]) -> Result<(), StorageError> {
-        if self.failing.load(Ordering::SeqCst) {
-            return Err(StorageError::new(std::io::Error::other("database is locked")));
-        }
-        self.events.lock().unwrap().extend_from_slice(events);
-        Ok(())
-    }
-
-    async fn last_delivered(&self, _: &str) -> Result<Option<EventId>, StorageError> {
-        unreachable!()
-    }
-
-    async fn read_after(&self, _: Option<EventId>, _: u32) -> Result<Vec<Recorded>, StorageError> {
-        unreachable!()
-    }
-
-    async fn read_before(&self, _: Option<EventId>, _: u32) -> Result<Vec<Recorded>, StorageError> {
-        unreachable!()
-    }
-
-    async fn mark_delivered(&self, _: &str, _: EventId) -> Result<(), StorageError> {
-        unreachable!()
-    }
-
-    async fn give_up(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
-        unreachable!()
-    }
-
-    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, DeliveryFailure)>, StorageError> {
-        unreachable!()
-    }
-
-    async fn record_failure(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
-        unreachable!()
-    }
-
-    async fn resolve(&self, _: &str, _: EventId) -> Result<(), StorageError> {
-        unreachable!()
-    }
-}
+use yokoku_test_support::events::MemoryLog;
 
 /// Keeps spooled events in memory; refuses them while `failing`.
 #[derive(Default)]

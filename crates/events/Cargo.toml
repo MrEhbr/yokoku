@@ -19,6 +19,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 yokoku-db.workspace = true
+yokoku-test-support.workspace = true
 
 proptest.workspace = true
 rstest.workspace = true

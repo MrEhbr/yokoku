@@ -6260,6 +6260,7 @@ dependencies = [
  "tracing",
  "yokoku-db",
  "yokoku-domain",
+ "yokoku-test-support",
 ]
 
 [[package]]
@@ -6399,6 +6400,20 @@ dependencies = [
  "yokoku-events",
  "yokoku-library",
  "yokoku-media",
+]
+
+[[package]]
+name = "yokoku-test-support"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "jiff",
+ "serde_json",
+ "wiremock",
+ "yokoku-db",
+ "yokoku-domain",
+ "yokoku-events",
+ "yokoku-system",
 ]
 
 [[package]]
