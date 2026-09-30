@@ -22,3 +22,45 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+
+    use yokoku_domain::StorageError;
+
+    use super::on_conflict;
+    use crate::LibraryError;
+
+    fn conflict() -> LibraryError {
+        LibraryError::Storage(StorageError::Conflict)
+    }
+
+    #[tokio::test]
+    async fn conflicts_are_tried_again_until_one_succeeds() {
+        let attempts = Cell::new(0);
+
+        let result = on_conflict(|| {
+            attempts.set(attempts.get() + 1);
+            let attempt = attempts.get();
+            async move { if attempt < 3 { Err(conflict()) } else { Ok(attempt) } }
+        })
+        .await;
+
+        assert_eq!(result.unwrap(), 3);
+    }
+
+    #[tokio::test]
+    async fn five_conflicts_give_up() {
+        let attempts = Cell::new(0);
+
+        let result: Result<(), _> = on_conflict(|| {
+            attempts.set(attempts.get() + 1);
+            async { Err(conflict()) }
+        })
+        .await;
+
+        assert!(matches!(result, Err(LibraryError::Storage(StorageError::Conflict))), "{result:?}");
+        assert_eq!(attempts.get(), 5);
+    }
+}

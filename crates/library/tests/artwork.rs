@@ -208,3 +208,13 @@ async fn a_removed_series_loses_its_cached_images() {
 fn an_image_is_named_after_its_file(#[case] path: &str, #[case] name: Option<&str>) {
     assert_eq!(artwork_name(path), name);
 }
+
+#[tokio::test]
+async fn a_webp_image_is_served_as_webp() {
+    let setup = setup().await;
+    let series = ItemId::Series(setup.add_series(poster("/frieren.WEBP")).await);
+
+    let served = setup.artworks.image(series, ArtworkKind::Poster).await.unwrap();
+
+    assert_eq!(served, image("/frieren.WEBP", "image/webp"));
+}

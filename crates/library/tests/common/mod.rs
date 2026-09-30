@@ -6,42 +6,22 @@ use std::{
 };
 
 use async_trait::async_trait;
-use jiff::{
-    SignedDuration, Zoned,
-    civil::{Date, date},
-};
 use tempfile::TempDir;
 use yokoku_db::Database;
-use yokoku_domain::{
-    Artwork, Clock, Description, EpisodeMetadata, ExternalId, MediaKind, MovieMetadata, Releases, SeasonMetadata,
-    SeriesMetadata, SourceStatus, title_with_year,
-};
-use yokoku_events::{Event, EventLog, Publisher};
+use yokoku_domain::{ExternalId, MediaKind, MovieMetadata, SeriesMetadata, title_with_year};
+use yokoku_events::{Event, EventLog};
 use yokoku_library::{
     Calendar, Library, MetadataService,
     ports::{FolderNames, MetadataError, MetadataProvider, SearchResult},
 };
-use yokoku_system::FileSpool;
-
-pub const TODAY: Date = date(2026, 9, 26);
+pub use yokoku_test_support::{
+    clock::TODAY,
+    metadata::{movie_metadata, series_metadata},
+};
+use yokoku_test_support::{clock::TestClock, events::publisher};
 
 /// The root folder items are added to.
 pub const ROOT: &str = "/library";
-
-pub struct FixedClock(Mutex<Zoned>);
-
-impl FixedClock {
-    pub fn advance(&self, by: SignedDuration) {
-        let mut now = self.0.lock().unwrap();
-        *now = now.checked_add(by).unwrap();
-    }
-}
-
-impl Clock for FixedClock {
-    fn now(&self) -> Zoned {
-        self.0.lock().unwrap().clone()
-    }
-}
 
 /// Names each folder `Title (Year)`.
 pub struct TitleFolders;
@@ -119,63 +99,10 @@ fn result(kind: MediaKind, source: ExternalId, title: &str, year: Option<i16>, o
     SearchResult { kind, source, title, original_title, year, poster_path: None, overview }
 }
 
-/// Seasons as `(number, air dates)`; source ids are assigned in order.
-pub fn series_metadata(
-    source: u64,
-    title: &str,
-    status: SourceStatus,
-    seasons: &[(u16, &[Option<Date>])],
-) -> SeriesMetadata {
-    let mut next_source_id = source * 1000;
-    SeriesMetadata {
-        source: ExternalId::Tmdb(source),
-        title: title.into(),
-        original_title: title.into(),
-        alternate_titles: Vec::new(),
-        year: Some(2023),
-        artwork: Artwork::default(),
-        description: Description::default(),
-        status,
-        seasons: seasons
-            .iter()
-            .map(|&(number, dates)| SeasonMetadata {
-                number,
-                episodes: dates
-                    .iter()
-                    .zip(1..)
-                    .map(|(&air_date, episode)| {
-                        next_source_id += 1;
-                        EpisodeMetadata {
-                            source_id: next_source_id,
-                            number: episode,
-                            title: format!("Episode {episode}"),
-                            overview: String::new(),
-                            air_date,
-                        }
-                    })
-                    .collect(),
-            })
-            .collect(),
-    }
-}
-
-pub fn movie_metadata(source: u64, title: &str, releases: Releases) -> MovieMetadata {
-    MovieMetadata {
-        source: ExternalId::Tmdb(source),
-        title: title.into(),
-        original_title: title.into(),
-        alternate_titles: Vec::new(),
-        year: None,
-        artwork: Artwork::default(),
-        description: Description::default(),
-        releases,
-    }
-}
-
 pub struct App {
     _dir: TempDir,
     pub db: Database,
-    pub clock: Arc<FixedClock>,
+    pub clock: Arc<TestClock>,
     pub provider: Arc<StaticMetadata>,
     pub library: Library,
     pub calendar: Calendar,
@@ -185,12 +112,11 @@ pub struct App {
 impl App {
     pub async fn new() -> Self {
         let db = Database::open_in_memory().await.unwrap();
-        let clock = Arc::new(FixedClock(Mutex::new(TODAY.at(12, 0, 0, 0).in_tz("Europe/Berlin").unwrap())));
+        let clock = Arc::new(TestClock::at(TODAY.at(12, 0, 0, 0).in_tz("Europe/Berlin").unwrap()));
         let provider = Arc::new(StaticMetadata::default());
         let repo = Arc::new(db.clone());
         let dir = TempDir::new().unwrap();
-        let events =
-            Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool"))));
+        let events = publisher(&db, dir.path());
         let library = Library::new(repo.clone(), repo.clone(), clock.clone(), events.clone());
         let calendar = Calendar::new(repo.clone(), repo.clone(), clock.clone());
         let metadata =

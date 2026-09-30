@@ -55,33 +55,20 @@ async fn populated() -> App {
     app
 }
 
-#[rstest]
-#[case::by_title(LibrarySort::Title, &["Arrakis", "Dune", "frieren", "Pluto"])]
-#[case::newest_first(LibrarySort::Added, &["Arrakis", "Dune", "Pluto", "frieren"])]
-#[case::next_release(LibrarySort::NextRelease, &["frieren", "Arrakis", "Dune", "Pluto"])]
 #[tokio::test]
-async fn list_sorts_entries(#[case] sort: LibrarySort, #[case] expected: &[&str]) {
+async fn list_filters_and_sorts_entries() {
     let app = populated().await;
+    let movies = LibraryFilter { kind: Some(MediaKind::Movie), status: None };
+    let titles = async |filter, sort| {
+        let entries = app.library.list(filter, sort).await.unwrap();
+        entries.into_iter().map(|entry| entry.title).collect::<Vec<_>>()
+    };
 
-    let entries = app.library.list(LibraryFilter::default(), sort).await.unwrap();
+    let by_release = titles(LibraryFilter::default(), LibrarySort::NextRelease).await;
+    let movie_titles = titles(movies, LibrarySort::Title).await;
 
-    let titles: Vec<_> = entries.iter().map(|entry| entry.title.as_str()).collect();
-    assert_eq!(titles, expected);
-}
-
-#[rstest]
-#[case::series(LibraryFilter { kind: Some(MediaKind::Series), status: None }, &["frieren", "Pluto"])]
-#[case::movies(LibraryFilter { kind: Some(MediaKind::Movie), status: None }, &["Arrakis", "Dune"])]
-#[case::ended(LibraryFilter { kind: None, status: Some(LibraryStatus::Series(SeriesStatus::Ended)) }, &["Pluto"])]
-#[case::released(LibraryFilter { kind: None, status: Some(LibraryStatus::Movie(MovieStatus::Released)) }, &["Dune"])]
-#[tokio::test]
-async fn list_filters_entries(#[case] filter: LibraryFilter, #[case] expected: &[&str]) {
-    let app = populated().await;
-
-    let entries = app.library.list(filter, LibrarySort::Title).await.unwrap();
-
-    let titles: Vec<_> = entries.iter().map(|entry| entry.title.as_str()).collect();
-    assert_eq!(titles, expected);
+    assert_eq!(by_release, ["frieren", "Arrakis", "Dune", "Pluto"]);
+    assert_eq!(movie_titles, ["Arrakis", "Dune"]);
 }
 
 #[tokio::test]

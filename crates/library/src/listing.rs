@@ -104,3 +104,72 @@ impl LibrarySort {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use jiff::{Timestamp, ToSpan, civil::date};
+    use rstest::rstest;
+    use yokoku_domain::{ExternalId, ItemId, MediaKind, MovieId, MovieStatus, SeriesId, SeriesStatus};
+
+    use super::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
+
+    /// Added `hour` hours after the epoch, with its next release `days` from 2026-09-26.
+    fn entry(title: &str, status: LibraryStatus, hour: i64, days: Option<i64>) -> LibraryEntry {
+        let id = match status {
+            LibraryStatus::Series(_) => ItemId::Series(SeriesId::generate()),
+            LibraryStatus::Movie(_) => ItemId::Movie(MovieId::generate()),
+        };
+        LibraryEntry {
+            id,
+            source: ExternalId::Tmdb(1),
+            title: title.into(),
+            year: None,
+            poster_path: None,
+            status,
+            has_files: false,
+            added_at: Timestamp::UNIX_EPOCH + hour.hours(),
+            next_release: days.map(|days| date(2026, 9, 26) + days.days()),
+        }
+    }
+
+    fn entries() -> Vec<LibraryEntry> {
+        let (continuing, ended) = (SeriesStatus::Continuing, SeriesStatus::Ended);
+        vec![
+            entry("beta", LibraryStatus::Series(continuing), 1, Some(7)),
+            entry("Alpha", LibraryStatus::Movie(MovieStatus::Released), 2, None),
+            entry("Gamma", LibraryStatus::Series(ended), 2, None),
+            entry("delta", LibraryStatus::Movie(MovieStatus::Announced), 0, Some(7)),
+        ]
+    }
+
+    #[rstest]
+    #[case::title_ignoring_case(LibrarySort::Title, ["Alpha", "beta", "delta", "Gamma"])]
+    #[case::newest_first_then_title(LibrarySort::Added, ["Alpha", "Gamma", "beta", "delta"])]
+    #[case::soonest_first_then_title(LibrarySort::NextRelease, ["beta", "delta", "Alpha", "Gamma"])]
+    fn sorts(#[case] sort: LibrarySort, #[case] expected: [&str; 4]) {
+        let mut entries = entries();
+
+        entries.sort_by(|a, b| sort.compare(a, b));
+
+        assert_eq!(entries.iter().map(|entry| entry.title.as_str()).collect::<Vec<_>>(), expected);
+    }
+
+    #[rstest]
+    #[case::everything(LibraryFilter::default(), &["beta", "Alpha", "Gamma", "delta"])]
+    #[case::series(LibraryFilter { kind: Some(MediaKind::Series), status: None }, &["beta", "Gamma"])]
+    #[case::movies(LibraryFilter { kind: Some(MediaKind::Movie), status: None }, &["Alpha", "delta"])]
+    #[case::status(
+        LibraryFilter { kind: None, status: Some(LibraryStatus::Series(SeriesStatus::Ended)) },
+        &["Gamma"],
+    )]
+    #[case::kind_and_status(
+        LibraryFilter { kind: Some(MediaKind::Movie), status: Some(LibraryStatus::Series(SeriesStatus::Ended)) },
+        &[],
+    )]
+    fn filters(#[case] filter: LibraryFilter, #[case] expected: &[&str]) {
+        let kept: Vec<_> =
+            entries().into_iter().filter(|entry| filter.matches(entry)).map(|entry| entry.title).collect();
+
+        assert_eq!(kept, expected);
+    }
+}

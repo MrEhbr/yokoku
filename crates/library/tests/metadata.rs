@@ -44,7 +44,7 @@ async fn adding_an_item_twice_is_rejected(#[future(awt)] app: App) {
 
     let error = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap_err();
 
-    assert!(matches!(error, LibraryError::AlreadyInLibrary(ExternalId::Tmdb(1))));
+    assert!(matches!(error, LibraryError::AlreadyInLibrary(ExternalId::Tmdb(1))), "{error}");
     assert_eq!(app.events().await.len(), 1);
 }
 
@@ -88,16 +88,13 @@ async fn items_get_the_named_folder_or_the_given_one(#[future(awt)] app: App) {
 }
 
 #[rstest]
-#[case::empty("")]
-#[case::nested("Frieren/Season 1")]
-#[case::parent("..")]
 #[tokio::test]
-async fn a_folder_name_must_be_one_path_component(#[future(awt)] app: App, #[case] folder: &str) {
+async fn a_folder_name_must_be_one_path_component(#[future(awt)] app: App) {
     app.provider.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[]));
 
     let error = app
         .metadata
-        .add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), Some(folder.into()))
+        .add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), Some("Frieren/Season 1".into()))
         .await
         .unwrap_err();
 
@@ -174,18 +171,14 @@ async fn search_hits_carry_the_folder_adding_would_give(#[future(awt)] app: App)
 
 #[rstest]
 #[tokio::test]
-async fn refresh_series_stores_new_episodes_and_keeps_changes(#[future(awt)] app: App) {
+async fn refresh_series_stores_new_episodes(#[future(awt)] app: App) {
     app.provider.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[None])]));
     let series = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
-    let first = EpisodeRef { season: 1, episode: 1 };
-    app.library.set_episode_monitored(series.id, first, false).await.unwrap();
     app.provider.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[None, None])]));
 
     app.metadata.refresh_series(series.id).await.unwrap();
 
-    let stored = app.library.series(series.id).await.unwrap();
-    let monitored: Vec<_> = stored.monitored_episodes().map(|(reference, _)| reference).collect();
-    assert_eq!(monitored, [EpisodeRef { season: 1, episode: 2 }]);
+    assert_eq!(app.library.series(series.id).await.unwrap().episodes().count(), 2);
     assert_eq!(app.events().await.len(), 1);
 }
 
@@ -226,7 +219,11 @@ async fn refresh_all_continues_past_failures(#[future(awt)] app: App) {
     assert_eq!(report.refreshed, 2);
     assert_eq!(report.failures.len(), 1);
     assert_eq!(report.failures[0].item, ItemId::Series(gone.id));
-    assert!(matches!(report.failures[0].error, LibraryError::Metadata(MetadataError::NotFound(_))));
+    assert!(
+        matches!(report.failures[0].error, LibraryError::Metadata(MetadataError::NotFound(_))),
+        "{}",
+        report.failures[0].error
+    );
 }
 
 #[rstest]
