@@ -4,7 +4,7 @@
 use dioxus::prelude::*;
 use jiff::civil::Date;
 use serde::{Deserialize, Serialize};
-use yokoku_domain::{MovieId, SeriesId};
+use yokoku_domain::{ImportId, MovieId, SeriesId};
 
 use super::{FileStatus, Status};
 #[cfg(feature = "server")]
@@ -40,6 +40,15 @@ pub struct Description {
     pub genres: Vec<String>,
     /// Minutes: a movie's length, or a series' usual episode length.
     pub runtime: Option<u16>,
+}
+
+/// Files a scan found in the item's folder that wait to be matched; when several scans left
+/// imports, `import` is the first, and the next one opens once it is done.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Unrecognised {
+    pub files: usize,
+    /// The scan's import that holds them.
+    pub import: ImportId,
 }
 
 /// A library file and what a probe read from it.
@@ -92,7 +101,7 @@ pub struct SeriesDetail {
     pub last: Option<EpisodeRow>,
     pub seasons: Vec<SeasonDetail>,
     /// Files a scan found in the series' folder that wait to be matched.
-    pub unrecognised: usize,
+    pub unrecognised: Option<Unrecognised>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -138,7 +147,7 @@ pub struct MovieDetail {
     /// The movie's file, when it has one.
     pub file_info: Option<FileInfo>,
     /// Files a scan found in the movie's folder that wait to be matched.
-    pub unrecognised: usize,
+    pub unrecognised: Option<Unrecognised>,
 }
 
 impl Release {
@@ -201,7 +210,7 @@ mod server {
 
     use super::{
         Description, EpisodeRow, FileInfo, Images, Library, MovieDetail, Numbering, Prober, Release, Reviewer,
-        SeasonDetail, SeriesDetail, Streams, Video,
+        SeasonDetail, SeriesDetail, Streams, Unrecognised, Video,
     };
     use crate::api::artwork;
 
@@ -249,18 +258,16 @@ mod server {
 
     /// Files of scans of `folder` waiting for review; none when imports cannot be read, so the
     /// page still shows the item.
-    async fn unrecognised(reviewer: &Reviewer, folder: &ItemFolder) -> usize {
-        match reviewer.pending().await {
-            Ok(imports) => imports
-                .iter()
-                .filter(|import| import.download.is_none() && import.source == folder.path())
-                .map(|import| import.rows.iter().filter(|row| !row.skipped).count())
-                .sum(),
-            Err(error) => {
-                error!(%error, folder = %folder.path().display(), "reading the imports failed");
-                0
-            },
-        }
+    async fn unrecognised(reviewer: &Reviewer, folder: &ItemFolder) -> Option<Unrecognised> {
+        let imports = reviewer.pending().await.unwrap_or_else(|error| {
+            error!(%error, folder = %folder.path().display(), "reading the imports failed");
+            Vec::new()
+        });
+        let scans: Vec<_> =
+            imports.iter().filter(|import| import.download.is_none() && import.source == folder.path()).collect();
+        let files = scans.iter().map(|import| import.rows.iter().filter(|row| !row.skipped).count()).sum();
+        let import = scans.first()?.id;
+        (files > 0).then_some(Unrecognised { files, import })
     }
 
     /// The item's files by id; none when they cannot be read, so the page still shows the item.
@@ -275,7 +282,7 @@ mod server {
     }
 
     impl SeriesDetail {
-        fn new(series: &Series, files: &Files, unrecognised: usize, today: Date) -> Self {
+        fn new(series: &Series, files: &Files, unrecognised: Option<Unrecognised>, today: Date) -> Self {
             let row = |(reference, episode)| EpisodeRow::new(reference, episode, files, today);
             Self {
                 id: series.id,
@@ -328,7 +335,7 @@ mod server {
     }
 
     impl MovieDetail {
-        fn new(movie: &Movie, files: &Files, unrecognised: usize, today: Date) -> Self {
+        fn new(movie: &Movie, files: &Files, unrecognised: Option<Unrecognised>, today: Date) -> Self {
             let releases = &movie.releases;
             Self {
                 id: movie.id,

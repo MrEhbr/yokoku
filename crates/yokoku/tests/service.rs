@@ -755,6 +755,35 @@ async fn adding_a_torrent_says_when_transmission_is_unreachable() {
 }
 
 #[tokio::test]
+async fn a_reviewed_download_is_matched_then_imported() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (frieren, dune) = seed(&path).await;
+    let imports = seed_downloads(&path, frieren, dune).await;
+    let service = Service::start(dir.path());
+    let import = format!(r#""import":"{}""#, imports.review);
+
+    let before = service.post_json("/api/review", &format!("{{{import}}}"));
+    let early = service.post_json("/api/review/approve", &format!("{{{import}}}"));
+    let matched = service.post_json(
+        "/api/review/match",
+        &format!(
+            r#"{{{import},"row":1,"target":{{"kind":"episodes","series":"{frieren}","season":1,"first":1,"last":1}}}}"#
+        ),
+    );
+    let after = service.post_json("/api/review", &format!("{{{import}}}"));
+    let approved = service.post_json("/api/review/approve", &format!("{{{import}}}"));
+    let done = service.post_json("/api/review", &format!("{{{import}}}"));
+
+    assert!(before.contains(r#""path":"video 1.mkv""#) && before.contains(r#""target":null"#), "{before}");
+    assert!(early.contains("Match or skip file 1 first"), "{early}");
+    assert!(matched.starts_with("HTTP/1.1 200"), "{matched}");
+    assert!(after.contains("Frieren · S01E01"), "{after}");
+    assert!(approved.contains("queued"), "{approved}");
+    assert!(done.ends_with("null"), "{done}");
+}
+
+#[tokio::test]
 async fn the_live_downloads_stream_sends_the_downloads_then_each_change() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("yokoku.db");

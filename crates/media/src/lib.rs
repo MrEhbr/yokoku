@@ -26,3 +26,4 @@ pub use rename::{Move, Rename, RenameFailure, RenamePlan, RenameReport, RenameSc
 pub use review::{Approval, ImportReview, ReviewRow, Reviewer};
 pub use roots::RootFolders;
 pub use scan::{ScanReport, Scanner};
+pub use yokoku_detect::Conflict;

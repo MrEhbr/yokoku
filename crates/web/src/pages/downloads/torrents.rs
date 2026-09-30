@@ -12,6 +12,7 @@ use crate::{
         status::{Status, Tone},
         table::{Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow},
     },
+    dialogs::import_review::ReviewButton,
     format::{rate, runtime, size},
     route::Route,
 };
@@ -108,11 +109,11 @@ fn State(download: DownloadEntry) -> Element {
             ImportState::NeedsReview => {
                 return rsx! {
                     Action { tone: Tone::Warning, label: "Needs review", reason: None,
-                        Button {
+                        ReviewButton {
+                            import: import.id,
+                            label: "Review",
                             size: ButtonSize::Sm,
-                            disabled: true,
-                            title: "Review with `yokoku review` for now",
-                            "Review"
+                            on_done: |()| {},
                         }
                     }
                 };

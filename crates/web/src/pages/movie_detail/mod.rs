@@ -8,6 +8,7 @@ use crate::{
     },
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
+        button::ButtonSize,
         delete_file::DeleteFile,
         file_info::FileDetails,
         history_list::{HistoryList, HistoryScope},
@@ -20,7 +21,7 @@ use crate::{
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
-    dialogs::{add_torrent::AddTorrentButton, rename::RenameButton},
+    dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, rename::RenameButton},
     format::{date, relative, year},
     layout::BackButton,
     route::Route,
@@ -156,9 +157,16 @@ fn Page(movie: detail::MovieDetail) -> Element {
                 }
             }
         }
-        if movie.unrecognised > 0 {
+        if let Some(unrecognised) = movie.unrecognised {
             div { class: "mt-8",
-                UnrecognisedFiles { count: movie.unrecognised }
+                UnrecognisedFiles { count: unrecognised.files,
+                    ReviewButton {
+                        import: unrecognised.import,
+                        label: "Match",
+                        size: ButtonSize::Sm,
+                        on_done: reload,
+                    }
+                }
             }
         }
         section { class: "mt-12",

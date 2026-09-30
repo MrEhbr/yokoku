@@ -13,6 +13,7 @@ use crate::{
     },
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
+        button::ButtonSize,
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
@@ -23,7 +24,7 @@ use crate::{
         skeleton::Skeleton,
         unrecognised_files::UnrecognisedFiles,
     },
-    dialogs::{add_torrent::AddTorrentButton, rename::RenameButton},
+    dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, rename::RenameButton},
     format::year,
     layout::BackButton,
     route::Route,
@@ -138,9 +139,16 @@ fn Page(series: detail::SeriesDetail) -> Element {
                 }
             }
         }
-        if series.unrecognised > 0 {
+        if let Some(unrecognised) = series.unrecognised {
             div { class: "mt-8",
-                UnrecognisedFiles { count: series.unrecognised }
+                UnrecognisedFiles { count: unrecognised.files,
+                    ReviewButton {
+                        import: unrecognised.import,
+                        label: "Match",
+                        size: ButtonSize::Sm,
+                        on_done: reload,
+                    }
+                }
             }
         }
         if series.seasons.is_empty() {

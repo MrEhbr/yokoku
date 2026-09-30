@@ -1,13 +1,11 @@
 use dioxus::prelude::*;
 
-use crate::components::{
-    alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
-    button::{Button, ButtonSize},
-};
+use crate::components::alert::{Alert, AlertDescription, AlertTitle, AlertVariant};
 
-/// Files a scan found in an item's folder without recognising them (FR-8.3).
+/// Files a scan found in an item's folder without recognising them (FR-8.3), with `children` as
+/// the action that matches them.
 #[component]
-pub fn UnrecognisedFiles(count: usize) -> Element {
+pub fn UnrecognisedFiles(count: usize, children: Element) -> Element {
     let title = if count == 1 {
         "1 file in the folder wasn't recognised".to_owned()
     } else {
@@ -20,12 +18,7 @@ pub fn UnrecognisedFiles(count: usize) -> Element {
                     AlertTitle { "{title}" }
                     AlertDescription { "Match them to add them to the library." }
                 }
-                Button {
-                    size: ButtonSize::Sm,
-                    disabled: true,
-                    title: "Match with `yokoku review` for now",
-                    "Match"
-                }
+                {children}
             }
         }
     }

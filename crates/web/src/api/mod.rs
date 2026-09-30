@@ -9,6 +9,7 @@ pub mod downloads;
 pub mod history;
 pub mod library;
 pub mod rename;
+pub mod review;
 pub mod settings;
 
 use dioxus::prelude::ServerFnError;
