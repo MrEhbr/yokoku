@@ -13,7 +13,7 @@ use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFaile
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
-    Import, ImportStatus, MediaError, MediaFile, files,
+    Import, ImportRow, ImportStatus, MediaError, MediaFile, files,
     ports::{Catalog, Changes, FileSystem, FsError, LibraryLock, MediaRepo},
 };
 
@@ -237,6 +237,18 @@ impl Importer {
             });
         }
         Ok(())
+    }
+
+    /// Where each row would be placed, in row order; `None` for a skipped or unmatched row.
+    pub async fn destinations(&self, rows: &[ImportRow]) -> Result<Vec<Option<Destination>>, MediaError> {
+        let mut destinations = Vec::with_capacity(rows.len());
+        for row in rows {
+            destinations.push(match row.target.filter(|_| !row.skipped) {
+                Some(target) => Some(self.destination(target, &row.path).await?),
+                None => None,
+            });
+        }
+        Ok(destinations)
     }
 
     /// The naming path in the item's folder.

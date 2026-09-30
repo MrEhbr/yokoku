@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use yokoku_domain::{ImportId, ItemId, MovieId, SeriesId};
 
 #[cfg(feature = "server")]
-use crate::api::{Dep, Library, Reviewer};
+use crate::api::{Dep, Importer, Library, Reviewer};
 
 /// An import waiting for review; rows are numbered from 1.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -31,6 +31,9 @@ pub struct ReviewFile {
     pub replace: bool,
     /// Why it cannot be imported as matched, like "already has a file".
     pub conflicts: Vec<Conflict>,
+    /// Its path once imported, relative to its item's folder; none while skipped or unmatched,
+    /// and for files a scan found, which stay where they are.
+    pub name: Option<String>,
 }
 
 /// What a file is matched to.
@@ -95,9 +98,9 @@ impl Match {
 }
 
 /// `None` once the import no longer waits for review.
-#[post("/api/review", reviewer: Dep<Reviewer>, library: Dep<Library>)]
+#[post("/api/review", reviewer: Dep<Reviewer>, importer: Dep<Importer>, library: Dep<Library>)]
 pub async fn review(import: ImportId) -> Result<Option<Review>, ServerFnError> {
-    server::review(&reviewer, &library, import).await
+    server::review(&reviewer, &importer, &library, import).await
 }
 
 #[post("/api/review/match", reviewer: Dep<Reviewer>)]
@@ -127,15 +130,19 @@ pub async fn approve(import: ImportId) -> Result<Imported, ServerFnError> {
 mod server {
     use std::collections::HashMap;
 
-    use dioxus::{logger::tracing::error, prelude::*};
+    use dioxus::{
+        logger::tracing::{error, warn},
+        prelude::*,
+    };
     use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
     use yokoku_library::{LibraryFilter, LibrarySort};
-    use yokoku_media::{Approval, MediaError};
+    use yokoku_media::{Approval, ImportRow, MediaError};
 
-    use super::{Confidence, Conflict, Imported, Library, Match, Review, ReviewFile, Reviewer, Target};
+    use super::{Confidence, Conflict, Imported, Importer, Library, Match, Review, ReviewFile, Reviewer, Target};
 
     pub(super) async fn review(
         reviewer: &Reviewer,
+        importer: &Importer,
         library: &Library,
         import: ImportId,
     ) -> Result<Option<Review>, ServerFnError> {
@@ -143,6 +150,14 @@ mod server {
             Ok(review) => review,
             Err(MediaError::ImportNotFound(_) | MediaError::NotInReview(_)) => return Ok(None),
             Err(error) => return Err(failure(error)),
+        };
+        let rows: Vec<ImportRow> = review.rows.iter().map(|reviewed| reviewed.row.clone()).collect();
+        let names = match review.download {
+            Some(_) => importer.destinations(&rows).await.unwrap_or_else(|error| {
+                warn!(%error, "naming the files to import failed");
+                Vec::new()
+            }),
+            None => Vec::new(),
         };
         let items = library.list(LibraryFilter::default(), LibrarySort::Title).await.map_err(|error| {
             error!(%error, "listing the library failed");
@@ -152,6 +167,8 @@ mod server {
         let rows = (1..)
             .zip(review.rows)
             .map(|(number, reviewed)| {
+                let name =
+                    names.get(number - 1).cloned().flatten().map(|destination| destination.name.display().to_string());
                 let row = reviewed.row;
                 let target = row.target.map(|target| {
                     let matched = Match::from(target);
@@ -182,6 +199,7 @@ mod server {
                             yokoku_media::Conflict::AlreadyHasFile => Conflict::AlreadyHasFile,
                         })
                         .collect(),
+                    name,
                 }
             })
             .collect();

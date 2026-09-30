@@ -247,6 +247,12 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
                     }
                 }
             }
+            if let Some(name) = file.name.clone().filter(|_| !file.skipped) {
+                p { class: "text-caption text-muted",
+                    "New name "
+                    span { class: "yk-code text-ink [overflow-wrap:anywhere]", "{name}" }
+                }
+            }
             if let Some(message) = error() {
                 p { role: "alert", class: "text-caption text-danger", "{message}" }
             }

@@ -809,9 +809,11 @@ async fn a_reviewed_download_is_matched_then_imported() {
     let done = service.post_json("/api/review", &format!("{{{import}}}"));
 
     assert!(before.contains(r#""path":"video 1.mkv""#) && before.contains(r#""target":null"#), "{before}");
+    assert!(before.contains(r#""name":null"#), "{before}");
     assert!(early.contains("Match or skip file 1 first"), "{early}");
     assert!(matched.starts_with("HTTP/1.1 200"), "{matched}");
     assert!(after.contains("Frieren · S01E01"), "{after}");
+    assert!(after.contains(r#""name":"Season 01/Frieren"#), "{after}");
     assert!(approved.contains("queued"), "{approved}");
     assert!(done.ends_with("null"), "{done}");
 }
