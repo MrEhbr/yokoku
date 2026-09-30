@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use jiff::civil::Date;
 use serde::{Deserialize, Serialize};
 use yokoku_domain::SourceStatus;
 
@@ -34,7 +35,8 @@ pub(crate) struct Links {
 pub(crate) struct SearchItem {
     pub tvdb_id: String,
     pub name: String,
-    pub year: Option<String>,
+    #[serde(default, deserialize_with = "crate::metadata::dates::year")]
+    pub year: Option<i16>,
     pub image_url: Option<String>,
     /// Names by three-letter language code.
     #[serde(default)]
@@ -56,7 +58,8 @@ pub(crate) struct SeriesDetails {
     pub genres: Vec<Genre>,
     /// Minutes.
     pub average_runtime: Option<u16>,
-    pub year: Option<String>,
+    #[serde(default, deserialize_with = "crate::metadata::dates::year")]
+    pub year: Option<i16>,
     pub image: Option<String>,
     pub status: Option<Status>,
     #[serde(default)]
@@ -140,7 +143,8 @@ pub(crate) struct EpisodeItem {
     pub name: Option<String>,
     /// In the requested language.
     pub overview: Option<String>,
-    pub aired: Option<String>,
+    #[serde(default, deserialize_with = "crate::metadata::dates::date")]
+    pub aired: Option<Date>,
 }
 
 pub(crate) fn source_status(value: Option<&str>) -> SourceStatus {

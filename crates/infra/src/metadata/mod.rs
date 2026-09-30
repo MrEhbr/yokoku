@@ -1,6 +1,7 @@
 //! Metadata providers: TMDB and TVDB, and their artwork.
 
 mod artwork;
+mod dates;
 mod http;
 mod settings;
 mod sources;

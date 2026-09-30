@@ -2,10 +2,9 @@
 
 use std::collections::HashMap;
 
+use jiff::civil::Date;
 use serde::Deserialize;
 use yokoku_domain::{Releases, SourceStatus};
-
-use crate::metadata::http::date;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct SearchPage<T> {
@@ -26,7 +25,8 @@ pub(crate) struct MovieSummary {
     pub id: u64,
     pub title: String,
     pub original_title: String,
-    pub release_date: Option<String>,
+    #[serde(default, deserialize_with = "crate::metadata::dates::date")]
+    pub release_date: Option<Date>,
     pub poster_path: Option<String>,
     #[serde(default)]
     pub overview: String,
@@ -37,7 +37,8 @@ pub(crate) struct TvSummary {
     pub id: u64,
     pub name: String,
     pub original_name: String,
-    pub first_air_date: Option<String>,
+    #[serde(default, deserialize_with = "crate::metadata::dates::date")]
+    pub first_air_date: Option<Date>,
     pub poster_path: Option<String>,
     #[serde(default)]
     pub overview: String,
@@ -54,7 +55,8 @@ pub(crate) struct TvDetails {
     /// Usual episode lengths in minutes; often empty.
     #[serde(default)]
     pub episode_run_time: Vec<u16>,
-    pub first_air_date: Option<String>,
+    #[serde(default, deserialize_with = "crate::metadata::dates::date")]
+    pub first_air_date: Option<Date>,
     pub poster_path: Option<String>,
     pub backdrop_path: Option<String>,
     #[serde(default)]
@@ -92,7 +94,8 @@ pub(crate) struct EpisodeItem {
     #[serde(default)]
     pub overview: String,
     pub runtime: Option<u16>,
-    pub air_date: Option<String>,
+    #[serde(default, deserialize_with = "crate::metadata::dates::date")]
+    pub air_date: Option<Date>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,7 +108,8 @@ pub(crate) struct MovieDetails {
     pub genres: Vec<Genre>,
     /// Minutes; 0 when unknown.
     pub runtime: Option<u16>,
-    pub release_date: Option<String>,
+    #[serde(default, deserialize_with = "crate::metadata::dates::date")]
+    pub release_date: Option<Date>,
     pub poster_path: Option<String>,
     pub backdrop_path: Option<String>,
     #[serde(default)]
@@ -124,16 +128,12 @@ impl MovieDetails {
             .flat_map(|by_country| &by_country.results)
             .filter(|country| country.iso_3166_1.eq_ignore_ascii_case(region))
             .flat_map(|country| &country.release_dates)
-            .filter_map(|release| Some((release.kind, date(Some(&release.release_date))?)))
+            .filter_map(|release| Some((release.kind, release.release_date?)))
             .collect();
         let earliest =
             |kinds: &[u8]| dates.iter().filter(|(kind, _)| kinds.contains(kind)).map(|&(_, date)| date).min();
 
-        Releases {
-            cinema: earliest(&[2, 3]).or_else(|| date(self.release_date.as_deref())),
-            digital: earliest(&[4]),
-            physical: earliest(&[5]),
-        }
+        Releases { cinema: earliest(&[2, 3]).or(self.release_date), digital: earliest(&[4]), physical: earliest(&[5]) }
     }
 }
 
@@ -176,7 +176,8 @@ pub(crate) struct CountryReleases {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct ReleaseDate {
-    pub release_date: String,
+    #[serde(default, deserialize_with = "crate::metadata::dates::date")]
+    pub release_date: Option<Date>,
     /// 1 premiere, 2 limited theatrical, 3 theatrical, 4 digital, 5 physical, 6 TV.
     #[serde(rename = "type")]
     pub kind: u8,

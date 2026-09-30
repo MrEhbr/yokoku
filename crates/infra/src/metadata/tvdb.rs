@@ -138,7 +138,7 @@ impl MetadataProvider for TvdbClient {
                     source: ExternalId::Tvdb(id),
                     title: item.translations.remove(language).unwrap_or_else(|| item.name.clone()),
                     original_title: item.name,
-                    year: http::year(item.year.as_deref()),
+                    year: item.year,
                     poster_path: item.image_url,
                     overview: item.overviews.remove(language).or(item.overview).unwrap_or_default(),
                 })
@@ -162,7 +162,7 @@ impl MetadataProvider for TvdbClient {
                 number: episode.number,
                 title: episode.name.unwrap_or_default(),
                 overview: episode.overview.unwrap_or_default(),
-                air_date: http::date(episode.aired.as_deref()),
+                air_date: episode.aired,
             });
         }
         let seasons = seasons
@@ -188,7 +188,7 @@ impl MetadataProvider for TvdbClient {
 
         Ok(SeriesMetadata {
             source,
-            year: http::year(details.year.as_deref()),
+            year: details.year,
             status: tvdb_wire::source_status(details.status.and_then(|status| status.name).as_deref()),
             title,
             original_title: details.name,

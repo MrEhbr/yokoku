@@ -100,7 +100,7 @@ impl MetadataProvider for TmdbClient {
                             number: episode.episode_number,
                             title: episode.name,
                             overview: episode.overview,
-                            air_date: http::date(episode.air_date.as_deref()),
+                            air_date: episode.air_date,
                         })
                         .collect(),
                 });
@@ -110,7 +110,7 @@ impl MetadataProvider for TmdbClient {
         Ok(SeriesMetadata {
             source,
             alternate_titles: details.alternative_titles.into_distinct(&details.name, &details.original_name),
-            year: http::year(details.first_air_date.as_deref()),
+            year: details.first_air_date.map(|date| date.year()),
             status: tmdb_wire::source_status(details.status.as_deref()),
             title: details.name,
             original_title: details.original_name,
@@ -139,7 +139,7 @@ impl MetadataProvider for TmdbClient {
 
         Ok(MovieMetadata {
             source,
-            year: http::year(details.release_date.as_deref()),
+            year: details.release_date.map(|date| date.year()),
             releases: details.releases(&self.settings.current().region),
             alternate_titles: details.alternative_titles.into_distinct(&details.title, &details.original_title),
             title: details.title,
@@ -163,7 +163,7 @@ impl From<MovieSummary> for SearchResult {
         Self {
             kind: MediaKind::Movie,
             source: ExternalId::Tmdb(movie.id),
-            year: http::year(movie.release_date.as_deref()),
+            year: movie.release_date.map(|date| date.year()),
             title: movie.title,
             original_title: movie.original_title,
             poster_path: movie.poster_path,
@@ -177,7 +177,7 @@ impl From<TvSummary> for SearchResult {
         Self {
             kind: MediaKind::Series,
             source: ExternalId::Tmdb(tv.id),
-            year: http::year(tv.first_air_date.as_deref()),
+            year: tv.first_air_date.map(|date| date.year()),
             title: tv.name,
             original_title: tv.original_name,
             poster_path: tv.poster_path,
