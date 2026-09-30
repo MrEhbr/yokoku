@@ -7,9 +7,12 @@ use yokoku_domain::{ItemId, SeriesId};
 
 use self::{episodes::SeasonItem, numbering::NumberingSelect, summary::EpisodeSummary};
 use crate::{
-    api::library::{
-        detail::{self, series},
-        manage::MonitorTarget,
+    api::{
+        downloads::ItemLink,
+        library::{
+            detail::{self, series},
+            manage::MonitorTarget,
+        },
     },
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
@@ -128,7 +131,12 @@ fn Page(series: detail::SeriesDetail) -> Element {
                 }
                 NumberingSelect { series: id, numbering: series.numbering, on_change: reload }
                 div { class: "flex flex-wrap items-center gap-2",
-                    AddTorrentButton { item: ItemId::Series(id) }
+                    AddTorrentButton {
+                        item: ItemLink {
+                            id: ItemId::Series(id),
+                            title: series.title.clone(),
+                        },
+                    }
                     RefreshButton { item: ItemId::Series(id), on_change: reload }
                     RenameButton { item: ItemId::Series(id), on_change: reload }
                     RemoveItem { item: ItemId::Series(id), title: series.title.clone(), usage }

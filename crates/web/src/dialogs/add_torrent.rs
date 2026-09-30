@@ -4,7 +4,7 @@ use yokoku_domain::{ItemId, title_with_year};
 
 use crate::{
     api::{
-        downloads::{NewTorrent, add_torrent},
+        downloads::{ItemLink, NewTorrent, add_torrent},
         failure,
         library::{Entry, library},
     },
@@ -32,7 +32,7 @@ struct TorrentFile {
 
 /// An "Add torrent" button that opens [`AddTorrent`] for `item`.
 #[component]
-pub fn AddTorrentButton(#[props(default)] item: Option<ItemId>) -> Element {
+pub fn AddTorrentButton(#[props(default)] item: Option<ItemLink>) -> Element {
     let mut open = use_signal(|| false);
     rsx! {
         Button { variant: ButtonVariant::Primary, onclick: move |_| open.set(true), "Add torrent" }
@@ -40,10 +40,11 @@ pub fn AddTorrentButton(#[props(default)] item: Option<ItemId>) -> Element {
     }
 }
 
-/// Adds a magnet link or .torrent file for a library item, `item` at first, or for detection
-/// to work out (FR-3.2); the Downloads page opens once it is added. `open` closes it.
+/// Adds a magnet link or .torrent file for `item`, or without one for a library item chosen in
+/// the dialog or for detection to work out (FR-3.2); the Downloads page opens once it is added.
+/// `open` closes it.
 #[component]
-fn AddTorrent(open: Signal<bool>, item: Option<ItemId>) -> Element {
+fn AddTorrent(open: Signal<bool>, item: Option<ItemLink>) -> Element {
     rsx! {
         Dialog { open: Some(open()), on_open_change: move |next| open.set(next),
             div { class: "flex items-start justify-between gap-4",
@@ -57,18 +58,17 @@ fn AddTorrent(open: Signal<bool>, item: Option<ItemId>) -> Element {
                 }
             }
             if open() {
-                Form { item, on_close: move |()| open.set(false) }
+                Form { item: item.clone(), on_close: move |()| open.set(false) }
             }
         }
     }
 }
 
 #[component]
-fn Form(item: Option<ItemId>, on_close: Callback) -> Element {
-    let items = use_resource(|| library(None, None, None));
+fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
     let mut magnet = use_signal(String::new);
     let mut file = use_signal(|| None::<TorrentFile>);
-    let chosen = use_signal(|| Some(item));
+    let chosen = use_signal(|| Some(item.as_ref().map(|item| item.id)));
     let mut adding = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
     let typed = magnet.read().trim().to_owned();
@@ -146,6 +146,35 @@ fn Form(item: Option<ItemId>, on_close: Callback) -> Element {
                 },
             }
         }
+        match &item {
+            Some(item) => rsx! {
+                p { class: "text-body text-muted", "Its files are imported into {item.title}." }
+            },
+            None => rsx! {
+                ItemField { chosen }
+            },
+        }
+        if let Some(message) = error() {
+            p { role: "alert", class: "text-danger", "{message}" }
+        }
+        DialogFooter {
+            Button { onclick: move |_| on_close(()), "Cancel" }
+            Button {
+                variant: ButtonVariant::Primary,
+                disabled: adding() || !ready,
+                aria_busy: adding(),
+                onclick: submit,
+                "Add torrent"
+            }
+        }
+    }
+}
+
+/// A choice of library item, or none for detection.
+#[component]
+fn ItemField(chosen: Signal<Option<Option<ItemId>>>) -> Element {
+    let items = use_resource(|| library(None, None, None));
+    rsx! {
         Field {
             Label { html_for: "torrent-item", "For" }
             match &*items.read() {
@@ -165,19 +194,6 @@ fn Form(item: Option<ItemId>, on_close: Callback) -> Element {
                 } else {
                     "Its files are matched to library items by their names."
                 }
-            }
-        }
-        if let Some(message) = error() {
-            p { role: "alert", class: "text-danger", "{message}" }
-        }
-        DialogFooter {
-            Button { onclick: move |_| on_close(()), "Cancel" }
-            Button {
-                variant: ButtonVariant::Primary,
-                disabled: adding() || !ready,
-                aria_busy: adding(),
-                onclick: submit,
-                "Add torrent"
             }
         }
     }

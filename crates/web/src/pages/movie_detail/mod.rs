@@ -2,9 +2,12 @@ use dioxus::{core::Task, logger::tracing::warn, prelude::*};
 use yokoku_domain::{ItemId, MovieId};
 
 use crate::{
-    api::library::{
-        detail::{self, movie},
-        manage::{FileOf, MonitorTarget},
+    api::{
+        downloads::ItemLink,
+        library::{
+            detail::{self, movie},
+            manage::{FileOf, MonitorTarget},
+        },
     },
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
@@ -117,7 +120,12 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     on_change: reload,
                 }
                 div { class: "flex flex-wrap items-center gap-2",
-                    AddTorrentButton { item: ItemId::Movie(id) }
+                    AddTorrentButton {
+                        item: ItemLink {
+                            id: ItemId::Movie(id),
+                            title: movie.title.clone(),
+                        },
+                    }
                     RefreshButton { item: ItemId::Movie(id), on_change: reload }
                     RenameButton { item: ItemId::Movie(id), on_change: reload }
                     RemoveItem {
