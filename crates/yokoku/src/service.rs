@@ -5,10 +5,7 @@ use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::{
-    app::{App, Connections},
-    jobs::Jobs,
-};
+use crate::app::{App, Connections};
 
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App) -> Result<()> {
@@ -41,17 +38,7 @@ pub async fn run(app: &App) -> Result<()> {
     let shutdown = CancellationToken::new();
     let deliveries = app.spawn_deliveries(&shutdown);
     let stop_jobs = shutdown.child_token();
-    let jobs = crate::jobs::spawn(
-        Jobs {
-            downloads: app.downloads.clone(),
-            importer: app.importer.clone(),
-            scanner: app.scanner.clone(),
-            metadata: app.metadata.clone(),
-            rescans: app.rescans.clone(),
-        },
-        app.settings.live(|config| config.serve.schedules()),
-        &stop_jobs,
-    );
+    let jobs = crate::jobs::spawn(app, &stop_jobs);
     let web = tokio::spawn(web.serve(shutdown.clone().cancelled_owned()));
     info!("running");
     let result = stop_signal().await;

@@ -3,7 +3,6 @@
 use std::{
     error::Error,
     str::FromStr,
-    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -13,14 +12,10 @@ use serde::{Deserialize, Serialize};
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
-use yokoku_core::{
-    downloads::Downloads,
-    events::correlation::correlate,
-    integrations::Rescans,
-    library::MetadataService,
-    media::{Importer, Scanner},
-};
-use yokoku_domain::{CorrelationId, Live};
+use yokoku_core::{events::correlation::correlate, library::MetadataService};
+use yokoku_domain::CorrelationId;
+
+use crate::app::App;
 
 /// Changes must stop arriving for this long before the media server rescans.
 const RESCAN_QUIET: SignedDuration = SignedDuration::from_secs(30);
@@ -29,16 +24,6 @@ const RESCAN_QUIET: SignedDuration = SignedDuration::from_secs(30);
 const RECHECK: Duration = Duration::from_secs(1);
 
 type BoxError = Box<dyn Error + Send + Sync>;
-
-/// Use cases the jobs call.
-#[derive(Clone)]
-pub struct Jobs {
-    pub downloads: Arc<Downloads>,
-    pub importer: Arc<Importer>,
-    pub scanner: Arc<Scanner>,
-    pub metadata: Arc<MetadataService>,
-    pub rescans: Arc<Rescans>,
-}
 
 /// Cron schedules, with seconds: `*/30 * * * * *` is every 30 seconds.
 #[derive(Debug, Clone)]
@@ -107,12 +92,10 @@ fn schedule(expression: &str) -> Result<Schedule, InvalidSchedule> {
 
 /// Starts each job on its schedule, one tick at a time; each stops when `shutdown` is cancelled,
 /// after the tick it is running.
-pub fn spawn(
-    jobs: Jobs,
-    schedules: Live<Result<Schedules, InvalidSchedule>>,
-    shutdown: &CancellationToken,
-) -> Vec<JoinHandle<()>> {
-    let Jobs { downloads, importer, scanner, metadata, rescans } = jobs;
+pub fn spawn(app: &App, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
+    let (downloads, importer, scanner, metadata, rescans) =
+        (app.downloads.clone(), app.importer.clone(), app.scanner.clone(), app.metadata.clone(), app.rescans.clone());
+    let schedules = app.settings.live(|config| config.serve.schedules());
     let active = downloads.clone();
     let shutdown = || shutdown.clone();
     let schedule = |pick: fn(Schedules) -> Schedule| {
