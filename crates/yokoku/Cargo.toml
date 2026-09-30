@@ -48,7 +48,8 @@ tracing-appender = "0.2"
 yokoku-config = { path = "../config" }
 
 [dev-dependencies]
-rstest.workspace = true
+yokoku-test-support.workspace = true
+
 tempfile.workspace = true
 wiremock.workspace = true
 

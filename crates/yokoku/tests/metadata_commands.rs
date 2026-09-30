@@ -3,7 +3,6 @@ use std::{path::PathBuf, process::Command};
 use assert_cmd::prelude::*;
 use jiff::{Timestamp, tz::TimeZone};
 use predicates::prelude::*;
-use serde_json::Value;
 use tempfile::TempDir;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -15,16 +14,12 @@ use yokoku_domain::{
     Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
+use yokoku_test_support::metadata::fixture;
 
 struct Tmdb {
     server: MockServer,
     _dir: TempDir,
     database: PathBuf,
-}
-
-fn fixture(name: &str) -> Value {
-    let file = format!("{}/../metadata/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
-    serde_json::from_str(&std::fs::read_to_string(file).unwrap()).unwrap()
 }
 
 async fn respond(server: &MockServer, endpoint: &str, append: &str, body: &str) {

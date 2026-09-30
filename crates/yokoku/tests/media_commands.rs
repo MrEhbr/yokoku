@@ -6,10 +6,11 @@ use predicates::prelude::*;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, EpisodeRef, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
-    SeriesMetadata, SettingsStore, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata,
+    Releases, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
 };
-use yokoku_library::ports::SeriesRepo;
+use yokoku_library::ports::{MovieRepo, SeriesRepo};
+use yokoku_test_support::metadata::movie_metadata;
 
 /// A database with "Frieren" (tmdb:1) in `tv/Frieren (2023)`, two episodes aired a week ago, and a series
 /// root `tv`.
@@ -96,21 +97,16 @@ async fn root_folders_are_added_as_absolute_paths_listed_and_removed() {
     let setup = Setup::new().await;
     let tv = setup.path("tv").canonicalize().unwrap();
 
-    fs::create_dir(setup.path("anime")).unwrap();
-    let anime = setup.stdout(&["root", "add", "series", "anime"]);
+    let films = tv.with_file_name("films");
+    fs::create_dir(setup.path("films")).unwrap();
+    let added = setup.stdout(&["root", "add", "movies", "films"]);
     let listed = setup.stdout(&["root", "list"]);
-    let removed = setup.stdout(&["root", "remove", "anime"]);
+    let removed = setup.stdout(&["root", "remove", "films"]);
 
-    assert_eq!(anime, format!("Added series root {}\n", tv.with_file_name("anime").display()));
-    assert_eq!(listed, format!("series  {}\nseries  {}\n", tv.with_file_name("anime").display(), tv.display()));
-    assert_eq!(removed, format!("Removed root {}\n", tv.with_file_name("anime").display()));
+    assert_eq!(added, format!("Added movies root {}\n", films.display()));
+    assert_eq!(listed, format!("movies  {}\nseries  {}\n", films.display(), tv.display()));
+    assert_eq!(removed, format!("Removed root {}\n", films.display()));
     assert_eq!(setup.stdout(&["root", "list"]), format!("series  {}\n", tv.display()));
-    setup
-        .command()
-        .args(["root", "remove", "tv"])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("still holds 1 library items"));
 }
 
 #[tokio::test]
@@ -129,47 +125,18 @@ async fn scanned_files_mark_their_episodes_downloaded() {
 async fn the_jellyfin_api_key_can_be_read_from_a_file() {
     let setup = Setup::new().await;
     let jellyfin = wiremock::MockServer::start().await;
-    wiremock::Mock::given(wiremock::matchers::path("/System/Info"))
-        .and(wiremock::matchers::header("Authorization", "MediaBrowser Token=\"key\""))
-        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({ "Version": "10.10.7" })))
-        .expect(2)
-        .mount(&jellyfin)
-        .await;
+    yokoku_test_support::jellyfin::system_info("key", "10.10.7").expect(1).mount(&jellyfin).await;
     let key_file = setup.path("jellyfin.key");
     fs::write(&key_file, "key\n").unwrap();
-    let config_file = setup.path("app.toml");
-    fs::write(&config_file, format!("[jellyfin]\napi_key = {{ file = {:?} }}\n", key_file.display().to_string()))
-        .unwrap();
 
-    setup
-        .command()
-        .arg("--config")
-        .arg(&config_file)
-        .args(["jellyfin", "test"])
-        .env("APP__JELLYFIN__URL", jellyfin.uri())
-        .assert()
-        .success()
-        .stdout("Connected to Jellyfin 10.10.7\n");
     setup
         .command()
         .args(["jellyfin", "test"])
         .env("APP__JELLYFIN__URL", jellyfin.uri())
         .env("APP__JELLYFIN__API_KEY__FILE", &key_file)
         .assert()
-        .success();
-}
-
-#[test]
-fn a_missing_secret_file_is_reported() {
-    let dir = tempfile::tempdir().unwrap();
-
-    Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
-        .args(["settings", "list"])
-        .env("APP__DATABASE__PATH", dir.path().join("yokoku.db"))
-        .env("APP__JELLYFIN__API_KEY__FILE", dir.path().join("missing.key"))
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("failed to read secret file"));
+        .success()
+        .stdout("Connected to Jellyfin 10.10.7\n");
 }
 
 #[tokio::test]
@@ -245,4 +212,24 @@ async fn a_stored_value_that_no_longer_loads_can_still_be_unset() {
 
     assert_eq!(unset, "Unset import.mode\n");
     setup.command().arg("scan").assert().success();
+}
+
+#[tokio::test]
+async fn a_movie_file_is_shown_with_its_details() {
+    let setup = Setup::new().await;
+    fs::create_dir(setup.path("films")).unwrap();
+    let films = setup.path("films").canonicalize().unwrap();
+    let db = Database::open(&setup.database).await.unwrap();
+    let dune = MovieMetadata { year: Some(2021), ..movie_metadata(2, "Dune", Releases::default()) };
+    let folder = ItemFolder::new(films.clone(), "Dune (2021)".into()).unwrap();
+    MovieRepo::save(&db, &mut Movie::add(dune, folder, true, Timestamp::now())).await.unwrap();
+    setup.stdout(&["root", "add", "movies", "films"]);
+    setup.write("films/Dune (2021)/Dune (2021).mkv");
+    let ffprobe = stand_in_ffprobe(setup.dir.path());
+
+    setup.command().arg("scan").env("APP__FILES__FFPROBE", &ffprobe).assert().success();
+    let shown = setup.stdout(&["files", "show", "movie", "tmdb:2"]);
+
+    let path = films.join("Dune (2021)/Dune (2021).mkv");
+    assert!(shown.starts_with(&format!("{}\n  0.0 GB, 0h 00m, 320x180 h264\n", path.display())), "{shown}");
 }

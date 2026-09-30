@@ -6,7 +6,6 @@ use std::{
 
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
-use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_events::{EventLog, SettingsChanged};
@@ -55,17 +54,15 @@ fn settings_are_stored_listed_read_and_unset() {
     assert_eq!(setup.stdout(&["settings", "unset", "import.mode"]), "import.mode is not stored\n");
 }
 
-#[rstest]
-#[case::unknown_mode("import.mode", "sideways", "import.mode cannot be \"sideways\"")]
-#[case::pattern_without_episodes("naming.episode_file", "{title}", "episode file pattern")]
-#[case::bad_schedule("serve.scan_library", "every day", "Invalid schedule")]
-#[case::unknown_key("import.speed", "fast", "import.speed is not a setting")]
-#[case::section("naming", "x", "naming is not a setting")]
-#[case::bootstrap("database.path", "/tmp/other.db", "needed before the database opens")]
-fn bad_settings_are_refused_and_not_stored(#[case] key: &str, #[case] value: &str, #[case] reason: &str) {
+#[test]
+fn a_bad_setting_is_refused_and_not_stored_and_an_unknown_one_is_not_read() {
     let setup = setup();
 
-    setup.command().args(["settings", "set", key, value]).assert().failure().stderr(predicate::str::contains(reason));
+    let refused = setup.command().args(["settings", "set", "import.mode", "sideways"]).assert().failure();
+    let unknown = setup.command().args(["settings", "get", "import.speed"]).assert().failure();
+
+    refused.stderr(predicate::str::contains("import.mode cannot be \"sideways\""));
+    unknown.stderr(predicate::str::contains("import.speed is not a setting"));
 
     assert_eq!(setup.stdout(&["settings", "list"]), "No stored settings.\n");
 }

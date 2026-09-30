@@ -778,16 +778,8 @@ async fn a_failed_import_can_be_retried_and_one_waiting_for_review_cannot() {
 /// A Transmission that knows the session handshake and adds and lists one torrent, `Dune.2021.1080p`.
 async fn transmission() -> wiremock::MockServer {
     use serde_json::json;
-    use wiremock::{
-        Mock, MockServer, Request, ResponseTemplate,
-        matchers::{body_partial_json, header, method},
-    };
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(|request: &Request| !request.headers.contains_key("X-Transmission-Session-Id"))
-        .respond_with(ResponseTemplate::new(409).insert_header("X-Transmission-Session-Id", "session"))
-        .mount(&server)
-        .await;
+    use yokoku_test_support::transmission::{answer, server, success};
+    let server = server().await;
     let hash = "0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6";
     let torrent = json!({
         "hashString": hash, "name": "Dune.2021.1080p", "status": 4, "sizeWhenDone": 4_000_000_000u64,
@@ -798,13 +790,7 @@ async fn transmission() -> wiremock::MockServer {
         ("torrent-add", json!({ "torrent-added": { "hashString": hash, "id": 1, "name": "Dune.2021.1080p" } })),
         ("torrent-get", json!({ "torrents": [torrent] })),
     ] {
-        Mock::given(header("X-Transmission-Session-Id", "session"))
-            .and(body_partial_json(json!({ "method": rpc })))
-            .respond_with(
-                ResponseTemplate::new(200).set_body_json(json!({ "arguments": arguments, "result": "success" })),
-            )
-            .mount(&server)
-            .await;
+        answer(&server, rpc, success(arguments)).await;
     }
     server
 }
@@ -845,24 +831,10 @@ async fn adding_a_torrent_says_when_transmission_is_unreachable() {
 #[tokio::test(flavor = "multi_thread")]
 async fn transmission_can_be_tested_from_settings() {
     use serde_json::json;
-    use wiremock::{
-        Mock, MockServer, Request, ResponseTemplate,
-        matchers::{header, method},
-    };
+    use yokoku_test_support::transmission::{answer, server, success};
 
-    let transmission = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(|request: &Request| !request.headers.contains_key("X-Transmission-Session-Id"))
-        .respond_with(ResponseTemplate::new(409).insert_header("X-Transmission-Session-Id", "session"))
-        .mount(&transmission)
-        .await;
-    Mock::given(header("X-Transmission-Session-Id", "session"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(json!({ "arguments": { "version": "4.1.3 (0)" }, "result": "success" })),
-        )
-        .mount(&transmission)
-        .await;
+    let transmission = server().await;
+    answer(&transmission, "session-get", success(json!({ "version": "4.1.3 (0)" }))).await;
     let url = format!("{}/transmission/rpc", transmission.uri());
     let dir = tempfile::tempdir().unwrap();
     let service = Service::start_with(dir.path(), &[("APP__TRANSMISSION__URL", &url)]);
@@ -948,10 +920,7 @@ async fn tmdb() -> wiremock::MockServer {
         Mock, MockServer, ResponseTemplate,
         matchers::{path, query_param},
     };
-    let fixture = |name: &str| {
-        let file = format!("{}/../metadata/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
-        serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(file).unwrap()).unwrap()
-    };
+    use yokoku_test_support::metadata::fixture;
     let server = MockServer::start().await;
     let mut movies = fixture("search_dune.json");
     movies["results"].as_array_mut().unwrap().retain(|item| item["media_type"] == "movie");

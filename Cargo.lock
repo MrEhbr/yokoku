@@ -6100,7 +6100,6 @@ dependencies = [
  "jiff",
  "owo-colors",
  "predicates",
- "rstest",
  "serde_json",
  "tempfile",
  "tokio",
@@ -6123,6 +6122,7 @@ dependencies = [
  "yokoku-metadata",
  "yokoku-naming",
  "yokoku-system",
+ "yokoku-test-support",
  "yokoku-web",
 ]
 
