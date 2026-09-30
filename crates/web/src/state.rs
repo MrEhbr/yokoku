@@ -72,106 +72,34 @@ pub trait Provides<T: ?Sized> {
     fn provide(&self) -> Arc<T>;
 }
 
-impl Provides<Library> for AppState {
-    fn provide(&self) -> Arc<Library> {
-        self.library.clone()
-    }
+macro_rules! provides {
+    ($($ty:ty => $field:ident,)*) => {
+        $(impl Provides<$ty> for AppState {
+            fn provide(&self) -> Arc<$ty> {
+                self.$field.clone()
+            }
+        })*
+    };
 }
 
-impl Provides<Artworks> for AppState {
-    fn provide(&self) -> Arc<Artworks> {
-        self.artworks.clone()
-    }
-}
-
-impl Provides<Calendar> for AppState {
-    fn provide(&self) -> Arc<Calendar> {
-        self.calendar.clone()
-    }
-}
-
-impl Provides<Prober> for AppState {
-    fn provide(&self) -> Arc<Prober> {
-        self.prober.clone()
-    }
-}
-
-impl Provides<History> for AppState {
-    fn provide(&self) -> Arc<History> {
-        self.history.clone()
-    }
-}
-
-impl Provides<dyn Clock> for AppState {
-    fn provide(&self) -> Arc<dyn Clock> {
-        self.clock.clone()
-    }
-}
-
-impl Provides<Downloads> for AppState {
-    fn provide(&self) -> Arc<Downloads> {
-        self.downloads.clone()
-    }
-}
-
-impl Provides<Reviewer> for AppState {
-    fn provide(&self) -> Arc<Reviewer> {
-        self.reviewer.clone()
-    }
-}
-
-impl Provides<Importer> for AppState {
-    fn provide(&self) -> Arc<Importer> {
-        self.importer.clone()
-    }
-}
-
-impl Provides<QueueChanges> for AppState {
-    fn provide(&self) -> Arc<QueueChanges> {
-        self.queue_changes.clone()
-    }
-}
-
-impl Provides<MetadataService> for AppState {
-    fn provide(&self) -> Arc<MetadataService> {
-        self.metadata.clone()
-    }
-}
-
-impl Provides<RootFolders> for AppState {
-    fn provide(&self) -> Arc<RootFolders> {
-        self.roots.clone()
-    }
-}
-
-impl Provides<Deleter> for AppState {
-    fn provide(&self) -> Arc<Deleter> {
-        self.deleter.clone()
-    }
-}
-
-impl Provides<Renamer> for AppState {
-    fn provide(&self) -> Arc<Renamer> {
-        self.renamer.clone()
-    }
-}
-
-impl Provides<Scanner> for AppState {
-    fn provide(&self) -> Arc<Scanner> {
-        self.scanner.clone()
-    }
-}
-
-impl Provides<dyn SettingsAccess> for AppState {
-    fn provide(&self) -> Arc<dyn SettingsAccess> {
-        self.settings.clone()
-    }
-}
-
-impl Provides<AddSettings> for AppState {
-    fn provide(&self) -> Arc<AddSettings> {
-        self.add.clone()
-    }
+provides! {
+    Library => library,
+    Artworks => artworks,
+    Calendar => calendar,
+    Prober => prober,
+    History => history,
+    dyn Clock => clock,
+    Downloads => downloads,
+    Reviewer => reviewer,
+    Importer => importer,
+    QueueChanges => queue_changes,
+    MetadataService => metadata,
+    RootFolders => roots,
+    Deleter => deleter,
+    Renamer => renamer,
+    Scanner => scanner,
+    dyn SettingsAccess => settings,
+    AddSettings => add,
 }
 
 /// One dependency of a server function, taken from `AppState`: `library: Dep<Library>`.
