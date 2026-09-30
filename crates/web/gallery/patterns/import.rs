@@ -12,7 +12,7 @@ use dioxus_icons::lucide::X;
 use jiff::Timestamp;
 use yokoku_domain::{
     Artwork, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
-    SeriesMetadata, SourceStatus,
+    SeriesMetadata, SourceStatus, title_with_year,
 };
 use yokoku_naming::{Naming, NamingTemplates};
 use yokoku_web::components::{
@@ -121,10 +121,7 @@ impl Catalog {
     }
 
     fn label(&self, id: u64) -> String {
-        self.info(id).map_or_else(String::new, |info| match info.year {
-            Some(year) => format!("{} ({year})", info.title),
-            None => info.title.clone(),
-        })
+        self.info(id).map_or_else(String::new, |info| title_with_year(&info.title, info.year))
     }
 
     fn episode_count(&self, series: u64, season: u16) -> usize {
@@ -133,7 +130,9 @@ impl Catalog {
 
     fn episode_title(&self, series: u64, season: u16, episode: u16) -> String {
         let seasons = self.info(series).map(|info| &info.seasons);
-        let title = seasons.and_then(|seasons| seasons.get(usize::from(season) - 1)?.get(usize::from(episode) - 1));
+        let title = seasons.and_then(|seasons| {
+            seasons.get(usize::from(season).checked_sub(1)?)?.get(usize::from(episode).checked_sub(1)?)
+        });
         title.cloned().unwrap_or_default()
     }
 
@@ -439,9 +438,9 @@ fn ImportEditor(library: Vec<SeriesInfo>, files: Vec<FileRow>, on_imported: Call
                                 }
                             }
                         }
-                        TableCell { {row.series.map_or("—".to_owned(), |id| catalog.label(id))} }
+                        TableCell { {row.series.map_or_else(|| "—".to_owned(), |id| catalog.label(id))} }
                         TableCell { class: "tabular-nums",
-                            {row.season.map_or("—".to_owned(), |season| season.to_string())}
+                            {row.season.map_or_else(|| "—".to_owned(), |season| season.to_string())}
                         }
                         TableCell { class: "whitespace-nowrap tabular-nums", {episode_codes(&row.episodes)} }
                     }

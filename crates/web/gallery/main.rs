@@ -1,5 +1,5 @@
 //! The component gallery: one page per component, stories in isolated canvases.
-//! Run with `dx serve --bin gallery`, then open http://127.0.0.1:8080.
+//! Run with `dx serve --bin gallery`, then open <http://127.0.0.1:8080>.
 
 mod patterns;
 mod stories;
@@ -220,7 +220,7 @@ fn Overview() -> Element {
 
 /// A story page: the component's name, what it's for, and its import path, then its stories.
 #[component]
-pub(crate) fn StoryPage(name: String, path: String, summary: String, children: Element) -> Element {
+pub(crate) fn StoryPage(name: &'static str, path: &'static str, summary: &'static str, children: Element) -> Element {
     rsx! {
         header { class: "border-b border-line pb-6",
             h1 { class: "yk-page-title", "{name}" }
@@ -235,7 +235,7 @@ pub(crate) fn StoryPage(name: String, path: String, summary: String, children: E
 
 /// One story: a titled canvas.
 #[component]
-pub(crate) fn Story(title: String, children: Element) -> Element {
+pub(crate) fn Story(title: &'static str, children: Element) -> Element {
     rsx! {
         section { class: "flex flex-col gap-2",
             h2 { class: "yk-kicker", "{title}" }
