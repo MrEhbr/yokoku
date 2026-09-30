@@ -87,7 +87,7 @@ impl Http {
                     sleep(wait).await;
                     attempt += 1;
                 },
-                _ => return self.check(result.map_err(unavailable)?, item).await,
+                _ => return self.check(result.map_err(|error| MetadataError::Unavailable(error.into()))?, item).await,
             }
         }
     }
@@ -115,16 +115,8 @@ impl Http {
 
 /// Reads the body as JSON; a body of another shape is `Invalid`.
 pub(crate) async fn json<T: DeserializeOwned>(response: Response) -> Result<T, MetadataError> {
-    let body = response.bytes().await.map_err(unavailable)?;
-    serde_json::from_slice(&body).map_err(invalid)
-}
-
-pub(crate) fn unavailable(error: impl std::error::Error + Send + Sync + 'static) -> MetadataError {
-    MetadataError::Unavailable(Box::new(error))
-}
-
-pub(crate) fn invalid(error: impl std::error::Error + Send + Sync + 'static) -> MetadataError {
-    MetadataError::Invalid(Box::new(error))
+    let body = response.bytes().await.map_err(|error| MetadataError::Unavailable(error.into()))?;
+    serde_json::from_slice(&body).map_err(|error| MetadataError::Invalid(error.into()))
 }
 
 /// `2021-10-22` or `2021-10-22T00:00:00.000Z`; empty strings are missing dates.

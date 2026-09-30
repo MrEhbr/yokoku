@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use yokoku_core::library::ports::{ArtworkSource, MetadataError};
 use yokoku_domain::{ArtworkKind, ExternalId};
 
-use crate::metadata::http::{Http, invalid, unavailable};
+use crate::metadata::http::Http;
 
 /// TMDB image paths are relative to this, followed by a size.
 const TMDB_IMAGES: &str = "https://image.tmdb.org/t/p";
@@ -30,13 +30,13 @@ impl ArtworkFetcher {
         match source {
             ExternalId::Tmdb(_) if path.starts_with('/') => Ok(format!("{}/{size}{path}", self.tmdb)),
             ExternalId::Tvdb(_) if path.starts_with(&self.tvdb) => Ok(path.to_owned()),
-            _ => Err(invalid(PathOutsideSource(format!("{source} has the image path {path:?}")))),
+            _ => Err(MetadataError::Invalid(PathOutsideSource(format!("{source} has the image path {path:?}")).into())),
         }
     }
 
     async fn get(&self, source: ExternalId, url: String) -> Result<Vec<u8>, MetadataError> {
         let response = self.http.send(self.http.get(url), Some(source)).await?;
-        Ok(response.bytes().await.map_err(unavailable)?.to_vec())
+        Ok(response.bytes().await.map_err(|error| MetadataError::Unavailable(error.into()))?.to_vec())
     }
 }
 

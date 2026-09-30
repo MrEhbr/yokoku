@@ -9,7 +9,7 @@ use yokoku_domain::{
 
 use crate::metadata::{
     MetadataSettings,
-    http::{self, Http, invalid},
+    http::{self, Http},
     tmdb_wire::{self, MovieDetails, MovieSummary, SearchItem, SearchPage, SeasonDetails, TvDetails, TvSummary},
 };
 
@@ -87,7 +87,8 @@ impl MetadataProvider for TmdbClient {
             let mut page: TvDetails = self.get(&endpoint, &[("append_to_response", &append)], Some(source)).await?;
             for number in chunk {
                 let Some(value) = page.appended.remove(&format!("season/{number}")) else { continue };
-                let season: SeasonDetails = serde_json::from_value(value).map_err(invalid)?;
+                let season: SeasonDetails =
+                    serde_json::from_value(value).map_err(|error| MetadataError::Invalid(error.into()))?;
                 runtimes.extend(season.episodes.iter().filter_map(|episode| episode.runtime));
                 seasons.push(SeasonMetadata {
                     number: season.season_number,
