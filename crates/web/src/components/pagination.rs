@@ -88,9 +88,12 @@ pub struct PaginationLinkProps {
     pub size: PaginationLinkSize,
     #[props(default)]
     pub data_kind: Option<PaginationLinkKind>,
-    onclick: Option<EventHandler<MouseEvent>>,
-    onmousedown: Option<EventHandler<MouseEvent>>,
-    onmouseup: Option<EventHandler<MouseEvent>>,
+    #[props(default)]
+    onclick: EventHandler<MouseEvent>,
+    #[props(default)]
+    onmousedown: EventHandler<MouseEvent>,
+    #[props(default)]
+    onmouseup: EventHandler<MouseEvent>,
     #[props(extends = GlobalAttributes)]
     #[props(extends = a)]
     pub attributes: Vec<Attribute>,
@@ -119,21 +122,9 @@ pub fn PaginationLink(props: PaginationLinkProps) -> Element {
             },
             "data-kind": data_kind,
             aria_current,
-            onclick: move |event| {
-                if let Some(f) = &props.onclick {
-                    f.call(event);
-                }
-            },
-            onmousedown: move |event| {
-                if let Some(f) = &props.onmousedown {
-                    f.call(event);
-                }
-            },
-            onmouseup: move |event| {
-                if let Some(f) = &props.onmouseup {
-                    f.call(event);
-                }
-            },
+            onclick: move |event| props.onclick.call(event),
+            onmousedown: move |event| props.onmousedown.call(event),
+            onmouseup: move |event| props.onmouseup.call(event),
             ..merged,
             {props.children}
         }
@@ -142,9 +133,9 @@ pub fn PaginationLink(props: PaginationLinkProps) -> Element {
 
 #[component]
 pub fn PaginationPrevious(
-    onclick: Option<EventHandler<MouseEvent>>,
-    onmousedown: Option<EventHandler<MouseEvent>>,
-    onmouseup: Option<EventHandler<MouseEvent>>,
+    #[props(default)] onclick: EventHandler<MouseEvent>,
+    #[props(default)] onmousedown: EventHandler<MouseEvent>,
+    #[props(default)] onmouseup: EventHandler<MouseEvent>,
     #[props(extends = GlobalAttributes)]
     #[props(extends = a)]
     attributes: Vec<Attribute>,
@@ -166,9 +157,9 @@ pub fn PaginationPrevious(
 
 #[component]
 pub fn PaginationNext(
-    onclick: Option<EventHandler<MouseEvent>>,
-    onmousedown: Option<EventHandler<MouseEvent>>,
-    onmouseup: Option<EventHandler<MouseEvent>>,
+    #[props(default)] onclick: EventHandler<MouseEvent>,
+    #[props(default)] onmousedown: EventHandler<MouseEvent>,
+    #[props(default)] onmouseup: EventHandler<MouseEvent>,
     #[props(extends = GlobalAttributes)]
     #[props(extends = a)]
     attributes: Vec<Attribute>,

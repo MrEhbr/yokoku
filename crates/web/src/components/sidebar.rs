@@ -333,7 +333,7 @@ pub fn Sidebar(
 
 #[component]
 pub fn SidebarTrigger(
-    #[props(default)] onclick: Option<EventHandler<MouseEvent>>,
+    #[props(default)] onclick: EventHandler<MouseEvent>,
     #[props(extends = GlobalAttributes)]
     #[props(extends = button)]
     attributes: Vec<Attribute>,
@@ -351,9 +351,7 @@ pub fn SidebarTrigger(
             variant: ButtonVariant::Quiet,
             size: ButtonSize::Icon,
             onclick: move |e| {
-                if let Some(handler) = &onclick {
-                    handler.call(e);
-                }
+                onclick.call(e);
                 ctx.toggle();
             },
             attributes: merged,

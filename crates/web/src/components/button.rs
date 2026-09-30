@@ -52,10 +52,10 @@ pub fn Button(
     #[props(extends=GlobalAttributes)]
     #[props(extends=button)]
     attributes: Vec<Attribute>,
-    onclick: Option<EventHandler<MouseEvent>>,
-    onmousedown: Option<EventHandler<MouseEvent>>,
-    onmouseup: Option<EventHandler<MouseEvent>>,
-    onkeydown: Option<EventHandler<KeyboardEvent>>,
+    #[props(default)] onclick: EventHandler<MouseEvent>,
+    #[props(default)] onmousedown: EventHandler<MouseEvent>,
+    #[props(default)] onmouseup: EventHandler<MouseEvent>,
+    #[props(default)] onkeydown: EventHandler<KeyboardEvent>,
     children: Element,
 ) -> Element {
     let (variant, size) = (variant.class(), size.class());
@@ -70,26 +70,10 @@ pub fn Button(
 
     rsx! {
         button {
-            onclick: move |event| {
-                if let Some(f) = &onclick {
-                    f.call(event);
-                }
-            },
-            onmousedown: move |event| {
-                if let Some(f) = &onmousedown {
-                    f.call(event);
-                }
-            },
-            onmouseup: move |event| {
-                if let Some(f) = &onmouseup {
-                    f.call(event);
-                }
-            },
-            onkeydown: move |event| {
-                if let Some(f) = &onkeydown {
-                    f.call(event);
-                }
-            },
+            onclick: move |event| onclick.call(event),
+            onmousedown: move |event| onmousedown.call(event),
+            onmouseup: move |event| onmouseup.call(event),
+            onkeydown: move |event| onkeydown.call(event),
             ..merged,
             {children}
         }
