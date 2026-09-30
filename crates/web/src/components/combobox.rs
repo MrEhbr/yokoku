@@ -28,14 +28,30 @@ pub fn Combobox<T: Clone + PartialEq + 'static>(
     let base = attributes!(div { class: "group relative block w-full" });
     let merged = merge_attributes(vec![base, attributes]);
     use_effect(|| _ = document::eval(CONTAIN_ESCAPE));
+    let mut open = use_signal(|| false);
+    let mut query = use_signal(String::new);
+    let open_state = use_memo(move || Some(open()));
+    let query_state = use_memo(move || Some(query()));
 
     rsx! {
         combobox::Combobox {
             value,
             on_value_change,
             disabled,
+            open: open_state,
+            on_open_change: move |next| open.set(next),
+            query: query_state,
+            on_query_change: move |next| query.set(next),
             attributes: merged,
-            div { class: "relative",
+            div {
+                class: "relative",
+                // Empties the input before the browser places the caret in the chosen text.
+                onpointerdown: move |_| {
+                    if !open() && !disabled() {
+                        query.set(String::new());
+                        open.set(true);
+                    }
+                },
                 combobox::ComboboxInput {
                     class: "min-h-9 w-full min-w-0 border border-control bg-surface py-1.5 pr-8 pl-2 text-body text-ink \
                             placeholder:text-muted disabled:cursor-not-allowed disabled:bg-subtle disabled:text-muted",
