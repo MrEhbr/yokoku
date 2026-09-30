@@ -177,7 +177,8 @@ impl Series {
                     .episodes
                     .into_iter()
                     .map(|episode| {
-                        let wanted = preset != MonitorPreset::Future || !has_aired(episode.air_date, today);
+                        let wanted =
+                            preset != MonitorPreset::Future || !episode.air_date.is_some_and(|date| date < today);
                         Episode::new(episode, monitored && wanted)
                     })
                     .collect();
@@ -433,12 +434,8 @@ impl Episode {
     pub fn file_status(&self, today: Date) -> FileStatus {
         match self.file {
             Some(_) => FileStatus::Downloaded,
-            None if has_aired(self.air_date, today) => FileStatus::Missing,
+            None if self.air_date.is_some_and(|date| date < today) => FileStatus::Missing,
             None => FileStatus::Upcoming,
         }
     }
-}
-
-fn has_aired(air_date: Option<Date>, today: Date) -> bool {
-    air_date.is_some_and(|date| date < today)
 }
