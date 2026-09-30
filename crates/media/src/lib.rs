@@ -15,7 +15,7 @@ mod scan;
 
 pub use deleter::Deleter;
 pub use error::MediaError;
-pub use importer::{ImportMode, ImportSettings, Importer};
+pub use importer::{Destination, ImportMode, ImportSettings, Importer};
 pub use model::{
     AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind, SubtitleStream,
     VideoStream,

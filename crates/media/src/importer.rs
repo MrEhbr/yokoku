@@ -47,6 +47,21 @@ pub struct Importer {
     changes: QueueChanges,
 }
 
+/// Where a matched file goes in the library.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Destination {
+    /// The item's folder.
+    pub folder: PathBuf,
+    /// Relative to `folder`, from the naming templates.
+    pub name: PathBuf,
+}
+
+impl Destination {
+    pub fn path(&self) -> PathBuf {
+        self.folder.join(&self.name)
+    }
+}
+
 /// What an import changed in the library.
 #[derive(Default)]
 struct Placed {
@@ -179,7 +194,7 @@ impl Importer {
 
         for (number, row) in (1..).zip(&import.rows).filter(|(_, row)| !row.skipped) {
             let target = row.target.ok_or(MediaError::RowUnmatched(number))?;
-            let destination = self.destination(target, &row.path).await?;
+            let destination = self.destination(target, &row.path).await?.path();
             let linked = library.iter().any(|file| file.path == destination && file.target == target);
             if linked && self.already_placed(&row.path, &destination).await? {
                 debug!(path = %destination.display(), "already in the library");
@@ -225,16 +240,18 @@ impl Importer {
     }
 
     /// The naming path in the item's folder.
-    async fn destination(&self, target: FileTarget, video: &Path) -> Result<PathBuf, MediaError> {
+    async fn destination(&self, target: FileTarget, video: &Path) -> Result<Destination, MediaError> {
         let extension = video.extension().unwrap_or_default().to_string_lossy();
         match target {
             FileTarget::Episodes { series: id, span } => {
                 let series = self.catalog.series(id).await?.ok_or(MediaError::SeriesNotFound(id))?;
-                Ok(series.folder.path().join(self.naming.current().episode_path(&series, span, &extension)?))
+                let name = self.naming.current().episode_path(&series, span, &extension)?;
+                Ok(Destination { folder: series.folder.path(), name })
             },
             FileTarget::Movie(id) => {
                 let movie = self.catalog.movie(id).await?.ok_or(MediaError::MovieNotFound(id))?;
-                Ok(movie.folder.path().join(self.naming.current().movie_path(&movie, &extension)))
+                let name = self.naming.current().movie_path(&movie, &extension);
+                Ok(Destination { folder: movie.folder.path(), name })
             },
         }
     }
