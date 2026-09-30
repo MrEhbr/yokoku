@@ -97,11 +97,11 @@ Functional headings use direct language: “Review import”, “Rename existing
 
 Use `yk-field`, `yk-label`, `yk-input`/`yk-select`, and `yk-hint`. Every control needs a programmatic label. Invalid controls use `aria-invalid="true"` and `aria-describedby` pointing to their error. Errors explain a correction, not only “invalid”.
 
-Selects use the Dioxus Components select: a button trigger with `aria-haspopup="listbox"` and a `role="listbox"` picker with typeahead, arrow-key navigation, a selected checkmark, and bounded scrolling. The picker is positioned under its trigger, so it stays inside a scrolling dialog. Escape closes only the picker, never the dialog around it. Values are typed; the select never stores display strings as values.
+Selects use the Dioxus Components select: a button trigger with `aria-haspopup="listbox"` and a `role="listbox"` picker with typeahead, arrow-key navigation, a selected checkmark, and bounded scrolling. The picker is positioned under its trigger and may extend past a dialog's edge; a tall dialog scrolls the overlay, not its own content. Escape closes only the picker, never the dialog around it. Values are typed; the select never stores display strings as values.
 
 Checkboxes use the Dioxus Components checkbox: `role="checkbox"` with `aria-checked` of `true`, `false`, or `mixed`. Header selection uses the mixed state. Monitoring and operation selection are different controls with different labels; selecting files must not change monitoring.
 
-For long episode lists, an accessible searchable combobox may replace the native select while preserving the same field tokens and keyboard contract. Do not build an inaccessible custom dropdown for visual consistency.
+Long lists — library items, episodes — use the Dioxus Components combobox instead: a `role="combobox"` text input that filters a `role="listbox"` by substring as the user types, with the same field tokens, arrow keys, Enter to choose, and Escape contract. Closed, the input shows the chosen option; a click empties it to search. Short fixed lists stay selects. Do not build an inaccessible custom dropdown for visual consistency.
 
 ### Media cards
 

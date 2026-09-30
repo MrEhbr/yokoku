@@ -12,9 +12,9 @@ use crate::{
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
+        combobox::{Combobox, ComboboxEmpty, ComboboxOption},
         dialog::{Dialog, DialogDescription, DialogFooter, DialogTitle},
         label::Label,
-        select::{Select, SelectOption},
         skeleton::Skeleton,
         status::{Status, Tone},
     },
@@ -300,14 +300,6 @@ fn MatchEditor(
         Some(Ok(entries)) => entries.clone(),
         _ => Vec::new(),
     };
-    let item_text = |id: Option<ItemId>| {
-        entries
-            .iter()
-            .find(|entry| Some(entry.id) == id)
-            .map(|entry| format!("{} · {}", title_with_year(&entry.title, entry.year), entry.id.kind()))
-            .unwrap_or_else(|| "Choose…".to_owned())
-    };
-    let placeholder = item_text(item());
     let item_choice = use_memo(move || Some(item()));
     let episode_list: Vec<(u16, u16, String)> = series
         .read()
@@ -330,12 +322,6 @@ fn MatchEditor(
         .unwrap_or_default();
     let first_choice = use_memo(move || episodes().map(|(season, first, _)| (season, first)));
     let last_choice = use_memo(move || episodes().map(|(season, _, last)| (season, last)));
-    let first_text = episodes()
-        .and_then(|(season, first, _)| episode_list.iter().find(|(s, n, _)| (*s, *n) == (season, first)))
-        .map_or_else(|| "Choose…".to_owned(), |(_, _, text)| text.clone());
-    let last_text = episodes()
-        .and_then(|(season, _, last)| episode_list.iter().find(|(s, n, _)| (*s, *n) == (season, last)))
-        .map_or_else(|| "Choose…".to_owned(), |(_, _, text)| text.clone());
     let later: Vec<(u16, u16, String)> = match episodes() {
         Some((season, first, _)) => {
             episode_list.iter().filter(|(s, n, _)| *s == season && *n >= first).cloned().collect()
@@ -350,17 +336,18 @@ fn MatchEditor(
                 if items.read().is_none() {
                     Skeleton { class: "h-9 w-full" }
                 } else {
-                    Select::<Option<ItemId>> {
+                    Combobox::<Option<ItemId>> {
                         id: "{id}-item",
                         value: Some(item_choice.into()),
-                        placeholder,
+                        placeholder: "Search the library…",
                         on_value_change: move |next: Option<Option<ItemId>>| {
                             item.set(next.flatten());
                             series.clear();
                             episodes.set(None);
                         },
+                        ComboboxEmpty { "Nothing in the library matches" }
                         for (index, entry) in entries.iter().enumerate() {
-                            SelectOption::<Option<ItemId>> {
+                            ComboboxOption::<Option<ItemId>> {
                                 key: "{entry.id:?}",
                                 index,
                                 value: Some(entry.id),
@@ -378,15 +365,16 @@ fn MatchEditor(
                     div { class: "grid gap-3 sm:grid-cols-2",
                         div { class: "grid gap-1.5",
                             Label { html_for: "{id}-first", "Episode" }
-                            Select::<(u16, u16)> {
+                            Combobox::<(u16, u16)> {
                                 id: "{id}-first",
                                 value: Some(first_choice.into()),
-                                placeholder: first_text,
+                                placeholder: "Search by code or title…",
                                 on_value_change: move |next: Option<(u16, u16)>| {
                                     episodes.set(next.map(|(season, number)| (season, number, number)));
                                 },
+                                ComboboxEmpty { "No episode matches" }
                                 for (index, (season, number, text)) in episode_list.iter().cloned().enumerate() {
-                                    SelectOption::<(u16, u16)> {
+                                    ComboboxOption::<(u16, u16)> {
                                         key: "{season}-{number}",
                                         index,
                                         value: (season, number),
@@ -398,18 +386,19 @@ fn MatchEditor(
                         }
                         div { class: "grid gap-1.5",
                             Label { html_for: "{id}-last", "Through" }
-                            Select::<(u16, u16)> {
+                            Combobox::<(u16, u16)> {
                                 id: "{id}-last",
                                 value: Some(last_choice.into()),
-                                placeholder: last_text,
+                                placeholder: "Search by code or title…",
                                 disabled: episodes().is_none(),
                                 on_value_change: move |next: Option<(u16, u16)>| {
                                     if let (Some((_, last)), Some((season, first, _))) = (next, episodes()) {
                                         episodes.set(Some((season, first, last)));
                                     }
                                 },
+                                ComboboxEmpty { "No episode matches" }
                                 for (index, (season, number, text)) in later.iter().cloned().enumerate() {
-                                    SelectOption::<(u16, u16)> {
+                                    ComboboxOption::<(u16, u16)> {
                                         key: "{season}-{number}",
                                         index,
                                         value: (season, number),

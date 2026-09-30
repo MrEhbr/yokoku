@@ -27,6 +27,7 @@ use yokoku_web::components::{
     badge::{Badge, BadgeVariant},
     button::{Button, ButtonSize, ButtonVariant},
     checkbox::{Checkbox, CheckboxState},
+    combobox::{Combobox, ComboboxEmpty, ComboboxOption},
     dialog::{Dialog, DialogDescription, DialogFooter, DialogTitle},
     disclosure::Disclosure,
     field::{Field, FieldError, FieldHint},
@@ -335,6 +336,55 @@ pub fn SelectStory() -> Element {
                         aria_label: "Quality",
                         placeholder: "1080p",
                         disabled: true,
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn ComboboxStory() -> Element {
+    let mut episode = use_signal(|| None::<u32>);
+    let titles = [
+        "The Journey's End",
+        "It Didn't Have to Be Magic",
+        "Killing Magic",
+        "The Land Where Souls Rest",
+        "Phantoms of the Dead",
+        "The Hero of the Village",
+        "Like a Fairy Tale",
+        "Frieren the Slayer",
+    ];
+    rsx! {
+        StoryPage {
+            name: "Combobox",
+            path: "combobox",
+            summary: "A single choice from a long list, filtered by what is typed.",
+            Story { title: "Episode",
+                div { class: "flex max-w-sm flex-col gap-2",
+                    Label { html_for: "story-episode", "Episode" }
+                    Combobox::<u32> {
+                        id: "story-episode",
+                        placeholder: "Search by code or title…",
+                        value: Some(episode.into()),
+                        on_value_change: move |next| episode.set(next),
+                        ComboboxEmpty { "No episode matches" }
+                        for (index, title) in titles.iter().enumerate() {
+                            ComboboxOption::<u32> {
+                                key: "{index}",
+                                index,
+                                value: index as u32 + 1,
+                                text_value: format!("S01E{:02} {title}", index + 1),
+                                "S01E{index + 1:02} {title}"
+                            }
+                        }
+                    }
+                    p { class: "text-caption text-muted",
+                        match episode() {
+                            Some(number) => format!("Episode {number} selected"),
+                            None => "Nothing selected".to_owned(),
+                        }
                     }
                 }
             }

@@ -35,6 +35,8 @@ enum Route {
     CardStory {},
     #[route("/ui/checkbox")]
     CheckboxStory {},
+    #[route("/ui/combobox")]
+    ComboboxStory {},
     #[route("/ui/dialog")]
     DialogStory {},
     #[route("/ui/dropdown-menu")]
@@ -111,6 +113,7 @@ fn nav() -> [(&'static str, Vec<(&'static str, Route)>); 3] {
                 ("Button", Route::ButtonStory {}),
                 ("Card", Route::CardStory {}),
                 ("Checkbox", Route::CheckboxStory {}),
+                ("Combobox", Route::ComboboxStory {}),
                 ("Dialog", Route::DialogStory {}),
                 ("Dropdown menu", Route::DropdownMenuStory {}),
                 ("Field", Route::FieldStory {}),

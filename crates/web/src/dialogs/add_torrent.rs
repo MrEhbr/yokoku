@@ -10,11 +10,11 @@ use crate::{
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
+        combobox::{Combobox, ComboboxEmpty, ComboboxOption},
         dialog::{Dialog, DialogFooter, DialogTitle},
         field::{Field, FieldError, FieldHint},
         input::Input,
         label::Label,
-        select::{Select, SelectOption},
         skeleton::Skeleton,
     },
     route::Route,
@@ -207,17 +207,16 @@ fn ItemSelect(entries: Vec<Entry>, chosen: Signal<Option<Option<ItemId>>>) -> El
             (Some(entry.id), format!("{} · {}", title_with_year(&entry.title, entry.year), entry.id.kind()))
         }))
         .collect();
-    let placeholder =
-        choices.iter().find(|(id, _)| Some(*id) == chosen()).map(|(_, text)| text.clone()).unwrap_or_default();
     rsx! {
-        Select::<Option<ItemId>> {
+        Combobox::<Option<ItemId>> {
             id: "torrent-item",
             aria_describedby: "torrent-item-hint",
             value: Some(chosen.into()),
-            placeholder,
+            placeholder: "Search the library…",
             on_value_change: move |next| chosen.set(next),
+            ComboboxEmpty { "Nothing in the library matches" }
             for (index, (id, text)) in choices.into_iter().enumerate() {
-                SelectOption::<Option<ItemId>> {
+                ComboboxOption::<Option<ItemId>> {
                     key: "{id:?}",
                     index,
                     value: id,

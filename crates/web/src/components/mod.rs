@@ -7,6 +7,7 @@ pub mod breadcrumb;
 pub mod button;
 pub mod card;
 pub mod checkbox;
+pub mod combobox;
 pub mod delete_file;
 pub mod dialog;
 pub mod disclosure;
