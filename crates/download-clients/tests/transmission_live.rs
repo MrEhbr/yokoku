@@ -16,8 +16,8 @@ use yokoku_downloads::{
     DownloadOptions, DownloadState, Downloads,
     ports::{DownloadClient, TorrentSource},
 };
-use yokoku_events::{DownloadCompleted, Event, EventLog, Publisher, QueueChanges};
-use yokoku_system::FileSpool;
+use yokoku_events::{DownloadCompleted, Event, EventLog, QueueChanges};
+use yokoku_test_support::events::publisher;
 
 const WAIT: Duration = Duration::from_secs(20);
 
@@ -83,7 +83,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         client.clone(),
         Arc::new(SystemTime),
         Live::fixed(DownloadOptions::default()),
-        Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool")))),
+        publisher(&db, dir.path()),
         QueueChanges::new(),
     );
     let added = use_case.add(&TorrentSource::File(fs::read(&torrent_file).unwrap()), None, None).await.unwrap();

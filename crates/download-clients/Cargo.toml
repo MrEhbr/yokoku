@@ -23,7 +23,7 @@ base64 = "0.22"
 [dev-dependencies]
 yokoku-db.workspace = true
 yokoku-events.workspace = true
-yokoku-system.workspace = true
+yokoku-test-support.workspace = true
 
 jiff.workspace = true
 rstest.workspace = true

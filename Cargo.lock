@@ -6225,7 +6225,7 @@ dependencies = [
  "yokoku-domain",
  "yokoku-downloads",
  "yokoku-events",
- "yokoku-system",
+ "yokoku-test-support",
 ]
 
 [[package]]

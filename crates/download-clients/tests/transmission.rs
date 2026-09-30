@@ -2,7 +2,7 @@ use rstest::rstest;
 use serde_json::{Value, json};
 use wiremock::{
     Mock, MockServer, Request, ResponseTemplate,
-    matchers::{basic_auth, body_partial_json, header, method, path},
+    matchers::{basic_auth, body_partial_json, header},
 };
 use yokoku_domain::{Live, Secret};
 use yokoku_download_clients::{TransmissionClient, TransmissionSettings};
@@ -10,36 +10,9 @@ use yokoku_downloads::{
     DownloadState,
     ports::{ClientError, DownloadClient, TorrentSource},
 };
+use yokoku_test_support::transmission::{RPC, SESSION, answer, server, success};
 
-const RPC: &str = "/transmission/rpc";
-const SESSION: &str = "6qXR0iKsWG3NkpqOtgfvVFzN";
 const HASH: &str = "0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6";
-
-fn success(arguments: Value) -> ResponseTemplate {
-    ResponseTemplate::new(200).set_body_json(json!({ "arguments": arguments, "result": "success" }))
-}
-
-/// Answers every request without the session id with 409, as Transmission does.
-async fn server() -> MockServer {
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path(RPC))
-        .and(|request: &Request| !request.headers.contains_key("X-Transmission-Session-Id"))
-        .respond_with(ResponseTemplate::new(409).insert_header("X-Transmission-Session-Id", SESSION))
-        .mount(&server)
-        .await;
-    server
-}
-
-async fn answer(server: &MockServer, rpc_method: &str, response: ResponseTemplate) {
-    Mock::given(method("POST"))
-        .and(path(RPC))
-        .and(header("X-Transmission-Session-Id", SESSION))
-        .and(body_partial_json(json!({ "method": rpc_method })))
-        .respond_with(response)
-        .mount(server)
-        .await;
-}
 
 fn client(server: &MockServer) -> TransmissionClient {
     connect(TransmissionSettings { url: format!("{}{RPC}", server.uri()), ..TransmissionSettings::default() })
@@ -203,6 +176,16 @@ async fn sends_credentials_and_reports_rejected_ones() {
 
     assert!(accepted.is_ok(), "{accepted:?}");
     assert!(matches!(rejected, ClientError::Refused(_)), "{rejected}");
+}
+
+#[tokio::test]
+async fn a_server_error_is_unavailable() {
+    let server = server().await;
+    answer(&server, "session-get", ResponseTemplate::new(500)).await;
+
+    let error = client(&server).version().await.unwrap_err();
+
+    assert!(matches!(error, ClientError::Unavailable(_)), "{error}");
 }
 
 #[tokio::test]
