@@ -80,7 +80,6 @@ impl Config {
     /// Fails on a setting that would only fail later, when used.
     pub fn validate(&self) -> Result<()> {
         self.metadata.tvdb_language()?;
-        self.serve.schedules()?;
         Ok(())
     }
 
