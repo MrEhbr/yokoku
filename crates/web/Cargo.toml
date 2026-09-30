@@ -45,6 +45,7 @@ uuid = { workspace = true, features = ["js"] }
 gloo-timers = { version = "0.3", features = ["futures"] }
 
 [dev-dependencies]
+dioxus-ssr = "=0.7.10"
 rstest.workspace = true
 
 [features]

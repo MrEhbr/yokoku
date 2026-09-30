@@ -6430,6 +6430,7 @@ dependencies = [
  "dioxus",
  "dioxus-icons",
  "dioxus-primitives",
+ "dioxus-ssr",
  "gloo-timers",
  "jiff",
  "rstest",

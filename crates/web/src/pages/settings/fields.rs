@@ -240,3 +240,78 @@ fn choice_options(choices: &[(&str, &str)], current: &str) -> Vec<(String, Strin
     }
     options
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use dioxus::prelude::*;
+    use rstest::rstest;
+    use serde_json::{Value, json};
+
+    use super::{Control, SettingField, Unsaved, choice_options, text, typed};
+    use crate::api::settings::Setting;
+
+    const LANGUAGES: &[(&str, &str)] = &[("en-US", "English, US"), ("uk-UA", "Ukrainian")];
+
+    /// A switch for a setting that is `on`, inside the context the Settings page provides.
+    #[component]
+    fn SwitchSetting(on: bool) -> Element {
+        use_context_provider(|| Unsaved(Signal::new(BTreeMap::new())));
+        let setting =
+            Setting { key: "downloads.pick_up".into(), value: Value::Bool(on), stored: false, from_env: false };
+        rsx! {
+            SettingField { setting, label: "Pick up", hint: "", control: Control::Switch }
+        }
+    }
+
+    #[rstest]
+    #[case::on(true, r#"data-state="checked""#)]
+    #[case::off(false, r#"data-state="unchecked""#)]
+    fn a_switch_shows_whether_the_setting_is_on(#[case] on: bool, #[case] state: &str) {
+        let mut dom = VirtualDom::new_with_props(SwitchSetting, SwitchSettingProps { on });
+        dom.rebuild_in_place();
+
+        let html = dioxus_ssr::render(&dom);
+
+        assert!(html.contains(state), "{html}");
+    }
+
+    #[rstest]
+    #[case::secret(json!("hunter2"), Control::Secret, "")]
+    #[case::unset(Value::Null, Control::Text(""), "")]
+    #[case::list(json!(["tv", "anime"]), Control::List, "tv, anime")]
+    #[case::empty_list(json!([]), Control::List, "")]
+    #[case::text(json!("copy"), Control::Text(""), "copy")]
+    #[case::switch(json!(true), Control::Switch, "true")]
+    fn a_value_is_shown_as_its_control_edits_it(
+        #[case] value: Value,
+        #[case] control: Control,
+        #[case] expected: &str,
+    ) {
+        assert_eq!(text(&value, control), expected);
+    }
+
+    #[rstest]
+    #[case::list(" tv, ,anime ", Control::List, json!(["tv", "anime"]))]
+    #[case::empty_list("", Control::List, json!([]))]
+    #[case::text(" copy ", Control::Text(""), json!(" copy "))]
+    fn a_draft_is_saved_as_its_control_types_it(
+        #[case] draft: &str,
+        #[case] control: Control,
+        #[case] expected: Value,
+    ) {
+        assert_eq!(typed(draft, control), expected);
+    }
+
+    #[rstest]
+    #[case::listed("uk-UA", &[("en-US", "English, US"), ("uk-UA", "Ukrainian")])]
+    #[case::outside_the_list("fr-FR", &[("fr-FR", "fr-FR"), ("en-US", "English, US"), ("uk-UA", "Ukrainian")])]
+    #[case::unset("", &[("en-US", "English, US"), ("uk-UA", "Ukrainian")])]
+    fn a_value_outside_the_choices_is_offered_first(#[case] current: &str, #[case] expected: &[(&str, &str)]) {
+        let expected: Vec<(String, String)> =
+            expected.iter().map(|(value, text)| (value.to_string(), text.to_string())).collect();
+
+        assert_eq!(choice_options(LANGUAGES, current), expected);
+    }
+}
