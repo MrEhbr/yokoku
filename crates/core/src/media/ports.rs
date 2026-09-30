@@ -100,6 +100,12 @@ pub struct FsError {
     pub source: io::Error,
 }
 
+impl FsError {
+    pub fn new(path: impl Into<PathBuf>, source: io::Error) -> Self {
+        Self { path: path.into(), source }
+    }
+}
+
 /// Read-only view of the library.
 #[async_trait]
 pub trait Catalog: Send + Sync {
