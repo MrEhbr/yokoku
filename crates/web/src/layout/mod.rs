@@ -15,6 +15,8 @@ use self::{
 };
 use crate::{components::theme_switch::ThemeSwitch, route::Route};
 
+const TMDB_LOGO: Asset = asset!("/assets/tmdb.svg");
+
 /// Page width and side padding, shared by the top bar and the page so their edges line up.
 const CONTAINER: &str = "mx-auto w-full max-w-[120rem] px-4 sm:px-6 lg:px-10";
 
@@ -90,6 +92,9 @@ fn Footer() -> Element {
     rsx! {
         footer { class: "flex flex-col gap-1 border-t border-line py-4 text-caption text-muted",
             p { "Yokoku {version}" }
+            a { class: "my-1 w-fit", href: "https://www.themoviedb.org", target: "_blank", rel: "noreferrer",
+                img { class: "h-3 w-auto", src: TMDB_LOGO, alt: "The Movie Database (TMDB)" }
+            }
             p {
                 "This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Metadata provided by "
                 a {
