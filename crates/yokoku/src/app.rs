@@ -14,7 +14,7 @@ use yokoku_core::{
         ports::{FileSystem, LibraryLock},
     },
 };
-use yokoku_domain::{Clock, ItemId, Live, naming::Naming, title_with_year};
+use yokoku_domain::{Clock, ItemId, ItemName, Live, naming::Naming};
 use yokoku_infra::{
     db::Database,
     download_clients::TransmissionClient,
@@ -227,7 +227,10 @@ impl App {
             ItemId::Series(id) => self.library.series(id).await.map(|series| (series.title, series.year)),
             ItemId::Movie(id) => self.library.movie(id).await.map(|movie| (movie.title, movie.year)),
         };
-        found.map_or_else(|_| format!("removed {}", item.kind()), |(title, year)| title_with_year(&title, year))
+        found.map_or_else(
+            |_| format!("removed {}", item.kind()),
+            |(title, year)| ItemName::new(&title, year).to_string(),
+        )
     }
 }
 

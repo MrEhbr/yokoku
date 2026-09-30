@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use yokoku_domain::{ItemId, SeriesId, title_with_year};
+use yokoku_domain::{ItemId, ItemName, SeriesId};
 
 use crate::{
     api::{
@@ -42,8 +42,8 @@ pub(crate) fn SeriesPicker(id: &'static str, series: Signal<Option<SeriesId>>) -
                                     key: "{found}",
                                     index,
                                     value: Some(found),
-                                    text_value: title_with_year(&entry.title, entry.year),
-                                    {title_with_year(&entry.title, entry.year)}
+                                    text_value: ItemName::new(&entry.title, entry.year).to_string(),
+                                    "{ItemName::new(&entry.title, entry.year)}"
                                 }
                             }
                         }

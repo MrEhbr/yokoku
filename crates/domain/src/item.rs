@@ -37,16 +37,31 @@ impl ItemId {
 
 /// How an item is named to people: `Dune (2021)`, or the bare title without a year. A title that
 /// already ends in its year, like `ONE PIECE (2023)`, is left as it is.
-pub fn title_with_year(title: &str, year: Option<i16>) -> String {
-    match year {
-        Some(year) if !ends_with_year(title, year) => format!("{title} ({year})"),
-        _ => title.to_owned(),
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ItemName<'a> {
+    title: &'a str,
+    year: Option<i16>,
+}
+
+impl<'a> ItemName<'a> {
+    pub fn new(title: &'a str, year: Option<i16>) -> Self {
+        Self { title, year }
+    }
+
+    /// The year, unless the title already ends in it.
+    pub fn shown_year(&self) -> Option<i16> {
+        self.year.filter(|year| !self.title.ends_with(&format!(" ({year})")))
     }
 }
 
-/// Whether `title` ends in ` (year)`.
-pub fn ends_with_year(title: &str, year: i16) -> bool {
-    title.ends_with(&format!(" ({year})"))
+impl fmt::Display for ItemName<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.title)?;
+        match self.shown_year() {
+            Some(year) => write!(f, " ({year})"),
+            None => Ok(()),
+        }
+    }
 }
 
 /// An item's id at its metadata source, written as `tmdb:1396` or `tvdb:81189`.
@@ -188,6 +203,6 @@ mod tests {
     #[case("ONE PIECE (2023)", Some(2023), "ONE PIECE (2023)")]
     #[case("Dune (1984)", Some(2021), "Dune (1984) (2021)")]
     fn names_an_item(#[case] title: &str, #[case] year: Option<i16>, #[case] expected: &str) {
-        assert_eq!(title_with_year(title, year), expected);
+        assert_eq!(ItemName::new(title, year).to_string(), expected);
     }
 }

@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
-use yokoku_domain::{MonitorPreset, title_with_year};
+use yokoku_domain::{ItemName, MonitorPreset};
 
 use crate::{
     api::{
@@ -39,7 +39,7 @@ pub(super) fn AddDialog(
             },
             if let Some(hit) = picked() {
                 div { class: "flex items-start justify-between gap-4",
-                    DialogTitle { "Add {title_with_year(&hit.title, hit.year)}" }
+                    DialogTitle { "Add {ItemName::new(&hit.title, hit.year)}" }
                     Button {
                         variant: ButtonVariant::Quiet,
                         size: ButtonSize::Icon,

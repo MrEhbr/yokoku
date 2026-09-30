@@ -3,7 +3,7 @@ mod bulk;
 use std::collections::BTreeSet;
 
 use dioxus::prelude::*;
-use yokoku_domain::{ImportId, ItemId, title_with_year};
+use yokoku_domain::{ImportId, ItemId, ItemName};
 
 use self::bulk::BulkTools;
 use crate::{
@@ -416,8 +416,8 @@ fn MatchEditor(
                                 key: "{entry.id:?}",
                                 index,
                                 value: Some(entry.id),
-                                text_value: format!("{} · {}", title_with_year(&entry.title, entry.year), entry.id.kind()),
-                                "{title_with_year(&entry.title, entry.year)} · {entry.id.kind()}"
+                                text_value: format!("{} · {}", ItemName::new(&entry.title, entry.year), entry.id.kind()),
+                                "{ItemName::new(&entry.title, entry.year)} · {entry.id.kind()}"
                             }
                         }
                     }

@@ -11,10 +11,9 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
 use jiff::Timestamp;
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
-    SeriesMetadata, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, ItemName, MonitorPreset,
+    SeasonMetadata, Series, SeriesMetadata, SourceStatus,
     naming::{Naming, NamingTemplates},
-    title_with_year,
 };
 use yokoku_web::components::{
     button::{Button, ButtonSize, ButtonVariant},
@@ -122,7 +121,7 @@ impl Catalog {
     }
 
     fn label(&self, id: u64) -> String {
-        self.info(id).map_or_else(String::new, |info| title_with_year(&info.title, info.year))
+        self.info(id).map_or_else(String::new, |info| ItemName::new(&info.title, info.year).to_string())
     }
 
     fn episode_count(&self, series: u64, season: u16) -> usize {

@@ -14,8 +14,8 @@ mod string_enum;
 
 pub use id::{CorrelationId, DownloadId, EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
 pub use item::{
-    Artwork, ArtworkKind, Description, ExternalId, FileStatus, InvalidFolderName, ItemFolder, ItemId, MediaKind,
-    ParseExternalIdError, ends_with_year, title_with_year,
+    Artwork, ArtworkKind, Description, ExternalId, FileStatus, InvalidFolderName, ItemFolder, ItemId, ItemName,
+    MediaKind, ParseExternalIdError,
 };
 pub use live::Live;
 pub use matching::{Confidence, EpisodeRef, EpisodeSpan, FileTarget, ParseEpisodeSpanError, SubtitleTags};

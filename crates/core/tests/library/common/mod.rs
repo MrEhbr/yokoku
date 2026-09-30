@@ -14,7 +14,7 @@ use yokoku_core::{
         ports::{FolderNames, MetadataError, MetadataProvider, SearchResult},
     },
 };
-use yokoku_domain::{ExternalId, MediaKind, MovieMetadata, SeriesMetadata, events::Event, title_with_year};
+use yokoku_domain::{ExternalId, ItemName, MediaKind, MovieMetadata, SeriesMetadata, events::Event};
 use yokoku_infra::db::Database;
 pub use yokoku_test_support::{
     clock::TODAY,
@@ -30,11 +30,11 @@ pub struct TitleFolders;
 
 impl FolderNames for TitleFolders {
     fn series_folder(&self, title: &str, year: Option<i16>) -> String {
-        title_with_year(title, year)
+        ItemName::new(title, year).to_string()
     }
 
     fn movie_folder(&self, title: &str, year: Option<i16>) -> String {
-        title_with_year(title, year)
+        ItemName::new(title, year).to_string()
     }
 }
 

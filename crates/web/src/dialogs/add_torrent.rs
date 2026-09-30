@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
-use yokoku_domain::{ItemId, SeriesId, title_with_year};
+use yokoku_domain::{ItemId, ItemName, SeriesId};
 
 use crate::{
     api::{
@@ -222,7 +222,7 @@ fn ItemField(chosen: Signal<Option<Option<ItemId>>>) -> Element {
 fn ItemSelect(entries: Vec<Entry>, chosen: Signal<Option<Option<ItemId>>>) -> Element {
     let choices: Vec<(Option<ItemId>, String)> = std::iter::once((None, "Work it out from its files".to_owned()))
         .chain(entries.iter().map(|entry| {
-            (Some(entry.id), format!("{} · {}", title_with_year(&entry.title, entry.year), entry.id.kind()))
+            (Some(entry.id), format!("{} · {}", ItemName::new(&entry.title, entry.year), entry.id.kind()))
         }))
         .collect();
     rsx! {
