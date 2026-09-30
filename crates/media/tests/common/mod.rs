@@ -56,7 +56,7 @@ impl App {
 
         let db = Database::open_in_memory().await.unwrap();
         let repo = Arc::new(db.clone());
-        let events = publisher(&db, dir.path());
+        let events = publisher(&db);
         let fs = Arc::new(LocalFileSystem);
         let clock = Arc::new(TestClock::default());
         let roots = RootFolders::new(repo.clone(), repo.clone(), fs.clone());
@@ -153,7 +153,7 @@ impl App {
     }
 
     pub fn publisher(&self) -> Publisher {
-        publisher(&self.db, self.dir.path())
+        publisher(&self.db)
     }
 
     pub fn lock(&self) -> Arc<LockFile> {

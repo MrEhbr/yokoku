@@ -13,9 +13,8 @@ workspace = true
 yokoku-db.workspace = true
 yokoku-domain.workspace = true
 yokoku-events.workspace = true
-yokoku-system.workspace = true
 
-async-trait.workspace = true
 jiff.workspace = true
 serde_json.workspace = true
+sqlx.workspace = true
 wiremock.workspace = true

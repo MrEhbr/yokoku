@@ -94,5 +94,5 @@ dist/
 .claude/
 .serena/
 
-# Local database, library lock and spool from running the service
+# Local database and library lock from running the service
 /data/

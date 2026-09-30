@@ -11,7 +11,6 @@ workspace = true
 [dependencies]
 yokoku-detect.workspace = true
 yokoku-domain.workspace = true
-yokoku-events.workspace = true
 yokoku-library.workspace = true
 yokoku-media.workspace = true
 
@@ -25,8 +24,6 @@ tracing.workspace = true
 walkdir = "2.5"
 
 [dev-dependencies]
-yokoku-test-support.workspace = true
-
 rstest.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }

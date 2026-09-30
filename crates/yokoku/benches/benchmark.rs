@@ -18,7 +18,7 @@ use yokoku_media::{
     Import, ImportRow, ImportStatus, MediaFile, Resolution, ScanReport, Scanner,
     ports::{Changes, MediaRepo},
 };
-use yokoku_system::{FileSpool, LocalFileSystem, LockFile, SystemClock};
+use yokoku_system::{LocalFileSystem, LockFile, SystemClock};
 
 const SEASONS: u16 = 2;
 const EPISODES: u16 = 10;
@@ -84,7 +84,7 @@ impl Seeded {
     }
 
     fn publisher(&self) -> Publisher {
-        Publisher::new(Arc::new(self.db.event_log()), Arc::new(FileSpool::new(self.dir.path().join("yokoku.spool"))))
+        Publisher::new(Arc::new(self.db.event_log()))
     }
 }
 

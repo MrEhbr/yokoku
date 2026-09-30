@@ -91,12 +91,16 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
     let Some(command) = command else {
         return crate::service::run(&app).await;
     };
-    match command {
+    let result = match command {
         Refresh(cmd_args) => commands::refresh::run(&app, cmd_args).await,
         Root(cmd_args) => commands::root::run(&app, cmd_args).await,
         Scan(cmd_args) => commands::scan::run(&app, cmd_args).await,
         Files(cmd_args) => commands::files::run(&app, cmd_args).await,
         Jellyfin(cmd_args) => commands::jellyfin::run(&app, cmd_args).await,
         Settings(_) => unreachable!("settings run before the app opens"),
-    }
+    };
+    result.and(app.events.flush().await.context(EVENTS_LOST))
 }
+
+pub const EVENTS_LOST: &str =
+    "The change was saved, but its events could not be recorded, so the service will not react to it";

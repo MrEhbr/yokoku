@@ -83,7 +83,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         client.clone(),
         Arc::new(SystemTime),
         Live::fixed(DownloadOptions::default()),
-        publisher(&db, dir.path()),
+        publisher(&db),
         QueueChanges::new(),
     );
     let added = use_case.add(&TorrentSource::File(fs::read(&torrent_file).unwrap()), None, None).await.unwrap();

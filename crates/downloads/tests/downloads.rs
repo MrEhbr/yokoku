@@ -130,7 +130,7 @@ async fn setup_with(options: DownloadOptions) -> Setup {
         client.clone(),
         Arc::new(TestClock::default()),
         Live::fixed(options),
-        publisher(&db, dir.path()),
+        publisher(&db),
         changes.clone(),
     );
     Setup { _dir: dir, db, client, changes, downloads }

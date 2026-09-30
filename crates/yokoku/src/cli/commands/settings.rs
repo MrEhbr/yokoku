@@ -7,7 +7,8 @@ use yokoku_config::Config;
 use yokoku_db::Database;
 use yokoku_domain::SettingsStore;
 use yokoku_events::{Publisher, SettingsChanged};
-use yokoku_system::FileSpool;
+
+use crate::cli::args::EVENTS_LOST;
 
 #[derive(Parser)]
 pub struct Args {
@@ -33,7 +34,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
     let path = &config.database.path;
     let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
     let stored = db.settings().await.context("Failed to read the stored settings")?;
-    let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
+    let events = Publisher::new(Arc::new(db.event_log()));
 
     match args.command {
         Command::List => {
@@ -59,6 +60,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
 
             db.set_setting(&key, &value).await.context("Failed to store the setting")?;
             events.publish(SettingsChanged { key: key.clone() }).await;
+            events.flush().await.context(EVENTS_LOST)?;
             success!("Set {key} = {}", Config::shown(&key, &value))?;
             let variable = format!("APP__{}", key.to_uppercase().replace('.', "__"));
             if std::env::var_os(&variable).is_some() {
@@ -68,6 +70,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
         Command::Unset { key } => match db.remove_setting(&key).await.context("Failed to remove the setting")? {
             true => {
                 events.publish(SettingsChanged { key: key.clone() }).await;
+                events.flush().await.context(EVENTS_LOST)?;
                 success!("Unset {key}")?;
             },
             false => say!("{key} is not stored")?,

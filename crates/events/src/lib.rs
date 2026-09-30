@@ -7,7 +7,6 @@ mod event_log;
 mod history;
 mod publisher;
 mod signal;
-mod spool;
 mod subscriber;
 mod subscription;
 
@@ -16,7 +15,6 @@ pub use event_log::{Correlated, DeliveryFailure, EventId, EventLog, Recorded};
 pub use history::History;
 pub use publisher::Publisher;
 pub use signal::{Listener, NewEvents, QueueChanges};
-pub use spool::EventSpool;
 pub use subscriber::{HandlerError, Subscriber};
 pub use subscription::{Handler, Subscription};
 pub use yokoku_domain::{

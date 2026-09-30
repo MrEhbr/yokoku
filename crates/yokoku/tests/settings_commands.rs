@@ -9,6 +9,7 @@ use predicates::prelude::*;
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_events::{EventLog, SettingsChanged};
+use yokoku_test_support::events::refuse_events;
 
 struct Setup {
     _dir: TempDir,
@@ -186,4 +187,16 @@ async fn a_running_service_reloads_a_setting_changed_from_the_command_line() {
 
     assert!(started && reloaded, "the service did not reload the settings in time");
     assert!(killed.success() && status.success(), "{status}");
+}
+
+#[tokio::test]
+async fn a_change_whose_event_cannot_be_recorded_is_stored_but_fails_the_command() {
+    let setup = setup();
+    setup.stdout(&["settings", "list"]);
+    refuse_events(&Database::open(&setup.database).await.unwrap()).await;
+
+    let set = setup.command().args(["settings", "set", "import.mode", "copy"]).assert().failure();
+
+    set.stderr(predicate::str::contains("its events could not be recorded"));
+    assert_eq!(setup.stdout(&["settings", "get", "import.mode"]), "\"copy\"\n");
 }

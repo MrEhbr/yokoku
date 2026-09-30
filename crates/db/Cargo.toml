@@ -19,9 +19,8 @@ yokoku-media.workspace = true
 async-trait.workspace = true
 jiff.workspace = true
 serde_json.workspace = true
+sqlx.workspace = true
 thiserror.workspace = true
-
-sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros", "json"] }
 
 [dev-dependencies]
 proptest.workspace = true

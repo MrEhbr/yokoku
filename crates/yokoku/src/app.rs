@@ -3,6 +3,7 @@ use std::{path::Path, sync::Arc, time::Duration};
 use anyhow::{Context, Result, bail};
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
+use tracing::warn;
 use yokoku_config::{Config, Settings};
 use yokoku_db::Database;
 use yokoku_domain::{Clock, ItemId, Live, title_with_year};
@@ -18,7 +19,7 @@ use yokoku_media::{
 use yokoku_media_servers::JellyfinClient;
 use yokoku_metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient};
 use yokoku_naming::Naming;
-use yokoku_system::{ArtworkFiles, FfProbe, FileSpool, LocalFileSystem, LockFile, SystemClock};
+use yokoku_system::{ArtworkFiles, FfProbe, LocalFileSystem, LockFile, SystemClock};
 
 use crate::subscriptions;
 
@@ -43,7 +44,7 @@ pub struct App {
     pub rescans: Arc<Rescans>,
     metadata: Arc<MetadataService>,
     db: Arc<Database>,
-    events: Publisher,
+    pub events: Publisher,
     subscribers: Vec<Arc<dyn Subscriber>>,
 }
 
@@ -59,7 +60,7 @@ impl App {
             .await
             .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(settings.live(|config| config.clock.time_zone())));
-        let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(path.with_extension("spool"))));
+        let events = Publisher::new(Arc::new(db.event_log()));
         let queue_changes = QueueChanges::new();
         let naming = settings.live(|config| config.naming.clone());
         let metadata_settings = settings.live(|config| config.metadata.clone());
@@ -171,8 +172,8 @@ impl App {
         })
     }
 
-    /// Starts one delivery loop per subscriber and one that appends spooled events every
-    /// `REPLAY_INTERVAL`; each stops when `shutdown` is cancelled.
+    /// Starts one delivery loop per subscriber and one that appends kept events every
+    /// `FLUSH_INTERVAL`; each stops when `shutdown` is cancelled.
     pub fn spawn_deliveries(&self, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
         let poll_interval = Duration::from_millis(self.settings.current().events.poll_interval_ms);
         let config = DeliveryConfig { poll_interval, ..DeliveryConfig::default() };
@@ -183,18 +184,20 @@ impl App {
                 let delivery = Delivery::new(log, subscriber.clone(), self.db.new_events().listen(), config.clone());
                 tokio::spawn(delivery.run(shutdown.clone()))
             })
-            .chain([self.spawn_replay(shutdown)])
+            .chain([self.spawn_flush(shutdown)])
             .collect()
     }
 
-    fn spawn_replay(&self, shutdown: &CancellationToken) -> JoinHandle<()> {
+    fn spawn_flush(&self, shutdown: &CancellationToken) -> JoinHandle<()> {
         let (events, shutdown) = (self.events.clone(), shutdown.clone());
         tokio::spawn(async move {
             shutdown
                 .run_until_cancelled(async {
                     loop {
-                        events.replay().await;
-                        sleep(REPLAY_INTERVAL).await;
+                        if let Err(error) = events.flush().await {
+                            warn!(%error, "kept events are still waiting for the event log");
+                        }
+                        sleep(FLUSH_INTERVAL).await;
                     }
                 })
                 .await;
@@ -236,4 +239,4 @@ impl FolderNames for NamedFolders {
     }
 }
 
-const REPLAY_INTERVAL: Duration = Duration::from_secs(60);
+const FLUSH_INTERVAL: Duration = Duration::from_secs(60);

@@ -11,7 +11,10 @@ use yokoku_domain::{
 };
 use yokoku_events::EventLog;
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
-use yokoku_test_support::metadata::movie_metadata;
+use yokoku_test_support::{
+    events::{accept_events, refuse_events},
+    metadata::movie_metadata,
+};
 
 /// A database with "Frieren" (tmdb:1) in `tv/Frieren (2023)`, two episodes aired a week ago, and a series
 /// root `tv`.
@@ -123,6 +126,20 @@ async fn a_scan_records_its_files_and_leaves_their_handling_to_the_service() {
         log.read_after(None, 10).await.unwrap().iter().map(|recorded| recorded.event.name()).collect();
     assert_eq!(events, ["FilesFound"]);
     assert!(!setup.episode_downloaded(1, 1).await, "no handler runs outside the service");
+}
+
+#[tokio::test]
+async fn a_command_whose_events_cannot_be_recorded_fails_after_saving_its_change() {
+    let setup = Setup::new().await;
+    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
+    let db = Database::open(&setup.database).await.unwrap();
+    refuse_events(&db).await;
+
+    let scan = setup.command().arg("scan").assert().failure();
+    accept_events(&db).await;
+
+    scan.stderr(predicate::str::contains("its events could not be recorded"));
+    assert_eq!(setup.stdout(&["scan"]), "Linked 0 new files\n");
 }
 
 #[tokio::test]

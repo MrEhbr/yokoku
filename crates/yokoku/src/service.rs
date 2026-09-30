@@ -3,7 +3,7 @@ use std::{io, sync::Arc};
 use anyhow::{Context, Result};
 use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{error, info};
 use yokoku_jobs::Jobs;
 
 use crate::{app::App, web_settings::WebSettings};
@@ -62,6 +62,9 @@ pub async fn run(app: &App) -> Result<()> {
         delivery.await.context("Event delivery failed")?;
     }
     web.await.context("Web server failed")?.context("Web server failed")?;
+    if let Err(error) = app.events.flush().await {
+        error!(%error, "events of saved changes were lost; their handlers will not run");
+    }
     info!("stopped");
     result.context("Failed to wait for a stop signal")
 }

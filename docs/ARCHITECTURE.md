@@ -62,7 +62,7 @@ crates/
   download-clients/  yokoku-download-clients  DownloadClient impls (Transmission)
   media-servers/     yokoku-media-servers     MediaServer impls (Jellyfin)
   jobs/              yokoku-jobs              cron loops; queue port impls
-  system/            yokoku-system            FileSystem, LibraryLock, Clock, MediaProbe (ffprobe), EventSpool
+  system/            yokoku-system            FileSystem, LibraryLock, Clock, MediaProbe (ffprobe)
   web/               yokoku-web               Web UI on Dioxus: pages, server functions, components, component gallery
 
   config/            yokoku-config            Configuration: composes every crate's settings section, layers and validates them
@@ -116,7 +116,7 @@ naming rules make each hop predictable:
 - **Adapters for outside services:** one crate per port and one module per product, named after
   the product: `download-clients/src/transmission.rs`, `media-servers/src/jellyfin.rs`,
   `metadata/src/tmdb.rs` and `tvdb.rs`. Response shapes live in `<product>_wire.rs`.
-  `system` holds only local-host adapters: filesystem, library lock, clock, ffprobe, event spool.
+  `system` holds only local-host adapters: filesystem, library lock, clock, ffprobe.
 - **`web`:** one folder per role a file plays in the UI:
 
   ```
@@ -232,7 +232,7 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | Library lock | `media/src/ports.rs` `LibraryLock` | none | none | `system/src/lock.rs` | every media use case |
 | Jellyfin rescan (FR-10.4) | `integrations/src/rescans.rs` `Rescans` | none | `rescan_store.rs` | `media-servers/src/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
 | History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display`; the web words events with item links in `web/src/api/history.rs` | `event_log.rs` | none | web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
-| Event contract, delivery | `domain/src/events.rs`; `events/src/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `event_log.rs` | `system/src/spool.rs` | `yokoku/src/subscriptions.rs`, `app.rs` |
+| Event contract, delivery | `domain/src/events.rs`; `events/src/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `event_log.rs` | none | `yokoku/src/subscriptions.rs`, `app.rs` |
 | Settings (FR-10.3) | `config/src/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `config/src/lib.rs` (layering) | `settings_store.rs` | none | `settings.rs`; web `api/settings.rs`, `pages/settings/` (through `SettingsAccess` in `web/src/state.rs`, implemented by `yokoku/src/web_settings.rs`) |
 | Jobs and schedules | `jobs/src/lib.rs` | none | none | none | `yokoku/src/service.rs` |
 | Attribution (FR-10.5) | none | none | none | none | `cli/args.rs` `DATA_SOURCES` |
@@ -421,14 +421,14 @@ failed_deliveries    (subscriber, event_id, error, attempts, failed_at)
 
 The payload carries the event's `type` tag, so no separate kind column is needed; `json_extract(payload, '$.type')` filters by type.
 
-- **Append after save.** A use case saves its state, then publishes the command's events through `Publisher`, which appends them in a transaction of their own. A failed append never fails the command: the events go to a spool file next to the database (`yokoku.spool`, JSON lines under an `flock`) and are appended, before any newer ones, by the next publish and once a minute in `serve`; a crash between replaying and emptying the spool appends them twice, which idempotent handlers accept. Events neither the log nor the spool takes are logged and lost, and so are events of a crash between the save and the append.
+- **Append after save.** A use case saves its state, then publishes the command's events through `Publisher`, which appends them in a transaction of their own. A failed append never fails the use case: `Publisher` keeps the events in memory and appends them, before any newer ones, with the next publish or `flush`. `serve` flushes once a minute and once more after it stops; a CLI command flushes before it exits and fails when the log still refuses them, saying the change was saved but the service will not react to it. Events still kept when the process stops are lost, and so are events of a crash between the save and the append.
 - **Ordered delivery.** Each subscriber runs as one task that reads events after its saved position, in id order, and advances its position after each success.
 - **Order is safe.** SQLite allows one writer at a time, so ids are always committed in id order. A reader can never skip an event whose transaction commits late.
 - **At-least-once.** Handlers are idempotent.
 - **Failures.** Retried with exponential backoff. After N attempts the failure is recorded in `failed_deliveries` and the subscriber moves on. Recorded failures are tried again later: every `retry_interval` (10 min) in `serve`; each further attempt updates the record, success removes it, and the position never moves back. Handlers are idempotent, so an event retried after newer ones is safe.
 - **Wake-up.** `EventLog::append` signals a `tokio::sync::watch` channel after each append. A signal sent while a subscriber is busy is not lost. A slow periodic poll is the fallback, and it also picks up events written by CLI commands running in another process.
 - **Shutdown.** Delivery stops at the next await point. An event interrupted mid-handler is delivered again on the next run.
-- **Correlation.** Every CLI command and job tick runs under a new correlation id (a task-local, also a field of its `command` or `job` span). `Publisher` stores it with each event, in the log and in spooled lines, and a delivery restores it in its `deliver` span, so one id follows a command through its events, their handlers and the events those publish. Events stored before the column have none and get a new id per delivery.
+- **Correlation.** Every CLI command and job tick runs under a new correlation id (a task-local, also a field of its `command` or `job` span). `Publisher` stores it with each event, in the log, and a delivery restores it in its `deliver` span, so one id follows a command through its events, their handlers and the events those publish. Events stored before the column have none and get a new id per delivery.
 - **Rebuild.** A projection is rebuilt by deleting its row in `subscriber_positions`.
 - **History (FR-9.1)** is a query over the event log (`events::History`): newest first via `EventLog::read_before`, filtered by `Event::items()` when one series or movie is asked for. There is no separate history table. Failed imports show their reason and can be retried from the Queue page (FR-9.2).
 

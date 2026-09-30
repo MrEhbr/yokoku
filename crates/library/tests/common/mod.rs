@@ -116,7 +116,7 @@ impl App {
         let provider = Arc::new(StaticMetadata::default());
         let repo = Arc::new(db.clone());
         let dir = TempDir::new().unwrap();
-        let events = publisher(&db, dir.path());
+        let events = publisher(&db);
         let library = Library::new(repo.clone(), repo.clone(), clock.clone(), events.clone());
         let calendar = Calendar::new(repo.clone(), repo.clone(), clock.clone());
         let metadata =
