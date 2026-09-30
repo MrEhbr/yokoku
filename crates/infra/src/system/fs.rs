@@ -2,6 +2,7 @@ use std::{
     fs,
     io::{self, Read},
     os::unix::fs::MetadataExt,
+    panic,
     path::{Path, PathBuf},
 };
 
@@ -87,10 +88,17 @@ impl FileSystem for LocalFileSystem {
     }
 }
 
+/// Runs `work` on the blocking pool; a panic in it panics the caller.
 pub(crate) async fn blocking<T: Send + 'static>(
     work: impl FnOnce() -> Result<T, FsError> + Send + 'static,
 ) -> Result<T, FsError> {
-    task::spawn_blocking(work).await.map_err(|error| FsError::new(PathBuf::new(), io::Error::other(error)))?
+    match task::spawn_blocking(work).await {
+        Ok(result) => result,
+        Err(error) => match error.try_into_panic() {
+            Ok(panic) => panic::resume_unwind(panic),
+            Err(cancelled) => Err(FsError::new(PathBuf::new(), io::Error::other(cancelled))),
+        },
+    }
 }
 
 /// Any unreadable folder fails the whole walk, so a missing folder never looks empty.
@@ -216,4 +224,15 @@ fn remove_empty_folders(dir: &Path, stop: &Path) -> Result<(), FsError> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::blocking;
+
+    #[tokio::test]
+    #[should_panic(expected = "bug in file code")]
+    async fn a_panic_in_blocking_work_panics_the_caller() {
+        _ = blocking::<()>(|| panic!("bug in file code")).await;
+    }
 }
