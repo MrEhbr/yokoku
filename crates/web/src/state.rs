@@ -47,6 +47,9 @@ pub struct AddSettings {
 /// The configuration as the Settings page reads and changes it.
 #[async_trait::async_trait]
 pub trait SettingsAccess: Send + Sync {
+    /// The settings the Settings page edits, in page order.
+    fn fields(&self) -> Vec<crate::api::settings::Field>;
+
     /// The value in effect as JSON, a secret masked; `None` for a key that is not a setting.
     fn value(&self, key: &str) -> Option<serde_json::Value>;
 

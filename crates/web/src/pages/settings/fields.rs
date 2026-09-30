@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::{
     api::{
         failure,
-        settings::{Setting, reset_setting, save_setting},
+        settings::{Control, Section, Setting, reset_setting, save_setting},
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
@@ -26,69 +26,60 @@ const LONG_CHOICE: usize = 12;
 #[derive(Clone, Copy)]
 pub(super) struct Unsaved(pub(super) Signal<BTreeMap<String, Value>>);
 
-/// How a setting is edited.
-#[derive(Clone, Copy, PartialEq)]
-pub(super) enum Control {
-    Text(&'static str),
-    /// Shown masked; typing replaces it.
-    Secret,
-    /// JSON string values with their labels; a value in effect outside them is offered too.
-    Choice(&'static [(&'static str, &'static str)]),
-    Switch,
-    /// Strings, typed comma-separated.
-    List,
-}
-
 /// One setting: its control, a hint, and where its value comes from. Text is saved with Save or
 /// Enter, a choice or switch at once; an empty text or list goes back to the config file.
 #[component]
-pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static str, control: Control) -> Element {
+pub(super) fn SettingField(setting: Setting) -> Element {
     let mut current = use_signal(|| setting);
-    let mut draft = use_signal(|| text(&current.read().value, control));
+    let shown = move || {
+        let setting = current.read();
+        text(&setting.value, &setting.field.control)
+    };
+    let mut draft = use_signal(shown);
     let chosen = use_memo(move || Some(draft()));
     let mut saving = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
-    let key = current.read().key.clone();
+    let key = current.read().field.key.clone();
     let id = format!("setting-{}", key.replace('.', "-"));
     let (hint_id, error_id) = (format!("{id}-hint"), format!("{id}-error"));
     let locked = current.read().from_env || saving();
-    let changed = draft() != text(&current.read().value, control);
+    let changed = draft() != shown();
     let described = if error.read().is_some() { error_id.clone() } else { hint_id.clone() };
     let save = move |value: Value| async move {
         saving.set(true);
         error.set(None);
-        let key = current.read().key.clone();
+        let key = current.read().field.key.clone();
         let saved = if value.is_null() { reset_setting(key).await } else { save_setting(key, value).await };
         match saved {
             Ok(setting) => {
-                draft.set(if control == Control::Secret { String::new() } else { text(&setting.value, control) });
+                draft.set(text(&setting.value, &setting.field.control));
                 current.set(setting);
             },
             Err(failed) => {
                 error.set(Some(failure(&failed)));
-                if matches!(control, Control::Choice(_)) {
-                    draft.set(text(&current.read().value, control));
+                if matches!(current.read().field.control, Control::Choice(_)) {
+                    draft.set(shown());
                 }
             },
         }
         saving.set(false);
     };
-    let typed = move || typed(&draft(), control);
+    let typed = move || typed(&draft(), &current.read().field.control);
     let Unsaved(mut unsaved) = use_context();
     use_effect(move || {
-        let key = current.read().key.clone();
-        if draft() == text(&current.read().value, control) {
+        let key = current.read().field.key.clone();
+        if draft() == shown() {
             unsaved.write().remove(&key);
         } else {
             unsaved.write().insert(key, typed());
         }
     });
     let setting = current();
-    let variable = format!("APP__{}", setting.key.to_uppercase().replace('.', "__"));
+    let variable = format!("APP__{}", setting.field.key.to_uppercase().replace('.', "__"));
     rsx! {
         Field {
-            Label { html_for: "{id}", "{label}" }
-            match control {
+            Label { html_for: "{id}", "{setting.field.label}" }
+            match &setting.field.control {
                 Control::Switch => rsx! {
                     Switch {
                         id: "{id}",
@@ -157,14 +148,14 @@ pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static
                     div { class: "flex gap-2",
                         Input {
                             id: "{id}",
-                            class: if setting.key.starts_with("naming.") { "flex-1 yk-code" } else { "flex-1" },
-                            r#type: if control == Control::Secret { "password" } else { "text" },
+                            class: if setting.field.section == Section::Naming { "flex-1 yk-code" } else { "flex-1" },
+                            r#type: if setting.field.control == Control::Secret { "password" } else { "text" },
                             autocomplete: "off",
                             value: "{draft}",
-                            placeholder: match (control, &setting.value) {
+                            placeholder: match (&setting.field.control, &setting.value) {
                                 (Control::Secret, Value::String(masked)) => format!("Set ({masked}); type to replace it"),
                                 (Control::Secret, _) => "Not set".to_owned(),
-                                (Control::Text(placeholder), _) => placeholder.to_owned(),
+                                (Control::Text(placeholder), _) => placeholder.clone(),
                                 _ => String::new(),
                             },
                             disabled: locked,
@@ -190,7 +181,7 @@ pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static
                 FieldError { id: "{error_id}", "{message}" }
             }
             FieldHint { id: "{hint_id}",
-                "{hint}"
+                "{setting.field.hint}"
                 if setting.from_env {
                     " Set by "
                     code { class: "yk-code", "{variable}" }
@@ -212,7 +203,7 @@ pub(super) fn SettingField(setting: Setting, label: &'static str, hint: &'static
 }
 
 /// The value as the control edits it; a secret starts empty.
-fn text(value: &Value, control: Control) -> String {
+fn text(value: &Value, control: &Control) -> String {
     match (control, value) {
         (Control::Secret, _) | (_, Value::Null) => String::new(),
         (Control::List, Value::Array(items)) => items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "),
@@ -222,7 +213,7 @@ fn text(value: &Value, control: Control) -> String {
 }
 
 /// The value to save for `draft`; a list is split at commas.
-fn typed(draft: &str, control: Control) -> Value {
+fn typed(draft: &str, control: &Control) -> Value {
     match control {
         Control::List => {
             Value::Array(draft.split(',').map(str::trim).filter(|item| !item.is_empty()).map(Into::into).collect())
@@ -232,9 +223,8 @@ fn typed(draft: &str, control: Control) -> Value {
 }
 
 /// `choices` as values and labels, with `current` first when it is set and not among them.
-fn choice_options(choices: &[(&str, &str)], current: &str) -> Vec<(String, String)> {
-    let mut options: Vec<(String, String)> =
-        choices.iter().map(|(value, text)| (value.to_string(), text.to_string())).collect();
+fn choice_options(choices: &[(String, String)], current: &str) -> Vec<(String, String)> {
+    let mut options = choices.to_vec();
     if !current.is_empty() && !options.iter().any(|(value, _)| value == current) {
         options.insert(0, (current.to_owned(), current.to_owned()));
     }
@@ -249,8 +239,8 @@ mod tests {
     use rstest::rstest;
     use serde_json::{Value, json};
 
-    use super::{Control, SettingField, Unsaved, choice_options, text, typed};
-    use crate::api::settings::Setting;
+    use super::{SettingField, Unsaved, choice_options, text, typed};
+    use crate::api::settings::{Control, Field, Section, Setting};
 
     const LANGUAGES: &[(&str, &str)] = &[("en-US", "English, US"), ("uk-UA", "Ukrainian")];
 
@@ -258,10 +248,10 @@ mod tests {
     #[component]
     fn SwitchSetting(on: bool) -> Element {
         use_context_provider(|| Unsaved(Signal::new(BTreeMap::new())));
-        let setting =
-            Setting { key: "downloads.pick_up".into(), value: Value::Bool(on), stored: false, from_env: false };
+        let field = Field::new(Section::Import, "downloads.pick_up", "Pick up", "", Control::Switch);
+        let setting = Setting { field, value: Value::Bool(on), stored: false, from_env: false };
         rsx! {
-            SettingField { setting, label: "Pick up", hint: "", control: Control::Switch }
+            SettingField { setting }
         }
     }
 
@@ -279,29 +269,29 @@ mod tests {
 
     #[rstest]
     #[case::secret(json!("hunter2"), Control::Secret, "")]
-    #[case::unset(Value::Null, Control::Text(""), "")]
+    #[case::unset(Value::Null, Control::text(""), "")]
     #[case::list(json!(["tv", "anime"]), Control::List, "tv, anime")]
     #[case::empty_list(json!([]), Control::List, "")]
-    #[case::text(json!("copy"), Control::Text(""), "copy")]
+    #[case::text(json!("copy"), Control::text(""), "copy")]
     #[case::switch(json!(true), Control::Switch, "true")]
     fn a_value_is_shown_as_its_control_edits_it(
         #[case] value: Value,
         #[case] control: Control,
         #[case] expected: &str,
     ) {
-        assert_eq!(text(&value, control), expected);
+        assert_eq!(text(&value, &control), expected);
     }
 
     #[rstest]
     #[case::list(" tv, ,anime ", Control::List, json!(["tv", "anime"]))]
     #[case::empty_list("", Control::List, json!([]))]
-    #[case::text(" copy ", Control::Text(""), json!(" copy "))]
+    #[case::text(" copy ", Control::text(""), json!(" copy "))]
     fn a_draft_is_saved_as_its_control_types_it(
         #[case] draft: &str,
         #[case] control: Control,
         #[case] expected: Value,
     ) {
-        assert_eq!(typed(draft, control), expected);
+        assert_eq!(typed(draft, &control), expected);
     }
 
     #[rstest]
@@ -312,6 +302,8 @@ mod tests {
         let expected: Vec<(String, String)> =
             expected.iter().map(|(value, text)| (value.to_string(), text.to_string())).collect();
 
-        assert_eq!(choice_options(LANGUAGES, current), expected);
+        let Control::Choice(languages) = Control::choice(LANGUAGES) else { unreachable!() };
+
+        assert_eq!(choice_options(&languages, current), expected);
     }
 }

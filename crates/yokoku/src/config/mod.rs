@@ -1,6 +1,7 @@
 //! The configuration: every crate's settings, layered from defaults, the config file, stored
 //! settings and the environment.
 
+mod fields;
 mod log;
 mod sections;
 mod settings;

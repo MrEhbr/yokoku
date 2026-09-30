@@ -15,7 +15,7 @@ mod state;
 pub use route::App;
 #[cfg(feature = "server")]
 pub use {
-    api::settings::Connection,
+    api::settings::{Connection, Control, Field, Section},
     server::Server,
     state::{AddSettings, AppState, ConnectionTest, SettingsAccess},
 };

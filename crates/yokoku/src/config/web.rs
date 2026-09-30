@@ -8,12 +8,16 @@ use yokoku_core::{
 };
 use yokoku_domain::{Live, StorageError};
 use yokoku_infra::{download_clients::TransmissionClient, media_servers::JellyfinClient};
-use yokoku_web::{Connection, ConnectionTest, SettingsAccess};
+use yokoku_web::{Connection, ConnectionTest, Field, SettingsAccess};
 
 use crate::config::{Config, Settings};
 
 #[async_trait]
 impl SettingsAccess for Settings {
+    fn fields(&self) -> Vec<Field> {
+        Config::fields()
+    }
+
     fn value(&self, key: &str) -> Option<Value> {
         self.current().value(key).ok()
     }
