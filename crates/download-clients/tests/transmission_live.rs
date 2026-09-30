@@ -99,7 +99,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
     assert_eq!(completed.status.state, DownloadState::Seeding);
     assert_eq!(completed.percent_done(), 100);
     assert_eq!(completed.content_path(), video);
-    let events: Vec<Event> = EventLog::new(db.pool().clone())
+    let events: Vec<Event> = EventLog::new(db.clone())
         .read_after(None, 10)
         .await
         .unwrap()

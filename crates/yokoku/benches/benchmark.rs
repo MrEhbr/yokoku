@@ -84,7 +84,7 @@ impl Seeded {
     }
 
     fn publisher(&self) -> Publisher {
-        Publisher::new(EventLog::new(self.db.pool().clone()))
+        Publisher::new(EventLog::new(self.db.clone()))
     }
 }
 

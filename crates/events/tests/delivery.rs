@@ -55,7 +55,7 @@ impl Harness {
     fn new(db: Database) -> Self {
         let (handled_tx, handled) = mpsc::unbounded_channel();
         Self {
-            log: EventLog::new(db.pool().clone()),
+            log: EventLog::new(db.clone()),
             recorder: Some(Recorder { failures_left: Mutex::default(), handled: handled_tx }),
             handled,
             shutdown: CancellationToken::new(),
@@ -191,7 +191,7 @@ async fn polls_for_events_committed_by_another_process() {
     harness.start(Duration::from_millis(100));
     sleep(Duration::from_millis(50)).await;
 
-    append(&EventLog::new(other_process.pool().clone()), 1).await;
+    append(&EventLog::new(other_process.clone()), 1).await;
 
     assert_eq!(harness.next_handled().await, EventId(1));
 }
@@ -278,7 +278,7 @@ impl Handler<SeriesAdded> for CorrelationRecorder {
 async fn handlers_run_under_the_correlation_id_of_their_event() {
     let db = Database::open_in_memory().await.unwrap();
     let event = series_added("Series 1");
-    let log = EventLog::new(db.pool().clone());
+    let log = EventLog::new(db.clone());
     log.append(std::slice::from_ref(&event)).await.unwrap();
     let recorder = Arc::new(CorrelationRecorder::default());
     let delivery = Delivery::new(

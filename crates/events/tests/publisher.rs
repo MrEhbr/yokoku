@@ -11,12 +11,12 @@ fn series_added(title: &str) -> Event {
 
 async fn setup() -> (Database, Publisher) {
     let db = Database::open_in_memory().await.unwrap();
-    let publisher = Publisher::new(EventLog::new(db.pool().clone()));
+    let publisher = Publisher::new(EventLog::new(db.clone()));
     (db, publisher)
 }
 
 async fn appended(db: &Database) -> Vec<Recorded> {
-    EventLog::new(db.pool().clone()).read_after(None, 100).await.unwrap()
+    EventLog::new(db.clone()).read_after(None, 100).await.unwrap()
 }
 
 async fn events(db: &Database) -> Vec<Event> {

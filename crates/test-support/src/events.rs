@@ -2,7 +2,7 @@ use yokoku_db::Database;
 use yokoku_events::{EventLog, Publisher};
 
 pub fn publisher(db: &Database) -> Publisher {
-    Publisher::new(EventLog::new(db.pool().clone()))
+    Publisher::new(EventLog::new(db.clone()))
 }
 
 /// Makes `db`'s event log refuse every append until `accept_events`.

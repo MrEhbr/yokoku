@@ -121,7 +121,7 @@ async fn a_scan_records_its_files_and_leaves_their_handling_to_the_service() {
     let stdout = setup.stdout(&["scan"]);
 
     assert_eq!(stdout, "Linked 1 new files\n");
-    let log = EventLog::new(Database::open(&setup.database).await.unwrap().pool().clone());
+    let log = EventLog::new(Database::open(&setup.database).await.unwrap());
     let events: Vec<&str> =
         log.read_after(None, 10).await.unwrap().iter().map(|recorded| recorded.event.name()).collect();
     assert_eq!(events, ["FilesFound"]);

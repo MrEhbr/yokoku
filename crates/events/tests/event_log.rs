@@ -8,7 +8,7 @@ use yokoku_events::{
 
 #[fixture]
 async fn log() -> EventLog {
-    EventLog::new(Database::open_in_memory().await.unwrap().pool().clone())
+    EventLog::new(Database::open_in_memory().await.unwrap())
 }
 
 fn series_added(id: i64) -> Event {
@@ -126,12 +126,12 @@ async fn events_and_positions_survive_reopening() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("yokoku.db");
 
-    let log = EventLog::new(Database::open(&path).await.unwrap().pool().clone());
+    let log = EventLog::new(Database::open(&path).await.unwrap());
     append(&log, &[series_added(1)]).await;
     log.mark_delivered("a", EventId(1)).await.unwrap();
     drop(log);
 
-    let log = EventLog::new(Database::open(&path).await.unwrap().pool().clone());
+    let log = EventLog::new(Database::open(&path).await.unwrap());
     assert_eq!(ids(&log.read_after(None, 10).await.unwrap()), [1]);
     assert_eq!(log.last_delivered("a").await.unwrap(), Some(EventId(1)));
 }

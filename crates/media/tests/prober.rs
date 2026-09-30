@@ -61,7 +61,7 @@ impl Setup {
     /// Scans, then hands every `FilesFound` it recorded to the prober.
     async fn scan_and_deliver(&self) {
         self.app.scanner.scan().await.unwrap();
-        for recorded in EventLog::new(self.app.db.pool().clone()).read_after(None, 100).await.unwrap() {
+        for recorded in EventLog::new(self.app.db.clone()).read_after(None, 100).await.unwrap() {
             if let Some(found) = recorded.event.get::<FilesFound>() {
                 self.prober.handle(found).await.unwrap();
             }

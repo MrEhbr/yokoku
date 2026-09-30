@@ -60,7 +60,7 @@ impl App {
             .await
             .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(settings.live(|config| config.clock.time_zone())));
-        let log = EventLog::new(db.pool().clone());
+        let log = EventLog::new(Database::clone(&db));
         let events = Publisher::new(log.clone());
         let queue_changes = QueueChanges::new();
         let naming = settings.live(|config| config.naming.clone());

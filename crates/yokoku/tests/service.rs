@@ -435,7 +435,7 @@ async fn seed_unscanned_movie(dir: &Path) {
 
 /// Waits up to 15 s for a scan of `dir`'s library to find a file.
 async fn scanned(dir: &Path) -> bool {
-    let log = EventLog::new(Database::open(&dir.join("yokoku.db")).await.unwrap().pool().clone());
+    let log = EventLog::new(Database::open(&dir.join("yokoku.db")).await.unwrap());
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         let events = log.read_after(None, 100).await.unwrap();
@@ -579,7 +579,7 @@ async fn seed_history(path: &Path, dune: MovieId) {
         MovieRemoved { movie: MovieId::generate(), title: "Arrival".into(), delete_files: false }.into(),
     ];
     let events = events.map(|event| Correlated { correlation, event });
-    EventLog::new(db.pool().clone()).append(&events).await.unwrap();
+    EventLog::new(db.clone()).append(&events).await.unwrap();
 }
 
 #[tokio::test]
@@ -646,7 +646,7 @@ async fn item_history_pages_load_older_entries_from_the_cursor() {
             .into(),
         })
         .collect();
-    EventLog::new(db.pool().clone()).append(&events).await.unwrap();
+    EventLog::new(db.clone()).append(&events).await.unwrap();
     drop(db);
     let service = Service::start(dir.path());
 

@@ -34,7 +34,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
     let path = &config.database.path;
     let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;
     let stored = db.settings().await.context("Failed to read the stored settings")?;
-    let events = Publisher::new(EventLog::new(db.pool().clone()));
+    let events = Publisher::new(EventLog::new(db.clone()));
 
     match args.command {
         Command::List => {
