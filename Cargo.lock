@@ -6336,6 +6336,7 @@ dependencies = [
  "yokoku-library",
  "yokoku-naming",
  "yokoku-system",
+ "yokoku-test-support",
 ]
 
 [[package]]

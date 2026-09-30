@@ -24,6 +24,7 @@ tracing.workspace = true
 yokoku-db.workspace = true
 yokoku-library.workspace = true
 yokoku-system.workspace = true
+yokoku-test-support.workspace = true
 
 rstest.workspace = true
 tempfile.workspace = true

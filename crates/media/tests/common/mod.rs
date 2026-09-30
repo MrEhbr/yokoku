@@ -6,41 +6,30 @@ use std::{
     sync::Arc,
 };
 
-use jiff::{
-    Timestamp, Zoned,
-    civil::{Date, date},
-    tz::TimeZone,
-};
+use jiff::{Timestamp, civil::date};
 use tempfile::TempDir;
 use yokoku_db::Database;
 use yokoku_domain::{
-    Artwork, Clock, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ItemFolder, Live,
-    MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Clock, EpisodeSpan, FileTarget, ItemFolder, Live, MonitorPreset, Movie, MovieMetadata, Releases, Series,
+    SeriesMetadata, SourceStatus,
 };
 use yokoku_events::{Event, EventLog, Publisher, QueueChanges};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{ImportPlanner, Renamer, Reviewer, RootFolders, RootKind, Scanner};
 use yokoku_naming::Naming;
-use yokoku_system::{FileSpool, LocalFileSystem, LockFile};
-
-pub const TODAY: Date = date(2026, 9, 26);
+use yokoku_system::{LocalFileSystem, LockFile};
+pub use yokoku_test_support::clock::TODAY;
+use yokoku_test_support::{
+    clock::TestClock,
+    events::publisher,
+    metadata::{movie_metadata, series_metadata},
+};
 
 /// The library lock file, in the test folder.
 pub const LOCK: &str = "library.lock";
 
-/// The event spool, in the test folder.
-pub const SPOOL: &str = "yokoku.spool";
-
-pub struct FixedClock;
-
-impl Clock for FixedClock {
-    fn now(&self) -> Zoned {
-        TODAY.at(12, 0, 0, 0).to_zoned(TimeZone::UTC).unwrap()
-    }
-}
-
 pub fn now() -> Timestamp {
-    FixedClock.now().timestamp()
+    TestClock::default().now().timestamp()
 }
 
 /// Series and movie root folders on disk, "Frieren (2023)" with two seasons of three episodes in
@@ -67,9 +56,9 @@ impl App {
 
         let db = Database::open_in_memory().await.unwrap();
         let repo = Arc::new(db.clone());
-        let events = Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join(SPOOL))));
+        let events = publisher(&db, dir.path());
         let fs = Arc::new(LocalFileSystem);
-        let clock = Arc::new(FixedClock);
+        let clock = Arc::new(TestClock::default());
         let roots = RootFolders::new(repo.clone(), repo.clone(), fs.clone());
         let lock = Arc::new(LockFile::new(dir.path().join(LOCK)));
         let changes = QueueChanges::new();
@@ -88,7 +77,7 @@ impl App {
             repo.clone(),
             repo,
             Arc::new(LocalFileSystem),
-            Arc::new(FixedClock),
+            Arc::new(TestClock::default()),
             events.clone(),
             changes.clone(),
         );
@@ -135,6 +124,15 @@ impl App {
         yokoku_media::ports::MediaRepo::files(&self.db).await.unwrap()
     }
 
+    /// Writes each of `paths` and scans them into the library; the stored files after.
+    pub async fn linked(&self, paths: &[&str]) -> Vec<yokoku_media::MediaFile> {
+        for path in paths {
+            self.write(path, 10);
+        }
+        self.scanner.scan().await.unwrap();
+        self.db_files().await
+    }
+
     pub fn importer(&self, mode: yokoku_media::ImportMode) -> yokoku_media::Importer {
         let repo = Arc::new(self.db.clone());
         yokoku_media::Importer::new(
@@ -142,7 +140,7 @@ impl App {
             repo,
             Arc::new(LocalFileSystem),
             self.lock(),
-            Arc::new(FixedClock),
+            Arc::new(TestClock::default()),
             Live::fixed(Naming::default()),
             Live::fixed(mode),
             self.publisher(),
@@ -155,7 +153,7 @@ impl App {
     }
 
     pub fn publisher(&self) -> Publisher {
-        Publisher::new(Arc::new(self.db.event_log()), Arc::new(FileSpool::new(self.path(SPOOL))))
+        publisher(&self.db, self.dir.path())
     }
 
     pub fn lock(&self) -> Arc<LockFile> {
@@ -163,47 +161,17 @@ impl App {
     }
 }
 
-pub fn episode(season: u16, episode: u16) -> EpisodeRef {
-    EpisodeRef { season, episode }
-}
-
+/// Two seasons of three episodes, all aired on 2023-09-29.
 pub fn frieren_metadata() -> SeriesMetadata {
-    let season = |number: u16| SeasonMetadata {
-        number,
-        episodes: (1..=3)
-            .map(|episode| EpisodeMetadata {
-                source_id: u64::from(number) * 100 + u64::from(episode),
-                number: episode,
-                title: format!("Episode {episode}"),
-                overview: String::new(),
-                air_date: Some(date(2023, 9, 29)),
-            })
-            .collect(),
-    };
+    let aired = [Some(date(2023, 9, 29)); 3];
     SeriesMetadata {
-        source: ExternalId::Tmdb(209867),
-        title: "Frieren".into(),
         original_title: "Sousou no Frieren".into(),
-        alternate_titles: Vec::new(),
-        year: Some(2023),
-        artwork: Artwork::default(),
-        description: Description::default(),
-        status: SourceStatus::Returning,
-        seasons: vec![season(1), season(2)],
+        ..series_metadata(209867, "Frieren", SourceStatus::Returning, &[(1, &aired), (2, &aired)])
     }
 }
 
 fn dune_metadata() -> MovieMetadata {
-    MovieMetadata {
-        source: ExternalId::Tmdb(438631),
-        title: "Dune".into(),
-        original_title: "Dune".into(),
-        alternate_titles: Vec::new(),
-        year: Some(2021),
-        artwork: Artwork::default(),
-        description: Description::default(),
-        releases: Releases::default(),
-    }
+    MovieMetadata { year: Some(2021), ..movie_metadata(438631, "Dune", Releases::default()) }
 }
 
 pub fn relative<'a>(app: &App, paths: impl IntoIterator<Item = &'a Path>) -> Vec<String> {

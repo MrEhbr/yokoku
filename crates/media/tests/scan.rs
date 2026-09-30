@@ -11,7 +11,7 @@ const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode
 const E02: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E02 - Episode 2.mkv";
 const DUNE: &str = "movies/Dune (2021)/Dune (2021).mkv";
 
-fn linked(files: &[MediaFile]) -> Vec<LinkedFile> {
+fn linked_files(files: &[MediaFile]) -> Vec<LinkedFile> {
     files.iter().map(|file| LinkedFile { file: file.id, path: file.path.clone(), target: file.target }).collect()
 }
 
@@ -33,7 +33,10 @@ async fn certain_matches_are_linked_where_they_are() {
     );
     assert_eq!(
         app.events().await,
-        [FilesFound { files: linked(&files[1..]) }.into(), FilesFound { files: linked(&files[..1]) }.into()]
+        [
+            FilesFound { files: linked_files(&files[1..]) }.into(),
+            FilesFound { files: linked_files(&files[..1]) }.into()
+        ]
     );
 }
 

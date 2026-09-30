@@ -14,17 +14,10 @@ use yokoku_media::{
 const E01: &str = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.mkv";
 const MESSY: &str = "tv/Frieren (2023)/S1/Frieren (2023) - S01E01.mkv";
 
-/// Links `path` to the library through a scan.
-async fn linked(app: &App, path: &str) {
-    app.write(path, 10);
-    let report = app.scanner.scan().await.unwrap();
-    assert_eq!(report.found, 1, "{path} was not linked");
-}
-
 #[tokio::test]
 async fn preview_lists_moves_without_touching_disk() {
     let app = App::new().await;
-    linked(&app, MESSY).await;
+    app.linked(&[MESSY]).await;
     app.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.eng.srt", 1);
 
     let plan = app.renamer.preview(RenameScope::All).await.unwrap();
@@ -42,7 +35,7 @@ async fn preview_lists_moves_without_touching_disk() {
 #[tokio::test]
 async fn applying_moves_videos_and_subtitles_and_tidies_old_folders() {
     let app = App::new().await;
-    linked(&app, MESSY).await;
+    app.linked(&[MESSY]).await;
     app.write("tv/Frieren (2023)/S1/Frieren (2023) - S01E01.eng.srt", 1);
 
     let report = app.renamer.apply(RenameScope::All, None).await.unwrap();
@@ -67,7 +60,7 @@ async fn applying_moves_videos_and_subtitles_and_tidies_old_folders() {
 #[tokio::test]
 async fn applying_to_chosen_files_leaves_the_others() {
     let app = App::new().await;
-    linked(&app, MESSY).await;
+    app.linked(&[MESSY]).await;
 
     let report = app.renamer.apply(RenameScope::All, Some(&[MediaFileId::generate()])).await.unwrap();
 
@@ -79,7 +72,7 @@ async fn applying_to_chosen_files_leaves_the_others() {
 #[tokio::test]
 async fn files_already_in_place_are_not_listed() {
     let app = App::new().await;
-    linked(&app, E01).await;
+    app.linked(&[E01]).await;
 
     let plan = app.renamer.preview(RenameScope::All).await.unwrap();
 
@@ -90,8 +83,8 @@ async fn files_already_in_place_are_not_listed() {
 #[tokio::test]
 async fn a_scope_limits_the_plan_to_one_item() {
     let app = App::new().await;
-    linked(&app, MESSY).await;
-    linked(&app, "movies/Dune (2021)/dune.2021.mkv").await;
+    app.linked(&[MESSY]).await;
+    app.linked(&["movies/Dune (2021)/dune.2021.mkv"]).await;
 
     let series = app.renamer.preview(RenameScope::Series(app.frieren.id)).await.unwrap();
     let movie = app.renamer.preview(RenameScope::Movie(app.dune.id)).await.unwrap();
@@ -106,8 +99,8 @@ async fn a_scope_limits_the_plan_to_one_item() {
 #[tokio::test]
 async fn files_without_a_root_or_a_library_item_are_skipped() {
     let app = App::new().await;
-    linked(&app, MESSY).await;
-    linked(&app, "movies/Dune (2021)/dune.2021.mkv").await;
+    app.linked(&[MESSY]).await;
+    app.linked(&["movies/Dune (2021)/dune.2021.mkv"]).await;
     SeriesRepo::remove(&app.db, app.frieren.id).await.unwrap();
     app.roots.remove(&app.path("tv")).await.unwrap();
     MovieRepo::remove(&app.db, app.dune.id).await.unwrap();
@@ -127,7 +120,7 @@ async fn files_without_a_root_or_a_library_item_are_skipped() {
 #[tokio::test]
 async fn an_unlinked_file_at_the_new_path_is_never_replaced() {
     let app = App::new().await;
-    linked(&app, MESSY).await;
+    app.linked(&[MESSY]).await;
     let blocker = app.path(E01);
     fs::create_dir_all(blocker.parent().unwrap()).unwrap();
     fs::write(&blocker, b"keep me").unwrap();
