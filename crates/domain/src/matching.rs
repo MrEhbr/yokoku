@@ -2,6 +2,39 @@ use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
+use crate::{ItemId, MovieId, SeriesId};
+
+/// What a video file holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FileTarget {
+    Episodes { series: SeriesId, span: EpisodeSpan },
+    Movie(MovieId),
+}
+
+impl FileTarget {
+    /// Both hold the same movie or at least one common episode.
+    pub fn overlaps(&self, other: &FileTarget) -> bool {
+        match (self, other) {
+            (Self::Episodes { series, span }, Self::Episodes { series: other_series, span: other_span }) => {
+                series == other_series
+                    && span.season() == other_span.season()
+                    && span.first() <= other_span.last()
+                    && other_span.first() <= span.last()
+            },
+            (Self::Movie(movie), Self::Movie(other_movie)) => movie == other_movie,
+            _ => false,
+        }
+    }
+
+    /// The series or movie the file belongs to.
+    pub fn item(&self) -> ItemId {
+        match self {
+            Self::Episodes { series, .. } => ItemId::Series(*series),
+            Self::Movie(movie) => ItemId::Movie(*movie),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct EpisodeRef {
     pub season: u16,
@@ -107,3 +140,41 @@ impl fmt::Display for EpisodeSpan {
         Ok(())
     }
 }
+
+/// Jellyfin subtitle flags, e.g. from `Movie.en.sdh.forced.srt`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct SubtitleTags {
+    /// Language code such as `en` or `pt-br`.
+    pub language: Option<String>,
+    /// Subtitles for the deaf and hard of hearing.
+    pub sdh: bool,
+    pub forced: bool,
+}
+
+/// The language with its flags, e.g. `en (SDH, forced)`; `unknown` without a language.
+impl fmt::Display for SubtitleTags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.language.as_deref().unwrap_or("unknown"))?;
+        match (self.sdh, self.forced) {
+            (false, false) => Ok(()),
+            (true, false) => f.write_str(" (SDH)"),
+            (false, true) => f.write_str(" (forced)"),
+            (true, true) => f.write_str(" (SDH, forced)"),
+        }
+    }
+}
+
+/// How sure detection is about a file's match (FR-4.10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Confidence {
+    Unknown,
+    Guess,
+    /// Imported without review.
+    Certain,
+}
+
+crate::string_enum!(Confidence, "confidence" {
+    Unknown => "unknown",
+    Guess => "guess",
+    Certain => "certain",
+});
