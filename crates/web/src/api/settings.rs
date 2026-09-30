@@ -9,7 +9,7 @@ use super::library::Kind;
 #[cfg(feature = "server")]
 use crate::{
     api::{Dep, RootFolders, Scanner},
-    state::SettingsAccess,
+    state::{ConnectionTest, SettingsAccess},
 };
 
 /// A setting's value in effect, as JSON, with a secret masked.
@@ -57,9 +57,9 @@ pub async fn reset_setting(key: String) -> Result<Setting, ServerFnError> {
 
 /// What the service answered, such as its version, with `changes` (unsaved values, as for
 /// `save_setting`) over the settings in effect.
-#[post("/api/settings/test", access: Dep<dyn SettingsAccess>)]
+#[post("/api/settings/test", connections: Dep<dyn ConnectionTest>)]
 pub async fn test_connection(connection: Connection, changes: Vec<(String, Value)>) -> Result<String, ServerFnError> {
-    server::test(&*access, connection, changes).await
+    server::test(&*connections, connection, changes).await
 }
 
 #[get("/api/roots", roots: Dep<RootFolders>)]
@@ -103,7 +103,7 @@ mod server {
     use serde_json::Value;
     use yokoku_core::media::MediaError;
 
-    use super::{Connection, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess};
+    use super::{Connection, ConnectionTest, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess};
     use crate::api::{root_listing_failed, unexpected};
 
     /// The settings the page shows; no other key can be changed through it.
@@ -151,7 +151,7 @@ mod server {
     }
 
     pub(super) async fn test(
-        access: &dyn SettingsAccess,
+        connections: &dyn ConnectionTest,
         connection: Connection,
         changes: Vec<(String, Value)>,
     ) -> Result<String, ServerFnError> {
@@ -160,7 +160,7 @@ mod server {
         }
         let changes =
             changes.into_iter().map(|(key, value)| (key, Some(value).filter(|value| !cleared(value)))).collect();
-        access.test(connection, changes).await.map_err(ServerFnError::new)
+        connections.test(connection, changes).await.map_err(ServerFnError::new)
     }
 
     /// Empty, so the config file's value applies.

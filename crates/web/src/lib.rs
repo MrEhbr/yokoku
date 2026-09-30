@@ -17,5 +17,5 @@ pub use route::App;
 pub use {
     api::settings::Connection,
     server::Server,
-    state::{AddSettings, AppState, SettingsAccess},
+    state::{AddSettings, AppState, ConnectionTest, SettingsAccess},
 };

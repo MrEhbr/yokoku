@@ -9,7 +9,6 @@ mod jobs;
 mod logging;
 mod service;
 mod subscriptions;
-mod web_settings;
 
 use std::io;
 

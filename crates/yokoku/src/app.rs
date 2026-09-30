@@ -1,13 +1,15 @@
 use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result, bail};
+use async_trait::async_trait;
+use serde_json::Value;
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_core::{
-    downloads::Downloads,
+    downloads::{DownloadError, Downloads, ports::DownloadClient},
     events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges, Subscription},
-    integrations::Rescans,
+    integrations::{Rescans, ports::MediaServer},
     library::{Artworks, Calendar, Library, MetadataService, ports::FolderNames},
     media::{
         Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
@@ -22,9 +24,10 @@ use yokoku_infra::{
     metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient},
     system::{ArtworkFiles, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
+use yokoku_web::{Connection, ConnectionTest};
 
 use crate::{
-    config::{Config, Settings},
+    config::{self, Config, Settings},
     subscriptions,
 };
 
@@ -244,6 +247,27 @@ impl FolderNames for NamedFolders {
 
     fn movie_folder(&self, title: &str, year: Option<i16>) -> String {
         self.0.current().movie_folder(title, year)
+    }
+}
+
+/// Reaches Transmission or Jellyfin with settings that are not stored yet.
+pub struct Connections(pub Settings);
+
+#[async_trait]
+impl ConnectionTest for Connections {
+    async fn test(&self, connection: Connection, changes: Vec<(String, Option<Value>)>) -> Result<String, String> {
+        let config = self.0.preview(&changes).await.map_err(config::message)?;
+        match connection {
+            Connection::Transmission => TransmissionClient::new(Live::fixed(config.transmission.clone()))
+                .version()
+                .await
+                .map_err(|error| DownloadError::from(error).to_string()),
+            Connection::Jellyfin if config.jellyfin.url.is_none() => Err("Set the Jellyfin address first".to_owned()),
+            Connection::Jellyfin => JellyfinClient::new(Live::fixed(config.jellyfin.clone()))
+                .version()
+                .await
+                .map_err(|error| error.to_string()),
+        }
     }
 }
 

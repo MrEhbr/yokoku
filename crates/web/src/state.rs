@@ -33,6 +33,7 @@ pub struct AppState {
     pub renamer: Arc<Renamer>,
     pub scanner: Arc<Scanner>,
     pub settings: Arc<dyn SettingsAccess>,
+    pub connections: Arc<dyn ConnectionTest>,
 }
 
 /// The settings adding an item reads.
@@ -59,7 +60,11 @@ pub trait SettingsAccess: Send + Sync {
 
     /// Removes the stored value, so the config file or the default applies again.
     async fn unset(&self, key: &str) -> Result<(), String>;
+}
 
+/// Reaches a service with settings that are not stored yet.
+#[async_trait::async_trait]
+pub trait ConnectionTest: Send + Sync {
     /// The service's version, or why it could not be reached, with `changes` over the settings
     /// in effect and nothing stored; a `None` value leaves its key to the config file.
     async fn test(
@@ -101,6 +106,7 @@ provides! {
     Renamer => renamer,
     Scanner => scanner,
     dyn SettingsAccess => settings,
+    dyn ConnectionTest => connections,
     AddSettings => add,
 }
 

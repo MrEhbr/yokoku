@@ -5,7 +5,10 @@ use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::{app::App, jobs::Jobs, web_settings::WebSettings};
+use crate::{
+    app::{App, Connections},
+    jobs::Jobs,
+};
 
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App) -> Result<()> {
@@ -26,7 +29,8 @@ pub async fn run(app: &App) -> Result<()> {
         deleter: app.deleter.clone(),
         renamer: app.renamer.clone(),
         scanner: app.scanner.clone(),
-        settings: Arc::new(WebSettings::new(app.settings.clone())),
+        settings: Arc::new(app.settings.clone()),
+        connections: Arc::new(Connections(app.settings.clone())),
         add: Arc::new(yokoku_web::AddSettings {
             tmdb_token_set: app.settings.live(|config| config.metadata.tmdb.token.is_some()),
             monitor: app.settings.live(|config| config.add.monitor),

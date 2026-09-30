@@ -20,6 +20,7 @@ use yokoku_infra::{
     system::{ClockSettings, ProbeSettings},
 };
 
+pub(crate) use crate::config::settings::message;
 pub use crate::config::{
     log::{LogConfig, LogFormat, LogOutput},
     sections::{AddConfig, CalendarConfig, DatabaseConfig, EventsConfig, ListConfig, WebConfig},
