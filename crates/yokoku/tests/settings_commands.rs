@@ -173,6 +173,7 @@ async fn a_running_service_reloads_a_setting_changed_from_the_command_line() {
         .command()
         .env("DIOXUS_PUBLIC_PATH", assets.path())
         .env("APP__WEB__PORT", "0")
+        .env("APP__EVENTS__POLL_INTERVAL_MS", "100")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
