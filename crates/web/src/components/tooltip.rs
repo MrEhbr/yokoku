@@ -5,6 +5,21 @@ use dioxus_primitives::{
     tooltip::{self, TooltipContentProps, TooltipProps, TooltipTriggerProps},
 };
 
+/// Opening, closing and placing a popover by its `data-side` and `data-align`.
+pub(super) const POPOVER_PLACEMENT: &str = "data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out \
+    data-[side=top]:bottom-full data-[side=top]:mb-2 \
+    data-[side=bottom]:top-full data-[side=bottom]:mt-2 \
+    data-[side=left]:right-full data-[side=left]:mr-2 \
+    data-[side=right]:left-full data-[side=right]:ml-2 \
+    data-[side=top]:data-[align=center]:left-1/2 data-[side=top]:data-[align=center]:-translate-x-1/2 \
+    data-[side=bottom]:data-[align=center]:left-1/2 data-[side=bottom]:data-[align=center]:-translate-x-1/2 \
+    data-[side=top]:data-[align=start]:left-0 data-[side=bottom]:data-[align=start]:left-0 \
+    data-[side=top]:data-[align=end]:right-0 data-[side=bottom]:data-[align=end]:right-0 \
+    data-[side=left]:data-[align=center]:top-1/2 data-[side=left]:data-[align=center]:-translate-y-1/2 \
+    data-[side=right]:data-[align=center]:top-1/2 data-[side=right]:data-[align=center]:-translate-y-1/2 \
+    data-[side=left]:data-[align=start]:top-0 data-[side=right]:data-[align=start]:top-0 \
+    data-[side=left]:data-[align=end]:bottom-0 data-[side=right]:data-[align=end]:bottom-0";
+
 #[component]
 pub fn Tooltip(props: TooltipProps) -> Element {
     let base = attributes!(div { class: "group relative inline-block" });
@@ -37,19 +52,7 @@ pub fn TooltipContent(props: TooltipContentProps) -> Element {
     let base = attributes!(div {
         class: "pointer-events-none absolute z-50 max-w-60 bg-ink px-2.5 py-1 text-caption font-medium text-canvas \
                 whitespace-nowrap \
-                data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out \
-                data-[side=top]:bottom-full data-[side=top]:mb-2 \
-                data-[side=bottom]:top-full data-[side=bottom]:mt-2 \
-                data-[side=left]:right-full data-[side=left]:mr-2 \
-                data-[side=right]:left-full data-[side=right]:ml-2 \
-                data-[side=top]:data-[align=center]:left-1/2 data-[side=top]:data-[align=center]:-translate-x-1/2 \
-                data-[side=bottom]:data-[align=center]:left-1/2 data-[side=bottom]:data-[align=center]:-translate-x-1/2 \
-                data-[side=top]:data-[align=start]:left-0 data-[side=bottom]:data-[align=start]:left-0 \
-                data-[side=top]:data-[align=end]:right-0 data-[side=bottom]:data-[align=end]:right-0 \
-                data-[side=left]:data-[align=center]:top-1/2 data-[side=left]:data-[align=center]:-translate-y-1/2 \
-                data-[side=right]:data-[align=center]:top-1/2 data-[side=right]:data-[align=center]:-translate-y-1/2 \
-                data-[side=left]:data-[align=start]:top-0 data-[side=right]:data-[align=start]:top-0 \
-                data-[side=left]:data-[align=end]:bottom-0 data-[side=right]:data-[align=end]:bottom-0",
+                {POPOVER_PLACEMENT}",
     });
     let merged = merge_attributes(vec![base, props.attributes]);
 
