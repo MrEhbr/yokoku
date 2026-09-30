@@ -48,7 +48,11 @@ pub(super) fn AddDialog(
                         X {}
                     }
                 }
-                Options { hit, options, on_close: move |()| picked.set(None) }
+                Options {
+                    hit,
+                    options,
+                    on_close: move |()| picked.set(None),
+                }
             }
         }
     }
@@ -71,7 +75,12 @@ fn Options(hit: SearchHit, options: Resource<Result<AddOptions, ServerFnError>>,
                 }
             },
             Some(Ok(options)) => rsx! {
-                OptionsForm { roots: options.roots(hit.kind).to_vec(), hit, monitor: options.monitor, on_close }
+                OptionsForm {
+                    roots: options.roots(hit.kind).to_vec(),
+                    hit,
+                    monitor: options.monitor,
+                    on_close,
+                }
             },
         }
     }
@@ -168,13 +177,7 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
                     monitor_hint: monitor_hint.unwrap_or_default(),
                     folder,
                     folder_taken: taken,
-                    folder_hint: if taken {
-                        format!("{path} belongs to another item; choose another name.")
-                    } else if existing {
-                        format!("{path} exists; the files in it are linked to this item.")
-                    } else {
-                        format!("Creates {path}.")
-                    },
+                    folder_hint: if taken { format!("{path} belongs to another item; choose another name.") } else if existing { format!("{path} exists; the files in it are linked to this item.") } else { format!("Creates {path}.") },
                 }
             }
         }

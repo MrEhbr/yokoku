@@ -126,7 +126,11 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     labelled: true,
                     on_change: reload,
                 }
-                NumberingSelect { series: id, numbering: series.numbering, on_change: reload }
+                NumberingSelect {
+                    series: id,
+                    numbering: series.numbering,
+                    on_change: reload,
+                }
                 div { class: "flex flex-wrap items-center gap-2",
                     AddTorrentButton {
                         item: ItemLink {
@@ -136,7 +140,11 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     }
                     RefreshButton { item: ItemId::Series(id), on_change: reload }
                     RenameButton { item: ItemId::Series(id), on_change: reload }
-                    RemoveItem { item: ItemId::Series(id), title: series.title.clone(), usage }
+                    RemoveItem {
+                        item: ItemId::Series(id),
+                        title: series.title.clone(),
+                        usage,
+                    }
                 }
             }
             div { class: "mt-2 grid gap-3 lg:grid-cols-2",

@@ -70,11 +70,17 @@ fn Sections(settings: Vec<Setting>) -> Element {
         div { class: "grid max-w-3xl gap-12",
             Group { title: "Download client",
                 {fields(Section::DownloadClient)}
-                Test { connection: Connection::Transmission, keys: keys(Section::DownloadClient) }
+                Test {
+                    connection: Connection::Transmission,
+                    keys: keys(Section::DownloadClient),
+                }
             }
             Group { title: "Media server",
                 {fields(Section::MediaServer)}
-                Test { connection: Connection::Jellyfin, keys: keys(Section::MediaServer) }
+                Test {
+                    connection: Connection::Jellyfin,
+                    keys: keys(Section::MediaServer),
+                }
             }
             Group { title: "Metadata", {fields(Section::Metadata)} }
             Group { title: "Library",
@@ -85,7 +91,9 @@ fn Sections(settings: Vec<Setting>) -> Element {
             Group { title: "Naming",
                 p { class: "text-caption text-muted",
                     "Tokens: "
-                    code { class: "yk-code", "{{title}} {{year}} {{season}} {{episodes}} {{episode_title}}" }
+                    code { class: "yk-code",
+                        "{{title}} {{year}} {{season}} {{episodes}} {{episode_title}}"
+                    }
                     ". A [...] group is dropped when a token in it has no value. New imports use the patterns; rename existing files from an item's page."
                 }
                 {fields(Section::Naming)}
@@ -127,13 +135,22 @@ fn Test(connection: Connection, keys: Vec<String>) -> Element {
                 onclick: move |_| async move {
                     busy.set(true);
                     outcome.set(None);
-                    outcome.set(Some(test_connection(connection, changes()).await.map_err(|error| failure(&error))));
+                    outcome
+                        .set(
+                            Some(
+                                test_connection(connection, changes())
+                                    .await
+                                    .map_err(|error| failure(&error)),
+                            ),
+                        );
                     busy.set(false);
                 },
                 "Test connection"
             }
             if outcome().is_none() && !changes().is_empty() {
-                span { class: "text-caption text-muted", "Tests the values as typed; save them to keep them." }
+                span { class: "text-caption text-muted",
+                    "Tests the values as typed; save them to keep them."
+                }
             }
             span { role: "status", class: "text-caption",
                 match outcome() {

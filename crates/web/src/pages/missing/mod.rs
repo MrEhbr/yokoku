@@ -28,9 +28,11 @@ pub fn Missing() -> Element {
                 Some(Err(_)) => rsx! {
                     LoadFailed { subject: "Missing files" }
                 },
-                Some(Ok(missing)) if missing.series.is_empty() && missing.movies.is_empty() => rsx! {
-                    p { class: "text-muted", "Nothing is missing." }
-                },
+                Some(Ok(missing)) if missing.series.is_empty() && missing.movies.is_empty() => {
+                    rsx! {
+                        p { class: "text-muted", "Nothing is missing." }
+                    }
+                }
                 Some(Ok(missing)) => rsx! {
                     Groups { missing: missing.clone() }
                 },

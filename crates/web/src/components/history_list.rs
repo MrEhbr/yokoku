@@ -63,7 +63,12 @@ pub fn HistoryList(scope: HistoryScope, empty: &'static str) -> Element {
     rsx! {
         div { class: "flex flex-col gap-6",
             for (day, entries) in days {
-                Day { key: "{day}", day, today, entries }
+                Day {
+                    key: "{day}",
+                    day,
+                    today,
+                    entries,
+                }
             }
         }
         if let Some(before) = next {
@@ -79,7 +84,7 @@ pub fn HistoryList(scope: HistoryScope, empty: &'static str) -> Element {
                                 more.write().extend(page.entries);
                                 cursor.set(Some(page.older));
                                 older.set(Older::Idle);
-                            },
+                            }
                             Err(_) => older.set(Older::Failed),
                         }
                     },
@@ -185,14 +190,16 @@ fn Parts(parts: Vec<Part>) -> Element {
                 Part::Text(text) => rsx! {
                     span { key: "{index}", "{text}" }
                 },
-                Part::Item { id: Some(id), title } if scope != HistoryScope::Item(id) => rsx! {
-                    Link {
-                        key: "{index}",
-                        class: "font-medium underline decoration-muted underline-offset-4 hover:decoration-current",
-                        to: Route::item(id),
-                        "{title}"
+                Part::Item { id: Some(id), title } if scope != HistoryScope::Item(id) => {
+                    rsx! {
+                        Link {
+                            key: "{index}",
+                            class: "font-medium underline decoration-muted underline-offset-4 hover:decoration-current",
+                            to: Route::item(id),
+                            "{title}"
+                        }
                     }
-                },
+                }
                 Part::Item { title, .. } => rsx! {
                     span { key: "{index}", class: "font-medium", "{title}" }
                 },

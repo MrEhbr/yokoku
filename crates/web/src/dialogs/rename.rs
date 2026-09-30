@@ -28,7 +28,11 @@ pub fn RenameButton(item: ItemId, on_change: Callback) -> Element {
         ClosableDialog { title: "Rename files", open,
             DialogDescription { "Files move to the names the naming patterns give them, inside the item's folder." }
             if open() {
-                Preview { item, on_change, on_close: move |()| open.set(false) }
+                Preview {
+                    item,
+                    on_change,
+                    on_close: move |()| open.set(false),
+                }
             }
         }
     }
@@ -131,7 +135,14 @@ fn PlanForm(item: ItemId, plan: RenamePlan, on_renamed: Callback<RenameResult>, 
                     id: "rename-all",
                     checked: header,
                     on_checked_change: move |state| {
-                        selected.set(if state == CheckboxState::Checked { all.clone() } else { HashSet::new() });
+                        selected
+                            .set(
+                                if state == CheckboxState::Checked {
+                                    all.clone()
+                                } else {
+                                    HashSet::new()
+                                },
+                            );
                     },
                 }
                 Label { html_for: "rename-all", "{count} of {plan.renames.len()} selected" }
@@ -158,7 +169,9 @@ fn PlanForm(item: ItemId, plan: RenamePlan, on_renamed: Callback<RenameResult>, 
                 summary { class: "cursor-pointer text-muted", "{plan.skipped.len()} left as they are" }
                 ul { class: "mt-2 grid gap-1",
                     for skipped in plan.skipped {
-                        li { key: "{skipped.path}", class: "[overflow-wrap:anywhere]",
+                        li {
+                            key: "{skipped.path}",
+                            class: "[overflow-wrap:anywhere]",
                             span { class: "yk-code", "{skipped.path}" }
                             span { class: "text-muted", ": {skipped.reason}" }
                         }
@@ -205,7 +218,9 @@ fn Row(row: RenameRow, selected: Signal<HashSet<MediaFileId>>) -> Element {
                     }
                 },
             }
-            label { r#for: "{id}", class: "grid min-w-0 cursor-pointer gap-0.5 text-caption",
+            label {
+                r#for: "{id}",
+                class: "grid min-w-0 cursor-pointer gap-0.5 text-caption",
                 span { class: "yk-code text-muted [overflow-wrap:anywhere]", "{row.from}" }
                 span { class: "yk-code [overflow-wrap:anywhere]",
                     span { aria_hidden: "true", "→ " }

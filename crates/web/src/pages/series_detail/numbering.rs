@@ -44,7 +44,7 @@ pub(super) fn NumberingSelect(series: SeriesId, numbering: Numbering, on_change:
                                 Err(error) => {
                                     chosen.set(Some(numbering));
                                     failed.set(Some(failure(&error)));
-                                },
+                                }
                             }
                             saving.set(false);
                         });

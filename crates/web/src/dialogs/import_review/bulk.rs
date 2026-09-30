@@ -212,7 +212,13 @@ fn InOrder(import: ImportId, files: Vec<ReviewFile>, on_change: Callback) -> Ele
         div { class: "grid gap-3 sm:grid-cols-3",
             SeriesPicker { id: "order-series", series }
             if let Some(id) = series() {
-                SeasonPicker { key: "{id}", id: "order-season", series: id, season, none: None }
+                SeasonPicker {
+                    key: "{id}",
+                    id: "order-season",
+                    series: id,
+                    season,
+                    none: None,
+                }
             }
             if season().is_some() && !episodes.is_empty() {
                 div { class: "grid gap-1.5",
@@ -240,7 +246,9 @@ fn InOrder(import: ImportId, files: Vec<ReviewFile>, on_change: Callback) -> Ele
             ol { class: "grid gap-1 text-caption", aria_label: "Preview",
                 for (file, episode) in preview {
                     li { key: "{file.row}", class: "flex flex-wrap gap-x-2",
-                        span { class: "yk-code text-muted [overflow-wrap:anywhere]", "{file.path}" }
+                        span { class: "yk-code text-muted [overflow-wrap:anywhere]",
+                            "{file.path}"
+                        }
                         span { aria_hidden: "true", "→" }
                         match (episode, season()) {
                             (Some((number, title)), Some(season)) => rsx! {

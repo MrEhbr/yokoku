@@ -139,7 +139,9 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     dl { class: "mt-1 grid max-w-md grid-cols-[auto_1fr_auto] gap-x-6",
                         for (release, day) in movie.releases {
                             div { key: "{release.label()}", class: "contents",
-                                dt { class: "border-b border-line py-2 text-muted", "{release.label()}" }
+                                dt { class: "border-b border-line py-2 text-muted",
+                                    "{release.label()}"
+                                }
                                 dd { class: "border-b border-line py-2 tabular-nums",
                                     {day.map_or_else(|| "Not announced".to_owned(), date)}
                                 }

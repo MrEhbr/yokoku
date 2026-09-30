@@ -57,7 +57,10 @@ pub(super) fn SeasonItem(
             open,
             lead: rsx! {
                 MonitorToggle {
-                    target: MonitorTarget::Season { id: series, season: season.number },
+                    target: MonitorTarget::Season {
+                        id: series,
+                        season: season.number,
+                    },
                     monitored: season.monitored,
                     name: name.clone(),
                     on_change,
@@ -74,7 +77,9 @@ pub(super) fn SeasonItem(
                     }
                 }
             },
-            Table { class: "min-w-[39rem] table-fixed", aria_label: "{name} episodes",
+            Table {
+                class: "min-w-[39rem] table-fixed",
+                aria_label: "{name} episodes",
                 TableHeader {
                     TableRow {
                         TableHead { class: "w-12",
@@ -88,7 +93,9 @@ pub(super) fn SeasonItem(
                 }
                 TableBody {
                     for episode in season.episodes {
-                        TableRow { key: "{episode.number}", class: "[&>td]:align-top",
+                        TableRow {
+                            key: "{episode.number}",
+                            class: "[&>td]:align-top",
                             TableCell {
                                 div { class: "-my-2",
                                     MonitorToggle {
@@ -120,7 +127,9 @@ pub(super) fn SeasonItem(
                                         }
                                         div { class: "mt-2 flex flex-col gap-3 pb-1 pl-5",
                                             if !episode.overview.is_empty() {
-                                                p { class: "max-w-prose text-muted", "{episode.overview}" }
+                                                p { class: "max-w-prose text-muted",
+                                                    "{episode.overview}"
+                                                }
                                             }
                                             if let Some(info) = episode.file_info.clone() {
                                                 FileDetails { info: info.clone() }

@@ -54,6 +54,6 @@ pub fn Badge(props: BadgeProps) -> Element {
     });
     let merged = merge_attributes(vec![base, props.attributes]);
     rsx! {
-        span { ..merged, {props.children} }
+        span { ..merged,{props.children} }
     }
 }

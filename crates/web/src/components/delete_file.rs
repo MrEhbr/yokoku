@@ -39,7 +39,9 @@ pub fn DeleteFile(target: FileOf, path: String, #[props(default)] also: Vec<Stri
             AlertDialogDescription { "It is removed from disk for good, with its subtitles." }
             p { class: "yk-code break-all text-caption", "{path}" }
             if !also.is_empty() {
-                p { class: "text-caption text-warning", "It also holds {also.join(\", \")}, which lose it too." }
+                p { class: "text-caption text-warning",
+                    "It also holds {also.join(\", \")}, which lose it too."
+                }
             }
             if let Some(error) = failed() {
                 p { role: "alert", class: "text-caption text-danger", "{error}" }
@@ -59,7 +61,7 @@ pub fn DeleteFile(target: FileOf, path: String, #[props(default)] also: Vec<Stri
                             Ok(()) => {
                                 open.set(false);
                                 on_change(());
-                            },
+                            }
                             Err(error) => failed.set(Some(failure(&error))),
                         }
                     },

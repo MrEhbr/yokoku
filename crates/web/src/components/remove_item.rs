@@ -61,7 +61,9 @@ pub fn RemoveItem(item: ItemId, title: String, usage: DiskUsage) -> Element {
                             checked: if delete_files() { CheckboxState::Checked } else { CheckboxState::Unchecked },
                             on_checked_change: move |state| delete_files.set(state == CheckboxState::Checked),
                         }
-                        Label { html_for: "remove-delete-files", "Also delete {its_files} ({size(bytes)})" }
+                        Label { html_for: "remove-delete-files",
+                            "Also delete {its_files} ({size(bytes)})"
+                        }
                     }
                     if delete_files() {
                         p { class: "pl-6 text-caption text-danger",
@@ -85,11 +87,11 @@ pub fn RemoveItem(item: ItemId, title: String, usage: DiskUsage) -> Element {
                         match remove(item, delete_files()).await {
                             Ok(()) => {
                                 navigator().replace(Route::Library {});
-                            },
+                            }
                             Err(error) => {
                                 failed.set(Some(failure(&error)));
                                 busy.set(false);
-                            },
+                            }
                         }
                     },
                     "{confirm}"

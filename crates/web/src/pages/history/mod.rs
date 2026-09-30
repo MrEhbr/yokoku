@@ -10,7 +10,10 @@ pub fn History() -> Element {
         h1 { class: "yk-page-title", "History" }
         p { class: "mt-2 text-muted", "Items added and removed, downloads, imports and file changes." }
         div { class: "mt-8",
-            HistoryList { scope: HistoryScope::Library, empty: "Nothing has happened yet." }
+            HistoryList {
+                scope: HistoryScope::Library,
+                empty: "Nothing has happened yet.",
+            }
         }
     }
 }

@@ -99,8 +99,18 @@ pub(super) fn RootFolders() -> Element {
                             value: Some(kind.into()),
                             placeholder: "Series",
                             on_value_change: move |next| kind.set(next),
-                            SelectOption::<Kind> { index: 0usize, value: Kind::Series, text_value: "Series", "Series" }
-                            SelectOption::<Kind> { index: 1usize, value: Kind::Movie, text_value: "Movies", "Movies" }
+                            SelectOption::<Kind> {
+                                index: 0usize,
+                                value: Kind::Series,
+                                text_value: "Series",
+                                "Series"
+                            }
+                            SelectOption::<Kind> {
+                                index: 1usize,
+                                value: Kind::Movie,
+                                text_value: "Movies",
+                                "Movies"
+                            }
                         }
                     }
                     div { class: "min-w-48 flex-1",
@@ -152,7 +162,10 @@ fn ScanLibrary() -> Element {
             p { role: "status", class: "text-caption text-muted",
                 match outcome() {
                     None if scanning() => "Scanning the item folders…".to_owned(),
-                    None => "The item folders are scanned daily at 05:00 for new and removed files.".to_owned(),
+                    None => {
+                        "The item folders are scanned daily at 05:00 for new and removed files."
+                            .to_owned()
+                    }
                     Some(Ok(scanned)) => summary(scanned),
                     Some(Err(message)) => message,
                 }

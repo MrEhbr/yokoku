@@ -92,8 +92,16 @@ fn Footer() -> Element {
     rsx! {
         footer { class: "flex flex-col gap-1 border-t border-line py-4 text-caption text-muted",
             p { "Yokoku {version}" }
-            a { class: "my-1 w-fit", href: "https://www.themoviedb.org", target: "_blank", rel: "noreferrer",
-                img { class: "h-3 w-auto", src: TMDB_LOGO, alt: "The Movie Database (TMDB)" }
+            a {
+                class: "my-1 w-fit",
+                href: "https://www.themoviedb.org",
+                target: "_blank",
+                rel: "noreferrer",
+                img {
+                    class: "h-3 w-auto",
+                    src: TMDB_LOGO,
+                    alt: "The Movie Database (TMDB)",
+                }
             }
             p {
                 "This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Metadata provided by "

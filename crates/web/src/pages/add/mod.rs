@@ -53,7 +53,11 @@ pub fn Add(query: SearchText, kind: Kind) -> Element {
                         onclick: {
                             let query = query.clone();
                             move |_| {
-                                navigator.replace(Route::Add { query: query.clone(), kind: option });
+                                navigator
+                                    .replace(Route::Add {
+                                        query: query.clone(),
+                                        kind: option,
+                                    });
                             }
                         },
                         match option {
@@ -133,9 +137,15 @@ fn Results(query: SearchText, kind: Kind, picked: Signal<Option<SearchHit>>) -> 
                 p { class: "text-muted", "No {what} found for “{searched}”." }
             },
             Some(Ok(Some(hits))) => rsx! {
-                ul { aria_label: "Results", class: "grid divide-y divide-line border-y border-line",
+                ul {
+                    aria_label: "Results",
+                    class: "grid divide-y divide-line border-y border-line",
                     for hit in hits.iter().cloned() {
-                        HitRow { key: "{hit.source}", hit, on_pick: move |hit| picked.set(Some(hit)) }
+                        HitRow {
+                            key: "{hit.source}",
+                            hit,
+                            on_pick: move |hit| picked.set(Some(hit)),
+                        }
                     }
                 }
             },

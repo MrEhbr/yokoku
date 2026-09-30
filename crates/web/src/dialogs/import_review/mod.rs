@@ -121,10 +121,19 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
                 id: "review-all",
                 checked: header,
                 on_checked_change: move |state| {
-                    selected.set(if state == CheckboxState::Checked { all.clone() } else { BTreeSet::new() });
+                    selected
+                        .set(
+                            if state == CheckboxState::Checked {
+                                all.clone()
+                            } else {
+                                BTreeSet::new()
+                            },
+                        );
                 },
             }
-            Label { html_for: "review-all", class: "text-caption text-muted", "Select files for the bulk tools" }
+            Label { html_for: "review-all", class: "text-caption text-muted",
+                "Select files for the bulk tools"
+            }
         }
         if !chosen.is_empty() {
             BulkTools { import, files: chosen, on_change: bulk_done }
@@ -169,7 +178,7 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
                         Err(failed) => {
                             error.set(Some(failure(&failed)));
                             importing.set(false);
-                        },
+                        }
                     }
                 },
                 "Import {files}"
@@ -295,11 +304,7 @@ fn FileRow(
                         Button {
                             size: ButtonSize::Sm,
                             disabled: busy(),
-                            title: if from_download {
-                                "Both are kept; this one gets a numbered name where its own is taken"
-                            } else {
-                                "Both are kept, each where it is"
-                            },
+                            title: if from_download { "Both are kept; this one gets a numbered name where its own is taken" } else { "Both are kept, each where it is" },
                             onclick: move |_| act(RowAction::KeepBoth),
                             "Keep both"
                         }
@@ -430,7 +435,7 @@ fn MatchEditor(
                     div { class: "grid gap-3 sm:grid-cols-2",
                         div { class: "grid gap-1.5",
                             Label { html_for: "{id}-first", "Episode" }
-                            Combobox::<(u16, u16)> {
+                            Combobox::<(u16,u16)> {
                                 id: "{id}-first",
                                 value: Some(first_choice.into()),
                                 placeholder: "Search by code or title…",
@@ -439,7 +444,7 @@ fn MatchEditor(
                                 },
                                 ComboboxEmpty { "No episode matches" }
                                 for (index, (season, number, text)) in episode_list.iter().cloned().enumerate() {
-                                    ComboboxOption::<(u16, u16)> {
+                                    ComboboxOption::<(u16,u16)> {
                                         key: "{season}-{number}",
                                         index,
                                         value: (season, number),
@@ -451,7 +456,7 @@ fn MatchEditor(
                         }
                         div { class: "grid gap-1.5",
                             Label { html_for: "{id}-last", "Through" }
-                            Combobox::<(u16, u16)> {
+                            Combobox::<(u16,u16)> {
                                 id: "{id}-last",
                                 value: Some(last_choice.into()),
                                 placeholder: "Search by code or title…",
@@ -463,7 +468,7 @@ fn MatchEditor(
                                 },
                                 ComboboxEmpty { "No episode matches" }
                                 for (index, (season, number, text)) in later.iter().cloned().enumerate() {
-                                    ComboboxOption::<(u16, u16)> {
+                                    ComboboxOption::<(u16,u16)> {
                                         key: "{season}-{number}",
                                         index,
                                         value: (season, number),
@@ -495,7 +500,7 @@ fn MatchEditor(
                             Err(failed) => {
                                 error.set(Some(failure(&failed)));
                                 saving.set(false);
-                            },
+                            }
                         }
                     },
                     "Save match"

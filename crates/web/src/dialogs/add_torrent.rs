@@ -129,11 +129,21 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
                             onchange: move |event: FormEvent| async move {
                                 let Some(picked) = event.files().into_iter().next() else { return };
                                 if picked.size() > MAX_TORRENT_FILE {
-                                    error.set(Some(format!("{} is too large for a .torrent file", picked.name())));
+                                    error
+                                        .set(
+                                            Some(format!("{} is too large for a .torrent file", picked.name())),
+                                        );
                                     return;
                                 }
                                 match picked.read_bytes().await {
-                                    Ok(bytes) => file.set(Some(TorrentFile { name: picked.name(), bytes: bytes.to_vec() })),
+                                    Ok(bytes) => {
+                                        file.set(
+                                            Some(TorrentFile {
+                                                name: picked.name(),
+                                                bytes: bytes.to_vec(),
+                                            }),
+                                        )
+                                    }
                                     Err(_) => error.set(Some(format!("{} could not be read", picked.name()))),
                                 }
                             },

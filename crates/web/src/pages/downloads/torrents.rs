@@ -73,7 +73,9 @@ fn Torrent(download: DownloadEntry) -> Element {
                             value: f64::from(download.percent),
                             aria_label: "{download.name} progress",
                         }
-                        span { class: "w-9 shrink-0 text-right text-caption tabular-nums", "{download.percent}%" }
+                        span { class: "w-9 shrink-0 text-right text-caption tabular-nums",
+                            "{download.percent}%"
+                        }
                     }
                 }
                 TableCell { class: "text-right tabular-nums whitespace-nowrap", "{rate(download.rate)}" }
@@ -101,7 +103,10 @@ fn State(download: DownloadEntry) -> Element {
         (_, Some(import)) => match &import.state {
             ImportState::NeedsReview => {
                 return rsx! {
-                    Action { tone: Tone::Warning, label: "Needs review", reason: None,
+                    Action {
+                        tone: Tone::Warning,
+                        label: "Needs review",
+                        reason: None,
                         ReviewButton {
                             import: import.id,
                             label: "Review",
@@ -113,7 +118,10 @@ fn State(download: DownloadEntry) -> Element {
             },
             ImportState::Failed(reason) => {
                 return rsx! {
-                    Action { tone: Tone::Danger, label: "Import failed", reason: Some(reason.clone()),
+                    Action {
+                        tone: Tone::Danger,
+                        label: "Import failed",
+                        reason: Some(reason.clone()),
                         Retry { import: import.id }
                     }
                 };
@@ -145,7 +153,9 @@ fn Action(
             div { class: "min-w-0",
                 Status { tone, label }
                 if let Some(reason) = reason {
-                    p { class: "mt-0.5 text-caption text-muted [overflow-wrap:anywhere]", "{reason}" }
+                    p { class: "mt-0.5 text-caption text-muted [overflow-wrap:anywhere]",
+                        "{reason}"
+                    }
                 }
             }
             {children}

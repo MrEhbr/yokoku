@@ -28,7 +28,7 @@ pub fn AlertDialog(props: AlertDialogRootProps) -> Element {
             attributes: merged,
             alert_dialog::AlertDialogContent {
                 class: "relative my-auto flex w-full max-w-dialog flex-col gap-4 border border-ink \
-                                    bg-surface p-5 text-ink shadow-dialog"
+                                                bg-surface p-5 text-ink shadow-dialog"
                     .to_string(),
                 {props.children}
             }

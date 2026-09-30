@@ -82,15 +82,14 @@ pub fn Library() -> Element {
                 Some(Err(_)) => rsx! {
                     LoadFailed { subject: "The library" }
                 },
-                Some(Ok(entries)) if entries.is_empty() && filters().narrows() => rsx! {
-                    div { class: "flex flex-col items-start gap-3",
-                        p { class: "text-muted", "No items match these filters." }
-                        Button {
-                            onclick: move |_| filters.write().clear(),
-                            "Clear filters"
+                Some(Ok(entries)) if entries.is_empty() && filters().narrows() => {
+                    rsx! {
+                        div { class: "flex flex-col items-start gap-3",
+                            p { class: "text-muted", "No items match these filters." }
+                            Button { onclick: move |_| filters.write().clear(), "Clear filters" }
                         }
                     }
-                },
+                }
                 Some(Ok(entries)) if entries.is_empty() => rsx! {
                     p { class: "text-muted", "Your library is empty. Add a movie or series to start." }
                 },

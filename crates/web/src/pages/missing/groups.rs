@@ -42,7 +42,9 @@ pub(super) fn Groups(missing: Missing) -> Element {
                 h2 { class: "text-section font-medium", "Movies" }
                 ul { class: "mt-3 border-t border-line",
                     for movie in missing.movies {
-                        li { key: "{movie.id}", class: "border-b border-line py-3",
+                        li {
+                            key: "{movie.id}",
+                            class: "border-b border-line py-3",
                             Link {
                                 class: "font-medium hover:underline",
                                 to: Route::MovieDetail { id: movie.id },
@@ -79,10 +81,14 @@ fn SeriesGroup(series: MissingSeries) -> Element {
             },
             Link {
                 class: "text-caption text-muted underline-offset-4 hover:text-ink hover:underline",
-                to: Route::SeriesDetail { id: series.id },
+                to: Route::SeriesDetail {
+                    id: series.id,
+                },
                 "Open {series.title}"
             }
-            Table { class: "mt-2 min-w-[32rem] table-fixed", aria_label: "Missing episodes of {series.title}",
+            Table {
+                class: "mt-2 min-w-[32rem] table-fixed",
+                aria_label: "Missing episodes of {series.title}",
                 TableHeader {
                     TableRow {
                         TableHead { class: "w-28", "Episode" }

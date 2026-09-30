@@ -95,7 +95,11 @@ pub(super) fn SettingField(setting: Setting) -> Element {
                 Control::Choice(choices) => {
                     let options = choice_options(choices, &draft());
                     let placeholder =
-                        options.iter().find(|(value, _)| *value == draft()).map(|(_, text)| text.clone()).unwrap_or_default();
+                        options
+                        .iter()
+                        .find(|(value, _)| *value == draft())
+                        .map(|(_, text)| text.clone())
+                        .unwrap_or_default();
                     let pick = move |next: Option<String>| {
                         let Some(next) = next.filter(|next| *next != draft()) else { return };
                         draft.set(next.clone());
@@ -143,7 +147,7 @@ pub(super) fn SettingField(setting: Setting) -> Element {
                             }
                         }
                     }
-                },
+                }
                 _ => rsx! {
                     div { class: "flex gap-2",
                         Input {
@@ -153,7 +157,9 @@ pub(super) fn SettingField(setting: Setting) -> Element {
                             autocomplete: "off",
                             value: "{draft}",
                             placeholder: match (&setting.field.control, &setting.value) {
-                                (Control::Secret, Value::String(masked)) => format!("Set ({masked}); type to replace it"),
+                                (Control::Secret, Value::String(masked)) => {
+                                    format!("Set ({masked}); type to replace it")
+                                }
                                 (Control::Secret, _) => "Not set".to_owned(),
                                 (Control::Text(placeholder), _) => placeholder.clone(),
                                 _ => String::new(),
