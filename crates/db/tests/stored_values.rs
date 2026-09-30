@@ -81,6 +81,7 @@ async fn saving_a_download_size_beyond_i64_fails() {
         hash: "abc".into(),
         name: "Frieren".into(),
         item: None,
+        season: Some(2),
         status: TorrentStatus {
             state: DownloadState::Downloading,
             size: u64::MAX,

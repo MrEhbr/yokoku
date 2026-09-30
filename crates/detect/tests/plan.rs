@@ -277,6 +277,22 @@ fn seasonless_numbers_for_a_standard_series_are_a_guess() {
     assert_eq!(outcome(&plan), [(episodes(bad, 2, 1, 1), Confidence::Guess)]);
 }
 
+#[rstest]
+#[case::seasonless_name("Breaking Bad - 01.mkv", 2, 1)]
+#[case::name_with_a_season("Breaking.Bad.S01E02.mkv", 1, 2)]
+fn a_season_given_with_the_series_places_names_without_one(
+    #[case] name: &str,
+    #[case] season: u16,
+    #[case] episode: u16,
+) {
+    let library = Library::new();
+    let bad = library.series(2);
+
+    let plan = ImportPlan::new(&files(&[name]), MatchScope::SeriesSeason { series: bad, season: 2 });
+
+    assert_eq!(outcome(&plan), [(episodes(bad, season, episode, episode), Confidence::Certain)]);
+}
+
 #[test]
 fn daily_shows_match_by_air_date() {
     let library = Library::new();

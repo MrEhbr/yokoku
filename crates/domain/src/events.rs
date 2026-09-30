@@ -166,6 +166,9 @@ pub struct DownloadCompleted {
     pub name: String,
     pub content_path: PathBuf,
     pub item: Option<ItemId>,
+    /// For a series: the season of its files whose names give none.
+    #[serde(default)]
+    pub season: Option<u16>,
 }
 
 /// Removed from the download client, with its data, after its import once seeding finished.

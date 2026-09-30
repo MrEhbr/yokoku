@@ -613,6 +613,7 @@ async fn seed_downloads(path: &Path, frieren: SeriesId, dune: MovieId) -> Seeded
         hash: name.to_lowercase(),
         name: name.into(),
         item,
+        season: None,
         completed_at: (status.done == status.size).then_some(now),
         imported_at: None,
         status,

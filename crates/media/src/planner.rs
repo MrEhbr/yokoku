@@ -44,6 +44,7 @@ impl ImportPlanner {
         download: DownloadId,
         content: &Path,
         item: Option<ItemId>,
+        season: Option<u16>,
     ) -> Result<Option<Import>, MediaError> {
         if self.repo.import_for_download(download).await?.is_some() {
             debug!("the download already has an import");
@@ -60,7 +61,7 @@ impl ImportPlanner {
             })
             .collect();
 
-        let scope = self.scope(item).await?;
+        let scope = self.scope(item, season).await?;
         let plan = ImportPlan::new(&files, scope.match_scope());
         let linked: Vec<FileTarget> = self.repo.files().await?.into_iter().map(|file| file.target).collect();
         let takes_linked =
@@ -126,9 +127,9 @@ impl ImportPlanner {
     }
 
     /// The linked item while it is in the library; the whole library otherwise.
-    async fn scope(&self, item: Option<ItemId>) -> Result<Scope, MediaError> {
+    async fn scope(&self, item: Option<ItemId>, season: Option<u16>) -> Result<Scope, MediaError> {
         let linked = match item {
-            Some(ItemId::Series(id)) => self.catalog.series(id).await?.map(Scope::Series),
+            Some(ItemId::Series(id)) => self.catalog.series(id).await?.map(|series| Scope::Series(series, season)),
             Some(ItemId::Movie(id)) => self.catalog.movie(id).await?.map(Scope::Movie),
             None => None,
         };
@@ -140,7 +141,7 @@ impl ImportPlanner {
 }
 
 enum Scope {
-    Series(Series),
+    Series(Series, Option<u16>),
     Movie(Movie),
     Library(Vec<Series>, Vec<Movie>),
 }
@@ -148,7 +149,8 @@ enum Scope {
 impl Scope {
     fn match_scope(&self) -> MatchScope<'_> {
         match self {
-            Self::Series(series) => MatchScope::Series(series),
+            Self::Series(series, None) => MatchScope::Series(series),
+            Self::Series(series, Some(season)) => MatchScope::SeriesSeason { series, season: *season },
             Self::Movie(movie) => MatchScope::Movie(movie),
             Self::Library(series, movies) => MatchScope::Library { series, movies },
         }
@@ -158,7 +160,7 @@ impl Scope {
 #[async_trait]
 impl Handler<DownloadCompleted> for ImportPlanner {
     async fn handle(&self, event: &DownloadCompleted) -> Result<(), HandlerError> {
-        self.plan(event.download, &event.content_path, event.item).await?;
+        self.plan(event.download, &event.content_path, event.item, event.season).await?;
         Ok(())
     }
 }

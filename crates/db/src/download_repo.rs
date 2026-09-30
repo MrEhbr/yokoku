@@ -17,6 +17,7 @@ struct DownloadRow {
     name: String,
     series_id: Option<Text<SeriesId>>,
     movie_id: Option<Text<MovieId>>,
+    season: Option<u16>,
     state: Text<DownloadState>,
     size: u64,
     done: u64,
@@ -34,7 +35,7 @@ struct DownloadRow {
 impl DownloadRepo for Database {
     async fn get(&self, id: DownloadId) -> Result<Option<Download>, StorageError> {
         let row: Option<DownloadRow> = sqlx::query_as(
-            "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
+            "SELECT id, hash, name, series_id, movie_id, season, state, size, done, download_rate, eta, download_dir, error,
                     added_at, completed_at, imported_at, revision
              FROM downloads WHERE id = ?",
         )
@@ -47,7 +48,7 @@ impl DownloadRepo for Database {
 
     async fn find_by_hash(&self, hash: &str) -> Result<Option<Download>, StorageError> {
         let row: Option<DownloadRow> = sqlx::query_as(
-            "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
+            "SELECT id, hash, name, series_id, movie_id, season, state, size, done, download_rate, eta, download_dir, error,
                     added_at, completed_at, imported_at, revision
              FROM downloads WHERE hash = ?",
         )
@@ -60,7 +61,7 @@ impl DownloadRepo for Database {
 
     async fn list(&self) -> Result<Vec<Download>, StorageError> {
         let rows: Vec<DownloadRow> = sqlx::query_as(
-            "SELECT id, hash, name, series_id, movie_id, state, size, done, download_rate, eta, download_dir, error,
+            "SELECT id, hash, name, series_id, movie_id, season, state, size, done, download_rate, eta, download_dir, error,
                     added_at, completed_at, imported_at, revision
              FROM downloads ORDER BY added_at DESC, id DESC",
         )
@@ -86,11 +87,12 @@ impl Database {
 
         let mut tx = self.begin_save("downloads", &download.id.to_string(), download.revision).await?;
         sqlx::query(
-            "INSERT INTO downloads (id, hash, name, series_id, movie_id, state, size, done, download_rate, eta,
+            "INSERT INTO downloads (id, hash, name, series_id, movie_id, season, state, size, done, download_rate, eta,
                                     download_dir, error, added_at, completed_at, imported_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
                  name = excluded.name, series_id = excluded.series_id, movie_id = excluded.movie_id,
+                 season = excluded.season,
                  state = excluded.state, size = excluded.size, done = excluded.done,
                  download_rate = excluded.download_rate, eta = excluded.eta, download_dir = excluded.download_dir,
                  error = excluded.error, completed_at = excluded.completed_at, imported_at = excluded.imported_at",
@@ -100,6 +102,7 @@ impl Database {
         .bind(&download.name)
         .bind(series_id)
         .bind(movie_id)
+        .bind(download.season)
         .bind(status.state.as_str())
         .bind(Int(status.size))
         .bind(Int(status.done))
@@ -137,6 +140,7 @@ impl TryFrom<DownloadRow> for Download {
             hash: row.hash,
             name: row.name,
             item,
+            season: row.season,
             status: TorrentStatus {
                 state: row.state.0,
                 size: row.size,

@@ -8,6 +8,11 @@ use crate::{Classified, EpisodeHint, ListedFile, ParsedName, Video, titles::norm
 #[derive(Debug, Clone, Copy)]
 pub enum MatchScope<'a> {
     Series(&'a Series),
+    /// A series whose names without a season are in `season`.
+    SeriesSeason {
+        series: &'a Series,
+        season: u16,
+    },
     Movie(&'a Movie),
     /// Not linked: match against everything in the library.
     Library {
@@ -56,8 +61,12 @@ impl ImportPlan {
 
         let rows = match scope {
             MatchScope::Series(series) => {
-                videos.into_iter().map(|video| PlanRow::episodes(video, |_| Some((series, true)))).collect()
+                videos.into_iter().map(|video| PlanRow::episodes(video, None, |_| Some((series, true)))).collect()
             },
+            MatchScope::SeriesSeason { series, season } => videos
+                .into_iter()
+                .map(|video| PlanRow::episodes(video, Some(season), |_| Some((series, true))))
+                .collect(),
             MatchScope::Movie(movie) => {
                 PlanRow::movie(videos, &mut ignored, |_| Some((movie, true))).into_iter().collect()
             },
@@ -65,7 +74,7 @@ impl ImportPlan {
                 let series_rows: Vec<_> = videos
                     .iter()
                     .cloned()
-                    .map(|video| PlanRow::episodes(video, |parsed| parsed.choose(series)))
+                    .map(|video| PlanRow::episodes(video, None, |parsed| parsed.choose(series)))
                     .collect();
                 let mut movie_ignored = Vec::new();
                 let movie_row = PlanRow::movie(videos, &mut movie_ignored, |parsed| parsed.choose(movies));
@@ -109,10 +118,14 @@ impl ImportPlan {
 }
 
 impl PlanRow {
-    fn episodes<'a>(video: Video, choose_series: impl Fn(&ParsedName) -> Option<(&'a Series, bool)>) -> Self {
+    fn episodes<'a>(
+        video: Video,
+        season: Option<u16>,
+        choose_series: impl Fn(&ParsedName) -> Option<(&'a Series, bool)>,
+    ) -> Self {
         let parsed = ParsedName::parse(&video.path);
         let resolved = choose_series(&parsed).and_then(|(series, series_certain)| {
-            let (span, episodes_certain) = parsed.episodes_in(series)?;
+            let (span, episodes_certain) = parsed.episodes_in(series, season)?;
             Some((series, span, series_certain && episodes_certain))
         });
 
@@ -163,16 +176,18 @@ impl PlanRow {
 
 impl ParsedName {
     /// The episodes this name refers to, and whether that reading is certain (FR-4.3, 4.5, 4.8, 4.9).
-    fn episodes_in(&self, series: &Series) -> Option<(EpisodeSpan, bool)> {
+    /// A name without a season is in `season` when one is given.
+    fn episodes_in(&self, series: &Series, given: Option<u16>) -> Option<(EpisodeSpan, bool)> {
         let only = |matches: &dyn Fn(&Episode) -> bool| {
             let mut matching = series.numbered_episodes().filter(|(_, episode)| matches(episode));
             let (reference, _) = matching.next()?;
             matching.next().is_none().then_some((EpisodeSpan::single(reference), true))
         };
 
-        match &self.episode_hint {
-            EpisodeHint::Episodes { season, episodes } => Some((series.span(*season, episodes)?, true)),
-            EpisodeHint::Seasonless { episodes } => match series.numbering {
+        match (&self.episode_hint, given) {
+            (EpisodeHint::Episodes { season, episodes }, _) => Some((series.span(*season, episodes)?, true)),
+            (EpisodeHint::Seasonless { episodes }, Some(season)) => Some((series.span(season, episodes)?, true)),
+            (EpisodeHint::Seasonless { episodes }, None) => match series.numbering {
                 Numbering::Absolute => Some((series.absolute_span(episodes)?, true)),
                 Numbering::Standard => {
                     let regular: Vec<u16> =
@@ -184,8 +199,8 @@ impl ParsedName {
                     Some((guess?, false))
                 },
             },
-            EpisodeHint::Date(date) => only(&|episode| episode.air_date == Some(*date)),
-            EpisodeHint::None => {
+            (EpisodeHint::Date(date), _) => only(&|episode| episode.air_date == Some(*date)),
+            (EpisodeHint::None, _) => {
                 let title = normalize(self.episode_title.as_deref().or(self.title.as_deref())?);
                 if title.is_empty() {
                     return None;

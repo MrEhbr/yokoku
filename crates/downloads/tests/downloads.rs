@@ -12,7 +12,7 @@ use jiff::{
 use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_db::Database;
-use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, Live, MovieId};
+use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, Live, MovieId, SeriesId};
 use yokoku_downloads::{
     Download, DownloadError, DownloadOptions, DownloadState, Downloads, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
@@ -173,6 +173,7 @@ fn completed(download: &Download) -> Event {
         name: "Dune.2021.1080p".into(),
         content_path: "/downloads/Dune.2021.1080p".into(),
         item: download.item,
+        season: download.season,
     }
     .into()
 }
@@ -183,7 +184,7 @@ async fn adding_records_the_torrent_with_its_item_and_status() {
     setup.client.set(250, 1000);
     let item = Some(ItemId::Movie(MovieId::generate()));
 
-    let added = setup.downloads.add(&magnet(), item).await.unwrap();
+    let added = setup.downloads.add(&magnet(), item, None).await.unwrap();
 
     assert_eq!(setup.only_download().await, added);
     assert_eq!((added.hash.as_str(), added.item, added.percent_done()), (HASH, item, 25));
@@ -194,9 +195,9 @@ async fn adding_records_the_torrent_with_its_item_and_status() {
 #[tokio::test]
 async fn a_torrent_is_added_only_once() {
     let setup = setup().await;
-    setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
 
-    let error = setup.downloads.add(&magnet(), None).await.unwrap_err();
+    let error = setup.downloads.add(&magnet(), None, None).await.unwrap_err();
 
     assert!(matches!(error, DownloadError::AlreadyAdded(_)), "{error}");
     assert_eq!(setup.downloads.list().await.unwrap().len(), 1);
@@ -205,7 +206,7 @@ async fn a_torrent_is_added_only_once() {
 #[tokio::test]
 async fn a_download_completes_once_however_often_it_syncs() {
     let setup = setup().await;
-    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.set(500, 1000);
     let halfway = setup.downloads.sync().await.unwrap();
     setup.client.set(1000, 1000);
@@ -229,8 +230,20 @@ async fn a_torrent_already_complete_when_added_completes_at_once() {
     let setup = setup().await;
     setup.client.set(1000, 1000);
 
-    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
 
+    assert_eq!(setup.events().await[1..], [completed(&added)]);
+}
+
+#[tokio::test]
+async fn the_season_given_for_a_series_reaches_its_completion() {
+    let setup = setup().await;
+    setup.client.set(1000, 1000);
+    let item = Some(ItemId::Series(SeriesId::generate()));
+
+    let added = setup.downloads.add(&magnet(), item, Some(2)).await.unwrap();
+
+    assert_eq!((setup.only_download().await.season, added.season), (Some(2), Some(2)));
     assert_eq!(setup.events().await[1..], [completed(&added)]);
 }
 
@@ -238,7 +251,7 @@ async fn a_torrent_already_complete_when_added_completes_at_once() {
 async fn torrents_gone_from_the_client_are_marked_removed_and_left_alone() {
     let setup = setup().await;
     setup.client.set(500, 1000);
-    setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.forget();
 
     let report = setup.downloads.sync().await.unwrap();
@@ -256,7 +269,7 @@ async fn torrents_gone_from_the_client_are_marked_removed_and_left_alone() {
 async fn an_unreachable_client_changes_nothing() {
     let setup = setup().await;
     setup.client.set(500, 1000);
-    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
     *setup.client.unavailable.lock().unwrap() = true;
 
     let sync = setup.downloads.sync().await.unwrap_err();
@@ -271,7 +284,7 @@ async fn an_unreachable_client_changes_nothing() {
 async fn concurrent_syncs_complete_a_download_once() {
     let setup = setup().await;
     setup.client.set(500, 1000);
-    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.set(1000, 1000);
 
     let (first, second) = tokio::join!(setup.downloads.sync(), setup.downloads.sync());
@@ -290,7 +303,7 @@ fn imported(download: Option<DownloadId>) -> FilesImported {
 async fn an_import_from_a_download_marks_it_imported_once() {
     let setup = setup().await;
     setup.client.set(1000, 1000);
-    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
 
     setup.downloads.handle(&imported(Some(added.id))).await.unwrap();
     let first = setup.only_download().await;
@@ -303,7 +316,7 @@ async fn an_import_from_a_download_marks_it_imported_once() {
 #[tokio::test]
 async fn imports_of_scanned_files_or_unknown_downloads_change_nothing() {
     let setup = setup().await;
-    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
 
     setup.downloads.handle(&imported(None)).await.unwrap();
     setup.downloads.handle(&imported(Some(DownloadId::generate()))).await.unwrap();
@@ -318,7 +331,7 @@ const CLEAN_UP: DownloadOptions =
 async fn an_imported_download_is_removed_with_its_data_once_seeded() {
     let setup = setup_with(CLEAN_UP).await;
     setup.client.set(1000, 1000);
-    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.downloads.mark_imported(added.id).await.unwrap();
     setup.client.finish_seeding();
 
@@ -346,7 +359,7 @@ async fn other_downloads_stay_in_the_client(
 ) {
     let setup = setup_with(options).await;
     setup.client.set(1000, 1000);
-    let added = setup.downloads.add(&magnet(), None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
     if imported {
         setup.downloads.mark_imported(added.id).await.unwrap();
     }
@@ -404,6 +417,7 @@ async fn qualifying_torrents_from_outside_are_taken_on_once(#[case] options: Dow
                 name: "Show aa".into(),
                 content_path: "/downloads/tv/shows/Show aa".into(),
                 item: None,
+                season: None,
             }
             .into(),
         ]
@@ -425,7 +439,7 @@ async fn torrents_from_outside_are_left_alone_unless_asked_for() {
 async fn a_download_that_was_removed_is_not_taken_on_again() {
     let setup = setup_with(picking_up(&["yokoku"], None)).await;
     setup.client.set(1000, 1000);
-    setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.forget();
     setup.downloads.sync().await.unwrap();
     let mut back = torrent(1000, 1000);
@@ -454,7 +468,7 @@ async fn a_torrent_yokoku_added_but_never_saved_is_taken_on_without_asking() {
 async fn active_syncs_leave_the_client_alone_while_nothing_downloads() {
     let setup = setup().await;
     setup.client.set(1000, 1000);
-    setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
     *setup.client.unavailable.lock().unwrap() = true;
     let watch = setup.changes.watch();
 
@@ -468,7 +482,7 @@ async fn active_syncs_leave_the_client_alone_while_nothing_downloads() {
 async fn active_syncs_sync_while_a_download_is_in_progress() {
     let setup = setup().await;
     setup.client.set(250, 1000);
-    setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.set(500, 1000);
 
     let report = setup.downloads.sync_active().await.unwrap();
@@ -483,7 +497,7 @@ async fn adding_and_syncing_are_announced() {
     let mut watch = setup.changes.watch();
     setup.client.set(250, 1000);
 
-    setup.downloads.add(&magnet(), None).await.unwrap();
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
     let after_add = watch.has_changed().unwrap();
     watch.borrow_and_update();
     setup.downloads.sync().await.unwrap();

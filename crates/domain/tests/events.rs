@@ -198,6 +198,7 @@ mod stored {
             name: "Dune.2021.1080p".into(),
             content_path: "/downloads/Dune.2021.1080p".into(),
             item: None,
+            season: Some(2),
         }.into(),
         json!({
             "type": "DownloadCompleted",
@@ -205,6 +206,7 @@ mod stored {
             "name": "Dune.2021.1080p",
             "content_path": "/downloads/Dune.2021.1080p",
             "item": null,
+            "season": 2,
         }),
     )]
     #[case::import_failed(
@@ -353,15 +355,21 @@ mod stored {
             (any_id(), any::<String>(), proptest::option::of(any_item())).prop_map(|(download, name, item)| {
                 TorrentRemoved { download: DownloadId(download), name, item }.into()
             }),
-            (any_id(), any::<String>(), any::<String>(), proptest::option::of(any_item())).prop_map(
-                |(download, name, content_path, item)| DownloadCompleted {
+            (
+                any_id(),
+                any::<String>(),
+                any::<String>(),
+                proptest::option::of(any_item()),
+                proptest::option::of(any::<u16>())
+            )
+                .prop_map(|(download, name, content_path, item, season)| DownloadCompleted {
                     download: DownloadId(download),
                     name,
                     content_path: content_path.into(),
                     item,
+                    season,
                 }
-                .into()
-            ),
+                .into()),
         ]
     }
 

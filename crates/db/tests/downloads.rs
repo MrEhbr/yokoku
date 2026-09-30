@@ -42,22 +42,22 @@ fn any_download() -> impl Strategy<Value = Download> {
             download_dir: download_dir.into(),
             error,
         });
-    ("[0-9a-f]{40}", "\\PC{1,30}", any_item(), status, any::<bool>(), any::<bool>()).prop_map(
-        |(hash, name, item, status, completed, imported)| {
+    ("[0-9a-f]{40}", "\\PC{1,30}", any_item(), proptest::option::of(any::<u16>()), status, any::<bool>(), any::<bool>())
+        .prop_map(|(hash, name, item, season, status, completed, imported)| {
             let added_at: Timestamp = "2026-09-26T12:00:00.5Z".parse().unwrap();
             Download {
                 id: DownloadId::generate(),
                 hash,
                 name,
                 item,
+                season,
                 status,
                 added_at,
                 completed_at: completed.then_some(added_at),
                 imported_at: (completed && imported).then_some(added_at),
                 revision: 0,
             }
-        },
-    )
+        })
 }
 
 fn block_on<T>(future: impl Future<Output = T>) -> T {
@@ -87,6 +87,7 @@ fn download(hash: &str, added_at: &str) -> Download {
         hash: hash.into(),
         name: hash.into(),
         item: None,
+        season: None,
         status: TorrentStatus::unknown(),
         added_at: added_at.parse().unwrap(),
         completed_at: None,

@@ -18,7 +18,7 @@ async fn approved(app: &App) -> ImportId {
     app.write("downloads/Frieren.S01E01.1080p/Frieren.S01E01.1080p.eng.srt", 2);
     let content = app.path("downloads/Frieren.S01E01.1080p");
     let import =
-        app.planner.plan(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id))).await.unwrap();
+        app.planner.plan(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None).await.unwrap();
     let import = import.unwrap();
     assert_eq!(import.status, ImportStatus::Approved);
     import.id
@@ -114,7 +114,7 @@ async fn replacing_removes_the_old_library_file() {
     app.write(SOURCE, 10);
     let import = app
         .planner
-        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)))
+        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
         .await
         .unwrap()
         .unwrap();
@@ -183,7 +183,7 @@ async fn approved_pair(app: &App) -> ImportId {
     app.write("downloads/Frieren.S01.1080p/Frieren.S01E02.1080p.mkv", 10);
     let content = app.path("downloads/Frieren.S01.1080p");
     let import =
-        app.planner.plan(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id))).await.unwrap();
+        app.planner.plan(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None).await.unwrap();
     let import = import.unwrap();
     assert_eq!(import.status, ImportStatus::Approved);
     import.id
@@ -226,7 +226,7 @@ async fn approved_beside(app: &App) -> ImportId {
     app.write(SOURCE, 10);
     let import = app
         .planner
-        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)))
+        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
         .await
         .unwrap()
         .unwrap();
@@ -271,7 +271,7 @@ async fn approved_replacement(app: &App, old: &str, size: usize) -> MediaFile {
     app.write(SOURCE, 10);
     let import = app
         .planner
-        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)))
+        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
         .await
         .unwrap()
         .unwrap();

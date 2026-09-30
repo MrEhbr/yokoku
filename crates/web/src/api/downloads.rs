@@ -113,10 +113,10 @@ pub enum NewTorrent {
 }
 
 /// Sends the torrent to the download client for `item`, or for detection to work out what it
-/// holds (FR-3.2).
+/// holds (FR-3.2); for a series, `season` places its files whose names give none.
 #[post("/api/downloads", downloads: Dep<Downloads>)]
-pub async fn add_torrent(torrent: NewTorrent, item: Option<ItemId>) -> Result<(), ServerFnError> {
-    server::add(&downloads, torrent, item).await
+pub async fn add_torrent(torrent: NewTorrent, item: Option<ItemId>, season: Option<u16>) -> Result<(), ServerFnError> {
+    server::add(&downloads, torrent, item, season).await
 }
 
 /// Queues a failed import again; the import job carries it out.
@@ -215,6 +215,7 @@ mod server {
         downloads: &Downloads,
         torrent: NewTorrent,
         item: Option<ItemId>,
+        season: Option<u16>,
     ) -> Result<(), ServerFnError> {
         let torrent = match torrent {
             NewTorrent::Magnet(link) if link.trim().starts_with("magnet:") => {
@@ -223,7 +224,7 @@ mod server {
             NewTorrent::Magnet(_) => return Err(ServerFnError::new("Paste a link that starts with magnet:")),
             NewTorrent::File(bytes) => TorrentSource::File(bytes),
         };
-        downloads.add(&torrent, item).await.map(drop).map_err(|error| match error {
+        downloads.add(&torrent, item, season).await.map(drop).map_err(|error| match error {
             DownloadError::AlreadyAdded(name) => ServerFnError::new(format!("{name} was already added")),
             DownloadError::Client(ClientError::Unavailable(_)) => {
                 ServerFnError::new("Transmission could not be reached; check that it runs and its address")

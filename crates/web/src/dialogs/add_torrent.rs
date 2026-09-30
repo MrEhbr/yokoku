@@ -1,12 +1,12 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
-use yokoku_domain::{ItemId, title_with_year};
+use yokoku_domain::{ItemId, SeriesId, title_with_year};
 
 use crate::{
     api::{
         downloads::{ItemLink, NewTorrent, add_torrent},
         failure,
-        library::{Entry, library},
+        library::{Entry, detail, library},
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
@@ -15,6 +15,7 @@ use crate::{
         field::{Field, FieldError, FieldHint},
         input::Input,
         label::Label,
+        select::{Select, SelectOption},
         skeleton::Skeleton,
     },
     route::Route,
@@ -69,6 +70,11 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
     let mut magnet = use_signal(String::new);
     let mut file = use_signal(|| None::<TorrentFile>);
     let chosen = use_signal(|| Some(item.as_ref().map(|item| item.id)));
+    let season = use_signal(|| None::<u16>);
+    let series = match chosen().flatten() {
+        Some(ItemId::Series(id)) => Some(id),
+        _ => None,
+    };
     let mut adding = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
     let typed = magnet.read().trim().to_owned();
@@ -81,7 +87,7 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
         };
         adding.set(true);
         error.set(None);
-        match add_torrent(torrent, chosen().flatten()).await {
+        match add_torrent(torrent, chosen().flatten(), season().filter(|_| series.is_some())).await {
             Ok(()) => {
                 on_close(());
                 navigator().push(Route::Downloads {});
@@ -154,6 +160,9 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
                 ItemField { chosen }
             },
         }
+        if let Some(series) = series {
+            SeasonField { key: "{series}", series, season }
+        }
         if let Some(message) = error() {
             p { role: "alert", class: "text-danger", "{message}" }
         }
@@ -165,6 +174,57 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
                 aria_busy: adding(),
                 onclick: submit,
                 "Add torrent"
+            }
+        }
+    }
+}
+
+/// The season of the series' files whose names give none, or none to leave it to their names;
+/// cleared when mounted for another series.
+#[component]
+fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
+    let seasons = use_resource(move || async move {
+        let detail = detail::series(series).await.ok().flatten();
+        let mut numbers: Vec<u16> =
+            detail.map(|detail| detail.seasons.iter().map(|season| season.number).collect()).unwrap_or_default();
+        numbers.sort_by_key(|&number| (number == 0, number));
+        numbers
+    });
+    use_effect(move || season.set(None));
+    let choice = use_memo(move || Some(season()));
+    let label = |number: Option<u16>| match number {
+        None => "From the file names".to_owned(),
+        Some(0) => "Specials".to_owned(),
+        Some(number) => format!("Season {number}"),
+    };
+    rsx! {
+        Field {
+            Label { html_for: "torrent-season", "Season" }
+            match &*seasons.read() {
+                None => rsx! {
+                    Skeleton { class: "h-9 w-full" }
+                },
+                Some(numbers) => rsx! {
+                    Select::<Option<u16>> {
+                        id: "torrent-season",
+                        aria_describedby: "torrent-season-hint",
+                        value: Some(choice.into()),
+                        placeholder: label(season()),
+                        on_value_change: move |next: Option<Option<u16>>| season.set(next.flatten()),
+                        for (index, number) in std::iter::once(None).chain(numbers.iter().copied().map(Some)).enumerate() {
+                            SelectOption::<Option<u16>> {
+                                key: "{number:?}",
+                                index,
+                                value: number,
+                                text_value: label(number),
+                                {label(number)}
+                            }
+                        }
+                    }
+                },
+            }
+            FieldHint { id: "torrent-season-hint",
+                "For files named without a season, like “Frieren - 05.mkv”; names with one keep it."
             }
         }
     }

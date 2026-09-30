@@ -56,7 +56,7 @@ pub async fn run(app: &App, args: Args) -> Result<()> {
                 Some(item) => Some(item.resolve(&app.library).await?),
                 None => None,
             };
-            let download = app.downloads.add(&args.torrent()?, item).await?;
+            let download = app.downloads.add(&args.torrent()?, item, None).await?;
             app.deliver_events().await?;
             match download.completed_at {
                 Some(_) => success!("Added {}; it is already complete", download.name)?,

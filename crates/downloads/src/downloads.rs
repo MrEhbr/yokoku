@@ -83,16 +83,22 @@ impl Downloads {
         Ok(self.repo.list().await?)
     }
 
-    /// Adds a torrent for `item`, or for detection to work out when `None` (FR-3.2).
-    #[instrument(skip_all, fields(item = ?item))]
-    pub async fn add(&self, torrent: &TorrentSource, item: Option<ItemId>) -> Result<Download, DownloadError> {
+    /// Adds a torrent for `item`, or for detection to work out when `None` (FR-3.2); for a series,
+    /// `season` places its files whose names give none.
+    #[instrument(skip_all, fields(item = ?item, season = ?season))]
+    pub async fn add(
+        &self,
+        torrent: &TorrentSource,
+        item: Option<ItemId>,
+        season: Option<u16>,
+    ) -> Result<Download, DownloadError> {
         let added = self.client.add(torrent).await?;
         if self.repo.find_by_hash(&added.hash).await?.is_some() {
             return Err(DownloadError::AlreadyAdded(added.name));
         }
 
         let torrent = self.client.torrents(std::slice::from_ref(&added.hash)).await?.pop();
-        let (mut download, events) = self.take_on(added.hash, added.name, item, torrent);
+        let (mut download, events) = self.take_on(added.hash, added.name, item, season, torrent);
         self.repo.save(&mut download).await?;
         self.changes.notify();
         info!(download = %download.id, name = %download.name, "torrent added");
@@ -164,7 +170,8 @@ impl Downloads {
             .collect();
         new.sort_by(|a, b| a.hash.cmp(&b.hash));
         for torrent in new {
-            let (mut download, events) = self.take_on(torrent.hash.clone(), torrent.name.clone(), None, Some(torrent));
+            let (mut download, events) =
+                self.take_on(torrent.hash.clone(), torrent.name.clone(), None, None, Some(torrent));
             match self.repo.save(&mut download).await {
                 Err(StorageError::Conflict) => {
                     debug!(hash = %download.hash, "another sync took the torrent on first");
@@ -190,6 +197,7 @@ impl Downloads {
         hash: String,
         name: String,
         item: Option<ItemId>,
+        season: Option<u16>,
         torrent: Option<Torrent>,
     ) -> (Download, Vec<Event>) {
         let mut download = Download {
@@ -197,6 +205,7 @@ impl Downloads {
             hash,
             name,
             item,
+            season,
             status: TorrentStatus::unknown(),
             added_at: self.clock.now().timestamp(),
             completed_at: None,
@@ -252,6 +261,7 @@ impl Downloads {
                 name: download.name.clone(),
                 content_path: download.content_path(),
                 item: download.item,
+                season: download.season,
             }
             .into(),
         )

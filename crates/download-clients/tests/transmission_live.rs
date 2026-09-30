@@ -86,7 +86,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         Publisher::new(Arc::new(db.event_log()), Arc::new(FileSpool::new(dir.path().join("yokoku.spool")))),
         QueueChanges::new(),
     );
-    let added = use_case.add(&TorrentSource::File(fs::read(&torrent_file).unwrap()), None).await.unwrap();
+    let added = use_case.add(&TorrentSource::File(fs::read(&torrent_file).unwrap()), None, None).await.unwrap();
     assert_eq!(added.name, "Dune.2021.1080p.mkv");
 
     let completed = wait_for(async || {
@@ -104,7 +104,14 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
     assert_eq!(
         events.last(),
         Some(
-            &DownloadCompleted { download: added.id, name: added.name, content_path: video.clone(), item: None }.into()
+            &DownloadCompleted {
+                download: added.id,
+                name: added.name,
+                content_path: video.clone(),
+                item: None,
+                season: None
+            }
+            .into()
         )
     );
 
