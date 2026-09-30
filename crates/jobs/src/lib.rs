@@ -189,7 +189,7 @@ mod tests {
 
     use tracing::{Instrument, info_span};
 
-    use super::run;
+    use super::{ScheduleSettings, run};
 
     /// Fails because of `source`.
     #[derive(Debug)]
@@ -235,5 +235,10 @@ mod tests {
         let logs = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
         assert!(logs.contains("ERROR job{name=\"sync-downloads\" correlation="), "{logs}");
         assert!(logs.contains("error=download client unavailable error.sources=[connection refused]"), "{logs}");
+    }
+
+    #[test]
+    fn the_default_schedules_parse() {
+        ScheduleSettings::default().schedules().unwrap();
     }
 }
