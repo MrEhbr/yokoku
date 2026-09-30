@@ -27,8 +27,10 @@ yokoku-library = { workspace = true, optional = true }
 yokoku-media = { workspace = true, optional = true }
 yokoku-naming.workspace = true
 
+async-trait = { workspace = true, optional = true }
 jiff = { workspace = true, features = ["serde"] }
 serde.workspace = true
+serde_json.workspace = true
 
 dioxus = { version = "=0.7.10", features = ["fullstack", "router"] }
 dioxus-icons = { version = "0.1.0", default-features = false }
@@ -48,4 +50,4 @@ rstest.workspace = true
 [features]
 default = []
 web = ["dioxus/web"]
-server = ["dioxus/server", "dep:yokoku-downloads", "dep:yokoku-events", "dep:yokoku-library", "dep:yokoku-media"]
+server = ["dioxus/server", "dep:async-trait", "dep:yokoku-downloads", "dep:yokoku-events", "dep:yokoku-library", "dep:yokoku-media"]

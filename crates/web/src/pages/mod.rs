@@ -5,4 +5,5 @@ pub mod library;
 pub mod missing;
 pub mod movie_detail;
 pub mod series_detail;
+pub mod settings;
 pub mod upcoming;

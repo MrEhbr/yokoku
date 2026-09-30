@@ -6092,6 +6092,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
+ "async-trait",
  "clap",
  "clap-verbosity-flag",
  "console-subscriber",
@@ -6404,6 +6405,7 @@ dependencies = [
 name = "yokoku-web"
 version = "0.0.1"
 dependencies = [
+ "async-trait",
  "dioxus",
  "dioxus-icons",
  "dioxus-primitives",
@@ -6411,6 +6413,7 @@ dependencies = [
  "jiff",
  "rstest",
  "serde",
+ "serde_json",
  "tokio",
  "uuid",
  "yokoku-domain",

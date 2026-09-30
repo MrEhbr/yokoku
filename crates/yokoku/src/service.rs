@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 use yokoku_jobs::Jobs;
 
-use crate::app::App;
+use crate::{app::App, web_settings::WebSettings};
 
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App) -> Result<()> {
@@ -27,6 +27,7 @@ pub async fn run(app: &App) -> Result<()> {
         roots: app.roots.clone(),
         deleter: app.deleter.clone(),
         renamer: app.renamer.clone(),
+        settings: Arc::new(WebSettings::new(app.settings.clone(), app.rescans.clone())),
         add: Arc::new(yokoku_web::AddSettings {
             tmdb_token_set: app.settings.live(|config| config.metadata.tmdb.token.is_some()),
             monitor: app.settings.live(|config| config.add.monitor),

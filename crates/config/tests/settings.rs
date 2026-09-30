@@ -85,3 +85,41 @@ async fn the_web_address_defaults_to_localhost_and_takes_stored_values() {
 
     assert_eq!((default.to_string(), stored.to_string()), ("127.0.0.1:8080".into(), "0.0.0.0:9000".into()));
 }
+
+#[tokio::test]
+async fn setting_a_value_stores_and_applies_it() {
+    let store = Arc::new(MemoryStore::default());
+    let settings = open(&store).await;
+
+    settings.set("import.mode", json!("copy")).await.unwrap();
+
+    assert_eq!(settings.current().import.mode, ImportMode::Copy);
+    assert_eq!(settings.stored_keys().await.unwrap(), ["import.mode"]);
+}
+
+#[tokio::test]
+async fn a_value_that_does_not_load_is_refused_and_not_stored() {
+    let store = Arc::new(MemoryStore::default());
+    let settings = open(&store).await;
+
+    let wrong_value = settings.set("import.mode", json!("teleport")).await.unwrap_err();
+    let unknown_key = settings.set("import.speed", json!(1)).await.unwrap_err();
+    let too_early = settings.set("database.path", json!("/tmp/other.db")).await.unwrap_err();
+
+    assert!(format!("{wrong_value:#}").contains("teleport"), "{wrong_value:#}");
+    assert!(format!("{unknown_key:#}").contains("not a setting"), "{unknown_key:#}");
+    assert!(format!("{too_early:#}").contains("before the database opens"), "{too_early:#}");
+    assert_eq!(settings.stored_keys().await.unwrap(), Vec::<String>::new());
+}
+
+#[tokio::test]
+async fn unsetting_a_value_brings_back_the_default() {
+    let store = Arc::new(MemoryStore::default());
+    let settings = open(&store).await;
+    settings.set("import.mode", json!("move")).await.unwrap();
+
+    let removed = settings.unset("import.mode").await.unwrap();
+
+    assert!(removed);
+    assert_eq!(settings.current().import.mode, ImportMode::HardLink);
+}

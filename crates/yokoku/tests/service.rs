@@ -329,6 +329,43 @@ async fn a_rename_preview_says_which_files_stay() {
 }
 
 #[tokio::test]
+async fn settings_can_be_changed_and_reset() {
+    let dir = tempfile::tempdir().unwrap();
+    let service = Service::start(dir.path());
+
+    let page = service.get("/settings");
+    let saved = service.post_json("/api/settings", r#"{"key":"import.mode","value":"copy"}"#);
+    let wrong = service.post_json("/api/settings", r#"{"key":"import.mode","value":"teleport"}"#);
+    let hidden = service.post_json("/api/settings", r#"{"key":"web.port","value":9000}"#);
+    let reset = service.post_json("/api/settings/reset", r#"{"key":"import.mode"}"#);
+
+    assert!(page.starts_with("HTTP/1.1 200") && page.contains("Import mode"), "{page}");
+    assert!(saved.contains(r#""value":"copy","stored":true"#), "{saved}");
+    assert!(!wrong.starts_with("HTTP/1.1 200") && wrong.contains("teleport"), "{wrong}");
+    assert!(hidden.contains("cannot be changed here"), "{hidden}");
+    assert!(reset.contains(r#""value":"hardlink","stored":false"#), "{reset}");
+}
+
+#[tokio::test]
+async fn root_folders_can_be_added_and_removed() {
+    let dir = tempfile::tempdir().unwrap();
+    let shows = dir.path().join("shows");
+    std::fs::create_dir(&shows).unwrap();
+    let service = Service::start(dir.path());
+    let path = shows.display().to_string();
+
+    let added = service.post_json("/api/roots", &format!(r#"{{"kind":"series","path":"{path}"}}"#));
+    let listed = service.get("/api/roots");
+    let removed = service.post_json("/api/roots/remove", &format!(r#"{{"path":"{path}"}}"#));
+    let relative = service.post_json("/api/roots", r#"{"kind":"movie","path":"movies"}"#);
+
+    assert!(added.starts_with("HTTP/1.1 200"), "{added}");
+    assert!(listed.contains(&format!(r#"{{"kind":"series","path":"{path}","items":0}}"#)), "{listed}");
+    assert!(removed.starts_with("HTTP/1.1 200"), "{removed}");
+    assert!(relative.contains("is not an absolute path"), "{relative}");
+}
+
+#[tokio::test]
 async fn refreshing_says_why_it_cannot() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;

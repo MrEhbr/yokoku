@@ -7,6 +7,7 @@ mod app;
 mod logging;
 mod service;
 mod subscriptions;
+mod web_settings;
 
 use std::io;
 

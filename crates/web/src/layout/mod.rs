@@ -2,7 +2,7 @@ mod back_button;
 pub mod document_head;
 
 use dioxus::prelude::*;
-use dioxus_icons::lucide::{CalendarDays, Download, History, Library};
+use dioxus_icons::lucide::{CalendarDays, Download, History, Library, Settings};
 
 pub(crate) use self::back_button::BackButton;
 use self::{back_button::use_in_app_history, document_head::DocumentHead};
@@ -37,6 +37,7 @@ pub fn Shell() -> Element {
                             NavItem { to: Route::Upcoming {}, label: "Upcoming", CalendarDays {} }
                             NavItem { to: Route::Downloads {}, label: "Downloads", Download {} }
                             NavItem { to: Route::History {}, label: "History", History {} }
+                            NavItem { to: Route::Settings {}, label: "Settings", Settings {} }
                         }
                     }
                 }

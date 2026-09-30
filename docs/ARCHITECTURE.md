@@ -123,7 +123,7 @@ naming rules make each hop predictable:
   web/src/
     route.rs      Route enum and App; the only file that names every page
     layout/       the shell around every page: Shell, DocumentHead, BackButton
-    pages/        one folder per route: library/, series_detail/, upcoming/, downloads/, history/
+    pages/        one folder per route: library/, series_detail/, upcoming/, downloads/, history/, settings/
     dialogs/      modal flows opened from several pages: add_torrent.rs, import_review.rs, rename.rs
     api/          server functions, one file per feature module: library/, add.rs, downloads.rs, history.rs, media.rs
     components/   Paper components (vendored with `just web add`) and Yokoku widgets, flat
@@ -219,7 +219,7 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | Episode spans (`S01E01-E03`) | none | `domain/src/episode_span.rs` | none | none | none |
 | Naming (FR-5.1–5.6) | none | `naming/src/naming.rs`, `template.rs`, `sanitize.rs`, `subtitle.rs` | none | none | `media` |
 | Rename with preview (FR-5.7) | `media/src/rename.rs` `Renamer` | `naming` | `media_repo.rs` | `system/src/fs.rs` | `rename.rs`; web `api/rename.rs`, `dialogs/rename.rs` (from detail pages; renames the selected files) |
-| Root folders (FR-8.1) | `media/src/roots.rs` `RootFolders` | `media/src/model.rs` `RootFolder` | `media_repo.rs` | `system/src/fs.rs` | `root.rs` |
+| Root folders (FR-8.1) | `media/src/roots.rs` `RootFolders` | `media/src/model.rs` `RootFolder` | `media_repo.rs` | `system/src/fs.rs` | `root.rs`; web `api/settings.rs`, `pages/settings/roots.rs` |
 | Scan (FR-8.2, 8.3, 8.7, 8.8) | `media/src/scan.rs` `Scanner` | `detect` | `media_repo.rs`, `catalog.rs` | `system/src/fs.rs` | job `scan-library`; `media.scan_added`; `scan.rs` |
 | Retarget files on renumber | `media/src/scan/renumber.rs` (`media.renumbered`) | `domain/src/series.rs` `Series::refresh` | `media_repo.rs` | none | `subscriptions.rs` |
 | Delete files (FR-8.4, 8.5, FR-1.7) | `media/src/deleter.rs` `Deleter` | none | `media_repo.rs` | `system/src/fs.rs` | `delete.rs`, `remove.rs`; web `api/library/manage.rs`, `components/delete_file.rs`, `remove_item.rs` |
@@ -228,7 +228,7 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | Jellyfin rescan (FR-10.4) | `integrations/src/rescans.rs` `Rescans` | none | `rescan_store.rs` | `media-servers/src/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
 | History (FR-9.1) | `events/src/history.rs` `History` | text: `domain/src/events.rs` `Display` for the CLI; the web words events with item links in `web/src/api/history.rs` | `event_log.rs` | none | `history.rs`; web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
 | Event contract, delivery | `domain/src/events.rs`; `events/src/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `event_log.rs` | `system/src/spool.rs` | `yokoku/src/subscriptions.rs`, `app.rs` |
-| Settings (FR-10.3) | `config/src/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `config/src/lib.rs` (layering) | `settings_store.rs` | none | `settings.rs` |
+| Settings (FR-10.3) | `config/src/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `config/src/lib.rs` (layering) | `settings_store.rs` | none | `settings.rs`; web `api/settings.rs`, `pages/settings/` (through `SettingsAccess` in `web/src/state.rs`, implemented by `yokoku/src/web_settings.rs`) |
 | Jobs and schedules | `jobs/src/lib.rs` | none | none | none | `yokoku/src/service.rs` |
 | Attribution (FR-10.5) | none | none | none | none | `cli/args.rs` `DATA_SOURCES` |
 

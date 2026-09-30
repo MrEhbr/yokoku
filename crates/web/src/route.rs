@@ -12,7 +12,7 @@ use crate::{
     layout::Shell,
     pages::{
         add::Add, downloads::Downloads, history::History, library::Library, missing::Missing,
-        movie_detail::MovieDetail, series_detail::SeriesDetail, upcoming::Upcoming,
+        movie_detail::MovieDetail, series_detail::SeriesDetail, settings::Settings, upcoming::Upcoming,
     },
 };
 
@@ -35,6 +35,8 @@ pub(crate) enum Route {
     Downloads {},
     #[route("/history")]
     History {},
+    #[route("/settings")]
+    Settings {},
 }
 
 impl Route {
@@ -57,6 +59,7 @@ impl Route {
             Self::Upcoming {} => Self::Upcoming {},
             Self::Downloads {} => Self::Downloads {},
             Self::History {} => Self::History {},
+            Self::Settings {} => Self::Settings {},
         }
     }
 }

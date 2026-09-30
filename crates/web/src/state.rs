@@ -29,6 +29,7 @@ pub struct AppState {
     pub add: Arc<AddSettings>,
     pub deleter: Arc<Deleter>,
     pub renamer: Arc<Renamer>,
+    pub settings: Arc<dyn SettingsAccess>,
 }
 
 /// The settings adding an item reads.
@@ -37,6 +38,27 @@ pub struct AddSettings {
     pub tmdb_token_set: Live<bool>,
     /// What a new series monitors; a new movie is monitored unless this is `None`.
     pub monitor: Live<MonitorPreset>,
+}
+
+/// The configuration as the Settings page reads and changes it.
+#[async_trait::async_trait]
+pub trait SettingsAccess: Send + Sync {
+    /// The value in effect as JSON, a secret masked; `None` for a key that is not a setting.
+    fn value(&self, key: &str) -> Option<serde_json::Value>;
+
+    /// An `APP__` environment variable sets `key`, over any stored value.
+    fn set_by_env(&self, key: &str) -> bool;
+
+    async fn stored_keys(&self) -> Result<Vec<String>, String>;
+
+    /// Stores and applies `value`; the error says why it does not load.
+    async fn set(&self, key: &str, value: serde_json::Value) -> Result<(), String>;
+
+    /// Removes the stored value, so the config file or the default applies again.
+    async fn unset(&self, key: &str) -> Result<(), String>;
+
+    /// The Jellyfin server's version, or why it could not be reached.
+    async fn test_jellyfin(&self) -> Result<String, String>;
 }
 
 /// `AppState` holds a `T`.
@@ -125,6 +147,12 @@ impl Provides<Deleter> for AppState {
 impl Provides<Renamer> for AppState {
     fn provide(&self) -> Arc<Renamer> {
         self.renamer.clone()
+    }
+}
+
+impl Provides<dyn SettingsAccess> for AppState {
+    fn provide(&self) -> Arc<dyn SettingsAccess> {
+        self.settings.clone()
     }
 }
 

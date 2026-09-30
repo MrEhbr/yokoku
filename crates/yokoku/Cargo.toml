@@ -32,6 +32,7 @@ yokoku-system.workspace = true
 yokoku-web = { workspace = true, features = ["server"] }
 
 anyhow.workspace = true
+async-trait.workspace = true
 jiff.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "signal"] }

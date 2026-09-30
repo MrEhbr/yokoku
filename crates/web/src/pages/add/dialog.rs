@@ -126,8 +126,8 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
             Alert { variant: AlertVariant::Warning,
                 AlertTitle { "No root folder for {kind_name}" }
                 AlertDescription {
-                    "Add one with "
-                    code { class: "yk-code", "yokoku root add {kind_name} <path>" }
+                    "Add one in "
+                    Link { class: "underline", to: Route::Settings {}, "Settings" }
                     ", then try again."
                 }
             }
