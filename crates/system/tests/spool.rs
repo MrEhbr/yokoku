@@ -1,11 +1,4 @@
-use std::{
-    fs,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration,
-};
+use std::{fs, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use tempfile::TempDir;
@@ -13,55 +6,7 @@ use tokio::sync::Notify;
 use yokoku_domain::{SeriesId, StorageError};
 use yokoku_events::{Correlated, CorrelationId, DeliveryFailure, EventId, EventLog, EventSpool, Recorded, SeriesAdded};
 use yokoku_system::FileSpool;
-
-#[derive(Default)]
-struct MemoryLog {
-    events: Mutex<Vec<Correlated>>,
-    failing: AtomicBool,
-}
-
-#[async_trait]
-impl EventLog for MemoryLog {
-    async fn append(&self, events: &[Correlated]) -> Result<(), StorageError> {
-        if self.failing.load(Ordering::SeqCst) {
-            return Err(StorageError::new(std::io::Error::other("database is locked")));
-        }
-        self.events.lock().unwrap().extend_from_slice(events);
-        Ok(())
-    }
-
-    async fn last_delivered(&self, _: &str) -> Result<Option<EventId>, StorageError> {
-        unreachable!()
-    }
-
-    async fn read_after(&self, _: Option<EventId>, _: u32) -> Result<Vec<Recorded>, StorageError> {
-        unreachable!()
-    }
-
-    async fn read_before(&self, _: Option<EventId>, _: u32) -> Result<Vec<Recorded>, StorageError> {
-        unreachable!()
-    }
-
-    async fn mark_delivered(&self, _: &str, _: EventId) -> Result<(), StorageError> {
-        unreachable!()
-    }
-
-    async fn give_up(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
-        unreachable!()
-    }
-
-    async fn failed(&self, _: &str) -> Result<Vec<(Recorded, DeliveryFailure)>, StorageError> {
-        unreachable!()
-    }
-
-    async fn record_failure(&self, _: &str, _: &DeliveryFailure) -> Result<(), StorageError> {
-        unreachable!()
-    }
-
-    async fn resolve(&self, _: &str, _: EventId) -> Result<(), StorageError> {
-        unreachable!()
-    }
-}
+use yokoku_test_support::events::MemoryLog;
 
 fn series_added(title: &str) -> Correlated {
     let event = SeriesAdded { series: SeriesId::generate(), title: title.into() }.into();
@@ -80,7 +25,7 @@ async fn replay_appends_every_pushed_event_in_order_and_empties_the_spool() {
     let replayed = spool.replay(&log).await.unwrap();
 
     assert_eq!(replayed, 3);
-    assert_eq!(*log.events.lock().unwrap(), events);
+    assert_eq!(log.appended(), events);
     assert_eq!(spool.replay(&log).await.unwrap(), 0);
 }
 
@@ -88,15 +33,15 @@ async fn replay_appends_every_pushed_event_in_order_and_empties_the_spool() {
 async fn a_refused_replay_keeps_the_spool() {
     let dir = TempDir::new().unwrap();
     let spool = FileSpool::new(dir.path().join("yokoku.spool"));
-    let log = MemoryLog { failing: AtomicBool::new(true), ..MemoryLog::default() };
+    let log = MemoryLog::failing();
     let event = series_added("first");
     spool.push(std::slice::from_ref(&event)).await.unwrap();
 
     assert!(spool.replay(&log).await.is_err());
-    log.failing.store(false, Ordering::SeqCst);
+    log.recover();
 
     assert_eq!(spool.replay(&log).await.unwrap(), 1);
-    assert_eq!(*log.events.lock().unwrap(), [event]);
+    assert_eq!(log.appended(), [event]);
 }
 
 #[tokio::test]
@@ -121,7 +66,7 @@ async fn a_torn_line_is_skipped() {
     let log = MemoryLog::default();
 
     assert_eq!(spool.replay(&log).await.unwrap(), 1);
-    assert_eq!(*log.events.lock().unwrap(), [event]);
+    assert_eq!(log.appended(), [event]);
     assert_eq!(fs::read_to_string(&path).unwrap(), "");
 }
 
@@ -198,5 +143,5 @@ async fn a_push_during_a_replay_waits_for_it_and_is_kept_for_the_next() {
     assert_eq!(replay.await.unwrap().unwrap(), 1);
     push.await.unwrap().unwrap();
     assert_eq!(spool.replay(&log.inner).await.unwrap(), 1);
-    assert_eq!(*log.inner.events.lock().unwrap(), [first, second]);
+    assert_eq!(log.inner.appended(), [first, second]);
 }

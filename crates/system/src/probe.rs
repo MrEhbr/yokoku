@@ -138,3 +138,61 @@ impl From<Report> for MediaInfo {
         info
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use rstest::rstest;
+    use yokoku_media::{AudioStream, MediaInfo, SubtitleStream, VideoStream};
+
+    use super::Report;
+
+    fn info(report: &str) -> MediaInfo {
+        serde_json::from_str::<Report>(report).unwrap().into()
+    }
+
+    #[test]
+    fn cover_art_is_not_the_video_and_undetermined_languages_are_unknown() {
+        let info = info(
+            r#"{ "streams": [
+                { "codec_type": "video", "codec_name": "mjpeg", "width": 600, "height": 900, "disposition": { "attached_pic": 1 } },
+                { "codec_type": "video", "codec_name": "hevc", "width": 1920, "height": 1080 },
+                { "codec_type": "audio", "codec_name": "opus", "channels": 2, "tags": { "language": "und" } },
+                { "codec_type": "attachment", "codec_name": "ttf" }
+            ], "format": {} }"#,
+        );
+
+        assert_eq!(info.video, Some(VideoStream { codec: "hevc".into(), width: 1920, height: 1080 }));
+        assert_eq!(info.audio, [AudioStream { codec: "opus".into(), language: None, channels: 2 }]);
+        assert_eq!((info.duration, info.subtitles.len()), (None, 0));
+    }
+
+    #[test]
+    fn forced_subtitles_are_marked() {
+        let info = info(
+            r#"{ "streams": [
+                { "codec_type": "subtitle", "codec_name": "subrip", "tags": { "language": "rus" }, "disposition": { "forced": 1 } },
+                { "codec_type": "subtitle", "codec_name": "ass" }
+            ] }"#,
+        );
+
+        assert_eq!(
+            info.subtitles,
+            [
+                SubtitleStream { codec: "subrip".into(), language: Some("rus".into()), forced: true },
+                SubtitleStream { codec: "ass".into(), language: None, forced: false },
+            ]
+        );
+    }
+
+    #[rstest]
+    #[case::seconds(r#""2.023""#, Some(Duration::from_millis(2023)))]
+    #[case::negative(r#""-1""#, None)]
+    #[case::not_a_number(r#""N/A""#, None)]
+    fn the_duration_is_read_in_seconds(#[case] duration: &str, #[case] expected: Option<Duration>) {
+        let info = info(&format!(r#"{{ "streams": [], "format": {{ "duration": {duration} }} }}"#));
+
+        assert_eq!(info.duration, expected);
+    }
+}

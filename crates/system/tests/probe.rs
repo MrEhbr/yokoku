@@ -49,24 +49,6 @@ async fn reads_video_audio_and_subtitle_streams() {
 }
 
 #[tokio::test]
-async fn cover_art_is_not_the_video_and_undetermined_languages_are_unknown() {
-    let dir = TempDir::new().unwrap();
-    let report = r#"{ "streams": [
-        { "codec_type": "video", "codec_name": "mjpeg", "width": 600, "height": 900, "disposition": { "attached_pic": 1 } },
-        { "codec_type": "video", "codec_name": "hevc", "width": 1920, "height": 1080 },
-        { "codec_type": "audio", "codec_name": "opus", "channels": 2, "tags": { "language": "und" } },
-        { "codec_type": "attachment", "codec_name": "ttf" }
-    ], "format": {} }"#;
-    let program = stand_in(dir.path(), report, "", 0);
-
-    let info = FfProbe::new(Live::fixed(program)).probe(Path::new("/tv/a.mkv")).await.unwrap();
-
-    assert_eq!(info.video, Some(VideoStream { codec: "hevc".into(), width: 1920, height: 1080 }));
-    assert_eq!(info.audio, [AudioStream { codec: "opus".into(), language: None, channels: 2 }]);
-    assert_eq!((info.duration, info.subtitles.len()), (None, 0));
-}
-
-#[tokio::test]
 async fn a_file_it_cannot_read_fails_with_its_first_error_line() {
     let dir = TempDir::new().unwrap();
     let program = stand_in(dir.path(), "", "\n/tv/a.mkv: Invalid data found when processing input\n", 1);

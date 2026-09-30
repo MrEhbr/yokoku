@@ -25,5 +25,8 @@ tracing.workspace = true
 walkdir = "2.5"
 
 [dev-dependencies]
+yokoku-test-support.workspace = true
+
+rstest.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }

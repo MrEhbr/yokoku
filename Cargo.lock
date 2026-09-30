@@ -6393,6 +6393,7 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "jiff",
+ "rstest",
  "serde",
  "serde_json",
  "tempfile",
@@ -6404,6 +6405,7 @@ dependencies = [
  "yokoku-events",
  "yokoku-library",
  "yokoku-media",
+ "yokoku-test-support",
 ]
 
 [[package]]
