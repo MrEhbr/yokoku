@@ -262,10 +262,8 @@ async fn an_unreachable_client_changes_nothing() {
     *setup.client.unavailable.lock().unwrap() = true;
 
     let sync = setup.downloads.sync().await.unwrap_err();
-    let test = setup.downloads.test_connection().await.unwrap_err();
 
     assert!(matches!(sync, DownloadError::Client(ClientError::Unavailable(_))), "{sync}");
-    assert!(matches!(test, DownloadError::Client(_)), "{test}");
     assert_eq!(setup.only_download().await, added);
 }
 

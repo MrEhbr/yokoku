@@ -78,11 +78,6 @@ impl Downloads {
         Self { repo, client, clock, options, events, changes }
     }
 
-    /// The client's name and version (FR-3.1).
-    pub async fn test_connection(&self) -> Result<String, DownloadError> {
-        Ok(self.client.version().await?)
-    }
-
     /// Newest first.
     pub async fn list(&self) -> Result<Vec<Download>, DownloadError> {
         Ok(self.repo.list().await?)
