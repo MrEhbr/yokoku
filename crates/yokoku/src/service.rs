@@ -11,7 +11,6 @@ use crate::{app::App, web_settings::WebSettings};
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App) -> Result<()> {
     let config = app.settings.current();
-    let schedules = config.serve.schedules()?;
     let state = yokoku_web::AppState {
         library: app.library.clone(),
         artworks: app.artworks.clone(),
@@ -47,7 +46,7 @@ pub async fn run(app: &App) -> Result<()> {
             metadata: app.metadata_service(),
             rescans: app.rescans.clone(),
         },
-        schedules,
+        app.settings.live(|config| config.serve.schedules()),
         &stop_jobs,
     );
     let web = tokio::spawn(web.serve(shutdown.clone().cancelled_owned()));

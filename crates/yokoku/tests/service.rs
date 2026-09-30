@@ -24,18 +24,15 @@ use yokoku_media::{
     ports::{Changes, MediaRepo},
 };
 
-/// The `[serve]` schedules, as `APP__SERVE__` variables name them.
-const JOBS: [&str; 6] = [
-    "SYNC_DOWNLOADS",
-    "SYNC_ACTIVE_DOWNLOADS",
-    "EXECUTE_IMPORTS",
-    "RESCAN_MEDIA_SERVER",
-    "REFRESH_METADATA",
-    "SCAN_LIBRARY",
-];
-
-/// A cron schedule that does not fire while a test runs: midnight on January 1st.
-const NEVER: &str = "0 0 0 1 1 *";
+/// A config file whose `[serve]` schedules do not fire while a test runs: midnight on January 1st.
+const NEVER: &str = r#"[serve]
+sync_downloads = "0 0 0 1 1 *"
+sync_active_downloads = "0 0 0 1 1 *"
+execute_imports = "0 0 0 1 1 *"
+rescan_media_server = "0 0 0 1 1 *"
+refresh_metadata = "0 0 0 1 1 *"
+scan_library = "0 0 0 1 1 *"
+"#;
 
 /// A running service; killed on drop.
 struct Service {
@@ -51,18 +48,20 @@ impl Service {
     }
 
     /// Like `start`, with the environment variables `env` set. Scheduled jobs run only when `env`
-    /// gives them a schedule.
+    /// or a stored setting gives them a schedule.
     fn start_with(dir: &Path, env: &[(&str, &str)]) -> Self {
         let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         std::fs::create_dir_all(dir.join("public")).unwrap();
+        std::fs::write(dir.join("app.toml"), NEVER).unwrap();
         let log = dir.join("service.log");
         let child = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
+            .arg("--config")
+            .arg(dir.join("app.toml"))
             .env("APP__DATABASE__PATH", dir.join("yokoku.db"))
             .env("DIOXUS_PUBLIC_PATH", dir.join("public"))
             .env("APP__WEB__PORT", port.to_string())
             .env_remove("APP__METADATA__TMDB__TOKEN")
             .env_remove("APP__METADATA__TVDB__API_KEY")
-            .envs(JOBS.iter().map(|job| (format!("APP__SERVE__{job}"), NEVER)))
             .envs(env.iter().copied())
             .stdout(Stdio::null())
             .stderr(std::fs::File::create(&log).unwrap())
@@ -413,14 +412,13 @@ async fn the_library_can_be_scanned_on_demand() {
     assert!(scanned.contains(r#"{"found":0,"vanished":0,"unrecognised":0}"#), "{scanned}");
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn scheduled_jobs_run_on_their_cron_schedule_until_the_service_stops() {
-    let dir = tempfile::tempdir().unwrap();
-    let movies = dir.path().join("movies");
+/// A movie in a `movies` root folder of `dir`'s database, with a file no scan has found yet.
+async fn seed_unscanned_movie(dir: &Path) {
+    let movies = dir.join("movies");
     let folder = ItemFolder::new(movies.clone(), "Dune (2021)".into()).unwrap();
     std::fs::create_dir_all(folder.path()).unwrap();
     std::fs::write(folder.path().join("Dune (2021).mkv"), b"video").unwrap();
-    let db = Database::open(&dir.path().join("yokoku.db")).await.unwrap();
+    let db = Database::open(&dir.join("yokoku.db")).await.unwrap();
     MediaRepo::add_root_folder(&db, &RootFolder { kind: RootKind::Movies, path: movies }).await.unwrap();
     let dune = MovieMetadata {
         source: ExternalId::Tmdb(438631),
@@ -433,23 +431,44 @@ async fn scheduled_jobs_run_on_their_cron_schedule_until_the_service_stops() {
         releases: Releases::default(),
     };
     MovieRepo::save(&db, &mut Movie::add(dune, folder, true, Timestamp::now())).await.unwrap();
-    drop(db);
-    let _service = Service::start_with(dir.path(), &[("APP__SERVE__SCAN_LIBRARY", "* * * * * *")]);
-    let log = Database::open(&dir.path().join("yokoku.db")).await.unwrap().event_log();
+}
 
+/// Waits up to 15 s for a scan of `dir`'s library to find a file.
+async fn scanned(dir: &Path) -> bool {
+    let log = Database::open(&dir.join("yokoku.db")).await.unwrap().event_log();
     let deadline = Instant::now() + Duration::from_secs(15);
-    let found = loop {
+    while Instant::now() < deadline {
         let events = log.read_after(None, 100).await.unwrap();
         if events.iter().any(|recorded| recorded.event.get::<FilesFound>().is_some()) {
-            break true;
-        }
-        if Instant::now() > deadline {
-            break false;
+            return true;
         }
         tokio::time::sleep(Duration::from_millis(200)).await;
-    };
+    }
+    false
+}
 
-    assert!(found, "the library was not scanned on schedule");
+#[tokio::test(flavor = "multi_thread")]
+async fn scheduled_jobs_run_on_their_cron_schedule_until_the_service_stops() {
+    let dir = tempfile::tempdir().unwrap();
+    seed_unscanned_movie(dir.path()).await;
+    let _service = Service::start_with(dir.path(), &[("APP__SERVE__SCAN_LIBRARY", "* * * * * *")]);
+
+    assert!(scanned(dir.path()).await, "the library was not scanned on schedule");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_schedule_changed_from_the_command_line_applies_while_the_service_runs() {
+    let dir = tempfile::tempdir().unwrap();
+    seed_unscanned_movie(dir.path()).await;
+    let _service = Service::start_with(dir.path(), &[("APP__EVENTS__POLL_INTERVAL_MS", "100")]);
+
+    Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
+        .args(["settings", "set", "serve.scan_library", "* * * * * *"])
+        .env("APP__DATABASE__PATH", dir.path().join("yokoku.db"))
+        .assert()
+        .success();
+
+    assert!(scanned(dir.path()).await, "the library was not scanned on the changed schedule");
 }
 
 #[tokio::test]

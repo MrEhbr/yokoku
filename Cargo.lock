@@ -6228,6 +6228,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+ "yokoku-domain",
  "yokoku-downloads",
  "yokoku-events",
  "yokoku-integrations",

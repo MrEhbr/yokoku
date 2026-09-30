@@ -9,6 +9,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+yokoku-domain.workspace = true
 yokoku-downloads.workspace = true
 yokoku-events.workspace = true
 yokoku-integrations.workspace = true

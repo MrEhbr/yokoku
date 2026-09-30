@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use tokio::{task::JoinHandle, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
+use yokoku_domain::Live;
 use yokoku_downloads::Downloads;
 use yokoku_events::{CorrelationId, correlation::correlate};
 use yokoku_integrations::Rescans;
@@ -21,6 +22,9 @@ use yokoku_media::{Importer, Scanner};
 
 /// Changes must stop arriving for this long before the media server rescans.
 const RESCAN_QUIET: SignedDuration = SignedDuration::from_secs(30);
+
+/// A job reads its schedule again at least this often.
+const RECHECK: Duration = Duration::from_secs(1);
 
 type BoxError = Box<dyn Error + Send + Sync>;
 
@@ -101,46 +105,65 @@ fn schedule(expression: &str) -> Result<Schedule, InvalidSchedule> {
 
 /// Starts each job on its schedule, one tick at a time; each stops when `shutdown` is cancelled,
 /// after the tick it is running.
-pub fn spawn(jobs: Jobs, schedules: Schedules, shutdown: &CancellationToken) -> Vec<JoinHandle<()>> {
+pub fn spawn(
+    jobs: Jobs,
+    schedules: Live<Result<Schedules, InvalidSchedule>>,
+    shutdown: &CancellationToken,
+) -> Vec<JoinHandle<()>> {
     let Jobs { downloads, importer, scanner, metadata, rescans } = jobs;
     let active = downloads.clone();
     let shutdown = || shutdown.clone();
+    let schedule = |pick: fn(Schedules) -> Schedule| {
+        let schedules = schedules.clone();
+        move || schedules.current().map(pick)
+    };
     vec![
-        tokio::spawn(every("sync-downloads", schedules.sync_downloads, shutdown(), async move || {
+        tokio::spawn(every("sync-downloads", schedule(|s| s.sync_downloads), shutdown(), async move || {
             downloads.sync().await
         })),
-        tokio::spawn(every("sync-active-downloads", schedules.sync_active_downloads, shutdown(), async move || {
-            active.sync_active().await
-        })),
-        tokio::spawn(every("execute-imports", schedules.execute_imports, shutdown(), async move || {
+        tokio::spawn(every(
+            "sync-active-downloads",
+            schedule(|s| s.sync_active_downloads),
+            shutdown(),
+            async move || active.sync_active().await,
+        )),
+        tokio::spawn(every("execute-imports", schedule(|s| s.execute_imports), shutdown(), async move || {
             importer.run_pending().await
         })),
-        tokio::spawn(every("scan-library", schedules.scan_library, shutdown(), async move || scanner.scan().await)),
-        tokio::spawn(every("refresh-metadata", schedules.refresh_metadata, shutdown(), async move || {
+        tokio::spawn(every("scan-library", schedule(|s| s.scan_library), shutdown(), async move || {
+            scanner.scan().await
+        })),
+        tokio::spawn(every("refresh-metadata", schedule(|s| s.refresh_metadata), shutdown(), async move || {
             refresh_metadata(&metadata).await
         })),
-        tokio::spawn(every("rescan-media-server", schedules.rescan_media_server, shutdown(), async move || {
+        tokio::spawn(every("rescan-media-server", schedule(|s| s.rescan_media_server), shutdown(), async move || {
             rescans.run_due(RESCAN_QUIET).await
         })),
     ]
 }
 
-/// Runs `job` on each tick of `schedule` in UTC; a tick missed while `job` runs follows right after it.
+/// Runs `job` on each tick of `schedule` in UTC, reading `schedule` again before each tick and at
+/// least every `RECHECK`; a tick missed while `job` runs is skipped.
 async fn every<T, E: Into<BoxError>>(
     name: &'static str,
-    schedule: Schedule,
+    schedule: impl Fn() -> Result<Schedule, InvalidSchedule>,
     shutdown: CancellationToken,
     job: impl AsyncFn() -> Result<T, E>,
 ) {
-    let mut next = schedule.upcoming(TimeZone::UTC).next();
-    while let Some(tick) = next {
+    loop {
+        let next = schedule()
+            .inspect_err(|error| error!(job = name, error = error as &(dyn Error + 'static), "job not scheduled"))
+            .ok()
+            .and_then(|schedule| schedule.upcoming(TimeZone::UTC).next());
+        let wait = next.as_ref().map_or(RECHECK, |tick| until(tick).min(RECHECK));
         tokio::select! {
             biased;
             () = shutdown.cancelled() => return,
-            () = sleep(until(&tick)) => {}
+            () = sleep(wait) => {}
         }
-        next = schedule.upcoming(TimeZone::UTC).next();
-        _ = run(name, async { job().await.map(drop).map_err(Into::into) }).await;
+        if next.is_some_and(|tick| Zoned::now() >= tick) {
+            _ = run(name, async { job().await.map(drop).map_err(Into::into) }).await;
+        }
     }
 }
 
