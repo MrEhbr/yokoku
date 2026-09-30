@@ -5,7 +5,7 @@ mod log;
 mod sections;
 mod settings;
 
-use std::path::Path;
+use std::{env, path::Path};
 
 use anyhow::{Result, bail};
 use config::{ConfigBuilder, Environment, File, FileFormat, builder::DefaultState};
@@ -28,6 +28,7 @@ pub use crate::config::{
 use crate::jobs::ScheduleSettings;
 
 const ENV_PREFIX: &str = "APP";
+const ENV_SEPARATOR: &str = "__";
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(default)]
@@ -55,7 +56,10 @@ impl Config {
     /// `stored` holds values by dotted key, such as `import.mode`.
     pub fn load(config_path: Option<&Path>, stored: &[(String, Value)]) -> Result<Self> {
         let layers = Self::layers(config_path, stored)?;
-        Ok(layers.add_source(Environment::with_prefix(ENV_PREFIX).separator("__")).build()?.try_deserialize()?)
+        Ok(layers
+            .add_source(Environment::with_prefix(ENV_PREFIX).separator(ENV_SEPARATOR))
+            .build()?
+            .try_deserialize()?)
     }
 
     /// Defaults, the config file, then `stored`.
@@ -92,6 +96,12 @@ impl Config {
         loaded.and_then(|config| config.setting(key)).unwrap_or_else(|_| stored.to_string())
     }
 
+    /// An `APP__` environment variable, or its `__FILE` form, sets `key` over any stored value.
+    pub fn set_by_env(key: &str) -> bool {
+        let variable = format!("{ENV_PREFIX}{ENV_SEPARATOR}{}", key.to_uppercase().replace('.', ENV_SEPARATOR));
+        env::var_os(&variable).is_some() || env::var_os(format!("{variable}{ENV_SEPARATOR}FILE")).is_some()
+    }
+
     /// Fails unless `key` is a setting the database can store.
     pub fn editable(key: &str) -> Result<()> {
         Self::default().value(key)?;
@@ -101,7 +111,8 @@ impl Config {
         Ok(())
     }
 
-    fn value(&self, key: &str) -> Result<Value> {
+    /// The value of a known setting as JSON, a secret masked.
+    pub fn value(&self, key: &str) -> Result<Value> {
         let config = Secret::masking(|| serde_json::to_value(self))?;
         match key.split('.').try_fold(&config, |value, part| value.get(part)) {
             Some(value) if !value.is_object() => Ok(value.clone()),

@@ -1,5 +1,3 @@
-use std::env;
-
 use async_trait::async_trait;
 use serde_json::Value;
 use yokoku_core::{
@@ -10,7 +8,7 @@ use yokoku_domain::{Live, StorageError};
 use yokoku_infra::{download_clients::TransmissionClient, media_servers::JellyfinClient};
 use yokoku_web::{Connection, SettingsAccess};
 
-use crate::config::Settings;
+use crate::config::{Config, Settings};
 
 /// The configuration, as the web Settings page reaches it.
 pub struct WebSettings {
@@ -26,13 +24,11 @@ impl WebSettings {
 #[async_trait]
 impl SettingsAccess for WebSettings {
     fn value(&self, key: &str) -> Option<Value> {
-        let json = self.settings.current().setting(key).ok()?;
-        serde_json::from_str(&json).ok()
+        self.settings.current().value(key).ok()
     }
 
     fn set_by_env(&self, key: &str) -> bool {
-        let variable = format!("APP__{}", key.to_uppercase().replace('.', "__"));
-        env::var_os(&variable).is_some() || env::var_os(format!("{variable}__FILE")).is_some()
+        Config::set_by_env(key)
     }
 
     async fn stored_keys(&self) -> Result<Vec<String>, String> {
