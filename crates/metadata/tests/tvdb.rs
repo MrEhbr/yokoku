@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use jiff::civil::date;
+use rstest::{fixture, rstest};
 use serde_json::{Value, json};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -24,6 +25,14 @@ fn settings_at(url: &str, api_key: &str) -> MetadataSettings {
 
 fn ok(data: Value) -> ResponseTemplate {
     ResponseTemplate::new(200).set_body_json(json!({ "status": "success", "data": data }))
+}
+
+/// A TVDB that accepts the test login once.
+#[fixture]
+async fn server() -> MockServer {
+    let server = MockServer::start().await;
+    mount_login(&server, TOKEN).await;
+    server
 }
 
 async fn mount_login(server: &MockServer, token: &str) {
@@ -117,10 +126,9 @@ async fn mount_frieren(server: &MockServer) {
         .await;
 }
 
+#[rstest]
 #[tokio::test]
-async fn search_finds_series_under_their_translated_names() {
-    let server = MockServer::start().await;
-    mount_login(&server, TOKEN).await;
+async fn search_finds_series_under_their_translated_names(#[future(awt)] server: MockServer) {
     Mock::given(path("/search"))
         .and(query_param("query", "frieren"))
         .and(query_param("type", "series"))
@@ -168,10 +176,9 @@ async fn a_search_for_movies_finds_nothing_without_asking() {
     assert!(server.received_requests().await.unwrap().is_empty());
 }
 
+#[rstest]
 #[tokio::test]
-async fn series_gather_every_episode_page_into_seasons() {
-    let server = MockServer::start().await;
-    mount_login(&server, TOKEN).await;
+async fn series_gather_every_episode_page_into_seasons(#[future(awt)] server: MockServer) {
     mount_frieren(&server).await;
 
     let frieren = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap();
@@ -190,10 +197,9 @@ async fn series_gather_every_episode_page_into_seasons() {
     assert_eq!(frieren.seasons[1].episodes.len(), 2);
 }
 
+#[rstest]
 #[tokio::test]
-async fn series_take_their_description_in_the_language() {
-    let server = MockServer::start().await;
-    mount_login(&server, TOKEN).await;
+async fn series_take_their_description_in_the_language(#[future(awt)] server: MockServer) {
     mount_frieren(&server).await;
 
     let frieren = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap();
@@ -205,10 +211,9 @@ async fn series_take_their_description_in_the_language() {
     assert_eq!(frieren.seasons[1].episodes[1].overview, "");
 }
 
+#[rstest]
 #[tokio::test]
-async fn series_without_an_overview_in_the_language_take_the_original_one() {
-    let server = MockServer::start().await;
-    mount_login(&server, TOKEN).await;
+async fn series_without_an_overview_in_the_language_take_the_original_one(#[future(awt)] server: MockServer) {
     mount_frieren(&server).await;
     Mock::given(path("/series/424536/episodes/default/fra"))
         .respond_with(ok(json!({ "series": { "id": 424536 }, "episodes": [] })))
@@ -221,10 +226,9 @@ async fn series_without_an_overview_in_the_language_take_the_original_one() {
     assert_eq!(frieren.description.overview, "魔王を倒した勇者一行の後日譚。");
 }
 
+#[rstest]
 #[tokio::test]
-async fn series_take_a_textless_background_and_a_logo_in_the_language() {
-    let server = MockServer::start().await;
-    mount_login(&server, TOKEN).await;
+async fn series_take_a_textless_background_and_a_logo_in_the_language(#[future(awt)] server: MockServer) {
     mount_frieren(&server).await;
 
     let artwork = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap().artwork;
@@ -309,13 +313,12 @@ async fn a_token_refused_twice_is_not_renewed_again() {
 
     let error = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap_err();
 
-    assert!(matches!(error, MetadataError::Refused(_)));
+    assert!(matches!(error, MetadataError::Refused(_)), "{error:?}");
 }
 
+#[rstest]
 #[tokio::test]
-async fn endless_episode_pages_are_invalid() {
-    let server = MockServer::start().await;
-    mount_login(&server, TOKEN).await;
+async fn endless_episode_pages_are_invalid(#[future(awt)] server: MockServer) {
     mount_frieren(&server).await;
     Mock::given(path("/series/424536/episodes/default/eng"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
@@ -327,18 +330,17 @@ async fn endless_episode_pages_are_invalid() {
 
     let error = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap_err();
 
-    assert!(matches!(error, MetadataError::Invalid(_)));
+    assert!(matches!(error, MetadataError::Invalid(_)), "{error:?}");
 }
 
+#[rstest]
 #[tokio::test]
-async fn missing_series_are_not_found() {
-    let server = MockServer::start().await;
-    mount_login(&server, TOKEN).await;
+async fn missing_series_are_not_found(#[future(awt)] server: MockServer) {
     Mock::given(path("/series/404/extended")).respond_with(ResponseTemplate::new(404)).mount(&server).await;
 
     let error = client(&server).series(ExternalId::Tvdb(404)).await.unwrap_err();
 
-    assert!(matches!(error, MetadataError::NotFound(ExternalId::Tvdb(404))));
+    assert!(matches!(error, MetadataError::NotFound(ExternalId::Tvdb(404))), "{error:?}");
 }
 
 #[tokio::test]
@@ -349,7 +351,19 @@ async fn movies_and_tmdb_ids_are_not_looked_up_on_tvdb() {
     let movie = client.movie(ExternalId::Tvdb(1)).await.unwrap_err();
     let series = client.series(ExternalId::Tmdb(209867)).await.unwrap_err();
 
-    assert!(matches!(movie, MetadataError::Unavailable(_)));
-    assert!(matches!(series, MetadataError::Unavailable(_)));
+    assert!(matches!(movie, MetadataError::Unavailable(_)), "{movie:?}");
+    assert!(matches!(series, MetadataError::Unavailable(_)), "{series:?}");
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn without_an_api_key_nothing_is_asked() {
+    let server = MockServer::start().await;
+    let mut settings = settings_at(&server.uri(), "api-key");
+    settings.tvdb.api_key = None;
+
+    let error = TvdbClient::new(Live::fixed(settings)).series(ExternalId::Tvdb(424536)).await.unwrap_err();
+
+    assert!(matches!(&error, MetadataError::Refused(reason) if reason.contains("no TVDB API key")), "{error:?}");
     assert!(server.received_requests().await.unwrap().is_empty());
 }

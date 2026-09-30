@@ -6369,6 +6369,7 @@ dependencies = [
  "wiremock",
  "yokoku-domain",
  "yokoku-library",
+ "yokoku-test-support",
 ]
 
 [[package]]

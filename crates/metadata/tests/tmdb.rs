@@ -8,13 +8,9 @@ use wiremock::{
 use yokoku_domain::{ExternalId, Live, MediaKind, Secret, SourceStatus};
 use yokoku_library::ports::{MetadataError, MetadataProvider};
 use yokoku_metadata::{MetadataSettings, TmdbClient, TmdbSettings};
+use yokoku_test_support::metadata::fixture;
 
 const TOKEN: &str = "test-token";
-
-fn fixture(name: &str) -> Value {
-    let path = format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
-    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
-}
 
 async fn server() -> MockServer {
     MockServer::start().await
@@ -312,7 +308,7 @@ async fn missing_items_are_not_found() {
 
     let error = client(&server, "US").series(ExternalId::Tmdb(404)).await.unwrap_err();
 
-    assert!(matches!(error, MetadataError::NotFound(ExternalId::Tmdb(404))));
+    assert!(matches!(error, MetadataError::NotFound(ExternalId::Tmdb(404))), "{error:?}");
 }
 
 fn failing(status: u16) -> ResponseTemplate {
@@ -363,7 +359,7 @@ async fn failing_requests_leave_the_source_unavailable(#[case] status: u16, #[ca
 
     let error = client(&server, "US").movie(ExternalId::Tmdb(1)).await.unwrap_err();
 
-    assert!(matches!(error, MetadataError::Unavailable(_)));
+    assert!(matches!(error, MetadataError::Unavailable(_)), "{error:?}");
 }
 
 #[tokio::test]
@@ -376,7 +372,7 @@ async fn answers_of_another_shape_are_invalid() {
 
     let error = client(&server, "US").movie(ExternalId::Tmdb(1)).await.unwrap_err();
 
-    assert!(matches!(error, MetadataError::Invalid(_)));
+    assert!(matches!(error, MetadataError::Invalid(_)), "{error:?}");
 }
 
 #[tokio::test]
@@ -385,7 +381,7 @@ async fn tvdb_ids_are_not_looked_up_on_tmdb() {
 
     let error = client(&server, "US").series(ExternalId::Tvdb(81189)).await.unwrap_err();
 
-    assert!(matches!(error, MetadataError::Unavailable(_)));
+    assert!(matches!(error, MetadataError::Unavailable(_)), "{error:?}");
     assert!(server.received_requests().await.unwrap().is_empty());
 }
 
