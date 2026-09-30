@@ -20,7 +20,7 @@ use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRe
 use yokoku_events::{Correlated, EventLog, FileRenamed, ImportFailed, MovieRemoved, TorrentAdded};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{
-    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind, VideoStream,
+    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind, VideoStream,
     ports::{Changes, MediaRepo},
 };
 
@@ -646,7 +646,7 @@ async fn seed_downloads(path: &Path, frieren: SeriesId, dune: MovieId) -> Seeded
                 target: None,
                 confidence: Confidence::Unknown,
                 skipped: false,
-                replace: false,
+                resolution: Resolution::Unresolved,
             })
             .collect(),
         created_at: now,

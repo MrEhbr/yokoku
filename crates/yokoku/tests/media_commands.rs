@@ -16,7 +16,7 @@ use yokoku_domain::{
 };
 use yokoku_library::ports::SeriesRepo;
 use yokoku_media::{
-    Import, ImportRow, ImportStatus,
+    Import, ImportRow, ImportStatus, Resolution,
     ports::{Changes, MediaRepo},
 };
 
@@ -488,7 +488,7 @@ async fn an_import_left_running_by_a_stopped_command_runs_again() {
             target: Some(FileTarget::Episodes { series: series.id, span: EpisodeSpan::new(1, 1, 1).unwrap() }),
             confidence: Confidence::Certain,
             skipped: false,
-            replace: false,
+            resolution: Resolution::Unresolved,
         }],
         created_at: Timestamp::now(),
     };

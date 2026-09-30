@@ -6,7 +6,7 @@ use yokoku_domain::{Confidence, FileTarget, ImportId, MediaFileId};
 use yokoku_events::{EpisodesRenumbered, Event, Handler, HandlerError, ImportNeedsReview};
 
 use super::Scanner;
-use crate::{Import, ImportRow, ImportStatus, MediaError, MediaFile, ports::Changes};
+use crate::{Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution, ports::Changes};
 
 impl Scanner {
     /// Moves each file to the episodes now holding it; a file whose episodes split leaves the
@@ -34,7 +34,7 @@ impl Scanner {
                         target: None,
                         confidence: Confidence::Unknown,
                         skipped: false,
-                        replace: false,
+                        resolution: Resolution::Unresolved,
                     });
                 },
             }

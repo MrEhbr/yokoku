@@ -17,8 +17,8 @@ pub use deleter::Deleter;
 pub use error::MediaError;
 pub use importer::{Destination, ImportMode, ImportSettings, Importer};
 pub use model::{
-    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind, SubtitleStream,
-    VideoStream,
+    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
+    SubtitleStream, VideoStream,
 };
 pub use planner::ImportPlanner;
 pub use prober::{FileDetails, ProbeReport, Prober};

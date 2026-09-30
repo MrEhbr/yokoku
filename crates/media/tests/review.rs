@@ -6,7 +6,7 @@ use yokoku_detect::Conflict;
 use yokoku_domain::{Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MovieId, SeriesId};
 use yokoku_events::{FilesImported, LinkedFile};
 use yokoku_media::{
-    Approval, Import, ImportRow, ImportStatus, MediaError,
+    Approval, Import, ImportRow, ImportStatus, MediaError, Resolution,
     ports::{Changes, MediaRepo},
 };
 
@@ -163,7 +163,7 @@ async fn downloaded(app: &App) -> ImportId {
             target: Some(app.episodes(1, 1, 1)),
             confidence: Confidence::Certain,
             skipped: false,
-            replace: false,
+            resolution: Resolution::Unresolved,
         }],
         created_at: common::now(),
     };
@@ -197,7 +197,7 @@ async fn a_download_row_can_replace_the_library_file() {
     app.reviewer.replace_row(id, 1).await.unwrap();
 
     let review = app.reviewer.get(id).await.unwrap();
-    assert!(review.rows[0].row.replace);
+    assert_eq!(review.rows[0].row.resolution, Resolution::Replace);
     assert_eq!(conflicts(review), []);
     assert_eq!(app.reviewer.approve(id).await.unwrap(), Approval::Queued);
 }

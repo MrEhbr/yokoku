@@ -15,7 +15,7 @@ use yokoku_events::{
 };
 
 use crate::{
-    Import, ImportRow, ImportStatus, MediaError, MediaFile,
+    Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
     ports::{Catalog, Changes, FileSystem, LibraryLock, MediaRepo},
 };
 
@@ -212,9 +212,14 @@ fn scan_folder(
                 occupied.push(target);
                 changes.added_files.push(MediaFile { id: MediaFileId::generate(), path, size, target, added_at: now });
             },
-            target => {
-                rows.push(ImportRow { path, size, target, confidence: row.confidence, skipped: false, replace: false })
-            },
+            target => rows.push(ImportRow {
+                path,
+                size,
+                target,
+                confidence: row.confidence,
+                skipped: false,
+                resolution: Resolution::Unresolved,
+            }),
         }
     }
     if !rows.is_empty() {

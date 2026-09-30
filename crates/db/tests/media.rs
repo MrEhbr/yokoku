@@ -8,7 +8,7 @@ use yokoku_db::Database;
 use yokoku_domain::{Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId};
 use yokoku_library::ports::MediaFiles;
 use yokoku_media::{
-    Import, ImportRow, ImportStatus, MediaFile, RootFolder, RootKind,
+    Import, ImportRow, ImportStatus, MediaFile, Resolution, RootFolder, RootKind,
     ports::{Changes, MediaRepo},
 };
 
@@ -42,7 +42,14 @@ fn import(source: &str, created_at: Timestamp, rows: Vec<ImportRow>) -> Import {
 }
 
 fn row(path: &str, target: Option<FileTarget>) -> ImportRow {
-    ImportRow { path: path.into(), size: 7, target, confidence: Confidence::Guess, skipped: false, replace: false }
+    ImportRow {
+        path: path.into(),
+        size: 7,
+        target,
+        confidence: Confidence::Guess,
+        skipped: false,
+        resolution: Resolution::Unresolved,
+    }
 }
 
 #[rstest]
@@ -149,14 +156,15 @@ fn any_status() -> impl Strategy<Value = ImportStatus> {
 
 fn any_row() -> impl Strategy<Value = ImportRow> {
     let confidence = prop_oneof![Just(Confidence::Unknown), Just(Confidence::Guess), Just(Confidence::Certain)];
-    ("\\PC{1,40}", 0..=i64::MAX as u64, proptest::option::of(any_target()), confidence, any::<bool>(), any::<bool>())
-        .prop_map(|(path, size, target, confidence, skipped, replace)| ImportRow {
+    let resolution = prop_oneof![Just(Resolution::Unresolved), Just(Resolution::Replace)];
+    ("\\PC{1,40}", 0..=i64::MAX as u64, proptest::option::of(any_target()), confidence, any::<bool>(), resolution)
+        .prop_map(|(path, size, target, confidence, skipped, resolution)| ImportRow {
             path: PathBuf::from(path),
             size,
             target,
             confidence,
             skipped,
-            replace,
+            resolution,
         })
 }
 

@@ -13,7 +13,7 @@ use yokoku_events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFaile
 use yokoku_naming::{Naming, subtitle_path};
 
 use crate::{
-    Import, ImportRow, ImportStatus, MediaError, MediaFile, files,
+    Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution, files,
     ports::{Catalog, Changes, FileSystem, FsError, LibraryLock, MediaRepo},
 };
 
@@ -201,8 +201,10 @@ impl Importer {
                 continue;
             }
 
-            let olds: Vec<&MediaFile> =
-                library.iter().filter(|file| row.replace && file.target.overlaps(&target)).collect();
+            let olds: Vec<&MediaFile> = library
+                .iter()
+                .filter(|file| row.resolution == Resolution::Replace && file.target.overlaps(&target))
+                .collect();
             let occupied =
                 olds.iter().any(|old| old.path == destination) && self.fs.stat(&destination).await?.is_some();
             let aside = if occupied && !self.already_placed(&row.path, &destination).await? {

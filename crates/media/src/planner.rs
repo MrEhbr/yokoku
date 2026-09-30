@@ -9,7 +9,7 @@ use yokoku_events::{
 };
 
 use crate::{
-    Import, ImportRow, ImportStatus, MediaError,
+    Import, ImportRow, ImportStatus, MediaError, Resolution,
     ports::{Catalog, Changes, FileSystem, MediaRepo},
 };
 
@@ -82,7 +82,7 @@ impl ImportPlanner {
                 target: row.target,
                 confidence: row.confidence,
                 skipped: false,
-                replace: false,
+                resolution: Resolution::Unresolved,
             })
             .collect();
         let import = Import {

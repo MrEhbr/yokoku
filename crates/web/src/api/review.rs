@@ -190,7 +190,7 @@ mod server {
                         yokoku_domain::Confidence::Unknown => Confidence::Unknown,
                     },
                     skipped: row.skipped,
-                    replace: row.replace,
+                    replace: row.resolution == yokoku_media::Resolution::Replace,
                     conflicts: reviewed
                         .conflicts
                         .iter()

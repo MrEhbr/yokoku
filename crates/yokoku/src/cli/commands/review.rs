@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
-use yokoku_media::Approval;
+use yokoku_media::{Approval, Resolution};
 
 use crate::{
     app::App,
@@ -71,7 +71,8 @@ pub async fn run(app: &App, args: Args) -> Result<()> {
                     },
                     Some(FileTarget::Movie(movie)) => app.title(ItemId::Movie(movie)).await,
                 };
-                let replaces = row.row.replace.then(|| "replaces the library file".to_owned());
+                let replaces =
+                    (row.row.resolution == Resolution::Replace).then(|| "replaces the library file".to_owned());
                 let conflicts = row.conflicts.iter().map(|conflict| conflict.yellow().to_string());
                 let details: Vec<String> =
                     [row.row.confidence.tone().to_string()].into_iter().chain(replaces).chain(conflicts).collect();

@@ -7,7 +7,7 @@ use yokoku_domain::{
     Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId, StorageError,
 };
 use yokoku_media::{
-    Import, ImportRow, ImportStatus, MediaFile, MediaInfo, RootFolder, RootKind,
+    Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
     ports::{Changes, MediaRepo},
 };
 
@@ -50,7 +50,7 @@ struct ImportRowRecord {
     target: TargetColumns,
     confidence: Text<Confidence>,
     skipped: bool,
-    replace_file: bool,
+    resolution: Text<Resolution>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -213,7 +213,7 @@ impl Database {
     async fn load_import(&self, record: ImportRecord) -> Result<Import, DbError> {
         let rows: Vec<ImportRowRecord> = sqlx::query_as(
             "SELECT path, size, series_id, season, first_episode, last_episode, movie_id, confidence, skipped,
-                    replace_file
+                    resolution
              FROM import_rows WHERE import_id = ? ORDER BY position",
         )
         .bind(&record.id)
@@ -281,7 +281,7 @@ impl Database {
             sqlx::query("DELETE FROM import_rows WHERE import_id = ?").bind(&id).execute(&mut *tx).await?;
             for (position, row) in (0_i64..).zip(&import.rows) {
                 let query = sqlx::query(
-                    "INSERT INTO import_rows (import_id, position, path, size, confidence, skipped, replace_file,
+                    "INSERT INTO import_rows (import_id, position, path, size, confidence, skipped, resolution,
                                               series_id, season, first_episode, last_episode, movie_id)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 )
@@ -291,7 +291,7 @@ impl Database {
                 .bind(Int(row.size))
                 .bind(row.confidence.as_str())
                 .bind(row.skipped)
-                .bind(row.replace);
+                .bind(row.resolution.as_str());
                 bind_target(query, row.target.into()).execute(&mut *tx).await?;
             }
         }
@@ -341,7 +341,7 @@ impl TryFrom<ImportRowRecord> for ImportRow {
             target: row.target.into_target()?,
             confidence: row.confidence.0,
             skipped: row.skipped,
-            replace: row.replace_file,
+            resolution: row.resolution.0,
         })
     }
 }

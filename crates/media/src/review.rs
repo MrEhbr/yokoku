@@ -6,7 +6,7 @@ use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, MediaFileId};
 use yokoku_events::{FilesImported, Publisher, QueueChanges};
 
 use crate::{
-    Import, ImportRow, ImportStatus, MediaError, MediaFile,
+    Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
     ports::{Catalog, Changes, MediaRepo},
 };
 
@@ -80,7 +80,7 @@ impl Reviewer {
         self.update_row(id, row, |row| {
             row.target = Some(target);
             row.skipped = false;
-            row.replace = false;
+            row.resolution = Resolution::Unresolved;
         })
         .await
     }
@@ -95,7 +95,7 @@ impl Reviewer {
             return Err(MediaError::ReplaceInPlace);
         }
         self.update_row(id, row, |row| {
-            row.replace = true;
+            row.resolution = Resolution::Replace;
             row.skipped = false;
         })
         .await
@@ -208,7 +208,7 @@ impl Reviewer {
                     .iter()
                     .enumerate()
                     .any(|(other, row)| other != index && active(row).is_some_and(|other| other.overlaps(&target)));
-                let taken = !row.replace && linked.iter().any(|file| file.overlaps(&target));
+                let taken = row.resolution != Resolution::Replace && linked.iter().any(|file| file.overlaps(&target));
                 [(shared, Conflict::SharedTarget), (taken, Conflict::AlreadyHasFile)]
                     .into_iter()
                     .filter_map(|(present, conflict)| present.then_some(conflict))

@@ -15,7 +15,7 @@ use yokoku_library::{
     ports::{MovieRepo, SeriesRepo},
 };
 use yokoku_media::{
-    Import, ImportRow, ImportStatus, MediaFile, ScanReport, Scanner,
+    Import, ImportRow, ImportStatus, MediaFile, Resolution, ScanReport, Scanner,
     ports::{Changes, MediaRepo},
 };
 use yokoku_system::{FileSpool, LocalFileSystem, LockFile, SystemClock};
@@ -143,7 +143,7 @@ fn finished_import(video: &Path, now: Timestamp) -> Import {
         target: None,
         confidence: yokoku_domain::Confidence::Certain,
         skipped: false,
-        replace: false,
+        resolution: Resolution::Unresolved,
     };
     Import {
         id: ImportId::generate(),
