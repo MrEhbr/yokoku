@@ -4,6 +4,7 @@
 mod log;
 mod sections;
 mod settings;
+mod web;
 
 use std::{env, path::Path};
 
@@ -20,7 +21,6 @@ use yokoku_infra::{
     system::{ClockSettings, ProbeSettings},
 };
 
-pub(crate) use crate::config::settings::message;
 pub use crate::config::{
     log::{LogConfig, LogFormat, LogOutput},
     sections::{AddConfig, CalendarConfig, DatabaseConfig, EventsConfig, ListConfig, WebConfig},

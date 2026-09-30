@@ -223,7 +223,7 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | Jellyfin rescan (FR-10.4) | `core/src/integrations/rescans.rs` `Rescans` | none | `rescans.rs` | `infra/src/media_servers/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
 | History (FR-9.1) | `core/src/events/history.rs` `History` | text: `domain/src/events.rs` `Display`; the web words events with item links in `web/src/api/history.rs` | `events.rs` | none | web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
 | Event contract, delivery | `domain/src/events.rs`; `core/src/events/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `events.rs` | none | `yokoku/src/subscriptions.rs`, `app.rs` |
-| Settings (FR-10.3) | `yokoku/src/config/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `yokoku/src/config/mod.rs` (layering) | `settings.rs` | none | `settings.rs`; web `api/settings.rs`, `pages/settings/` (through `SettingsAccess` in `web/src/state.rs`, implemented by `Settings`; connection tests through `ConnectionTest`, implemented by `Connections` in `yokoku/src/app.rs`) |
+| Settings (FR-10.3) | `yokoku/src/config/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `yokoku/src/config/mod.rs` (layering) | `settings.rs` | none | `settings.rs`; web `api/settings.rs`, `pages/settings/` (through `SettingsAccess` and `ConnectionTest` in `web/src/state.rs`, both implemented by `Settings` in `yokoku/src/config/web.rs`) |
 | Jobs and schedules | `yokoku/src/jobs.rs` | none | none | none | `yokoku/src/service.rs` |
 | Attribution (FR-10.5) | none | none | none | none | `cli/args.rs` `DATA_SOURCES` |
 
