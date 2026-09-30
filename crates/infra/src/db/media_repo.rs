@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use jiff::Timestamp;
-use sqlx::{Sqlite, query::Query, sqlite::SqliteArguments};
 use yokoku_core::media::{
     Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
     ports::{Changes, MediaRepo},
@@ -237,7 +236,8 @@ impl Database {
             sqlx::query("DELETE FROM media_files WHERE id = ?").bind(id.to_string()).execute(&mut *tx).await?;
         }
         for file in &changes.added_files {
-            let query = sqlx::query(
+            let target = TargetColumns::from(Some(file.target));
+            sqlx::query(
                 "INSERT INTO media_files (id, path, size, added_at, series_id, season, first_episode, last_episode,
                                           movie_id)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -245,8 +245,14 @@ impl Database {
             .bind(file.id.to_string())
             .bind(PathText(&file.path))
             .bind(Int(file.size))
-            .bind(file.added_at.to_string());
-            bind_target(query, Some(file.target).into()).execute(&mut *tx).await?;
+            .bind(file.added_at.to_string())
+            .bind(target.series_id)
+            .bind(target.season)
+            .bind(target.first_episode)
+            .bind(target.last_episode)
+            .bind(target.movie_id)
+            .execute(&mut *tx)
+            .await?;
         }
         for (id, path) in &changes.renamed_files {
             sqlx::query("UPDATE media_files SET path = ? WHERE id = ?")
@@ -256,11 +262,19 @@ impl Database {
                 .await?;
         }
         for (id, target) in &changes.retargeted_files {
-            let query = sqlx::query(
+            let target = TargetColumns::from(Some(*target));
+            sqlx::query(
                 "UPDATE media_files SET series_id = ?, season = ?, first_episode = ?, last_episode = ?, movie_id = ?
                  WHERE id = ?",
-            );
-            bind_target(query, Some(*target).into()).bind(id.to_string()).execute(&mut *tx).await?;
+            )
+            .bind(target.series_id)
+            .bind(target.season)
+            .bind(target.first_episode)
+            .bind(target.last_episode)
+            .bind(target.movie_id)
+            .bind(id.to_string())
+            .execute(&mut *tx)
+            .await?;
         }
         for import in &changes.imports {
             let id = import.id.to_string();
@@ -280,7 +294,8 @@ impl Database {
 
             sqlx::query("DELETE FROM import_rows WHERE import_id = ?").bind(&id).execute(&mut *tx).await?;
             for (position, row) in (0_i64..).zip(&import.rows) {
-                let query = sqlx::query(
+                let target = TargetColumns::from(row.target);
+                sqlx::query(
                     "INSERT INTO import_rows (import_id, position, path, size, confidence, skipped, resolution,
                                               series_id, season, first_episode, last_episode, movie_id)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -291,21 +306,18 @@ impl Database {
                 .bind(Int(row.size))
                 .bind(row.confidence.as_str())
                 .bind(row.skipped)
-                .bind(row.resolution.as_str());
-                bind_target(query, row.target.into()).execute(&mut *tx).await?;
+                .bind(row.resolution.as_str())
+                .bind(target.series_id)
+                .bind(target.season)
+                .bind(target.first_episode)
+                .bind(target.last_episode)
+                .bind(target.movie_id)
+                .execute(&mut *tx)
+                .await?;
             }
         }
         Ok(tx.commit().await?)
     }
-}
-
-fn bind_target(query: Query<'_, Sqlite, SqliteArguments>, target: TargetColumns) -> Query<'_, Sqlite, SqliteArguments> {
-    query
-        .bind(target.series_id)
-        .bind(target.season)
-        .bind(target.first_episode)
-        .bind(target.last_episode)
-        .bind(target.movie_id)
 }
 
 impl From<RootFolderRow> for RootFolder {
