@@ -17,7 +17,7 @@ use yokoku_domain::{
     SeriesId, SeriesMetadata, SourceStatus,
 };
 use yokoku_downloads::{Download, DownloadState, TorrentStatus, ports::DownloadRepo};
-use yokoku_events::{Correlated, EventLog, FileRenamed, ImportFailed, MovieRemoved, TorrentAdded};
+use yokoku_events::{Correlated, EventLog, FileRenamed, FilesFound, ImportFailed, MovieRemoved, TorrentAdded};
 use yokoku_library::ports::{MovieRepo, SeriesRepo};
 use yokoku_media::{
     AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind, VideoStream,
@@ -396,6 +396,45 @@ async fn the_library_can_be_scanned_on_demand() {
 
     assert!(scanned.starts_with("HTTP/1.1 200"), "{scanned}");
     assert!(scanned.contains(r#"{"found":0,"vanished":0,"unrecognised":0}"#), "{scanned}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn scheduled_jobs_run_on_their_cron_schedule_until_the_service_stops() {
+    let dir = tempfile::tempdir().unwrap();
+    let movies = dir.path().join("movies");
+    let folder = ItemFolder::new(movies.clone(), "Dune (2021)".into()).unwrap();
+    std::fs::create_dir_all(folder.path()).unwrap();
+    std::fs::write(folder.path().join("Dune (2021).mkv"), b"video").unwrap();
+    let db = Database::open(&dir.path().join("yokoku.db")).await.unwrap();
+    MediaRepo::add_root_folder(&db, &RootFolder { kind: RootKind::Movies, path: movies }).await.unwrap();
+    let dune = MovieMetadata {
+        source: ExternalId::Tmdb(438631),
+        title: "Dune".into(),
+        original_title: "Dune".into(),
+        alternate_titles: Vec::new(),
+        year: Some(2021),
+        artwork: Artwork::default(),
+        description: Description::default(),
+        releases: Releases::default(),
+    };
+    MovieRepo::save(&db, &mut Movie::add(dune, folder, true, Timestamp::now())).await.unwrap();
+    drop(db);
+    let _service = Service::start_with(dir.path(), &[("APP__SERVE__SCAN_LIBRARY", "* * * * * *")]);
+    let log = Database::open(&dir.path().join("yokoku.db")).await.unwrap().event_log();
+
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let found = loop {
+        let events = log.read_after(None, 100).await.unwrap();
+        if events.iter().any(|recorded| recorded.event.get::<FilesFound>().is_some()) {
+            break true;
+        }
+        if Instant::now() > deadline {
+            break false;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    };
+
+    assert!(found, "the library was not scanned on schedule");
 }
 
 #[tokio::test]
@@ -786,6 +825,43 @@ async fn adding_a_torrent_says_when_transmission_is_unreachable() {
     let added = service.post_json("/api/downloads", r#"{"torrent":{"file":[100,56]},"item":null}"#);
 
     assert!(added.contains("Transmission could not be reached"), "{added}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn transmission_can_be_tested_from_settings() {
+    use serde_json::json;
+    use wiremock::{
+        Mock, MockServer, Request, ResponseTemplate,
+        matchers::{header, method},
+    };
+
+    let transmission = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(|request: &Request| !request.headers.contains_key("X-Transmission-Session-Id"))
+        .respond_with(ResponseTemplate::new(409).insert_header("X-Transmission-Session-Id", "session"))
+        .mount(&transmission)
+        .await;
+    Mock::given(header("X-Transmission-Session-Id", "session"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({ "arguments": { "version": "4.1.3 (0)" }, "result": "success" })),
+        )
+        .mount(&transmission)
+        .await;
+    let url = format!("{}/transmission/rpc", transmission.uri());
+    let dir = tempfile::tempdir().unwrap();
+    let service = Service::start_with(dir.path(), &[("APP__TRANSMISSION__URL", &url)]);
+    let unreachable_dir = tempfile::tempdir().unwrap();
+    let unreachable = Service::start_with(
+        unreachable_dir.path(),
+        &[("APP__TRANSMISSION__URL", "http://127.0.0.1:9/transmission/rpc")],
+    );
+
+    let tested = service.post_json("/api/settings/test", r#"{"connection":"transmission"}"#);
+    let failed = unreachable.post_json("/api/settings/test", r#"{"connection":"transmission"}"#);
+
+    assert!(tested.starts_with("HTTP/1.1 200") && tested.contains("Transmission 4.1.3 (0)"), "{tested}");
+    assert!(!failed.starts_with("HTTP/1.1 200") && failed.contains("download client unavailable"), "{failed}");
 }
 
 #[tokio::test]
