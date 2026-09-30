@@ -5,10 +5,7 @@ use dioxus::prelude::*;
 use self::groups::Groups;
 use crate::{
     api::library::calendar::missing,
-    components::{
-        alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
-        skeleton::Skeleton,
-    },
+    components::{load_failed::LoadFailed, skeleton::Skeleton},
 };
 
 /// Monitored episodes that aired without a file, grouped by series, and released monitored
@@ -29,10 +26,7 @@ pub fn Missing() -> Element {
                     Skeleton { class: "h-64 w-full" }
                 },
                 Some(Err(_)) => rsx! {
-                    Alert { variant: AlertVariant::Danger,
-                        AlertTitle { "Missing files could not be loaded" }
-                        AlertDescription { "Reload the page; if it keeps failing, the server log has the cause." }
-                    }
+                    LoadFailed { subject: "Missing files" }
                 },
                 Some(Ok(missing)) if missing.series.is_empty() && missing.movies.is_empty() => rsx! {
                     p { class: "text-muted", "Nothing is missing." }

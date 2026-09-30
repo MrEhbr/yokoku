@@ -9,10 +9,7 @@ use self::{
 };
 use crate::{
     api::library::calendar::{Period, agenda},
-    components::{
-        alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
-        skeleton::Skeleton,
-    },
+    components::{load_failed::LoadFailed, skeleton::Skeleton},
 };
 
 /// Episodes and movie releases of monitored items, coming up from today or a week or month at a
@@ -33,10 +30,7 @@ pub fn Upcoming() -> Element {
                 Skeleton { class: "mt-6 h-64 w-full" }
             },
             Some(Err(_)) => rsx! {
-                Alert { class: "mt-6", variant: AlertVariant::Danger,
-                    AlertTitle { "The calendar could not be loaded" }
-                    AlertDescription { "Reload the page; if it keeps failing, the server log has the cause." }
-                }
+                LoadFailed { class: "mt-6", subject: "The calendar" }
             },
             Some(Ok(agenda)) => rsx! {
                 WindowBar { window, agenda: agenda.clone() }

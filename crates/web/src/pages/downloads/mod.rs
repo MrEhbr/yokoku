@@ -5,10 +5,7 @@ use dioxus::prelude::*;
 use self::torrents::Torrents;
 use crate::{
     api::downloads::downloads,
-    components::{
-        alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
-        skeleton::Skeleton,
-    },
+    components::{load_failed::LoadFailed, skeleton::Skeleton},
     dialogs::add_torrent::AddTorrentButton,
     layout::LiveDownloads,
 };
@@ -38,10 +35,7 @@ pub fn Downloads() -> Element {
                     Skeleton { class: "h-64 w-full" }
                 },
                 Some(Err(_)) => rsx! {
-                    Alert { variant: AlertVariant::Danger,
-                        AlertTitle { "Downloads could not be loaded" }
-                        AlertDescription { "Reload the page; if it keeps failing, the server log has the cause." }
-                    }
+                    LoadFailed { subject: "Downloads" }
                 },
                 Some(Ok(downloads)) => rsx! {
                     Torrents { downloads }

@@ -10,7 +10,6 @@ use crate::{
         },
     },
     components::{
-        alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         button::ButtonSize,
         delete_file::DeleteFile,
         file_info::FileDetails,
@@ -18,6 +17,7 @@ use crate::{
         item_description::ItemDescription,
         item_hero::ItemHero,
         item_status::{FileState, Lifecycle},
+        load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
         remove_item::RemoveItem,
@@ -43,10 +43,7 @@ pub fn MovieDetail(id: MovieId) -> Element {
                     Skeleton { class: "aspect-[3/1] max-h-[40dvh] w-full" }
                 },
                 Some(Err(_)) => rsx! {
-                    Alert { variant: AlertVariant::Danger,
-                        AlertTitle { "The movie could not be loaded" }
-                        AlertDescription { "Reload the page; if it keeps failing, the server log has the cause." }
-                    }
+                    LoadFailed { subject: "The movie" }
                 },
                 Some(Ok(None)) => rsx! {
                     document::Title { "Movie not found · Yokoku" }

@@ -14,8 +14,8 @@ use self::{
 use crate::{
     api::library::library,
     components::{
-        alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         button::{Button, ButtonSize, ButtonVariant},
+        load_failed::LoadFailed,
         skeleton::Skeleton,
     },
     route::{Route, SearchText},
@@ -80,10 +80,7 @@ pub fn Library() -> Element {
                     Skeleton { class: "h-64 w-full" }
                 },
                 Some(Err(_)) => rsx! {
-                    Alert { variant: AlertVariant::Danger,
-                        AlertTitle { "The library could not be loaded" }
-                        AlertDescription { "Reload the page; if it keeps failing, the server log has the cause." }
-                    }
+                    LoadFailed { subject: "The library" }
                 },
                 Some(Ok(entries)) if entries.is_empty() && filters().narrows() => rsx! {
                     div { class: "flex flex-col items-start gap-3",

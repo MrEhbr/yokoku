@@ -15,12 +15,12 @@ use crate::{
         },
     },
     components::{
-        alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         button::ButtonSize,
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
         item_status::Lifecycle,
+        load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
         remove_item::RemoveItem,
@@ -47,10 +47,7 @@ pub fn SeriesDetail(id: SeriesId) -> Element {
                     Skeleton { class: "aspect-[3/1] max-h-[40dvh] w-full" }
                 },
                 Some(Err(_)) => rsx! {
-                    Alert { variant: AlertVariant::Danger,
-                        AlertTitle { "The series could not be loaded" }
-                        AlertDescription { "Reload the page; if it keeps failing, the server log has the cause." }
-                    }
+                    LoadFailed { subject: "The series" }
                 },
                 Some(Ok(None)) => rsx! {
                     document::Title { "Series not found · Yokoku" }
