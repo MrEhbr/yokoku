@@ -11,6 +11,7 @@ use yokoku_domain::{
 use crate::db::{
     Database, DbError,
     codec::{Int, PathText, SourceColumns, Text},
+    database::saved_revision,
 };
 
 #[derive(sqlx::FromRow)]
@@ -95,9 +96,9 @@ impl Database {
     async fn save_movie(&self, movie: &mut Movie) -> Result<(), DbError> {
         let source = SourceColumns::from(movie.source);
         let date = |date: Option<Date>| date.map(|date| date.to_string());
-        let mut tx = self.begin_save("movies", &movie.id.to_string(), movie.revision).await?;
+        let mut tx = self.pool().begin().await?;
 
-        sqlx::query(
+        let returned = sqlx::query_scalar(
             "INSERT INTO movies (id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
                                  description, cinema_date, digital_date, physical_date, root, folder, monitored,
                                  file_id, added_at, refreshed_at)
@@ -109,7 +110,10 @@ impl Database {
                  cinema_date = excluded.cinema_date, digital_date = excluded.digital_date,
                  physical_date = excluded.physical_date,
                  monitored = excluded.monitored, file_id = excluded.file_id,
-                 refreshed_at = excluded.refreshed_at",
+                 refreshed_at = excluded.refreshed_at,
+                 revision = movies.revision + 1
+             WHERE movies.revision = ?
+             RETURNING revision",
         )
         .bind(movie.id.to_string())
         .bind(source.source_kind)
@@ -129,11 +133,13 @@ impl Database {
         .bind(movie.file.map(|file| file.to_string()))
         .bind(movie.added_at.to_string())
         .bind(movie.refreshed_at.to_string())
-        .execute(&mut *tx)
+        .bind(Int(movie.revision))
+        .fetch_optional(&mut *tx)
         .await?;
+        let revision = saved_revision(returned, movie.revision)?;
 
         tx.commit().await?;
-        movie.revision += 1;
+        movie.revision = revision;
         Ok(())
     }
 

@@ -116,3 +116,31 @@ async fn a_second_download_with_a_stored_hash_conflicts(#[future(awt)] db: Datab
 
     assert!(matches!(error, StorageError::Conflict), "{error}");
 }
+
+#[rstest]
+#[tokio::test]
+async fn a_new_download_is_saved_only_once(#[future(awt)] db: Database) {
+    let mut download = download("a", "2026-09-25T12:00:00Z");
+    let mut copy = download.clone();
+    db.save(&mut download).await.unwrap();
+    copy.name = "copy".into();
+
+    let error = db.save(&mut copy).await.unwrap_err();
+
+    assert!(matches!(error, StorageError::Conflict), "{error}");
+    assert_eq!(db.list().await.unwrap(), [download]);
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_download_saved_from_an_older_revision_conflicts(#[future(awt)] db: Database) {
+    let mut download = download("a", "2026-09-25T12:00:00Z");
+    db.save(&mut download).await.unwrap();
+    let mut stale = download.clone();
+    db.save(&mut download).await.unwrap();
+
+    let error = db.save(&mut stale).await.unwrap_err();
+
+    assert!(matches!(error, StorageError::Conflict), "{error}");
+    assert_eq!(stale.revision, 1);
+}

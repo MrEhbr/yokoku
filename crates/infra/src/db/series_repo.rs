@@ -15,6 +15,7 @@ use yokoku_domain::{
 use crate::db::{
     Database, DbError,
     codec::{Int, PathText, SourceColumns, Text},
+    database::saved_revision,
 };
 
 #[derive(sqlx::FromRow)]
@@ -192,9 +193,9 @@ impl Database {
     async fn save_series(&self, series: &mut Series) -> Result<(), DbError> {
         let id = series.id.to_string();
         let source = SourceColumns::from(series.source);
-        let mut tx = self.begin_save("series", &id, series.revision).await?;
+        let mut tx = self.pool().begin().await?;
 
-        sqlx::query(
+        let returned = sqlx::query_scalar(
             "INSERT INTO series (id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
                                  description, source_status, numbering, root, folder, monitored, added_at,
                                  refreshed_at)
@@ -205,7 +206,10 @@ impl Database {
                  artwork = excluded.artwork, description = excluded.description,
                  source_status = excluded.source_status, numbering = excluded.numbering,
                  monitored = excluded.monitored,
-                 refreshed_at = excluded.refreshed_at",
+                 refreshed_at = excluded.refreshed_at,
+                 revision = series.revision + 1
+             WHERE series.revision = ?
+             RETURNING revision",
         )
         .bind(&id)
         .bind(source.source_kind)
@@ -223,8 +227,10 @@ impl Database {
         .bind(series.monitored)
         .bind(series.added_at.to_string())
         .bind(series.refreshed_at.to_string())
-        .execute(&mut *tx)
+        .bind(Int(series.revision))
+        .fetch_optional(&mut *tx)
         .await?;
+        let revision = saved_revision(returned, series.revision)?;
 
         for season in &series.seasons {
             sqlx::query(
@@ -277,7 +283,7 @@ impl Database {
             .await?;
 
         tx.commit().await?;
-        series.revision += 1;
+        series.revision = revision;
         Ok(())
     }
 }

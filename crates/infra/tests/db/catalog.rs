@@ -284,6 +284,27 @@ async fn a_save_from_an_older_revision_changes_nothing(#[future(awt)] db: Databa
 
 #[rstest]
 #[tokio::test]
+async fn a_new_item_is_saved_only_once(#[future(awt)] db: Database) {
+    let mut series =
+        Series::new(series_metadata(1, &[(1, &[None])]), ItemFolder::default(), MonitorPreset::All, TODAY, now());
+    let mut movie = Movie::new(movie_metadata(2), ItemFolder::default(), true, now());
+    let (mut series_copy, mut movie_copy) = (series.clone(), movie.clone());
+    SeriesRepo::save(&db, &mut series).await.unwrap();
+    MovieRepo::save(&db, &mut movie).await.unwrap();
+    series_copy.title = "Copy".into();
+    movie_copy.title = "Copy".into();
+
+    let series_error = SeriesRepo::save(&db, &mut series_copy).await.unwrap_err();
+    let movie_error = MovieRepo::save(&db, &mut movie_copy).await.unwrap_err();
+
+    assert!(matches!(series_error, StorageError::Conflict), "{series_error}");
+    assert!(matches!(movie_error, StorageError::Conflict), "{movie_error}");
+    assert_eq!(SeriesRepo::get(&db, series.id).await.unwrap(), Some(series));
+    assert_eq!(MovieRepo::get(&db, movie.id).await.unwrap(), Some(movie));
+}
+
+#[rstest]
+#[tokio::test]
 async fn a_removed_item_is_not_saved_back(#[future(awt)] db: Database) {
     let mut movie = Movie::new(movie_metadata(2), ItemFolder::default(), true, now());
     MovieRepo::save(&db, &mut movie).await.unwrap();

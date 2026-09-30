@@ -1,12 +1,12 @@
 use std::{path::Path, time::Duration};
 
 use sqlx::{
-    AssertSqlSafe, Sqlite, SqlitePool, Transaction,
+    SqlitePool,
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 
-use crate::db::{DbError, codec::Int};
+use crate::db::DbError;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
@@ -42,28 +42,10 @@ impl Database {
     pub fn pool(&self) -> &SqlitePool {
         &self.pool
     }
+}
 
-    /// Begins a transaction that bumps the row's revision; `Conflict` when the stored revision is
-    /// not `revision`. A zero revision is a new row and bumps nothing.
-    pub(crate) async fn begin_save(
-        &self,
-        table: &'static str,
-        id: &str,
-        revision: u64,
-    ) -> Result<Transaction<'static, Sqlite>, DbError> {
-        let mut tx = self.pool.begin().await?;
-        if revision > 0 {
-            let claimed = sqlx::query(AssertSqlSafe(format!(
-                "UPDATE {table} SET revision = revision + 1 WHERE id = ? AND revision = ?"
-            )))
-            .bind(id)
-            .bind(Int(revision))
-            .execute(&mut *tx)
-            .await?;
-            if claimed.rows_affected() == 0 {
-                return Err(DbError::Conflict);
-            }
-        }
-        Ok(tx)
-    }
+/// The revision an upsert returned; `Conflict` unless it is one past `loaded`, the revision the
+/// aggregate was loaded at.
+pub(crate) fn saved_revision(returned: Option<u64>, loaded: u64) -> Result<u64, DbError> {
+    returned.filter(|&returned| returned == loaded + 1).ok_or(DbError::Conflict)
 }

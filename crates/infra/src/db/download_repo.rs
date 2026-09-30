@@ -8,6 +8,7 @@ use yokoku_domain::{DownloadId, ItemId, MovieId, SeriesId, StorageError};
 use crate::db::{
     Database, DbError,
     codec::{Int, PathText, Text},
+    database::saved_revision,
 };
 
 #[derive(sqlx::FromRow)]
@@ -85,8 +86,8 @@ impl Database {
             None => (None, None),
         };
 
-        let mut tx = self.begin_save("downloads", &download.id.to_string(), download.revision).await?;
-        sqlx::query(
+        let mut tx = self.pool().begin().await?;
+        let returned = sqlx::query_scalar(
             "INSERT INTO downloads (id, hash, name, series_id, movie_id, season, state, size, done, download_rate, eta,
                                     download_dir, error, added_at, completed_at, imported_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -95,7 +96,10 @@ impl Database {
                  season = excluded.season,
                  state = excluded.state, size = excluded.size, done = excluded.done,
                  download_rate = excluded.download_rate, eta = excluded.eta, download_dir = excluded.download_dir,
-                 error = excluded.error, completed_at = excluded.completed_at, imported_at = excluded.imported_at",
+                 error = excluded.error, completed_at = excluded.completed_at, imported_at = excluded.imported_at,
+                 revision = downloads.revision + 1
+             WHERE downloads.revision = ?
+             RETURNING revision",
         )
         .bind(download.id.to_string())
         .bind(&download.hash)
@@ -113,14 +117,16 @@ impl Database {
         .bind(download.added_at.to_string())
         .bind(download.completed_at.map(|at| at.to_string()))
         .bind(download.imported_at.map(|at| at.to_string()))
-        .execute(&mut *tx)
+        .bind(Int(download.revision))
+        .fetch_optional(&mut *tx)
         .await
         .map_err(|error| match error.as_database_error() {
             Some(database) if database.is_unique_violation() => DbError::Conflict,
             _ => DbError::from(error),
         })?;
+        let revision = saved_revision(returned, download.revision)?;
         tx.commit().await?;
-        download.revision += 1;
+        download.revision = revision;
         Ok(())
     }
 }
