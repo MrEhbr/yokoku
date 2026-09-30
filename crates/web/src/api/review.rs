@@ -170,6 +170,7 @@ mod server {
     use super::{
         Confidence, Conflict, Imported, Importer, Library, Match, Resolution, Review, ReviewFile, Reviewer, Target,
     };
+    use crate::api::unexpected;
 
     pub(super) async fn review(
         reviewer: &Reviewer,
@@ -286,10 +287,7 @@ mod server {
             MediaError::ConflictingRows(rows) => {
                 ServerFnError::new(format!("Resolve the conflicts of {} first", rows_named(&rows)))
             },
-            error => {
-                error!(%error, "reviewing the import failed");
-                ServerFnError::new("Something went wrong; the server log has the cause")
-            },
+            error => unexpected(&error, "reviewing the import"),
         }
     }
 

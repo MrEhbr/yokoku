@@ -155,6 +155,7 @@ mod server {
     use dioxus::{logger::tracing::error, prelude::*};
     use yokoku_domain::{ArtworkKind, MediaKind, MovieStatus, SeriesStatus};
     use yokoku_library::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus, artwork_name};
+    use yokoku_media::RootKind;
 
     use super::{Entry, FileStatus, Kind, Library, Sort, Status};
     use crate::api::artwork;
@@ -178,6 +179,33 @@ mod server {
             match kind {
                 Kind::Series => Self::Series,
                 Kind::Movie => Self::Movie,
+            }
+        }
+    }
+
+    impl From<MediaKind> for Kind {
+        fn from(kind: MediaKind) -> Self {
+            match kind {
+                MediaKind::Series => Self::Series,
+                MediaKind::Movie => Self::Movie,
+            }
+        }
+    }
+
+    impl From<Kind> for RootKind {
+        fn from(kind: Kind) -> Self {
+            match kind {
+                Kind::Series => Self::Series,
+                Kind::Movie => Self::Movies,
+            }
+        }
+    }
+
+    impl From<RootKind> for Kind {
+        fn from(kind: RootKind) -> Self {
+            match kind {
+                RootKind::Series => Self::Series,
+                RootKind::Movies => Self::Movie,
             }
         }
     }

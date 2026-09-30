@@ -34,7 +34,6 @@ pub fn failure(error: &ServerFnError) -> String {
 /// A library use case's error as a message for the user; unexpected ones go to the log.
 #[cfg(feature = "server")]
 fn library_failure(error: yokoku_library::LibraryError, doing: &str) -> ServerFnError {
-    use dioxus::logger::tracing::error;
     use yokoku_library::{LibraryError, ports::MetadataError};
 
     let message = match &error {
@@ -52,10 +51,20 @@ fn library_failure(error: yokoku_library::LibraryError, doing: &str) -> ServerFn
         LibraryError::Metadata(MetadataError::Refused(_)) => {
             "The metadata source refused the request; check the token".to_owned()
         },
-        _ => {
-            error!(%error, "{doing} failed");
-            "Something went wrong; the server log has the cause".to_owned()
-        },
+        _ => return unexpected(&error, doing),
     };
     ServerFnError::new(message)
+}
+
+/// An unexpected error as a message for the user; the error and what was being done go to the log.
+#[cfg(feature = "server")]
+fn unexpected(error: &dyn std::fmt::Display, doing: &str) -> ServerFnError {
+    dioxus::logger::tracing::error!(%error, "{doing} failed");
+    ServerFnError::new("Something went wrong; the server log has the cause")
+}
+
+#[cfg(feature = "server")]
+fn root_listing_failed(error: yokoku_media::MediaError) -> ServerFnError {
+    dioxus::logger::tracing::error!(%error, "listing root folders failed");
+    ServerFnError::new("The root folders could not be loaded")
 }

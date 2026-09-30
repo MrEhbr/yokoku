@@ -101,9 +101,10 @@ mod server {
 
     use dioxus::{logger::tracing::error, prelude::*};
     use serde_json::Value;
-    use yokoku_media::{MediaError, RootKind};
+    use yokoku_media::MediaError;
 
     use super::{Connection, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess};
+    use crate::api::{root_listing_failed, unexpected};
 
     /// The settings the page shows; no other key can be changed through it.
     const KEYS: &[&str] = &[
@@ -173,28 +174,16 @@ mod server {
     }
 
     pub(super) async fn roots(roots: &RootFolders) -> Result<Vec<Root>, ServerFnError> {
-        let failed = |error: MediaError| {
-            error!(%error, "listing root folders failed");
-            ServerFnError::new("The root folders could not be loaded")
-        };
         let mut listed = Vec::new();
-        for root in roots.list().await.map_err(failed)? {
-            let items = roots.item_folders(&root).await.map_err(failed)?.len();
-            let kind = match root.kind {
-                RootKind::Series => Kind::Series,
-                RootKind::Movies => Kind::Movie,
-            };
-            listed.push(Root { kind, path: root.path.display().to_string(), items });
+        for root in roots.list().await.map_err(root_listing_failed)? {
+            let items = roots.item_folders(&root).await.map_err(root_listing_failed)?.len();
+            listed.push(Root { kind: root.kind.into(), path: root.path.display().to_string(), items });
         }
         Ok(listed)
     }
 
     pub(super) async fn add_root(roots: &RootFolders, kind: Kind, path: &str) -> Result<(), ServerFnError> {
-        let kind = match kind {
-            Kind::Series => RootKind::Series,
-            Kind::Movie => RootKind::Movies,
-        };
-        roots.add(kind, Path::new(path.trim())).await.map(drop).map_err(root_failure)
+        roots.add(kind.into(), Path::new(path.trim())).await.map(drop).map_err(root_failure)
     }
 
     pub(super) async fn remove_root(roots: &RootFolders, path: &str) -> Result<(), ServerFnError> {
@@ -225,10 +214,7 @@ mod server {
             | MediaError::OverlappingRoot { .. }
             | MediaError::RootNotFound(_)
             | MediaError::RootInUse { .. } => ServerFnError::new(error.to_string()),
-            error => {
-                error!(%error, "changing root folders failed");
-                ServerFnError::new("Something went wrong; the server log has the cause")
-            },
+            error => unexpected(&error, "changing root folders"),
         }
     }
 }

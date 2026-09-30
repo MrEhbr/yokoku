@@ -53,14 +53,15 @@ pub async fn rename_files(item: ItemId, files: Vec<MediaFileId>) -> Result<Renam
 mod server {
     use std::path::Path;
 
-    use dioxus::{logger::tracing::error, prelude::*};
+    use dioxus::prelude::*;
     use yokoku_domain::{FileTarget, ItemId, MediaFileId};
-    use yokoku_media::{MediaError, Rename, RenameScope, Skipped};
+    use yokoku_media::{Rename, RenameScope, Skipped};
 
     use super::{RenamePlan, RenameResult, RenameRow, Renamer, SkippedFile};
+    use crate::api::unexpected;
 
     pub(super) async fn preview(renamer: &Renamer, item: ItemId) -> Result<RenamePlan, ServerFnError> {
-        let plan = renamer.preview(scope(item)).await.map_err(|error| failure(error, "previewing renames"))?;
+        let plan = renamer.preview(scope(item)).await.map_err(|error| unexpected(&error, "previewing renames"))?;
         let mut renames: Vec<RenameRow> = plan.renames.iter().map(RenameRow::from).collect();
         renames.sort_by(|a, b| (a.season, &a.to).cmp(&(b.season, &b.to)));
         Ok(RenamePlan { renames, skipped: plan.skipped.into_iter().map(SkippedFile::from).collect() })
@@ -71,7 +72,7 @@ mod server {
         item: ItemId,
         files: &[MediaFileId],
     ) -> Result<RenameResult, ServerFnError> {
-        let report = renamer.apply(scope(item), Some(files)).await.map_err(|error| failure(error, "renaming"))?;
+        let report = renamer.apply(scope(item), Some(files)).await.map_err(|error| unexpected(&error, "renaming"))?;
         Ok(RenameResult {
             renamed: report.renamed.len(),
             failed: report
@@ -87,11 +88,6 @@ mod server {
             ItemId::Series(id) => RenameScope::Series(id),
             ItemId::Movie(id) => RenameScope::Movie(id),
         }
-    }
-
-    fn failure(error: MediaError, doing: &str) -> ServerFnError {
-        error!(%error, "{doing} failed");
-        ServerFnError::new("Something went wrong; the server log has the cause")
     }
 
     impl From<&Rename> for RenameRow {

@@ -85,11 +85,11 @@ mod server {
     use std::path::Path;
 
     use dioxus::{logger::tracing::error, prelude::*};
-    use yokoku_domain::{ArtworkKind, ExternalId, ItemId, MediaKind, MonitorPreset};
+    use yokoku_domain::{ArtworkKind, ExternalId, ItemId, MonitorPreset};
     use yokoku_media::{MediaError, RootKind};
 
     use super::{AddOptions, AddSettings, Kind, MetadataService, NewItem, RootChoice, RootFolders, SearchHit};
-    use crate::api::{artwork, library_failure};
+    use crate::api::{artwork, library_failure, root_listing_failed};
 
     pub(super) async fn search(
         metadata: &MetadataService,
@@ -99,7 +99,7 @@ mod server {
     ) -> Result<Vec<SearchHit>, ServerFnError> {
         ready(settings)?;
         let hits = metadata
-            .search(query.trim(), Some(media_kind(kind)))
+            .search(query.trim(), Some(kind.into()))
             .await
             .map_err(|error| library_failure(error, "searching"))?;
         Ok(hits
@@ -107,7 +107,7 @@ mod server {
             .map(|hit| {
                 let result = hit.result;
                 SearchHit {
-                    kind: wire_kind(result.kind),
+                    kind: result.kind.into(),
                     source: result.source.to_string(),
                     original_title: (result.original_title != result.title).then_some(result.original_title),
                     title: result.title,
@@ -124,15 +124,11 @@ mod server {
     }
 
     pub(super) async fn add_options(roots: &RootFolders, settings: &AddSettings) -> Result<AddOptions, ServerFnError> {
-        let unavailable = |error: MediaError| {
-            error!(%error, "listing root folders failed");
-            ServerFnError::new("The root folders could not be loaded")
-        };
         let mut options =
             AddOptions { series_roots: Vec::new(), movie_roots: Vec::new(), monitor: settings.monitor.current() };
-        for root in roots.list().await.map_err(unavailable)? {
-            let folders = roots.folders(&root).await.map_err(unavailable)?;
-            let taken = roots.item_folders(&root).await.map_err(unavailable)?;
+        for root in roots.list().await.map_err(root_listing_failed)? {
+            let folders = roots.folders(&root).await.map_err(root_listing_failed)?;
+            let taken = roots.item_folders(&root).await.map_err(root_listing_failed)?;
             let choice = RootChoice { path: root.path.display().to_string(), folders, taken };
             match root.kind {
                 RootKind::Series => options.series_roots.push(choice),
@@ -150,9 +146,9 @@ mod server {
     ) -> Result<ItemId, ServerFnError> {
         ready(settings)?;
         let source = parse(&item.source)?;
-        let root = roots.get(root_kind(item.kind), Path::new(&item.root)).await.map_err(|error| match error {
+        let root = roots.get(item.kind.into(), Path::new(&item.root)).await.map_err(|error| match error {
             MediaError::RootNotFound(_) | MediaError::WrongRootKind { .. } => {
-                ServerFnError::new(format!("Pick a root folder for {}", root_kind(item.kind).as_str()))
+                ServerFnError::new(format!("Pick a root folder for {}", RootKind::from(item.kind).as_str()))
             },
             error => {
                 error!(%error, "reading root folders failed");
@@ -189,26 +185,5 @@ mod server {
 
     fn parse(source: &str) -> Result<ExternalId, ServerFnError> {
         source.parse().map_err(|_| ServerFnError::new(format!("{source:?} is not a TMDB or TVDB id")))
-    }
-
-    fn wire_kind(kind: MediaKind) -> Kind {
-        match kind {
-            MediaKind::Series => Kind::Series,
-            MediaKind::Movie => Kind::Movie,
-        }
-    }
-
-    fn media_kind(kind: Kind) -> MediaKind {
-        match kind {
-            Kind::Series => MediaKind::Series,
-            Kind::Movie => MediaKind::Movie,
-        }
-    }
-
-    fn root_kind(kind: Kind) -> RootKind {
-        match kind {
-            Kind::Series => RootKind::Series,
-            Kind::Movie => RootKind::Movies,
-        }
     }
 }
