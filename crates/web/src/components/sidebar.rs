@@ -25,7 +25,7 @@ pub enum SidebarState {
 }
 
 impl SidebarState {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             SidebarState::Expanded => "expanded",
             SidebarState::Collapsed => "collapsed",
@@ -41,7 +41,7 @@ pub enum SidebarSide {
 }
 
 impl SidebarSide {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             SidebarSide::Left => "left",
             SidebarSide::Right => "right",
@@ -58,7 +58,7 @@ pub enum SidebarVariant {
 }
 
 impl SidebarVariant {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             SidebarVariant::Sidebar => "sidebar",
             SidebarVariant::Floating => "floating",
@@ -76,7 +76,7 @@ pub enum SidebarCollapsible {
 }
 
 impl SidebarCollapsible {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             SidebarCollapsible::Offcanvas => "offcanvas",
             SidebarCollapsible::Icon => "icon",
@@ -132,7 +132,7 @@ pub fn use_is_mobile() -> Signal<bool> {
     use_effect(move || {
         spawn(async move {
             let js_code = format!(
-                r#"
+                r"
                 function checkMobile() {{
                     return window.innerWidth < {MOBILE_BREAKPOINT};
                 }}
@@ -142,7 +142,7 @@ pub fn use_is_mobile() -> Signal<bool> {
                 window.__sidebarResizeHandler = handleResize;
                 window.addEventListener('resize', window.__sidebarResizeHandler);
                 dioxus.send(checkMobile());
-                "#
+                "
             );
             let mut eval = document::eval(&js_code);
 
@@ -154,10 +154,10 @@ pub fn use_is_mobile() -> Signal<bool> {
 
     use_drop(|| {
         _ = document::eval(
-            r#"
+            r"
             window.removeEventListener('resize', window.__sidebarResizeHandler);
             delete window.__sidebarResizeHandler;
-            "#,
+            ",
         );
     });
 
@@ -187,7 +187,7 @@ pub fn SidebarProvider(
     use_effect(move || {
         spawn(async move {
             let js_code = format!(
-                r#"
+                r"
                 function sidebarKeyHandler(event) {{
                     if (event.key === '{SIDEBAR_KEYBOARD_SHORTCUT}' && (event.metaKey || event.ctrlKey)) {{
                         event.preventDefault();
@@ -196,7 +196,7 @@ pub fn SidebarProvider(
                 }}
                 window.__sidebarKeyHandler = sidebarKeyHandler;
                 window.addEventListener('keydown', window.__sidebarKeyHandler);
-                "#
+                "
             );
             let mut eval = document::eval(&js_code);
 
@@ -210,15 +210,15 @@ pub fn SidebarProvider(
 
     use_drop(|| {
         _ = document::eval(
-            r#"
+            r"
             window.removeEventListener('keydown', window.__sidebarKeyHandler);
             delete window.__sidebarKeyHandler;
-            "#,
+            ",
         );
     });
 
     let sidebar_style = format!(
-        r#"--sidebar-width: {SIDEBAR_WIDTH}; --sidebar-width-mobile: {SIDEBAR_WIDTH_MOBILE}; --sidebar-width-icon: {SIDEBAR_WIDTH_ICON}"#
+        r"--sidebar-width: {SIDEBAR_WIDTH}; --sidebar-width-mobile: {SIDEBAR_WIDTH_MOBILE}; --sidebar-width-icon: {SIDEBAR_WIDTH_ICON}"
     );
 
     let base = attributes!(div {
@@ -580,14 +580,14 @@ pub enum SidebarMenuButtonVariant {
 }
 
 impl SidebarMenuButtonVariant {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             SidebarMenuButtonVariant::Default => "default",
             SidebarMenuButtonVariant::Outline => "outline",
         }
     }
 
-    fn class(&self) -> &'static str {
+    fn class(self) -> &'static str {
         match self {
             SidebarMenuButtonVariant::Default => "border-transparent",
             SidebarMenuButtonVariant::Outline => "border-line bg-canvas",
@@ -605,7 +605,7 @@ pub enum SidebarMenuButtonSize {
 }
 
 impl SidebarMenuButtonSize {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             SidebarMenuButtonSize::Default => "default",
             SidebarMenuButtonSize::Sm => "sm",
@@ -613,7 +613,7 @@ impl SidebarMenuButtonSize {
         }
     }
 
-    fn class(&self) -> &'static str {
+    fn class(self) -> &'static str {
         match self {
             SidebarMenuButtonSize::Default => "h-8 text-body",
             SidebarMenuButtonSize::Sm => "h-7 text-caption",
@@ -805,14 +805,14 @@ pub enum SidebarMenuSubButtonSize {
 }
 
 impl SidebarMenuSubButtonSize {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             SidebarMenuSubButtonSize::Sm => "sm",
             SidebarMenuSubButtonSize::Md => "md",
         }
     }
 
-    fn class(&self) -> &'static str {
+    fn class(self) -> &'static str {
         match self {
             SidebarMenuSubButtonSize::Sm => "h-7 text-caption",
             SidebarMenuSubButtonSize::Md => "h-8 text-body",
