@@ -1,14 +1,14 @@
 use common::App;
 use rstest::rstest;
-use yokoku_core::{
-    events::{FilesImported, LinkedFile},
-    media::{
-        Approval, Import, ImportRow, ImportStatus, MediaError, Resolution,
-        detect::Conflict,
-        ports::{Changes, MediaRepo},
-    },
+use yokoku_core::media::{
+    Approval, Import, ImportRow, ImportStatus, MediaError, Resolution,
+    detect::Conflict,
+    ports::{Changes, MediaRepo},
 };
-use yokoku_domain::{Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MovieId, SeriesId};
+use yokoku_domain::{
+    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MovieId, SeriesId,
+    events::{FilesImported, LinkedFile},
+};
 
 use crate::common;
 

@@ -1,9 +1,7 @@
 use std::{fmt, path::PathBuf, time::Duration};
 
 use jiff::Timestamp;
-use yokoku_domain::{Confidence, DownloadId, FileTarget, ImportId, MediaFileId, SubtitleTags};
-
-use crate::events::LinkedFile;
+use yokoku_domain::{Confidence, DownloadId, FileTarget, ImportId, MediaFileId, SubtitleTags, events::LinkedFile};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RootKind {

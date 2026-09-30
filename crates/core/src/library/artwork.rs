@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use yokoku_domain::{Artwork, ArtworkKind, ExternalId, ItemId};
+use yokoku_domain::{
+    Artwork, ArtworkKind, ExternalId, ItemId,
+    events::{MovieRemoved, SeriesRemoved},
+};
 
 use crate::{
-    events::{Handler, HandlerError, MovieRemoved, SeriesRemoved},
+    events::{Handler, HandlerError},
     library::{
         LibraryError,
         ports::{ArtworkCache, ArtworkSource, MovieRepo, SeriesRepo},

@@ -2,10 +2,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tracing::{info, instrument, warn};
-use yokoku_domain::{FileTarget, ItemId};
+use yokoku_domain::{
+    FileTarget, ItemId,
+    events::{DeleteReason, FileDeleted, MovieRemoved, SeriesRemoved},
+};
 
 use crate::{
-    events::{DeleteReason, FileDeleted, Handler, HandlerError, MovieRemoved, Publisher, SeriesRemoved},
+    events::{Handler, HandlerError, Publisher},
     media::{
         MediaError, MediaFile, files,
         ports::{Changes, FileSystem, LibraryLock, MediaRepo},

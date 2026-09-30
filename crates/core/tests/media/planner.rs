@@ -1,9 +1,12 @@
 use common::{App, relative};
 use yokoku_core::{
-    events::{DownloadCompleted, Handler, ImportFailed, ImportNeedsReview},
+    events::Handler,
     media::{ImportStatus, ports::MediaRepo},
 };
-use yokoku_domain::{Confidence, DownloadId, ItemId};
+use yokoku_domain::{
+    Confidence, DownloadId, ItemId,
+    events::{DownloadCompleted, ImportFailed, ImportNeedsReview},
+};
 
 use crate::common;
 

@@ -1,5 +1,8 @@
-use yokoku_core::events::{Correlated, CorrelationId, EventId, EventLog, History, MovieAdded, Recorded, SeriesAdded};
-use yokoku_domain::{ItemId, MovieId, SeriesId};
+use yokoku_core::events::{Correlated, EventId, EventLog, History, Recorded};
+use yokoku_domain::{
+    CorrelationId, ItemId, MovieId, SeriesId,
+    events::{MovieAdded, SeriesAdded},
+};
 use yokoku_infra::db::Database;
 
 fn ids(entries: &[Recorded]) -> Vec<i64> {

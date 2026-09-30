@@ -9,13 +9,13 @@ use std::{
 use jiff::{Timestamp, civil::date};
 use tempfile::TempDir;
 use yokoku_core::{
-    events::{Event, EventLog, Publisher, QueueChanges},
+    events::{EventLog, Publisher, QueueChanges},
     library::ports::{MovieRepo, SeriesRepo},
     media::{ImportPlanner, Renamer, Reviewer, RootFolders, RootKind, Scanner},
 };
 use yokoku_domain::{
     Clock, EpisodeSpan, FileTarget, ItemFolder, Live, MonitorPreset, Movie, MovieMetadata, Releases, Series,
-    SeriesMetadata, SourceStatus, naming::Naming,
+    SeriesMetadata, SourceStatus, events::Event, naming::Naming,
 };
 use yokoku_infra::{
     db::Database,

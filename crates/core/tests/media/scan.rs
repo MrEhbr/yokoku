@@ -1,11 +1,11 @@
 use std::fs;
 
 use common::{App, relative};
-use yokoku_core::{
+use yokoku_core::media::{ImportRow, ImportStatus, MediaFile, ScanReport};
+use yokoku_domain::{
+    Confidence, ItemId,
     events::{DeleteReason, FileDeleted, FilesFound, ImportNeedsReview, LinkedFile},
-    media::{ImportRow, ImportStatus, MediaFile, ScanReport},
 };
-use yokoku_domain::{Confidence, ItemId};
 
 use crate::common;
 

@@ -13,10 +13,10 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use yokoku_core::events::{
-    Correlated, CorrelationId, Delivery, DeliveryConfig, DeliveryFailure, EventId, EventLog, Handler, HandlerError,
-    SeriesAdded, Subscription, correlation,
+    Correlated, Delivery, DeliveryConfig, DeliveryFailure, EventId, EventLog, Handler, HandlerError, Subscription,
+    correlation,
 };
-use yokoku_domain::SeriesId;
+use yokoku_domain::{CorrelationId, SeriesId, events::SeriesAdded};
 use yokoku_infra::db::Database;
 
 const SUBSCRIBER: &str = "recorder";

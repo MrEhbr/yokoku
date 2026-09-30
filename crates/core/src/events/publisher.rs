@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
-use yokoku_domain::StorageError;
+use yokoku_domain::{CorrelationId, StorageError, events::Event};
 
-use crate::events::{Correlated, CorrelationId, Event, EventLog, correlation};
+use crate::events::{Correlated, EventLog, correlation};
 
 /// Appends events after the change they describe was saved. Events the log refuses are kept in
 /// memory and appended, before any newer ones, by the next publish or `flush`; they are lost if the

@@ -2,12 +2,13 @@ use std::{path::Path, sync::Arc};
 
 use async_trait::async_trait;
 use tracing::{debug, info, instrument};
-use yokoku_domain::{Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series};
+use yokoku_domain::{
+    Clock, DownloadId, FileTarget, ImportId, ItemId, Movie, Series,
+    events::{DownloadCompleted, Event, ImportFailed, ImportNeedsReview},
+};
 
 use crate::{
-    events::{
-        DownloadCompleted, Event, Handler, HandlerError, ImportFailed, ImportNeedsReview, Publisher, QueueChanges,
-    },
+    events::{Handler, HandlerError, Publisher, QueueChanges},
     media::{
         Import, ImportRow, ImportStatus, MediaError, Resolution,
         detect::{ImportPlan, ListedFile, MatchScope},

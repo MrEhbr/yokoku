@@ -8,7 +8,7 @@ use common::{App, ROOT, movie_metadata, series_metadata};
 use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_core::{
-    events::{Handler, SeriesRemoved},
+    events::Handler,
     library::{
         Artworks, Image, LibraryError, artwork_name,
         ports::{ArtworkSource, MetadataError, SeriesRepo},
@@ -16,7 +16,7 @@ use yokoku_core::{
 };
 use yokoku_domain::{
     Artwork, ArtworkKind, ExternalId, ItemId, MonitorPreset, MovieMetadata, Releases, SeriesId, SeriesMetadata,
-    SourceStatus,
+    SourceStatus, events::SeriesRemoved,
 };
 use yokoku_infra::system::ArtworkFiles;
 

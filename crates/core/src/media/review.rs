@@ -1,10 +1,12 @@
 use std::{path::PathBuf, sync::Arc};
 
 use jiff::Timestamp;
-use yokoku_domain::{Clock, Confidence, DownloadId, FileTarget, ImportId, MediaFileId, SeriesId};
+use yokoku_domain::{
+    Clock, Confidence, DownloadId, FileTarget, ImportId, MediaFileId, SeriesId, events::FilesImported,
+};
 
 use crate::{
-    events::{FilesImported, Publisher, QueueChanges},
+    events::{Publisher, QueueChanges},
     media::{
         Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
         detect::{Conflict, ImportPlan, ListedFile, MatchScope},

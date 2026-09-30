@@ -15,11 +15,3 @@ pub use history::History;
 pub use publisher::Publisher;
 pub use signal::QueueChanges;
 pub use subscription::{Handler, HandlerError, Subscription};
-pub use yokoku_domain::{
-    CorrelationId,
-    events::{
-        DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, EventKind, FileDeleted, FileRenamed, FilesFound,
-        FilesImported, ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, RenumberedFile,
-        SeriesAdded, SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
-    },
-};

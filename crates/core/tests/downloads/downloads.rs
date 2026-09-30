@@ -11,9 +11,12 @@ use yokoku_core::{
         Download, DownloadError, DownloadOptions, DownloadState, Downloads, TorrentStatus,
         ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
     },
-    events::{DownloadCompleted, Event, EventLog, FilesImported, Handler, QueueChanges, TorrentAdded, TorrentRemoved},
+    events::{EventLog, Handler, QueueChanges},
 };
-use yokoku_domain::{Clock, DownloadId, ImportId, ItemId, Live, MovieId, SeriesId};
+use yokoku_domain::{
+    Clock, DownloadId, ImportId, ItemId, Live, MovieId, SeriesId,
+    events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
+};
 use yokoku_infra::db::Database;
 use yokoku_test_support::{clock::TestClock, events::publisher};
 

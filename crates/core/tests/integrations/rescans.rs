@@ -3,13 +3,16 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use jiff::{SignedDuration, Timestamp, tz::TimeZone};
 use yokoku_core::{
-    events::{DeleteReason, EventKind, FileDeleted, FileRenamed, Handler},
+    events::Handler,
     integrations::{
         Rescans,
         ports::{MediaServer, MediaServerError, RescanStore},
     },
 };
-use yokoku_domain::{Clock, MediaFileId, MovieId};
+use yokoku_domain::{
+    Clock, MediaFileId, MovieId,
+    events::{DeleteReason, EventKind, FileDeleted, FileRenamed},
+};
 use yokoku_infra::db::Database;
 use yokoku_test_support::clock::TestClock;
 

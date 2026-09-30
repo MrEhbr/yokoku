@@ -3,10 +3,13 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use jiff::SignedDuration;
 use tracing::{debug, info, instrument};
-use yokoku_domain::{Clock, StorageError};
+use yokoku_domain::{
+    Clock, StorageError,
+    events::{FileDeleted, FileRenamed, FilesImported},
+};
 
 use crate::{
-    events::{FileDeleted, FileRenamed, FilesImported, Handler, HandlerError},
+    events::{Handler, HandlerError},
     integrations::ports::{MediaServer, MediaServerError, RescanStore},
 };
 

@@ -1,8 +1,7 @@
 use std::{error::Error, marker::PhantomData, sync::Arc};
 
 use async_trait::async_trait;
-
-use crate::events::{Event, EventKind};
+use yokoku_domain::events::{Event, EventKind};
 
 pub type HandlerError = Box<dyn Error + Send + Sync>;
 

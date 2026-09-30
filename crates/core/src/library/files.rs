@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use yokoku_domain::{FileTarget, MediaFileId};
+use yokoku_domain::{
+    FileTarget, MediaFileId,
+    events::{FileDeleted, FilesFound, FilesImported, LinkedFile},
+};
 
 use crate::{
-    events::{FileDeleted, FilesFound, FilesImported, Handler, HandlerError, LinkedFile},
+    events::{Handler, HandlerError},
     library::{
         LibraryError,
         ports::{MediaFiles, MovieRepo, SeriesRepo},

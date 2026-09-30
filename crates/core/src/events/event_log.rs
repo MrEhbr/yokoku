@@ -2,12 +2,9 @@ use std::{fmt, sync::Arc};
 
 use async_trait::async_trait;
 use jiff::Timestamp;
-use yokoku_domain::{CorrelationId, StorageError};
+use yokoku_domain::{CorrelationId, StorageError, events::Event};
 
-use crate::events::{
-    Event,
-    signal::{Listener, NewEvents},
-};
+use crate::events::signal::{Listener, NewEvents};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct EventId(pub i64);

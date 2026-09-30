@@ -1,12 +1,11 @@
 use std::{fs, os::unix::fs::PermissionsExt};
 
 use common::{App, TODAY, frieren_metadata, now};
-use yokoku_core::{
-    events::{DeleteReason, Event, FileDeleted, Handler, MovieRemoved, SeriesAdded, SeriesRemoved},
-    library::ports::SeriesRepo,
-    media::MediaError,
+use yokoku_core::{events::Handler, library::ports::SeriesRepo, media::MediaError};
+use yokoku_domain::{
+    ItemFolder, ItemId, MonitorPreset, Series,
+    events::{DeleteReason, Event, FileDeleted, MovieRemoved, SeriesAdded, SeriesRemoved},
 };
-use yokoku_domain::{ItemFolder, ItemId, MonitorPreset, Series};
 
 use crate::common;
 

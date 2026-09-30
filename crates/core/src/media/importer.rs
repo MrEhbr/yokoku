@@ -9,11 +9,12 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 use yokoku_domain::{
     Clock, FileTarget, ImportId, Live, MediaFileId,
+    events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed},
     naming::{Naming, subtitle_path},
 };
 
 use crate::{
-    events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, Publisher, QueueChanges},
+    events::{Publisher, QueueChanges},
     media::{
         Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
         detect::{Classified, ListedFile},

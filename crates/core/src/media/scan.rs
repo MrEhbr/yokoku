@@ -7,13 +7,13 @@ use std::{
 use async_trait::async_trait;
 use jiff::Timestamp;
 use tracing::{info, instrument};
-use yokoku_domain::{Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId};
+use yokoku_domain::{
+    Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId,
+    events::{DeleteReason, Event, FileDeleted, FilesFound, ImportNeedsReview, MovieAdded, SeriesAdded},
+};
 
 use crate::{
-    events::{
-        DeleteReason, Event, FileDeleted, FilesFound, Handler, HandlerError, ImportNeedsReview, MovieAdded, Publisher,
-        QueueChanges, SeriesAdded,
-    },
+    events::{Handler, HandlerError, Publisher, QueueChanges},
     media::{
         Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
         detect::{ImportPlan, ListedFile, MatchScope},

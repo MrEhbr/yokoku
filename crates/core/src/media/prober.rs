@@ -2,10 +2,13 @@ use std::{path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
 use tracing::{debug, warn};
-use yokoku_domain::{ItemId, SubtitleTags};
+use yokoku_domain::{
+    ItemId, SubtitleTags,
+    events::{FilesFound, FilesImported, LinkedFile},
+};
 
 use crate::{
-    events::{FilesFound, FilesImported, Handler, HandlerError, LinkedFile},
+    events::{Handler, HandlerError},
     media::{
         MediaError, MediaFile, MediaInfo, files,
         ports::{FileSystem, MediaProbe, MediaRepo, ProbeError},

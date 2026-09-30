@@ -1,16 +1,14 @@
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use jiff::{SignedDuration, ToSpan};
 use rstest::{fixture, rstest};
-use yokoku_core::{
-    events::{EpisodesRenumbered, MovieAdded, RenumberedFile, SeriesAdded},
-    library::{
-        LibraryError,
-        ports::{MetadataError, SeriesRepo},
-    },
+use yokoku_core::library::{
+    LibraryError,
+    ports::{MetadataError, SeriesRepo},
 };
 use yokoku_domain::{
     EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ItemFolder, ItemId, MediaFileId, MediaKind, MonitorPreset,
     Releases, SeasonMetadata, SourceStatus,
+    events::{EpisodesRenumbered, MovieAdded, RenumberedFile, SeriesAdded},
 };
 
 use crate::common;

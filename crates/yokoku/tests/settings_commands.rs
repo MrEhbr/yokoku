@@ -7,7 +7,8 @@ use std::{
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use tempfile::TempDir;
-use yokoku_core::events::{EventLog, SettingsChanged};
+use yokoku_core::events::EventLog;
+use yokoku_domain::events::SettingsChanged;
 use yokoku_infra::db::Database;
 use yokoku_test_support::events::refuse_events;
 

@@ -8,11 +8,12 @@ use std::{
 use tracing::{info, instrument, warn};
 use yokoku_domain::{
     FileTarget, Live, MediaFileId, MovieId, Series, SeriesId,
+    events::FileRenamed,
     naming::{Naming, subtitle_path},
 };
 
 use crate::{
-    events::{FileRenamed, Publisher},
+    events::Publisher,
     media::{
         MediaError, MediaFile, files,
         ports::{Catalog, Changes, FileSystem, LibraryLock, MediaRepo},

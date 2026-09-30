@@ -8,13 +8,13 @@ use std::{
 use async_trait::async_trait;
 use tempfile::TempDir;
 use yokoku_core::{
-    events::{Event, EventLog},
+    events::EventLog,
     library::{
         Calendar, Library, MetadataService,
         ports::{FolderNames, MetadataError, MetadataProvider, SearchResult},
     },
 };
-use yokoku_domain::{ExternalId, MediaKind, MovieMetadata, SeriesMetadata, title_with_year};
+use yokoku_domain::{ExternalId, MediaKind, MovieMetadata, SeriesMetadata, events::Event, title_with_year};
 use yokoku_infra::db::Database;
 pub use yokoku_test_support::{
     clock::TODAY,

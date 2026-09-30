@@ -2,11 +2,14 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use tracing::{info, instrument};
-use yokoku_domain::{Confidence, FileTarget, ImportId, MediaFileId};
+use yokoku_domain::{
+    Confidence, FileTarget, ImportId, MediaFileId,
+    events::{EpisodesRenumbered, Event, ImportNeedsReview},
+};
 
 use super::Scanner;
 use crate::{
-    events::{EpisodesRenumbered, Event, Handler, HandlerError, ImportNeedsReview},
+    events::{Handler, HandlerError},
     media::{Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution, ports::Changes},
 };
 

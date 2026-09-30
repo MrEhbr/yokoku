@@ -1,7 +1,8 @@
-use yokoku_core::events::{
-    CorrelationId, Event, EventLog, MovieAdded, Publisher, Recorded, SeriesAdded, correlation::correlate,
+use yokoku_core::events::{EventLog, Publisher, Recorded, correlation::correlate};
+use yokoku_domain::{
+    CorrelationId, MovieId, SeriesId,
+    events::{Event, MovieAdded, SeriesAdded},
 };
-use yokoku_domain::{MovieId, SeriesId};
 use yokoku_infra::db::Database;
 use yokoku_test_support::events::{accept_events, refuse_events};
 

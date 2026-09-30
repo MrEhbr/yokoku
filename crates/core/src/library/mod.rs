@@ -22,13 +22,16 @@ use jiff::civil::Date;
 pub use listing::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
 pub use metadata::{MetadataService, RefreshFailure, RefreshReport, SearchHit};
 use tracing::{info, instrument};
-use yokoku_domain::{Clock, EpisodeRef, ExternalId, Movie, MovieId, Numbering, Series, SeriesId};
+use yokoku_domain::{
+    Clock, EpisodeRef, ExternalId, Movie, MovieId, Numbering, Series, SeriesId,
+    events::{MovieRemoved, SeriesRemoved},
+};
 
 use self::{
     ports::{MovieRepo, SeriesRepo},
     snapshot::Snapshot,
 };
-use crate::events::{MovieRemoved, Publisher, SeriesRemoved};
+use crate::events::Publisher;
 
 /// Queries and changes that need no metadata source.
 pub struct Library {

@@ -4,9 +4,10 @@ use common::App;
 use rstest::rstest;
 use tokio::time::timeout;
 use yokoku_core::{
-    events::{Handler, SeriesRemoved},
+    events::Handler,
     media::{ImportMode, RenameScope, ports::LibraryLock},
 };
+use yokoku_domain::events::SeriesRemoved;
 
 use crate::common;
 

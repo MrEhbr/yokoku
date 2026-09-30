@@ -14,9 +14,12 @@ use yokoku_core::{
         DownloadOptions, DownloadState, Downloads,
         ports::{DownloadClient, TorrentSource},
     },
-    events::{DownloadCompleted, Event, EventLog, QueueChanges},
+    events::{EventLog, QueueChanges},
 };
-use yokoku_domain::{Clock, Live};
+use yokoku_domain::{
+    Clock, Live,
+    events::{DownloadCompleted, Event},
+};
 use yokoku_infra::{
     db::Database,
     download_clients::{TransmissionClient, TransmissionSettings},

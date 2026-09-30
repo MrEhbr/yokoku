@@ -1,9 +1,12 @@
 use common::{App, relative};
 use yokoku_core::{
-    events::{EpisodesRenumbered, Event, Handler, ImportNeedsReview, RenumberedFile},
+    events::Handler,
     media::{ImportStatus, ports::MediaRepo},
 };
-use yokoku_domain::{EpisodeSpan, MediaFileId, SeriesId};
+use yokoku_domain::{
+    EpisodeSpan, MediaFileId, SeriesId,
+    events::{EpisodesRenumbered, Event, ImportNeedsReview, RenumberedFile},
+};
 
 use crate::common;
 

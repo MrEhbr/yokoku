@@ -7,13 +7,13 @@ use std::{
 use async_trait::async_trait;
 use common::App;
 use yokoku_core::{
-    events::{EventLog, FilesFound, Handler},
+    events::{EventLog, Handler},
     media::{
         MediaError, MediaInfo, Prober, VideoStream,
         ports::{MediaProbe, ProbeError},
     },
 };
-use yokoku_domain::{ItemId, SubtitleTags};
+use yokoku_domain::{ItemId, SubtitleTags, events::FilesFound};
 use yokoku_infra::system::LocalFileSystem;
 
 use crate::common;

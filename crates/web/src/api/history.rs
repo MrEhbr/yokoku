@@ -62,14 +62,17 @@ mod server {
 
     use dioxus::{logger::tracing::error, prelude::*};
     use yokoku_core::{
+        events::EventId,
+        library::{LibraryFilter, LibrarySort},
+    };
+    use yokoku_domain::{
+        FileTarget, ItemId,
         events::{
-            DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, EventId, FileDeleted, FileRenamed, FilesFound,
+            DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, FileDeleted, FileRenamed, FilesFound,
             FilesImported, ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, SeriesAdded,
             SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
         },
-        library::{LibraryFilter, LibrarySort},
     };
-    use yokoku_domain::{FileTarget, ItemId};
 
     use super::{Clock, History, HistoryEntry, HistoryPage, Library, Part};
 

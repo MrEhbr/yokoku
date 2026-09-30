@@ -1,9 +1,10 @@
 use jiff::{SignedDuration, Timestamp};
 use rstest::{fixture, rstest};
-use yokoku_core::events::{
-    Correlated, CorrelationId, DeliveryFailure, Event, EventId, EventLog, MovieAdded, Recorded, SeriesAdded,
+use yokoku_core::events::{Correlated, DeliveryFailure, EventId, EventLog, Recorded};
+use yokoku_domain::{
+    CorrelationId, MovieId, SeriesId,
+    events::{Event, MovieAdded, SeriesAdded},
 };
-use yokoku_domain::{MovieId, SeriesId};
 use yokoku_infra::db::Database;
 
 #[fixture]

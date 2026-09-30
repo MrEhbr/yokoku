@@ -15,13 +15,13 @@ pub use error::DownloadError;
 pub use model::{Download, DownloadState, TorrentStatus};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
-use yokoku_domain::{Clock, DownloadId, ItemId, Live, StorageError};
+use yokoku_domain::{
+    Clock, DownloadId, ItemId, Live, StorageError,
+    events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
+};
 
 use self::ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource};
-use crate::events::{
-    DownloadCompleted, Event, FilesImported, Handler, HandlerError, Publisher, QueueChanges, TorrentAdded,
-    TorrentRemoved,
-};
+use crate::events::{Handler, HandlerError, Publisher, QueueChanges};
 
 /// Torrents added through Yokoku and their state in the download client (FR-3).
 pub struct Downloads {

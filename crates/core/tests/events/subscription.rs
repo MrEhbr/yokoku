@@ -1,8 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use yokoku_core::events::{Event, Handler, HandlerError, MovieAdded, SeriesAdded, SeriesRemoved, Subscription};
-use yokoku_domain::{MovieId, SeriesId};
+use yokoku_core::events::{Handler, HandlerError, Subscription};
+use yokoku_domain::{
+    MovieId, SeriesId,
+    events::{Event, MovieAdded, SeriesAdded, SeriesRemoved},
+};
 
 #[derive(Default)]
 struct Recorder {

@@ -15,12 +15,12 @@ use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, info, info_span, warn};
 use yokoku_core::{
     downloads::Downloads,
-    events::{CorrelationId, correlation::correlate},
+    events::correlation::correlate,
     integrations::Rescans,
     library::MetadataService,
     media::{Importer, Scanner},
 };
-use yokoku_domain::Live;
+use yokoku_domain::{CorrelationId, Live};
 
 /// Changes must stop arriving for this long before the media server rescans.
 const RESCAN_QUIET: SignedDuration = SignedDuration::from_secs(30);

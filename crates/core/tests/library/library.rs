@@ -1,13 +1,11 @@
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use jiff::{SignedDuration, ToSpan};
 use rstest::{fixture, rstest};
-use yokoku_core::{
-    events::{MovieRemoved, SeriesRemoved},
-    library::{LibraryError, LibraryFilter, LibrarySort, LibraryStatus},
-};
+use yokoku_core::library::{LibraryError, LibraryFilter, LibrarySort, LibraryStatus};
 use yokoku_domain::{
     EpisodeRef, ExternalId, MediaFileId, MediaKind, MonitorPreset, MovieStatus, Numbering, Releases, SeriesId,
     SeriesStatus, SourceStatus,
+    events::{MovieRemoved, SeriesRemoved},
 };
 
 use crate::common;

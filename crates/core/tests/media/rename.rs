@@ -2,14 +2,13 @@ use std::{fs, os::unix::fs::PermissionsExt};
 
 use common::{App, now, relative};
 use yokoku_core::{
-    events::FileRenamed,
     library::ports::{MovieRepo, SeriesRepo},
     media::{
         MediaFile, RenameScope, SkipReason, Skipped,
         ports::{Changes, MediaRepo},
     },
 };
-use yokoku_domain::MediaFileId;
+use yokoku_domain::{MediaFileId, events::FileRenamed};
 
 use crate::common;
 

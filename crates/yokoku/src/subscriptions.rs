@@ -6,13 +6,14 @@ use std::sync::Arc;
 use yokoku_config::Settings;
 use yokoku_core::{
     downloads::Downloads,
-    events::{
-        DownloadCompleted, EpisodesRenumbered, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded,
-        MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged, Subscription,
-    },
+    events::Subscription,
     integrations::Rescans,
     library::{Artworks, FileTracker},
     media::{Deleter, ImportPlanner, Prober, Scanner},
+};
+use yokoku_domain::events::{
+    DownloadCompleted, EpisodesRenumbered, FileDeleted, FileRenamed, FilesFound, FilesImported, MovieAdded,
+    MovieRemoved, SeriesAdded, SeriesRemoved, SettingsChanged,
 };
 use yokoku_infra::db::Database;
 

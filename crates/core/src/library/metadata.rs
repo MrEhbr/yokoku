@@ -3,10 +3,11 @@ use std::{path::PathBuf, sync::Arc};
 use tracing::{debug, info, instrument};
 use yokoku_domain::{
     Clock, ExternalId, ItemFolder, ItemId, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
+    events::{EpisodesRenumbered, MovieAdded, SeriesAdded},
 };
 
 use crate::{
-    events::{EpisodesRenumbered, MovieAdded, Publisher, SeriesAdded},
+    events::Publisher,
     library::{
         LibraryError,
         ports::{FolderNames, MetadataProvider, MovieRepo, SearchResult, SeriesRepo},

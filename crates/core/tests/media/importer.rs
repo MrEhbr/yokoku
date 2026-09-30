@@ -3,11 +3,13 @@ use std::{fs, os::unix::fs::MetadataExt, path::Path};
 use common::{App, relative};
 use rstest::rstest;
 use yokoku_core::{
-    events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, LinkedFile},
     library::ports::SeriesRepo,
     media::{Approval, ImportMode, ImportStatus, MediaError, MediaFile, ports::MediaRepo},
 };
-use yokoku_domain::{DownloadId, ImportId, ItemId};
+use yokoku_domain::{
+    DownloadId, ImportId, ItemId,
+    events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, LinkedFile},
+};
 
 use crate::common;
 

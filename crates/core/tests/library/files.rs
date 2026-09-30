@@ -6,12 +6,13 @@ use std::{
 use async_trait::async_trait;
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use yokoku_core::{
-    events::{DeleteReason, FileDeleted, FilesFound, FilesImported, Handler, LinkedFile},
+    events::Handler,
     library::{FileTracker, ports::MediaFiles},
 };
 use yokoku_domain::{
     EpisodeSpan, ExternalId, FileTarget, MediaFileId, MonitorPreset, Movie, Releases, Series, SeriesId, SourceStatus,
     StorageError,
+    events::{DeleteReason, FileDeleted, FilesFound, FilesImported, LinkedFile},
 };
 
 use crate::common;
