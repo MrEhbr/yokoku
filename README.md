@@ -137,8 +137,8 @@ fn apply_overrides(&self, config: &ExampleConfig) -> ExampleConfig {
 }
 ```
 
-Configuration precedence is command flags > `APP__*` env vars > config file
-> defaults.
+Configuration precedence is command flags > `APP__*` env vars > settings stored
+in the database > config file > defaults.
 
 ## CI/CD
 

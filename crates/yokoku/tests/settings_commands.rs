@@ -42,14 +42,14 @@ fn settings_are_stored_listed_read_and_unset() {
     let setup = setup();
 
     let set_mode = setup.stdout(&["settings", "set", "import.mode", "copy"]);
-    let set_days = setup.stdout(&["settings", "set", "calendar.days", "14"]);
+    let set_remove = setup.stdout(&["settings", "set", "downloads.remove_after_seeding", "true"]);
     let listed = setup.stdout(&["settings", "list"]);
     let mode = setup.stdout(&["settings", "get", "import.mode"]);
     let unset = setup.stdout(&["settings", "unset", "import.mode"]);
 
     assert_eq!(set_mode, "Set import.mode = \"copy\"\n");
-    assert_eq!(set_days, "Set calendar.days = 14\n");
-    assert_eq!(listed, "calendar.days = 14\nimport.mode = \"copy\"\n");
+    assert_eq!(set_remove, "Set downloads.remove_after_seeding = true\n");
+    assert_eq!(listed, "downloads.remove_after_seeding = true\nimport.mode = \"copy\"\n");
     assert_eq!(mode, "\"copy\"\n");
     assert_eq!(unset, "Unset import.mode\n");
     assert_eq!(setup.stdout(&["settings", "get", "import.mode"]), "\"hardlink\"\n");
@@ -62,9 +62,11 @@ fn a_bad_setting_is_refused_and_not_stored_and_an_unknown_one_is_not_read() {
 
     let refused = setup.command().args(["settings", "set", "import.mode", "sideways"]).assert().failure();
     let unknown = setup.command().args(["settings", "get", "import.speed"]).assert().failure();
+    let at_start = setup.command().args(["settings", "set", "web.port", "9000"]).assert().failure();
 
     refused.stderr(predicate::str::contains("import.mode cannot be \"sideways\""));
     unknown.stderr(predicate::str::contains("import.speed is not a setting"));
+    at_start.stderr(predicate::str::contains("web.port is read when the service starts"));
 
     assert_eq!(setup.stdout(&["settings", "list"]), "No stored settings.\n");
 }

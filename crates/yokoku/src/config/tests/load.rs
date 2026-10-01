@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use serde_json::json;
 use tracing::Level;
 
+use super::keys;
 use crate::config::{Config, LogFormat, LogOutput};
 
 #[test]
@@ -21,6 +22,31 @@ fn stored_settings_go_over_the_config_file_and_it_over_the_defaults() {
     assert_eq!(config.log.format, LogFormat::Json);
     assert_eq!(config.log.output, LogOutput::File(PathBuf::from("/var/log/yokoku.log")));
     assert_eq!(config.setting("import.mode").unwrap(), "\"move\"");
+}
+
+#[test]
+fn the_sample_config_files_load_and_list_every_setting() {
+    for name in ["app.toml", "docker.toml"] {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../config").join(name);
+        Config::load(Some(&path), &[]).unwrap_or_else(|error| panic!("{name}: {error:#}"));
+
+        let uncommented: String = std::fs::read_to_string(&path)
+            .unwrap()
+            .lines()
+            .map(|line| match line.strip_prefix("# ") {
+                Some(setting) if setting.split_once(" = ").is_some_and(|(key, _)| !key.contains(' ')) => setting,
+                _ => line,
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let listed = config::Config::builder()
+            .add_source(config::File::from_str(&uncommented, config::FileFormat::Toml))
+            .build()
+            .unwrap();
+        for key in keys() {
+            assert!(listed.get::<config::Value>(&key).is_ok(), "{name} does not list {key}");
+        }
+    }
 }
 
 #[test]

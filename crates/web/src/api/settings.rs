@@ -23,6 +23,8 @@ pub enum Section {
     Import,
     Naming,
     Files,
+    Schedules,
+    Server,
 }
 
 /// How a setting is edited.
@@ -38,6 +40,8 @@ pub enum Control {
     Switch,
     /// Strings, typed comma-separated.
     List,
+    /// Shown, not edited: read when the service starts, from the config file or environment.
+    ReadOnly,
 }
 
 #[cfg(any(feature = "server", test))]
@@ -161,7 +165,7 @@ mod server {
     use yokoku_core::media::MediaError;
 
     use super::{
-        Connection, ConnectionTest, Field, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess,
+        Connection, ConnectionTest, Control, Field, Kind, Root, RootFolders, Scanned, Scanner, Setting, SettingsAccess,
     };
     use crate::api::{root_listing_failed, unexpected};
 
@@ -230,12 +234,12 @@ mod server {
         Ok(Scanned { found: report.found, vanished: report.vanished, unrecognised: report.needs_review.len() })
     }
 
-    /// The page's field for `key`; no other key can be changed through it.
+    /// The page's editable field for `key`; no other key can be changed through it.
     fn editable(access: &dyn SettingsAccess, key: &str) -> Result<Field, ServerFnError> {
         access
             .fields()
             .into_iter()
-            .find(|field| field.key == key)
+            .find(|field| field.key == key && field.control != Control::ReadOnly)
             .ok_or_else(|| ServerFnError::new(format!("{key} cannot be changed here")))
     }
 

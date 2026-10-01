@@ -148,6 +148,16 @@ pub(super) fn SettingField(setting: Setting) -> Element {
                         }
                     }
                 }
+                Control::ReadOnly => rsx! {
+                    Input {
+                        id: "{id}",
+                        class: "bg-subtle text-muted",
+                        readonly: true,
+                        value: "{draft}",
+                        placeholder: "Not set",
+                        aria_describedby: "{described}",
+                    }
+                },
                 _ => rsx! {
                     div { class: "flex gap-2",
                         Input {
@@ -188,7 +198,11 @@ pub(super) fn SettingField(setting: Setting) -> Element {
             }
             FieldHint { id: "{hint_id}",
                 "{setting.field.hint}"
-                if setting.from_env {
+                if setting.field.control == Control::ReadOnly && !setting.from_env {
+                    " Set in the config file or by "
+                    code { class: "yk-code", "{variable}" }
+                    "."
+                } else if setting.from_env {
                     " Set by "
                     code { class: "yk-code", "{variable}" }
                     ", which takes precedence."

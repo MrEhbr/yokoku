@@ -99,6 +99,20 @@ fn Sections(settings: Vec<Setting>) -> Element {
                 {fields(Section::Naming)}
             }
             Group { title: "Files", {fields(Section::Files)} }
+            Group { title: "Schedules",
+                p { class: "text-caption text-muted",
+                    "Cron schedules with seconds: second minute hour day month weekday, like "
+                    code { class: "yk-code", "*/30 * * * * *" }
+                    ". A change applies from the next run."
+                }
+                {fields(Section::Schedules)}
+            }
+            Group { title: "Server",
+                p { class: "text-caption text-muted",
+                    "Read when the service starts: change these in the config file or environment, then restart it."
+                }
+                {fields(Section::Server)}
+            }
         }
     }
 }

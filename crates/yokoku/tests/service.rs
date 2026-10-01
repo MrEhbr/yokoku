@@ -379,7 +379,10 @@ async fn settings_can_be_changed_and_reset() {
     let hidden = service.post_json("/api/settings", r#"{"key":"web.port","value":9000}"#);
     let reset = service.post_json("/api/settings/reset", r#"{"key":"import.mode"}"#);
 
-    assert!(page.starts_with("HTTP/1.1 200") && page.contains("Import mode"), "{page}");
+    assert!(
+        page.starts_with("HTTP/1.1 200") && page.contains("Import mode") && page.contains("Listen address"),
+        "{page}"
+    );
     assert!(saved.contains(r#""value":"copy","stored":true"#), "{saved}");
     assert!(!wrong.starts_with("HTTP/1.1 200") && wrong.contains("teleport"), "{wrong}");
     assert!(hidden.contains("cannot be changed here"), "{hidden}");

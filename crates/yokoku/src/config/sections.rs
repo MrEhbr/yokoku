@@ -4,7 +4,6 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use yokoku_core::library::LibrarySort;
 use yokoku_domain::MonitorPreset;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -21,17 +20,6 @@ impl Default for DatabaseConfig {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub struct AddConfig {
     pub monitor: MonitorPreset,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct ListConfig {
-    pub sort: LibrarySort,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct CalendarConfig {
-    /// Days ahead to show instead of the week; the week while unset.
-    pub days: Option<u16>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

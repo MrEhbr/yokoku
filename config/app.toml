@@ -1,35 +1,74 @@
+# Yokoku configuration. Every setting is listed; a commented one is unset by default.
+#
+# Each value can also come from an environment variable APP__<SECTION>__<KEY>, like APP__WEB__PORT
+# or APP__METADATA__TMDB__TOKEN, which goes over this file and over the Settings page.
+# [log], [database], [web] and [events] are read when the service starts: a change needs a restart,
+# and the Settings page only shows them. Every other setting can be changed on the Settings page,
+# which keeps it in the database, over this file, and applies it at once.
+# Changes to this file apply after a restart.
+#
+# Read from the environment only:
+#   RUST_LOG             log filter, replacing log.level
+#   DIOXUS_PUBLIC_PATH   the web assets folder; public/ next to the binary when unset
+
+# Restart needed.
 [log]
+# trace, debug, info, warn or error; -v and -q on the command line go over it.
+level = "info"
+# console or json.
 format = "console"
+# stderr, stdout or { file = "logs/yokoku.log" }.
 output = "stderr"
 
+# Restart needed.
 [database]
+# The SQLite file; artwork is kept in an artwork folder next to it.
 path = "data/yokoku.db"
 
+# Restart needed.
 [web]
+# 0.0.0.0 listens on every interface.
 host = "127.0.0.1"
 port = 8080
 
+# Restart needed.
+[events]
+# Milliseconds between checks for changes made from the command line, such as a setting.
+poll_interval_ms = 5000
+
 [clock]
+# IANA time zone for air dates; the server's own while unset.
 # timezone = "Europe/Berlin"
 
 [metadata]
+# Language of titles and overviews.
 language = "en-US"
+# Whose movie release dates are shown.
 region = "US"
 
 # Secrets (token, api_key, pin, password) take a value or { file = "/run/secrets/name" };
 # APP__METADATA__TMDB__TOKEN or APP__METADATA__TMDB__TOKEN__FILE set them from the environment.
 [metadata.tmdb]
+# The API read access token; needed to search, add and refresh items.
 # token = { file = "/run/secrets/tmdb_token" }
+# The API's address; change it only for a proxy or mirror.
+url = "https://api.themoviedb.org/3"
 
 # Series come from TVDB once api_key is set; it must be the source Jellyfin uses.
 [metadata.tvdb]
 # api_key = { file = "/run/secrets/tvdb_api_key" }
+# Subscriber PIN.
 # pin = { file = "/run/secrets/tvdb_pin" }
+# The API's address; change it only for a proxy or mirror.
+url = "https://api4.thetvdb.com/v4"
 
 # The password is a secret, like the TMDB token.
 [transmission]
+# Its RPC address.
 url = "http://localhost:9091/transmission/rpc"
+# Unset when Transmission asks for none.
 # username = "yokoku"
+# password = { file = "/run/secrets/transmission_password" }
 
 [downloads]
 # Removes imported torrents with their data once Transmission finished seeding them.
@@ -39,24 +78,22 @@ pick_up_labels = []
 # pick_up_folder = "/downloads/tv"
 
 [add]
+# What a new series monitors at first: all, future, latest-season or none; a new movie is
+# monitored unless this is none.
 monitor = "all"
 
-[list]
-sort = "title"
-
-[calendar]
-# Days ahead to show instead of the week; the week while unset.
-# days = 14
-
-# Cron schedules with seconds.
+# Cron schedules with seconds: second minute hour day month weekday.
 [serve]
 sync_downloads = "*/30 * * * * *"
 # Again every 5 s while a download is queued or downloading.
 sync_active_downloads = "*/5 * * * * *"
+# Carries out approved imports.
 execute_imports = "*/5 * * * * *"
+# Checks whether a Jellyfin rescan is due.
 rescan_media_server = "*/10 * * * * *"
 # Refreshes only the items due, as Sonarr and Radarr decide it.
 refresh_metadata = "0 0 */12 * * *"
+# Looks for files changed outside Yokoku in the root folders.
 scan_library = "0 0 5 * * *"
 
 # How finished downloads reach the library: hardlink, copy or move.
@@ -65,7 +102,10 @@ mode = "hardlink"
 
 # Rescans after library changes; api_key is a secret, like the TMDB token.
 [jellyfin]
+# Jellyfin is not used while unset.
 # url = "http://localhost:8096"
+# From Jellyfin's dashboard, under API keys.
+# api_key = { file = "/run/secrets/jellyfin_api_key" }
 
 # Path patterns for library files. Tokens: {title}, {year}, {season} (two digits), {episodes}
 # (S01E01 or S01E01-E02), {episode_title}; a [...] group is dropped when a token in it has no value.

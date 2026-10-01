@@ -22,12 +22,12 @@ fn test_version_flag() {
 #[test]
 fn test_config_file_values_are_loaded() {
     let dir = tempfile::tempdir().unwrap();
-    let path = config_file(&dir, "[calendar]\ndays = 30\n");
+    let path = config_file(&dir, "[web]\nport = 9000\n");
 
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
-    cmd.args(["settings", "get", "calendar.days", "-c"]).arg(&path);
+    cmd.args(["settings", "get", "web.port", "-c"]).arg(&path);
 
-    cmd.assert().success().stdout("30\n");
+    cmd.assert().success().stdout("9000\n");
 }
 
 #[test]

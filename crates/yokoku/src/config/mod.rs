@@ -24,13 +24,15 @@ use yokoku_infra::{
 
 pub use crate::config::{
     log::{LogConfig, LogFormat, LogOutput},
-    sections::{AddConfig, CalendarConfig, DatabaseConfig, EventsConfig, ListConfig, WebConfig},
+    sections::{AddConfig, DatabaseConfig, EventsConfig, WebConfig},
     settings::Settings,
 };
 use crate::jobs::ScheduleSettings;
 
 const ENV_PREFIX: &str = "APP";
 const ENV_SEPARATOR: &str = "__";
+/// Sections read once, when the service starts.
+const READ_AT_START: [&str; 4] = ["database", "log", "web", "events"];
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(default)]
@@ -43,8 +45,6 @@ pub struct Config {
     pub transmission: TransmissionSettings,
     pub downloads: DownloadOptions,
     pub add: AddConfig,
-    pub list: ListConfig,
-    pub calendar: CalendarConfig,
     pub serve: ScheduleSettings,
     pub events: EventsConfig,
     pub import: ImportSettings,
@@ -106,19 +106,24 @@ impl Config {
     /// Fails unless `key` is a setting the database can store.
     pub fn editable(key: &str) -> Result<()> {
         Self::default().value(key)?;
-        if ["database", "log"].contains(&key.split('.').next().unwrap_or_default()) {
-            bail!("{key} is needed before the database opens; set it in the config file or environment");
+        if READ_AT_START.contains(&key.split('.').next().unwrap_or_default()) {
+            bail!("{key} is read when the service starts; set it in the config file or environment and restart");
         }
         Ok(())
     }
 
     /// The value of a known setting as JSON, a secret masked.
     pub fn value(&self, key: &str) -> Result<Value> {
-        let config = Secret::masking(|| serde_json::to_value(self))?;
-        match key.split('.').try_fold(&config, |value, part| value.get(part)) {
-            Some(value) if !value.is_object() => Ok(value.clone()),
+        match Self::default().lookup(key)? {
+            Some(default) if !default.is_object() => Ok(self.lookup(key)?.unwrap_or(Value::Null)),
             _ => bail!("{key} is not a setting"),
         }
+    }
+
+    /// The JSON at dotted `key`, a secret masked; an object for a section.
+    fn lookup(&self, key: &str) -> Result<Option<Value>> {
+        let config = Secret::masking(|| serde_json::to_value(self))?;
+        Ok(key.split('.').try_fold(&config, |value, part| value.get(part)).cloned())
     }
 }
 

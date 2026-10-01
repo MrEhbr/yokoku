@@ -39,13 +39,13 @@ async fn open(store: &Arc<MemoryStore>) -> Settings {
 async fn stored_settings_go_over_the_defaults() {
     let store = Arc::new(MemoryStore::default());
     store.set_setting("import.mode", &json!("copy")).await.unwrap();
-    store.set_setting("calendar.days", &json!(14)).await.unwrap();
+    store.set_setting("transmission.username", &json!("yokoku")).await.unwrap();
     store.set_setting("downloads.pick_up_labels", &json!(["tv", "anime"])).await.unwrap();
 
     let config = open(&store).await.current();
 
     assert_eq!(config.import.mode, ImportMode::Copy);
-    assert_eq!(config.calendar.days, Some(14));
+    assert_eq!(config.transmission.username.as_deref(), Some("yokoku"));
     assert_eq!(config.downloads.pick_up_labels, ["tv", "anime"]);
 }
 
@@ -66,17 +66,19 @@ async fn a_live_value_follows_a_reload() {
 async fn a_preview_applies_changes_without_storing_them() {
     let store = Arc::new(MemoryStore::default());
     store.set_setting("import.mode", &json!("copy")).await.unwrap();
-    store.set_setting("calendar.days", &json!(14)).await.unwrap();
+    store.set_setting("transmission.username", &json!("yokoku")).await.unwrap();
     let settings = open(&store).await;
 
-    let preview =
-        settings.preview(&[("import.mode".into(), Some(json!("move"))), ("calendar.days".into(), None)]).await.unwrap();
+    let preview = settings
+        .preview(&[("import.mode".into(), Some(json!("move"))), ("transmission.username".into(), None)])
+        .await
+        .unwrap();
     let invalid = settings.preview(&[("import.mode".into(), Some(json!("teleport")))]).await;
 
-    assert_eq!((preview.import.mode, preview.calendar.days), (ImportMode::Move, None));
+    assert_eq!((preview.import.mode, preview.transmission.username), (ImportMode::Move, None));
     assert!(invalid.is_err());
     assert_eq!(settings.current().import.mode, ImportMode::Copy);
-    assert_eq!(settings.stored_keys().await.unwrap(), ["import.mode", "calendar.days"]);
+    assert_eq!(settings.stored_keys().await.unwrap(), ["import.mode", "transmission.username"]);
 }
 
 #[tokio::test]
@@ -93,15 +95,12 @@ async fn a_reload_that_fails_keeps_the_settings_in_effect() {
 }
 
 #[tokio::test]
-async fn the_web_address_defaults_to_localhost_and_takes_stored_values() {
+async fn the_web_address_defaults_to_localhost() {
     let store = Arc::new(MemoryStore::default());
-    let default = open(&store).await.current().web.address();
-    store.set_setting("web.host", &json!("0.0.0.0")).await.unwrap();
-    store.set_setting("web.port", &json!(9000)).await.unwrap();
 
-    let stored = open(&store).await.current().web.address();
+    let address = open(&store).await.current().web.address();
 
-    assert_eq!((default.to_string(), stored.to_string()), ("127.0.0.1:8080".into(), "0.0.0.0:9000".into()));
+    assert_eq!(address.to_string(), "127.0.0.1:8080");
 }
 
 #[tokio::test]
@@ -123,12 +122,15 @@ async fn a_value_that_does_not_load_is_refused_and_not_stored() {
     let wrong_value = settings.set("import.mode", json!("teleport")).await.unwrap_err();
     let unknown_key = settings.set("import.speed", json!(1)).await.unwrap_err();
     let section = settings.set("naming", json!("x")).await.unwrap_err();
-    let too_early = settings.set("database.path", json!("/tmp/other.db")).await.unwrap_err();
+    let database = settings.set("database.path", json!("/tmp/other.db")).await.unwrap_err();
+    let port = settings.set("web.port", json!(9000)).await.unwrap_err();
 
     assert!(format!("{wrong_value:#}").contains("teleport"), "{wrong_value:#}");
     assert!(format!("{unknown_key:#}").contains("not a setting"), "{unknown_key:#}");
     assert!(format!("{section:#}").contains("naming is not a setting"), "{section:#}");
-    assert!(format!("{too_early:#}").contains("before the database opens"), "{too_early:#}");
+    for at_start in [database, port] {
+        assert!(format!("{at_start:#}").contains("read when the service starts"), "{at_start:#}");
+    }
     assert_eq!(settings.stored_keys().await.unwrap(), Vec::<String>::new());
 }
 

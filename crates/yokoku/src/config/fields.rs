@@ -1,11 +1,11 @@
-//! The settings the web's Settings page edits, with their labels, hints and controls.
+//! The settings the web's Settings page shows, with their labels, hints and controls.
 
 use yokoku_web::{Control, Field, Section};
 
 use crate::config::Config;
 
 impl Config {
-    /// The settings the web's Settings page edits, in page order.
+    /// The settings the web's Settings page shows, in page order.
     pub fn fields() -> Vec<Field> {
         vec![
             Field::new(
@@ -67,6 +67,20 @@ impl Config {
                 Control::choice(REGIONS),
             ),
             Field::new(
+                Section::Metadata,
+                "metadata.tmdb.url",
+                "TMDB address",
+                "The API's address; change it only for a proxy or mirror.",
+                Control::text("https://api.themoviedb.org/3"),
+            ),
+            Field::new(
+                Section::Metadata,
+                "metadata.tvdb.url",
+                "TVDB address",
+                "The API's address; change it only for a proxy or mirror.",
+                Control::text("https://api4.thetvdb.com/v4"),
+            ),
+            Field::new(
                 Section::Library,
                 "add.monitor",
                 "Monitor new series",
@@ -124,6 +138,79 @@ impl Config {
                 "ffprobe",
                 "Reads file details: its name on the PATH, or a path to it.",
                 Control::text("ffprobe"),
+            ),
+            Field::new(Section::Schedules, "serve.sync_downloads", "Sync downloads", "", Control::text("")),
+            Field::new(
+                Section::Schedules,
+                "serve.sync_active_downloads",
+                "Sync active downloads",
+                "While a download is queued or downloading.",
+                Control::text(""),
+            ),
+            Field::new(
+                Section::Schedules,
+                "serve.execute_imports",
+                "Run imports",
+                "Carries out approved imports.",
+                Control::text(""),
+            ),
+            Field::new(
+                Section::Schedules,
+                "serve.rescan_media_server",
+                "Jellyfin rescan",
+                "Checks whether a rescan is due.",
+                Control::text(""),
+            ),
+            Field::new(
+                Section::Schedules,
+                "serve.refresh_metadata",
+                "Refresh metadata",
+                "Refreshes only the items due for it.",
+                Control::text(""),
+            ),
+            Field::new(
+                Section::Schedules,
+                "serve.scan_library",
+                "Scan library",
+                "Looks for files changed outside Yokoku in the root folders.",
+                Control::text(""),
+            ),
+            Field::new(
+                Section::Server,
+                "database.path",
+                "Database",
+                "The SQLite file; artwork is kept in an artwork folder next to it.",
+                Control::ReadOnly,
+            ),
+            Field::new(
+                Section::Server,
+                "web.host",
+                "Listen address",
+                "0.0.0.0 for every interface.",
+                Control::ReadOnly,
+            ),
+            Field::new(Section::Server, "web.port", "Port", "", Control::ReadOnly),
+            Field::new(
+                Section::Server,
+                "log.level",
+                "Log level",
+                "RUST_LOG or -v and -q go over it when given.",
+                Control::ReadOnly,
+            ),
+            Field::new(Section::Server, "log.format", "Log format", "console or json.", Control::ReadOnly),
+            Field::new(
+                Section::Server,
+                "log.output",
+                "Log output",
+                "stderr, stdout or { file = \"path\" }.",
+                Control::ReadOnly,
+            ),
+            Field::new(
+                Section::Server,
+                "events.poll_interval_ms",
+                "Event poll interval",
+                "Milliseconds between checks for changes made from the command line.",
+                Control::ReadOnly,
             ),
         ]
     }
