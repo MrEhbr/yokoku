@@ -1,9 +1,12 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use yokoku_core::media::{AudioStream, MediaInfo, SubtitleStream, VideoStream};
-use yokoku_domain::MediaFileId;
+use yokoku_domain::{ItemId, MediaFileId};
 
-use crate::db::{Database, DbError, codec::Int};
+use crate::db::{
+    Database, DbError,
+    codec::{Int, Text},
+};
 
 #[derive(sqlx::FromRow)]
 struct InfoRow {
@@ -20,6 +23,20 @@ struct StreamRow {
     language: Option<String>,
     channels: Option<u16>,
     forced: bool,
+}
+
+#[derive(sqlx::FromRow)]
+struct FileInfoRow {
+    file_id: Text<MediaFileId>,
+    #[sqlx(flatten)]
+    info: InfoRow,
+}
+
+#[derive(sqlx::FromRow)]
+struct FileStreamRow {
+    file_id: Text<MediaFileId>,
+    #[sqlx(flatten)]
+    stream: StreamRow,
 }
 
 fn media_info(row: InfoRow, streams: Vec<StreamRow>) -> Result<MediaInfo, DbError> {
@@ -45,24 +62,36 @@ fn media_info(row: InfoRow, streams: Vec<StreamRow>) -> Result<MediaInfo, DbErro
 }
 
 impl Database {
-    pub(crate) async fn load_media_info(&self, file: MediaFileId) -> Result<Option<MediaInfo>, DbError> {
-        let file = file.to_string();
-        let Some(row) = sqlx::query_as::<_, InfoRow>(
-            "SELECT duration_ms, video_codec, width, height FROM media_info WHERE file_id = ?",
+    pub(crate) async fn load_media_info_of(&self, item: ItemId) -> Result<HashMap<MediaFileId, MediaInfo>, DbError> {
+        let (series, movie) = (item.series().map(Text), item.movie().map(Text));
+        let rows: Vec<FileInfoRow> = sqlx::query_as(
+            "SELECT i.file_id, i.duration_ms, i.video_codec, i.width, i.height
+             FROM media_info i JOIN media_files f ON f.id = i.file_id WHERE f.series_id = ? OR f.movie_id = ?",
         )
-        .bind(&file)
-        .fetch_optional(self.pool())
-        .await?
-        else {
-            return Ok(None);
-        };
-        let streams: Vec<StreamRow> = sqlx::query_as(
-            "SELECT kind, codec, language, channels, forced FROM media_streams WHERE file_id = ? ORDER BY position",
-        )
-        .bind(&file)
+        .bind(&series)
+        .bind(&movie)
         .fetch_all(self.pool())
         .await?;
-        Ok(Some(media_info(row, streams)?))
+        let streams: Vec<FileStreamRow> = sqlx::query_as(
+            "SELECT s.file_id, s.kind, s.codec, s.language, s.channels, s.forced
+             FROM media_streams s JOIN media_files f ON f.id = s.file_id WHERE f.series_id = ? OR f.movie_id = ?
+             ORDER BY s.file_id, s.position",
+        )
+        .bind(&series)
+        .bind(&movie)
+        .fetch_all(self.pool())
+        .await?;
+
+        let mut streams_of: HashMap<MediaFileId, Vec<StreamRow>> = HashMap::new();
+        for stream in streams {
+            streams_of.entry(stream.file_id.0).or_default().push(stream.stream);
+        }
+        rows.into_iter()
+            .map(|row| {
+                let file = row.file_id.0;
+                Ok((file, media_info(row.info, streams_of.remove(&file).unwrap_or_default())?))
+            })
+            .collect()
     }
 
     pub(crate) async fn store_media_info(&self, file: MediaFileId, info: &MediaInfo) -> Result<(), DbError> {

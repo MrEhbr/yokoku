@@ -92,6 +92,25 @@ async fn found_files_are_probed_and_shown_with_their_subtitle_files() {
 }
 
 #[tokio::test]
+async fn episodes_in_one_folder_keep_their_own_subtitle_files() {
+    let setup = setup().await;
+    let season = "tv/Frieren (2023)/Season 01";
+    setup.app.write(&format!("{season}/Frieren (2023) - S01E01.mkv"), 10);
+    setup.app.write(&format!("{season}/Frieren (2023) - S01E01.en.srt"), 1);
+    setup.app.write(&format!("{season}/Frieren (2023) - S01E02.mkv"), 10);
+    setup.app.write(&format!("{season}/Frieren (2023) - S01E02.ja.srt"), 1);
+
+    setup.scan_and_deliver().await;
+    let details = setup.prober.details(ItemId::Series(setup.app.frieren.id)).await.unwrap();
+
+    let language = |tags: &[SubtitleTags]| tags.iter().map(|tag| tag.language.clone()).collect::<Vec<_>>();
+    assert_eq!(details.len(), 2);
+    assert_eq!(language(&details[0].subtitle_files), [Some("en".into())]);
+    assert_eq!(language(&details[1].subtitle_files), [Some("ja".into())]);
+    assert!(details.iter().all(|file| file.info == Some(full_hd())));
+}
+
+#[tokio::test]
 async fn a_file_whose_folder_was_removed_outside_the_app_is_still_shown() {
     let setup = setup().await;
     let path = setup.app.write(DUNE, 10);

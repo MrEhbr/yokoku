@@ -1,10 +1,13 @@
 use std::{
+    collections::HashMap,
     io,
     path::{Path, PathBuf},
 };
 
 use async_trait::async_trait;
-use yokoku_domain::{DownloadId, FileTarget, ImportId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError};
+use yokoku_domain::{
+    DownloadId, FileTarget, ImportId, ItemId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError,
+};
 
 use crate::media::{Import, ImportStatus, MediaFile, MediaInfo, RootFolder, detect::ListedFile};
 
@@ -135,6 +138,8 @@ pub trait MediaRepo: Send + Sync {
     async fn remove_root_folder(&self, path: &Path) -> Result<bool, StorageError>;
 
     async fn files(&self) -> Result<Vec<MediaFile>, StorageError>;
+    /// The files of `item`, ordered by path.
+    async fn files_of(&self, item: ItemId) -> Result<Vec<MediaFile>, StorageError>;
     async fn import(&self, id: ImportId) -> Result<Option<Import>, StorageError>;
     /// Oldest first.
     async fn imports(&self, status: ImportStatus) -> Result<Vec<Import>, StorageError>;
@@ -146,7 +151,8 @@ pub trait MediaRepo: Send + Sync {
     /// Moves every `Importing` import back to `Approved`; returns how many.
     async fn reset_importing(&self) -> Result<u64, StorageError>;
 
-    async fn media_info(&self, file: MediaFileId) -> Result<Option<MediaInfo>, StorageError>;
+    /// The details of the probed files of `item`.
+    async fn media_info_of(&self, item: ItemId) -> Result<HashMap<MediaFileId, MediaInfo>, StorageError>;
     /// Replaces the file's details; a file no longer stored is left out.
     async fn save_media_info(&self, file: MediaFileId, info: &MediaInfo) -> Result<(), StorageError>;
     /// Files never probed, ordered by path.

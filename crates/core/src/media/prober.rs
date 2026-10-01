@@ -1,4 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use tracing::{debug, warn};
@@ -10,7 +14,9 @@ use yokoku_domain::{
 use crate::{
     events::{Handler, HandlerError},
     media::{
-        MediaError, MediaFile, MediaInfo, files,
+        MediaError, MediaFile, MediaInfo,
+        detect::ListedFile,
+        files,
         ports::{FileSystem, MediaProbe, MediaRepo, ProbeError},
     },
 };
@@ -46,12 +52,18 @@ impl Prober {
 
     /// The files of `item`, ordered by path.
     pub async fn details(&self, item: ItemId) -> Result<Vec<FileDetails>, MediaError> {
+        let mut infos = self.repo.media_info_of(item).await?;
+        let mut listings: HashMap<PathBuf, Vec<ListedFile>> = HashMap::new();
         let mut details = Vec::new();
-        for file in self.repo.files().await?.into_iter().filter(|file| file.target.item() == item) {
-            let info = self.repo.media_info(file.id).await?;
-            let subtitles = files::sidecar_subtitles(self.fs.as_ref(), &file.path).await?;
+        for file in self.repo.files_of(item).await? {
+            let folder = file.path.parent().map(Path::to_owned).unwrap_or_default();
+            if !listings.contains_key(&folder) {
+                let listed = files::files_beside(self.fs.as_ref(), &folder).await?;
+                listings.insert(folder.clone(), listed);
+            }
+            let subtitles = files::subtitles_of(&listings[&folder], &file.path);
             let subtitle_files = subtitles.into_iter().map(|subtitle| subtitle.tags).collect();
-            details.push(FileDetails { file, info, subtitle_files });
+            details.push(FileDetails { info: infos.remove(&file.id), file, subtitle_files });
         }
         Ok(details)
     }

@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use async_trait::async_trait;
 use jiff::Timestamp;
@@ -10,7 +13,7 @@ use yokoku_core::{
     },
 };
 use yokoku_domain::{
-    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId, StorageError,
+    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId, StorageError,
 };
 
 use crate::db::{
@@ -106,6 +109,20 @@ impl MediaRepo for Database {
         Ok(rows.into_iter().map(MediaFile::try_from).collect::<Result<_, _>>()?)
     }
 
+    async fn files_of(&self, item: ItemId) -> Result<Vec<MediaFile>, StorageError> {
+        let rows: Vec<MediaFileRow> = sqlx::query_as(
+            "SELECT id, path, size, series_id, season, first_episode, last_episode, movie_id, added_at
+             FROM media_files WHERE series_id = ? OR movie_id = ? ORDER BY path",
+        )
+        .bind(item.series().map(Text))
+        .bind(item.movie().map(Text))
+        .fetch_all(self.pool())
+        .await
+        .map_err(DbError::from)?;
+
+        Ok(rows.into_iter().map(MediaFile::try_from).collect::<Result<_, _>>()?)
+    }
+
     async fn import(&self, id: ImportId) -> Result<Option<Import>, StorageError> {
         let record: Option<ImportRecord> =
             sqlx::query_as("SELECT id, source, download_id, status, error, created_at FROM imports WHERE id = ?")
@@ -187,8 +204,8 @@ impl MediaRepo for Database {
         Ok(result.rows_affected())
     }
 
-    async fn media_info(&self, file: MediaFileId) -> Result<Option<MediaInfo>, StorageError> {
-        Ok(self.load_media_info(file).await?)
+    async fn media_info_of(&self, item: ItemId) -> Result<HashMap<MediaFileId, MediaInfo>, StorageError> {
+        Ok(self.load_media_info_of(item).await?)
     }
 
     async fn save_media_info(&self, file: MediaFileId, info: &MediaInfo) -> Result<(), StorageError> {

@@ -33,6 +33,20 @@ impl ItemId {
             Self::Movie(_) => MediaKind::Movie,
         }
     }
+
+    pub fn series(self) -> Option<SeriesId> {
+        match self {
+            Self::Series(id) => Some(id),
+            Self::Movie(_) => None,
+        }
+    }
+
+    pub fn movie(self) -> Option<MovieId> {
+        match self {
+            Self::Series(_) => None,
+            Self::Movie(id) => Some(id),
+        }
+    }
 }
 
 /// How an item is named to people: `Dune (2021)`, or the bare title without a year. A title that
