@@ -44,7 +44,7 @@ async fn a_file_whose_episodes_split_goes_to_review() {
     let review = app.db.imports(ImportStatus::NeedsReview).await.unwrap();
     assert_eq!(review.len(), 1);
     assert_eq!(relative(&app, review[0].rows.iter().map(|row| row.path.as_path())), [E01_E02]);
-    assert_eq!(review[0].rows[0].target, None);
+    assert_eq!(review[0].rows[0].target(), None);
     let needs_review: Vec<_> = app.events().await.iter().filter_map(Event::get::<ImportNeedsReview>).cloned().collect();
     assert_eq!(needs_review, [ImportNeedsReview { import: review[0].id, source: review[0].source.clone() }]);
 }

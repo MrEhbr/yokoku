@@ -34,7 +34,7 @@ async fn a_certain_download_for_a_linked_series_is_approved() {
         ]
     );
     assert_eq!(
-        import.rows.iter().map(|row| row.target).collect::<Vec<_>>(),
+        import.rows.iter().map(|row| row.target()).collect::<Vec<_>>(),
         [Some(app.episodes(1, 1, 1)), Some(app.episodes(1, 2, 2))]
     );
     assert!(app.events().await.is_empty());
@@ -47,7 +47,7 @@ async fn an_unlinked_single_file_download_is_matched_against_the_library() {
 
     let import = app.planner.plan(DownloadId::generate(), &file, None, None).await.unwrap().unwrap();
 
-    assert_eq!((import.status, import.rows[0].target), (ImportStatus::Approved, Some(app.movie())));
+    assert_eq!((import.status, import.rows[0].target()), (ImportStatus::Approved, Some(app.movie())));
     assert_eq!(import.source, file);
 }
 
@@ -64,7 +64,7 @@ async fn unsure_downloads_go_to_review() {
         .unwrap();
 
     assert_eq!(import.status, ImportStatus::NeedsReview);
-    assert_eq!((import.rows[0].target, import.rows[0].confidence), (Some(app.episodes(1, 2, 2)), Confidence::Guess));
+    assert_eq!((import.rows[0].target(), import.rows[0].confidence), (Some(app.episodes(1, 2, 2)), Confidence::Guess));
     assert_eq!(app.events().await, [ImportNeedsReview { import: import.id, source: import.source }.into()]);
 }
 
@@ -81,7 +81,10 @@ async fn a_season_given_with_the_series_imports_names_without_one_at_once() {
         .unwrap();
 
     assert_eq!(import.status, ImportStatus::Approved);
-    assert_eq!((import.rows[0].target, import.rows[0].confidence), (Some(app.episodes(1, 2, 2)), Confidence::Certain));
+    assert_eq!(
+        (import.rows[0].target(), import.rows[0].confidence),
+        (Some(app.episodes(1, 2, 2)), Confidence::Certain)
+    );
 }
 
 #[tokio::test]
@@ -134,7 +137,7 @@ async fn a_redelivered_completion_plans_once() {
     app.planner.handle(&completed).await.unwrap();
 
     let import = app.db.import_for_download(download).await.unwrap().unwrap();
-    assert_eq!(import.rows[0].target, Some(app.movie()));
+    assert_eq!(import.rows[0].target(), Some(app.movie()));
     assert_eq!(app.db.imports(ImportStatus::Approved).await.unwrap().len(), 1);
 }
 

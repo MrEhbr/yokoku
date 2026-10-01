@@ -201,7 +201,7 @@ impl Importer {
         for ((number, row), destination) in
             (1..).zip(&import.rows).zip(destinations).filter(|((_, row), _)| !row.skipped)
         {
-            let target = row.target.ok_or(MediaError::RowUnmatched(number))?;
+            let target = row.target().ok_or(MediaError::RowUnmatched(number))?;
             let destination = destination.ok_or(MediaError::RowUnmatched(number))?.path();
             let linked = library.iter().any(|file| file.path == destination && file.target == target);
             if linked && self.already_placed(&row.path, &destination).await? {
@@ -254,7 +254,7 @@ impl Importer {
     pub async fn destinations(&self, rows: &[ImportRow]) -> Result<Vec<Option<Destination>>, MediaError> {
         let mut destinations = Vec::with_capacity(rows.len());
         for row in rows {
-            destinations.push(match row.target.filter(|_| !row.skipped) {
+            destinations.push(match row.target().filter(|_| !row.skipped) {
                 Some(target) => Some(self.destination(target, &row.path).await?),
                 None => None,
             });

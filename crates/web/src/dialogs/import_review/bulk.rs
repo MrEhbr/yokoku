@@ -1,283 +1,340 @@
+use std::collections::BTreeSet;
+
 use dioxus::prelude::*;
 use yokoku_domain::{ImportId, SeriesId};
 
 use crate::{
     api::{
         failure,
-        library::detail,
-        review::{Match, ReviewFile, match_file, redetect_files},
+        review::{set_episodes, set_season, set_series},
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
+        checkbox::{Checkbox, CheckboxState},
         label::Label,
         select::{Select, SelectOption},
+        skeleton::Skeleton,
     },
-    dialogs::pickers::{SeasonPicker, SeriesPicker},
-    format::episode as code,
+    dialogs::pickers::{EpisodeChoice, SeasonPicker, SeriesPicker, episode_list},
 };
 
 #[derive(Clone, Copy, PartialEq)]
 enum Tool {
     Series,
-    InOrder,
+    Season,
+    Episodes,
 }
 
-/// Detects the selected files again, against the library or a chosen series and season, or
-/// assigns them episodes in order after a preview; `on_change` is called once they changed.
+/// Changes every checked file at once: its series, its season keeping the episode numbers, or its
+/// episodes ticked in order. `files` are their rows and paths, in table order; `series` is the one
+/// series all of them have, if any, and `season` the season of the first.
 #[component]
-pub(super) fn BulkTools(import: ImportId, files: Vec<ReviewFile>, on_change: Callback) -> Element {
+pub(super) fn BulkTools(
+    import: ImportId,
+    files: Vec<(usize, String)>,
+    series: Option<SeriesId>,
+    season: Option<u16>,
+    on_change: Callback,
+) -> Element {
     let mut tool = use_signal(|| None::<Tool>);
-    let mut busy = use_signal(|| false);
-    let mut error = use_signal(|| None::<String>);
-    let rows: Vec<usize> = files.iter().map(|file| file.row).collect();
+    let rows: Vec<usize> = files.iter().map(|(row, _)| *row).collect();
     let count = rows.len();
     let noun = if count == 1 { "file" } else { "files" };
-    let detect_again = {
-        let rows = rows.clone();
-        move |_| {
-            let rows = rows.clone();
-            async move {
-                busy.set(true);
-                error.set(None);
-                match redetect_files(import, rows, None, None).await {
-                    Ok(()) => on_change(()),
-                    Err(failed) => error.set(Some(failure(&failed))),
-                }
-                busy.set(false);
-            }
-        }
-    };
     let mut pick = move |choice: Tool| tool.set(if tool() == Some(choice) { None } else { Some(choice) });
+    let done = move |()| {
+        tool.set(None);
+        on_change(());
+    };
     rsx! {
         div { class: "grid gap-3 border border-line bg-subtle p-3",
             div { class: "flex flex-wrap items-center gap-2",
-                span { class: "mr-auto text-caption text-muted", "{count} {noun} selected" }
-                Button {
-                    size: ButtonSize::Sm,
-                    aria_pressed: tool() == Some(Tool::Series),
-                    disabled: busy(),
-                    onclick: move |_| pick(Tool::Series),
-                    "Match to a series…"
-                }
-                Button {
-                    size: ButtonSize::Sm,
-                    aria_pressed: tool() == Some(Tool::InOrder),
-                    disabled: busy(),
-                    onclick: move |_| pick(Tool::InOrder),
-                    "Assign in order…"
-                }
-                Button {
-                    size: ButtonSize::Sm,
-                    disabled: busy(),
-                    aria_busy: busy() && tool().is_none(),
-                    onclick: detect_again,
-                    "Detect again"
+                span { class: "mr-auto text-caption text-muted", "{count} checked {noun}" }
+                for (choice, label) in [
+                    (Tool::Series, "Set series…"),
+                    (Tool::Season, "Set season…"),
+                    (Tool::Episodes, "Set episodes…"),
+                ]
+                {
+                    Button {
+                        size: ButtonSize::Sm,
+                        aria_pressed: tool() == Some(choice),
+                        disabled: count == 0,
+                        onclick: move |_| pick(choice),
+                        "{label}"
+                    }
                 }
             }
             match tool() {
                 Some(Tool::Series) => rsx! {
-                    SeriesMatch { import, rows, on_change }
+                    SeriesTool {
+                        import,
+                        rows,
+                        series,
+                        on_done: done,
+                    }
                 },
-                Some(Tool::InOrder) => rsx! {
-                    InOrder { import, files, on_change }
+                Some(Tool::Season) => rsx! {
+                    SeasonTool {
+                        import,
+                        rows,
+                        series,
+                        on_done: done,
+                    }
+                },
+                Some(Tool::Episodes) => rsx! {
+                    EpisodesTool {
+                        import,
+                        files,
+                        series,
+                        season,
+                        on_done: done,
+                    }
                 },
                 None => rsx! {},
             }
-            if let Some(message) = error() {
-                p { role: "alert", class: "text-caption text-danger", "{message}" }
-            }
         }
     }
 }
 
-/// Detects the files again against a series, their names without a season placed in the season
-/// chosen, if any.
+/// Detects the files again against the series chosen.
 #[component]
-fn SeriesMatch(import: ImportId, rows: Vec<usize>, on_change: Callback) -> Element {
-    let series = use_signal(|| None::<SeriesId>);
-    let season = use_signal(|| None::<u16>);
-    let mut busy = use_signal(|| false);
-    let mut error = use_signal(|| None::<String>);
-    let apply = move |_| {
-        let rows = rows.clone();
-        async move {
-            let Some(chosen) = series() else { return };
-            busy.set(true);
-            error.set(None);
-            match redetect_files(import, rows, Some(chosen), season()).await {
-                Ok(()) => on_change(()),
-                Err(failed) => {
-                    error.set(Some(failure(&failed)));
-                    busy.set(false);
-                },
-            }
-        }
-    };
+fn SeriesTool(import: ImportId, rows: Vec<usize>, series: Option<SeriesId>, on_done: Callback) -> Element {
+    let chosen = use_signal(|| series);
+    let mut run = use_action(on_done);
     rsx! {
-        div { class: "grid gap-3 sm:grid-cols-2",
-            SeriesPicker { id: "bulk-series", series }
-            if let Some(id) = series() {
-                SeasonPicker {
-                    key: "{id}",
-                    id: "bulk-season",
-                    series: id,
-                    season,
-                    none: Some("From the file names"),
-                }
-            }
-        }
-        div { class: "flex items-center justify-end gap-2",
-            if let Some(message) = error() {
-                p { role: "alert", class: "mr-auto text-caption text-danger", "{message}" }
-            }
-            Button {
-                size: ButtonSize::Sm,
-                variant: ButtonVariant::Primary,
-                disabled: series().is_none() || busy(),
-                aria_busy: busy(),
-                onclick: apply,
-                "Detect with this series"
-            }
+        SeriesPicker { id: "bulk-series", series: chosen }
+        Apply {
+            disabled: chosen().is_none(),
+            busy: run.busy(),
+            error: run.error(),
+            label: "Detect with this series",
+            onclick: move |_| {
+                let rows = rows.clone();
+                run.call(async move {
+                    match chosen() {
+                        Some(id) => set_series(import, rows, id).await,
+                        None => Ok(()),
+                    }
+                })
+            },
         }
     }
 }
 
-/// Gives the files consecutive episodes of one season from a starting episode, in the order
-/// shown, after previewing every mapping.
+/// Places the files' episodes in the season chosen, keeping their numbers.
 #[component]
-fn InOrder(import: ImportId, files: Vec<ReviewFile>, on_change: Callback) -> Element {
-    let series = use_signal(|| None::<SeriesId>);
+fn SeasonTool(import: ImportId, rows: Vec<usize>, series: Option<SeriesId>, on_done: Callback) -> Element {
     let season = use_signal(|| None::<u16>);
-    let mut first = use_signal(|| None::<u16>);
-    let mut busy = use_signal(|| false);
-    let mut error = use_signal(|| None::<String>);
-    use_effect(move || {
-        season();
-        first.set(None);
-    });
-    let detail = use_resource(move || async move {
-        match series() {
-            Some(id) => detail::series(id).await.ok().flatten(),
-            None => None,
-        }
-    });
-    let episodes: Vec<(u16, String)> = detail
-        .read()
-        .iter()
-        .flatten()
-        .flat_map(|detail| &detail.seasons)
-        .filter(|found| Some(found.number) == season())
-        .flat_map(|found| &found.episodes)
-        .map(|episode| (episode.number, episode.title.clone()))
-        .collect();
-    let start = first().and_then(|first| episodes.iter().position(|(number, _)| *number == first));
-    let preview: Vec<(ReviewFile, Option<(u16, String)>)> = match start {
-        Some(start) => files
-            .iter()
-            .cloned()
-            .enumerate()
-            .map(|(offset, file)| (file, episodes.get(start + offset).cloned()))
-            .collect(),
-        None => Vec::new(),
-    };
-    let short = preview.iter().filter(|(_, episode)| episode.is_none()).count();
-    let assignments: Vec<(usize, Match)> = match (series(), season()) {
-        (Some(id), Some(season)) => preview
-            .iter()
-            .filter_map(|(file, episode)| {
-                let (number, _) = episode.as_ref()?;
-                Some((file.row, Match::Episodes { series: id, season, first: *number, last: *number }))
-            })
-            .collect(),
-        _ => Vec::new(),
-    };
-    let ready = !preview.is_empty() && short == 0;
-    let apply = move |_| {
-        let assignments = assignments.clone();
-        async move {
-            busy.set(true);
-            error.set(None);
-            for (row, target) in assignments {
-                if let Err(failed) = match_file(import, row, target).await {
-                    error.set(Some(failure(&failed)));
-                    busy.set(false);
-                    on_change(());
-                    return;
-                }
-            }
-            on_change(());
-        }
+    let mut run = use_action(on_done);
+    let Some(series) = series else {
+        return rsx! {
+            p { class: "text-caption text-muted", "Give the checked files one series first." }
+        };
     };
     rsx! {
-        div { class: "grid gap-3 sm:grid-cols-3",
-            SeriesPicker { id: "order-series", series }
-            if let Some(id) = series() {
-                SeasonPicker {
-                    key: "{id}",
-                    id: "order-season",
-                    series: id,
-                    season,
-                    none: None,
+        SeasonPicker {
+            key: "{series}",
+            id: "bulk-season",
+            series,
+            season,
+            none: None,
+        }
+        Apply {
+            disabled: season().is_none(),
+            busy: run.busy(),
+            error: run.error(),
+            label: "Set this season",
+            onclick: move |_| {
+                let rows = rows.clone();
+                run.call(async move {
+                    match season() {
+                        Some(season) => set_season(import, rows, season).await,
+                        None => Ok(()),
+                    }
+                })
+            },
+        }
+    }
+}
+
+/// Gives the files the episodes ticked, in order, one each; each ticked episode names the file it
+/// goes to. Ticks stay while another season is listed, which starts at the files' `season`.
+#[component]
+fn EpisodesTool(
+    import: ImportId,
+    files: Vec<(usize, String)>,
+    series: Option<SeriesId>,
+    season: Option<u16>,
+    on_done: Callback,
+) -> Element {
+    let mut ticked = use_signal(BTreeSet::<(u16, u16)>::new);
+    let mut shown = use_signal(|| season);
+    let mut run = use_action(on_done);
+    let episodes = use_resource(move || async move {
+        match series {
+            Some(id) => episode_list(id).await,
+            None => Vec::new(),
+        }
+    });
+    let Some(series) = series else {
+        return rsx! {
+            p { class: "text-caption text-muted", "Give the checked files one series first." }
+        };
+    };
+    let Some(episodes) = episodes.read().clone() else {
+        return rsx! {
+            Skeleton { class: "h-40 w-full" }
+        };
+    };
+    let mut seasons: Vec<u16> = episodes.iter().map(|(season, _, _)| *season).collect();
+    seasons.dedup();
+    let listed = shown().filter(|season| seasons.contains(season)).or(seasons.first().copied());
+    let in_season: Vec<EpisodeChoice> =
+        episodes.iter().filter(|(season, _, _)| Some(*season) == listed).cloned().collect();
+    let order: Vec<(u16, u16)> = ticked.read().iter().copied().collect();
+    let file_for = |key: (u16, u16)| -> Option<String> {
+        let position = order.iter().position(|ticked| *ticked == key)?;
+        let path = &files.get(position)?.1;
+        Some(path.rsplit('/').next().unwrap_or(path).to_owned())
+    };
+    let needed = files.len();
+    let count = order.len();
+    let season_name = |number: u16| if number == 0 { "Specials".to_owned() } else { format!("Season {number}") };
+    let whole_season: Vec<(u16, u16)> = in_season.iter().map(|(season, number, _)| (*season, *number)).collect();
+    let rows: Vec<usize> = files.iter().map(|(row, _)| *row).collect();
+    let chosen = order.clone();
+    rsx! {
+        div { class: "flex flex-wrap items-end gap-2",
+            div { class: "grid min-w-48 flex-1 gap-1.5",
+                Label { html_for: "bulk-episodes-season", "Season" }
+                Select::<u16> {
+                    id: "bulk-episodes-season",
+                    value: Some(shown.into()),
+                    placeholder: listed.map(season_name).unwrap_or_default(),
+                    on_value_change: move |next: Option<u16>| shown.set(next),
+                    for (index, number) in seasons.iter().copied().enumerate() {
+                        SelectOption::<u16> {
+                            key: "{number}",
+                            index,
+                            value: number,
+                            text_value: season_name(number),
+                            {season_name(number)}
+                        }
+                    }
                 }
             }
-            if season().is_some() && !episodes.is_empty() {
-                div { class: "grid gap-1.5",
-                    Label { html_for: "order-first", "Starting at" }
-                    Select::<u16> {
-                        key: "{season:?}",
-                        id: "order-first",
-                        value: Some(first.into()),
-                        placeholder: "Choose…",
-                        on_value_change: move |next| first.set(next),
-                        for (index, (number, title)) in episodes.into_iter().enumerate() {
-                            SelectOption::<u16> {
-                                key: "{number}",
-                                index,
-                                value: number,
-                                text_value: format!("E{number:02} {title}"),
-                                "E{number:02} {title}"
-                            }
+            Button { onclick: move |_| ticked.write().extend(whole_season.iter().copied()),
+                "Tick all in season"
+            }
+            Button { onclick: move |_| ticked.write().clear(), "Clear" }
+        }
+        ul { class: "max-h-96 overflow-y-auto border border-line bg-surface",
+            for (season, number, text) in in_season {
+                li {
+                    key: "{season}-{number}",
+                    class: "border-b border-line last:border-b-0",
+                    label {
+                        r#for: "bulk-episode-{season}-{number}",
+                        class: "flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-subtle",
+                        Checkbox {
+                            id: "bulk-episode-{season}-{number}",
+                            checked: if ticked.read().contains(&(season, number)) { CheckboxState::Checked } else { CheckboxState::Unchecked },
+                            on_checked_change: move |state| {
+                                if state == CheckboxState::Checked {
+                                    ticked.write().insert((season, number));
+                                } else {
+                                    ticked.write().remove(&(season, number));
+                                }
+                            },
+                        }
+                        span { class: "min-w-0 flex-1", "{text}" }
+                        match (ticked.read().contains(&(season, number)), file_for((season, number))) {
+                            (true, Some(file)) => rsx! {
+                                span { class: "yk-code min-w-0 truncate text-caption text-muted", "← {file}" }
+                            },
+                            (true, None) => rsx! {
+                                span { class: "text-caption text-danger", "no file left" }
+                            },
+                            _ => rsx! {},
                         }
                     }
                 }
             }
         }
-        if !preview.is_empty() {
-            ol { class: "grid gap-1 text-caption", aria_label: "Preview",
-                for (file, episode) in preview {
-                    li { key: "{file.row}", class: "flex flex-wrap gap-x-2",
-                        span { class: "yk-code text-muted [overflow-wrap:anywhere]",
-                            "{file.path}"
-                        }
-                        span { aria_hidden: "true", "→" }
-                        match (episode, season()) {
-                            (Some((number, title)), Some(season)) => rsx! {
-                                span { "{code(season, number)} {title}" }
-                            },
-                            _ => rsx! {
-                                span { class: "text-danger", "no episode left in the season" }
-                            },
-                        }
-                    }
-                }
-            }
+        Apply {
+            disabled: count != needed,
+            busy: run.busy(),
+            error: run.error(),
+            label: "Set these episodes",
+            note: format!("{count} of {needed} ticked; the checked files take them in order."),
+            onclick: move |_| {
+                let (rows, chosen) = (rows.clone(), chosen.clone());
+                run.call(async move { set_episodes(import, rows, series, chosen).await })
+            },
         }
+    }
+}
+
+#[component]
+fn Apply(
+    disabled: bool,
+    busy: bool,
+    error: Option<String>,
+    label: &'static str,
+    #[props(default)] note: Option<String>,
+    onclick: EventHandler<MouseEvent>,
+) -> Element {
+    rsx! {
         div { class: "flex items-center justify-end gap-2",
-            if let Some(message) = error() {
+            if let Some(message) = error {
                 p { role: "alert", class: "mr-auto text-caption text-danger", "{message}" }
-            } else if short > 0 {
-                p { class: "mr-auto text-caption text-danger",
-                    "The season has too few episodes from there; start earlier or select fewer files."
-                }
+            } else if let Some(note) = note {
+                p { class: "mr-auto text-caption text-muted", "{note}" }
             }
             Button {
                 size: ButtonSize::Sm,
                 variant: ButtonVariant::Primary,
-                disabled: !ready || busy(),
-                aria_busy: busy(),
-                onclick: apply,
-                "Assign these episodes"
+                disabled: disabled || busy,
+                aria_busy: busy,
+                onclick,
+                "{label}"
             }
         }
+    }
+}
+
+/// A server call that calls `on_done` once it succeeds and keeps its failure to show.
+#[derive(Clone, Copy)]
+struct Action {
+    busy: Signal<bool>,
+    error: Signal<Option<String>>,
+    on_done: Callback,
+}
+
+fn use_action(on_done: Callback) -> Action {
+    Action { busy: use_signal(|| false), error: use_signal(|| None), on_done }
+}
+
+impl Action {
+    fn busy(&self) -> bool {
+        (self.busy)()
+    }
+
+    fn error(&self) -> Option<String> {
+        (self.error)()
+    }
+
+    fn call(&mut self, call: impl Future<Output = Result<(), ServerFnError>> + 'static) {
+        let mut action = *self;
+        spawn(async move {
+            action.busy.set(true);
+            action.error.set(None);
+            let result = call.await;
+            action.busy.set(false);
+            match result {
+                Ok(()) => (action.on_done)(()),
+                Err(failed) => action.error.set(Some(failure(&failed))),
+            }
+        });
     }
 }

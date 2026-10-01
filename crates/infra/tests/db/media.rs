@@ -8,7 +8,7 @@ use uuid::Uuid;
 use yokoku_core::{
     library::ports::MediaFiles,
     media::{
-        Import, ImportRow, ImportStatus, MediaFile, Resolution, RootFolder, RootKind,
+        Episodes, Import, ImportRow, ImportStatus, MediaFile, Resolution, RootFolder, RootKind, RowMatch,
         ports::{Changes, MediaRepo},
     },
 };
@@ -41,7 +41,7 @@ fn row(path: &str, target: Option<FileTarget>) -> ImportRow {
     ImportRow {
         path: path.into(),
         size: 7,
-        target,
+        matched: target.map_or(RowMatch::None, RowMatch::from),
         confidence: Confidence::Guess,
         skipped: false,
         resolution: Resolution::Unresolved,
@@ -113,7 +113,7 @@ async fn saving_an_import_again_replaces_its_rows(#[future(awt)] db: Database) {
     MediaRepo::save(&db, &Changes { imports: vec![pending.clone()], ..Changes::default() }).await.unwrap();
 
     pending.rows.truncate(1);
-    pending.rows[0].target = Some(episodes(4, 4));
+    pending.rows[0].matched = episodes(4, 4).into();
     pending.rows[0].skipped = true;
     pending.status = ImportStatus::Done;
     MediaRepo::save(&db, &Changes { imports: vec![pending.clone()], ..Changes::default() }).await.unwrap();
@@ -131,6 +131,23 @@ fn any_target() -> impl Strategy<Value = FileTarget> {
     ]
 }
 
+/// Complete matches, and series rows missing their season, their episodes, or both.
+fn any_row_match() -> impl Strategy<Value = RowMatch> {
+    let episodes =
+        (any::<u16>(), 0..5u16).prop_map(|(first, length)| Episodes { first, last: first.saturating_add(length) });
+    prop_oneof![
+        Just(RowMatch::None),
+        any_target().prop_map(RowMatch::from),
+        (any::<u128>(), proptest::option::of(any::<u16>()), proptest::option::of(episodes)).prop_map(
+            |(series, season, episodes)| RowMatch::Series {
+                series: SeriesId(Uuid::from_u128(series)),
+                season,
+                episodes
+            }
+        ),
+    ]
+}
+
 fn any_status() -> impl Strategy<Value = ImportStatus> {
     prop_oneof![
         Just(ImportStatus::NeedsReview),
@@ -144,15 +161,16 @@ fn any_status() -> impl Strategy<Value = ImportStatus> {
 fn any_row() -> impl Strategy<Value = ImportRow> {
     let confidence = prop_oneof![Just(Confidence::Unknown), Just(Confidence::Guess), Just(Confidence::Certain)];
     let resolution = prop_oneof![Just(Resolution::Unresolved), Just(Resolution::Replace)];
-    ("\\PC{1,40}", 0..=i64::MAX as u64, proptest::option::of(any_target()), confidence, any::<bool>(), resolution)
-        .prop_map(|(path, size, target, confidence, skipped, resolution)| ImportRow {
+    ("\\PC{1,40}", 0..=i64::MAX as u64, any_row_match(), confidence, any::<bool>(), resolution).prop_map(
+        |(path, size, matched, confidence, skipped, resolution)| ImportRow {
             path: PathBuf::from(path),
             size,
-            target,
+            matched,
             confidence,
             skipped,
             resolution,
-        })
+        },
+    )
 }
 
 proptest! {

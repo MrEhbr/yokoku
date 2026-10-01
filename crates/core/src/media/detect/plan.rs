@@ -1,8 +1,11 @@
 use std::{fmt, path::PathBuf};
 
-use yokoku_domain::{Confidence, Episode, EpisodeSpan, FileTarget, Movie, Numbering, Series};
+use yokoku_domain::{Confidence, Episode, EpisodeSpan, FileTarget, Movie, Numbering, Series, SeriesId};
 
-use crate::media::detect::{Classified, EpisodeHint, ListedFile, ParsedName, Video, titles::normalize};
+use crate::media::{
+    Episodes, RowMatch,
+    detect::{Classified, EpisodeHint, ListedFile, ParsedName, Video, titles::normalize},
+};
 
 /// What the download was added for (FR-4.7).
 #[derive(Debug, Clone, Copy)]
@@ -33,6 +36,8 @@ pub struct PlanRow {
     pub video: Video,
     pub parsed: ParsedName,
     pub target: Option<FileTarget>,
+    /// The series chosen for the file, even when its episodes were not found in it.
+    pub series: Option<SeriesId>,
     pub confidence: Confidence,
     pub conflicts: Vec<Conflict>,
 }
@@ -130,11 +135,27 @@ impl PlanRow {
         });
 
         let Some((series, span, certain)) = resolved else {
-            return Self::unknown(video, parsed);
+            let series = choose_series(&parsed).map(|(series, _)| series.id);
+            return Self { series, ..Self::unknown(video, parsed) };
         };
         let has_file =
             span.refs().any(|reference| series.episode(reference).is_some_and(|episode| episode.file.is_some()));
         Self::matched(video, parsed, FileTarget::Episodes { series: series.id, span }, certain, has_file)
+    }
+
+    /// What the row is known to hold: its match, or else its series with the season and episode
+    /// numbers its name gives, its seasonless numbers placed in `season`.
+    pub fn row_match(&self, season: Option<u16>) -> RowMatch {
+        if let Some(target) = self.target {
+            return target.into();
+        }
+        let Some(series) = self.series else { return RowMatch::None };
+        let (named, episodes) = match &self.parsed.episode_hint {
+            EpisodeHint::Episodes { season, episodes } => (Some(*season), Episodes::spanning(episodes)),
+            EpisodeHint::Seasonless { episodes } => (season, Episodes::spanning(episodes)),
+            EpisodeHint::Date(_) | EpisodeHint::None => (season, None),
+        };
+        RowMatch::Series { series, season: named, episodes }
     }
 
     /// Only the largest video is the movie; the others are extras (FR-4.13).
@@ -164,13 +185,17 @@ impl PlanRow {
             video,
             parsed,
             target: Some(target),
+            series: match target {
+                FileTarget::Episodes { series, .. } => Some(series),
+                FileTarget::Movie(_) => None,
+            },
             confidence: if certain { Confidence::Certain } else { Confidence::Guess },
             conflicts: has_file.then_some(Conflict::AlreadyHasFile).into_iter().collect(),
         }
     }
 
     fn unknown(video: Video, parsed: ParsedName) -> Self {
-        Self { video, parsed, target: None, confidence: Confidence::Unknown, conflicts: Vec::new() }
+        Self { video, parsed, target: None, series: None, confidence: Confidence::Unknown, conflicts: Vec::new() }
     }
 }
 

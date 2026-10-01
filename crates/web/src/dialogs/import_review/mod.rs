@@ -1,9 +1,8 @@
 mod bulk;
 
-use std::collections::BTreeSet;
-
 use dioxus::prelude::*;
-use yokoku_domain::{ImportId, ItemId, ItemName};
+use dioxus_icons::lucide::X;
+use yokoku_domain::{ImportId, ItemId, ItemName, SeriesId};
 
 use self::bulk::BulkTools;
 use crate::{
@@ -11,8 +10,8 @@ use crate::{
         failure,
         library::{Entry, detail, library},
         review::{
-            Confidence, Conflict, Imported, Match, Resolution, ReviewFile, approve, keep_both_file, match_file,
-            replace_file, review, skip_file,
+            Conflict, Imported, Match, Resolution, ReviewFile, approve, include_files, keep_both_file, match_file,
+            replace_file, review, set_episodes, set_season,
         },
     },
     components::{
@@ -21,10 +20,14 @@ use crate::{
         combobox::{Combobox, ComboboxEmpty, ComboboxOption},
         dialog::{DialogDescription, DialogFooter},
         label::Label,
+        select::{Select, SelectOption},
         skeleton::Skeleton,
-        status::{Status, Tone},
+        table::{Table, TableBody, TableCell, TableHead, TableHeader, TableRow},
     },
-    dialogs::ClosableDialog,
+    dialogs::{
+        ClosableDialog,
+        pickers::{EpisodePicker, episode_list},
+    },
     format::{episode as code, plural, size},
 };
 
@@ -40,7 +43,7 @@ pub fn ReviewButton(
     let mut open = use_signal(|| false);
     rsx! {
         Button { size, onclick: move |_| open.set(true), "{label}" }
-        ClosableDialog { title: "Review files", open,
+        ClosableDialog { title: "Review files", open, wide: true,
             if open() {
                 Rows {
                     import,
@@ -55,19 +58,14 @@ pub fn ReviewButton(
     }
 }
 
-/// The import's files, read again after each change; changes are saved as they are made.
-/// Selected files get the bulk tools.
+/// The import's files, read again after each change; changes are saved as they are made. Checked
+/// files are imported and get the bulk tools.
 #[component]
 fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
     let mut loaded = use_resource(move || review(import));
     let mut importing = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
-    let mut selected = use_signal(BTreeSet::<usize>::new);
     let reload = use_callback(move |()| loaded.restart());
-    let bulk_done = use_callback(move |()| {
-        selected.write().clear();
-        loaded.restart();
-    });
     let current = loaded.read().clone();
     let Some(result) = current else {
         return rsx! {
@@ -93,16 +91,21 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
             };
         },
     };
-    let included = || review.rows.iter().filter(|row| !row.skipped);
-    let unmatched = included().filter(|row| row.target.is_none()).count();
-    let conflicting = included().filter(|row| !row.conflicts.is_empty()).count();
-    let count = included().count();
+    let checked: Vec<&ReviewFile> = review.rows.iter().filter(|file| file.included).collect();
+    let chosen: Vec<(usize, String)> = checked.iter().map(|file| (file.row, file.path.clone())).collect();
+    let all: Vec<usize> = review.rows.iter().map(|file| file.row).collect();
+    let series = match checked.iter().map(|file| file.item.as_ref().map(|item| item.id)).collect::<Vec<_>>()[..] {
+        [Some(ItemId::Series(first)), ref rest @ ..] if rest.iter().all(|id| *id == Some(ItemId::Series(first))) => {
+            Some(first)
+        },
+        _ => None,
+    };
+    let unmatched = checked.iter().filter(|file| file.problem.is_some()).count();
+    let conflicting = checked.iter().filter(|file| !file.conflicts.is_empty()).count();
+    let count = checked.len();
     let blocked = unmatched > 0 || conflicting > 0 || count == 0;
     let files = plural(count, "file", "files");
-    let all: BTreeSet<usize> = review.rows.iter().map(|row| row.row).collect();
-    let chosen: Vec<ReviewFile> =
-        review.rows.iter().filter(|row| selected.read().contains(&row.row)).cloned().collect();
-    let header = match chosen.len() {
+    let header = match count {
         0 => CheckboxState::Unchecked,
         picked if picked == all.len() => CheckboxState::Checked,
         _ => CheckboxState::Indeterminate,
@@ -111,42 +114,57 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
         DialogDescription {
             span { class: "yk-code [overflow-wrap:anywhere]", "{review.source}" }
             if review.from_download {
-                " · the files are placed by the import mode in Settings."
+                " · checked files are placed by the import mode in Settings; the others stay where they are."
             } else {
-                " · the files are linked where they are."
+                " · checked files are linked where they are."
             }
         }
-        div { class: "flex items-center gap-2",
-            Checkbox {
-                id: "review-all",
-                checked: header,
-                on_checked_change: move |state| {
-                    selected
-                        .set(
-                            if state == CheckboxState::Checked {
-                                all.clone()
-                            } else {
-                                BTreeSet::new()
+        BulkTools {
+            import,
+            files: chosen,
+            series,
+            season: checked.first().and_then(|file| file.season),
+            on_change: reload,
+        }
+        Table {
+            TableHeader {
+                TableRow {
+                    TableHead { class: "w-8",
+                        Checkbox {
+                            aria_label: "Check every file",
+                            checked: header,
+                            on_checked_change: move |_| {
+                                let all = all.clone();
+                                let check = header != CheckboxState::Checked;
+                                async move {
+                                    error.set(None);
+                                    match include_files(import, all, check).await {
+                                        Ok(()) => reload(()),
+                                        Err(failed) => error.set(Some(failure(&failed))),
+                                    }
+                                }
                             },
-                        );
-                },
+                        }
+                    }
+                    TableHead { "File" }
+                    TableHead { "Series" }
+                    TableHead { "Season" }
+                    TableHead { "Episodes" }
+                    TableHead { class: "text-right", "Size" }
+                    TableHead {
+                        span { class: "sr-only", "Actions" }
+                    }
+                }
             }
-            Label { html_for: "review-all", class: "text-caption text-muted",
-                "Select files for the bulk tools"
-            }
-        }
-        if !chosen.is_empty() {
-            BulkTools { import, files: chosen, on_change: bulk_done }
-        }
-        ul { class: "border-t border-line",
-            for file in review.rows.clone() {
-                FileRow {
-                    key: "{file.row}",
-                    import,
-                    file,
-                    from_download: review.from_download,
-                    selected,
-                    on_change: reload,
+            TableBody {
+                for file in review.rows.clone() {
+                    FileRow {
+                        key: "{file.row}",
+                        import,
+                        file,
+                        from_download: review.from_download,
+                        on_change: reload,
+                    }
                 }
             }
         }
@@ -156,13 +174,13 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
         DialogFooter {
             span { class: "mr-auto text-caption text-muted",
                 if unmatched > 0 {
-                    "{unmatched} without a match. "
+                    "{unmatched} checked without a match. "
                 }
                 if conflicting > 0 {
                     "{conflicting} with a conflict. "
                 }
                 if blocked && count > 0 {
-                    "Match or skip them to import."
+                    "Fix or uncheck them to import."
                 }
             }
             Button { onclick: move |_| on_close(()), "Close" }
@@ -187,29 +205,19 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
     }
 }
 
-/// A file with its match, confidence and conflicts, and what can be done with it.
+/// A file with its match and what it lacks, and what can be done with it; its editor opens in a
+/// row below.
 #[component]
-fn FileRow(
-    import: ImportId,
-    file: ReviewFile,
-    from_download: bool,
-    selected: Signal<BTreeSet<usize>>,
-    on_change: Callback,
-) -> Element {
+fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: Callback) -> Element {
     let mut editing = use_signal(|| false);
     let mut busy = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
     let row = file.row;
-    let (tone, label) = match file.confidence {
-        Confidence::Certain => (Tone::Success, "Certain"),
-        Confidence::Guess => (Tone::Warning, "Guess"),
-        Confidence::Unknown => (Tone::Danger, "Unknown"),
-    };
     let act = move |action: RowAction| async move {
         busy.set(true);
         error.set(None);
         let done = match action {
-            RowAction::Skip => skip_file(import, row).await,
+            RowAction::Include(included) => include_files(import, vec![row], included).await,
             RowAction::Replace => replace_file(import, row).await,
             RowAction::KeepBoth => keep_both_file(import, row).await,
         };
@@ -219,143 +227,195 @@ fn FileRow(
         }
         busy.set(false);
     };
-    let target = file.target.clone();
     let can_replace = from_download && file.conflicts.contains(&Conflict::AlreadyHasFile);
     let can_keep_both = !file.conflicts.is_empty();
+    let mut cell = use_signal(|| None::<Cell>);
+    let series = match file.item.as_ref().map(|item| item.id) {
+        Some(ItemId::Series(id)) => Some(id),
+        _ => None,
+    };
+    let blank = || {
+        rsx! {
+            span { class: "text-muted", "—" }
+        }
+    };
+    let season_text = match file.season {
+        Some(0) => rsx! { "Specials" },
+        Some(season) => rsx! { "{season}" },
+        None => blank(),
+    };
+    let episodes_text = match file.episodes.clone() {
+        Some(episodes) => rsx! { "{episodes}" },
+        None => blank(),
+    };
     rsx! {
-        li { class: "grid gap-2 border-b border-line py-3",
-            div { class: "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1",
-                div { class: "flex min-w-0 items-baseline gap-2",
-                    Checkbox {
-                        id: "review-row-{row}",
-                        class: "shrink-0 self-center",
-                        checked: if selected.read().contains(&row) { CheckboxState::Checked } else { CheckboxState::Unchecked },
-                        on_checked_change: move |state| {
-                            if state == CheckboxState::Checked {
-                                selected.write().insert(row);
-                            } else {
-                                selected.write().remove(&row);
+        TableRow { "data-selected": file.included,
+            TableCell { class: "align-top",
+                Checkbox {
+                    id: "review-row-{row}",
+                    aria_label: "Import {file.path}",
+                    disabled: busy(),
+                    checked: if file.included { CheckboxState::Checked } else { CheckboxState::Unchecked },
+                    on_checked_change: move |state| act(RowAction::Include(state == CheckboxState::Checked)),
+                }
+            }
+            TableCell { class: "min-w-64 align-top",
+                label {
+                    r#for: "review-row-{row}",
+                    class: "yk-code block cursor-pointer text-caption [overflow-wrap:anywhere]",
+                    "{file.path}"
+                }
+                div { class: "mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption",
+                    if let Some(problem) = file.problem.clone() {
+                        span { class: if file.included { "text-danger" } else { "text-muted" },
+                            "{problem}"
+                        }
+                    } else if file.guessed {
+                        span { class: "text-warning", "Guessed from the name" }
+                    }
+                    if file.included {
+                        for conflict in file.conflicts.clone() {
+                            span { class: "text-danger", "{conflict.label()}" }
+                        }
+                        match file.resolution {
+                            Resolution::Replace => rsx! {
+                                span { class: "text-warning", "Replaces the library file" }
+                            },
+                            Resolution::KeepBoth => rsx! {
+                                span { class: "text-muted", "Kept beside the other files" }
+                            },
+                            Resolution::Unresolved => rsx! {},
+                        }
+                        if can_replace {
+                            Button {
+                                size: ButtonSize::Sm,
+                                variant: ButtonVariant::Danger,
+                                disabled: busy(),
+                                title: "The library file is deleted when this one is imported",
+                                onclick: move |_| act(RowAction::Replace),
+                                "Replace library file"
                             }
-                        },
-                    }
-                    label {
-                        r#for: "review-row-{row}",
-                        class: "yk-code min-w-0 cursor-pointer text-caption [overflow-wrap:anywhere]",
-                        span { class: "text-muted", "{row}. " }
-                        "{file.path}"
-                    }
-                }
-                span { class: "flex shrink-0 items-center gap-3 text-caption text-muted",
-                    "{size(file.size)}"
-                    if !file.skipped {
-                        Status { tone, label }
-                    }
-                }
-            }
-            div { class: "flex flex-wrap items-center gap-x-3 gap-y-2",
-                if file.skipped {
-                    span { class: "text-muted", "Skipped; left where it is" }
-                } else {
-                    match &target {
-                        Some(target) => rsx! {
-                            span { "→ {target.label}" }
-                        },
-                        None => rsx! {
-                            Status { tone: Tone::Warning, label: "No match" }
-                        },
-                    }
-                    match file.resolution {
-                        Resolution::Replace => rsx! {
-                            span { class: "text-caption text-warning", "replaces the library file" }
-                        },
-                        Resolution::KeepBoth => rsx! {
-                            span { class: "text-caption text-muted", "kept beside the other files" }
-                        },
-                        Resolution::Unresolved => rsx! {},
-                    }
-                    for conflict in file.conflicts.clone() {
-                        span { class: "text-caption text-danger", "{conflict.label()}" }
-                    }
-                }
-                span { class: "ml-auto flex flex-wrap gap-2",
-                    Button {
-                        size: ButtonSize::Sm,
-                        disabled: busy(),
-                        onclick: move |_| editing.toggle(),
-                        if file.skipped {
-                            "Include…"
-                        } else if file.target.is_some() {
-                            "Change match"
-                        } else {
-                            "Match…"
                         }
-                    }
-                    if can_replace {
-                        Button {
-                            size: ButtonSize::Sm,
-                            variant: ButtonVariant::Danger,
-                            disabled: busy(),
-                            title: "The library file is deleted when this one is imported",
-                            onclick: move |_| act(RowAction::Replace),
-                            "Replace library file"
-                        }
-                    }
-                    if can_keep_both {
-                        Button {
-                            size: ButtonSize::Sm,
-                            disabled: busy(),
-                            title: if from_download { "Both are kept; this one gets a numbered name where its own is taken" } else { "Both are kept, each where it is" },
-                            onclick: move |_| act(RowAction::KeepBoth),
-                            "Keep both"
-                        }
-                    }
-                    if !file.skipped {
-                        Button {
-                            size: ButtonSize::Sm,
-                            variant: ButtonVariant::Quiet,
-                            disabled: busy(),
-                            onclick: move |_| act(RowAction::Skip),
-                            "Skip"
+                        if can_keep_both {
+                            Button {
+                                size: ButtonSize::Sm,
+                                disabled: busy(),
+                                title: if from_download { "Both are kept; this one gets a numbered name where its own is taken" } else { "Both are kept, each where it is" },
+                                onclick: move |_| act(RowAction::KeepBoth),
+                                "Keep both"
+                            }
                         }
                     }
                 }
-            }
-            if let Some(name) = file.name.clone().filter(|_| !file.skipped) {
-                p { class: "text-caption text-muted",
-                    "New name "
-                    span { class: "yk-code text-ink [overflow-wrap:anywhere]", "{name}" }
+                if let Some(name) = file.name.clone() {
+                    p { class: "mt-1 text-caption text-muted",
+                        "New name "
+                        span { class: "yk-code text-ink [overflow-wrap:anywhere]", "{name}" }
+                    }
+                }
+                if let Some(message) = error() {
+                    p { role: "alert", class: "mt-1 text-caption text-danger", "{message}" }
                 }
             }
-            if let Some(message) = error() {
-                p { role: "alert", class: "text-caption text-danger", "{message}" }
+            TableCell { class: "align-top",
+                match file.item.clone() {
+                    Some(item) => rsx! { "{item.title}" },
+                    None => blank(),
+                }
             }
-            if editing() {
-                MatchEditor {
-                    import,
-                    row,
-                    current: file.target.map(|target| target.matched),
-                    on_saved: move |()| {
-                        editing.set(false);
-                        on_change(());
+            TableCell { class: "align-top tabular-nums",
+                match (series, cell()) {
+                    (Some(series), Some(Cell::Season)) => rsx! {
+                        SeasonCell {
+                            import,
+                            row,
+                            series,
+                            on_done: move |()| {
+                                cell.set(None);
+                                on_change(());
+                            },
+                            on_cancel: move |()| cell.set(None),
+                        }
                     },
-                    on_cancel: move |()| editing.set(false),
+                    (Some(_), _) => rsx! {
+                        CellButton {
+                            label: "Change the season of {file.path}",
+                            onclick: move |_| cell.set(Some(Cell::Season)),
+                            {season_text}
+                        }
+                    },
+                    (None, _) => season_text,
+                }
+            }
+            TableCell { class: "align-top",
+                match (series, cell()) {
+                    (Some(series), Some(Cell::Episodes)) => rsx! {
+                        EpisodeCell {
+                            import,
+                            row,
+                            series,
+                            on_done: move |()| {
+                                cell.set(None);
+                                on_change(());
+                            },
+                            on_cancel: move |()| cell.set(None),
+                        }
+                    },
+                    (Some(_), _) => rsx! {
+                        CellButton {
+                            label: "Change the episode of {file.path}",
+                            onclick: move |_| cell.set(Some(Cell::Episodes)),
+                            {episodes_text}
+                        }
+                    },
+                    (None, _) => episodes_text,
+                }
+            }
+            TableCell { class: "align-top text-right whitespace-nowrap text-muted", "{size(file.size)}" }
+            TableCell { class: "align-top text-right",
+                Button {
+                    size: ButtonSize::Sm,
+                    variant: ButtonVariant::Quiet,
+                    disabled: busy(),
+                    aria_expanded: editing(),
+                    onclick: move |_| editing.toggle(),
+                    "Edit"
+                }
+            }
+        }
+        if editing() {
+            TableRow {
+                TableCell { colspan: 7,
+                    MatchEditor {
+                        import,
+                        row,
+                        current: file.matched,
+                        suggested: file.item.as_ref().map(|item| item.id),
+                        on_saved: move |()| {
+                            editing.set(false);
+                            on_change(());
+                        },
+                        on_cancel: move |()| editing.set(false),
+                    }
                 }
             }
         }
     }
 }
 
-/// Picks the series and episodes, or the movie, a file holds.
+/// Picks the series and episodes, or the movie, a file holds, starting from its match or the
+/// `suggested` item.
 #[component]
 fn MatchEditor(
     import: ImportId,
     row: usize,
     current: Option<Match>,
+    suggested: Option<ItemId>,
     on_saved: Callback,
     on_cancel: Callback,
 ) -> Element {
     let items = use_resource(|| library(None, None, None));
-    let mut item = use_signal(|| current.map(Match::item));
+    let mut item = use_signal(|| current.map(Match::item).or(suggested));
     let mut episodes = use_signal(|| match current {
         Some(Match::Episodes { season, first, last, .. }) => Some((season, first, last)),
         _ => None,
@@ -510,9 +570,133 @@ fn MatchEditor(
     }
 }
 
+/// The table cell being edited in place.
+#[derive(Clone, Copy, PartialEq)]
+enum Cell {
+    Season,
+    Episodes,
+}
+
+/// A cell's value that opens its editor when clicked.
+#[component]
+fn CellButton(label: String, onclick: EventHandler<MouseEvent>, children: Element) -> Element {
+    rsx! {
+        button {
+            r#type: "button",
+            aria_label: "{label}",
+            class: "cursor-pointer text-left underline decoration-line decoration-dotted underline-offset-4 hover:decoration-ink",
+            onclick: move |event| onclick.call(event),
+            {children}
+        }
+    }
+}
+
+/// Picks one season for the file in place; it keeps its episode numbers.
+#[component]
+fn SeasonCell(import: ImportId, row: usize, series: SeriesId, on_done: Callback, on_cancel: Callback) -> Element {
+    let mut error = use_signal(|| None::<String>);
+    let seasons = use_resource(move || async move {
+        let detail = detail::series(series).await.ok().flatten();
+        let mut numbers: Vec<u16> =
+            detail.map(|detail| detail.seasons.iter().map(|season| season.number).collect()).unwrap_or_default();
+        numbers.sort_by_key(|&number| (number == 0, number));
+        numbers
+    });
+    let Some(numbers) = seasons.read().clone() else {
+        return rsx! {
+            Skeleton { class: "h-9 w-32" }
+        };
+    };
+    let name = |number: u16| if number == 0 { "Specials".to_owned() } else { format!("Season {number}") };
+    rsx! {
+        div { class: "flex min-w-40 items-center gap-1",
+            Select::<u16> {
+                aria_label: "Season",
+                placeholder: "Season…",
+                on_value_change: move |next: Option<u16>| {
+                    if let Some(season) = next {
+                        spawn(async move {
+                            match set_season(import, vec![row], season).await {
+                                Ok(()) => on_done(()),
+                                Err(failed) => error.set(Some(failure(&failed))),
+                            }
+                        });
+                    }
+                },
+                for (index, number) in numbers.into_iter().enumerate() {
+                    SelectOption::<u16> {
+                        key: "{number}",
+                        index,
+                        value: number,
+                        text_value: name(number),
+                        {name(number)}
+                    }
+                }
+            }
+            CancelButton { on_cancel }
+        }
+        if let Some(message) = error() {
+            p { role: "alert", class: "mt-1 text-caption text-danger", "{message}" }
+        }
+    }
+}
+
+/// Picks one episode for the file in place.
+#[component]
+fn EpisodeCell(import: ImportId, row: usize, series: SeriesId, on_done: Callback, on_cancel: Callback) -> Element {
+    let episode = use_signal(|| None::<(u16, u16)>);
+    let mut error = use_signal(|| None::<String>);
+    let episodes = use_resource(move || episode_list(series));
+    use_effect(move || {
+        if let Some(chosen) = episode() {
+            spawn(async move {
+                match set_episodes(import, vec![row], series, vec![chosen]).await {
+                    Ok(()) => on_done(()),
+                    Err(failed) => error.set(Some(failure(&failed))),
+                }
+            });
+        }
+    });
+    let Some(episodes) = episodes.read().clone() else {
+        return rsx! {
+            Skeleton { class: "h-9 w-56" }
+        };
+    };
+    rsx! {
+        div { class: "flex min-w-72 items-center gap-1",
+            div { class: "min-w-0 flex-1",
+                EpisodePicker {
+                    id: format!("review-row-{row}-episode"),
+                    label: "Episode",
+                    hide_label: true,
+                    episodes,
+                    episode,
+                }
+            }
+            CancelButton { on_cancel }
+        }
+        if let Some(message) = error() {
+            p { role: "alert", class: "mt-1 text-caption text-danger", "{message}" }
+        }
+    }
+}
+
+#[component]
+fn CancelButton(on_cancel: Callback) -> Element {
+    rsx! {
+        Button {
+            variant: ButtonVariant::Quiet,
+            size: ButtonSize::Icon,
+            aria_label: "Cancel",
+            onclick: move |_| on_cancel(()),
+            X {}
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 enum RowAction {
-    Skip,
+    Include(bool),
     Replace,
     KeepBoth,
 }

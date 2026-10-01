@@ -5,7 +5,7 @@ use jiff::Timestamp;
 use yokoku_core::{
     library::ports::MediaFiles,
     media::{
-        Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
+        Episodes, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind, RowMatch,
         ports::{Changes, MediaRepo},
     },
 };
@@ -312,7 +312,7 @@ impl Database {
 
             sqlx::query("DELETE FROM import_rows WHERE import_id = ?").bind(&id).execute(&mut *tx).await?;
             for (position, row) in (0_i64..).zip(&import.rows) {
-                let target = TargetColumns::from(row.target);
+                let target = TargetColumns::from(row.matched);
                 sqlx::query(
                     "INSERT INTO import_rows (import_id, position, path, size, confidence, skipped, resolution,
                                               series_id, season, first_episode, last_episode, movie_id)
@@ -368,7 +368,7 @@ impl TryFrom<ImportRowRecord> for ImportRow {
         Ok(ImportRow {
             path: PathBuf::from(row.path),
             size: row.size,
-            target: row.target.into_target()?,
+            matched: row.target.into_row_match()?,
             confidence: row.confidence.0,
             skipped: row.skipped,
             resolution: row.resolution.0,
@@ -393,7 +393,41 @@ impl From<Option<FileTarget>> for TargetColumns {
     }
 }
 
+impl From<RowMatch> for TargetColumns {
+    fn from(matched: RowMatch) -> Self {
+        let empty = Self { series_id: None, season: None, first_episode: None, last_episode: None, movie_id: None };
+        match matched {
+            RowMatch::None => empty,
+            RowMatch::Series { series, season, episodes } => Self {
+                series_id: Some(Text(series)),
+                season,
+                first_episode: episodes.map(|episodes| episodes.first),
+                last_episode: episodes.map(|episodes| episodes.last),
+                ..empty
+            },
+            RowMatch::Movie(movie) => Self { movie_id: Some(Text(movie)), ..empty },
+        }
+    }
+}
+
 impl TargetColumns {
+    fn into_row_match(self) -> Result<RowMatch, DbError> {
+        match self {
+            Self { series_id: None, season: None, first_episode: None, last_episode: None, movie_id } => {
+                Ok(movie_id.map_or(RowMatch::None, |movie| RowMatch::Movie(movie.0)))
+            },
+            Self { series_id: Some(series), season, first_episode, last_episode, movie_id: None } => {
+                let episodes = match (first_episode, last_episode) {
+                    (None, None) => None,
+                    (Some(first), Some(last)) if first <= last => Some(Episodes { first, last }),
+                    _ => return Err(DbError::InvalidValue(format!("episodes {first_episode:?}-{last_episode:?}"))),
+                };
+                Ok(RowMatch::Series { series: series.0, season, episodes })
+            },
+            _ => Err(DbError::InvalidValue("import row matched to a series and a movie".into())),
+        }
+    }
+
     fn into_target(self) -> Result<Option<FileTarget>, DbError> {
         match self {
             Self { series_id: None, season: None, first_episode: None, last_episode: None, movie_id: None } => Ok(None),

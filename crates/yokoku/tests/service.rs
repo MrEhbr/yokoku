@@ -15,7 +15,7 @@ use yokoku_core::{
     events::{Correlated, EventLog},
     library::ports::{MovieRepo, SeriesRepo},
     media::{
-        AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
+        AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind, RowMatch,
         VideoStream,
         ports::{Changes, MediaRepo},
     },
@@ -721,7 +721,7 @@ async fn seed_downloads(path: &Path, frieren: SeriesId, dune: MovieId) -> Seeded
             .map(|n| ImportRow {
                 path: format!("{source}/video {n}.mkv").into(),
                 size: 7,
-                target: None,
+                matched: RowMatch::None,
                 confidence: Confidence::Unknown,
                 skipped: false,
                 resolution: Resolution::Unresolved,
@@ -905,11 +905,12 @@ async fn a_reviewed_download_is_matched_then_imported() {
     let approved = service.post_json("/api/review/approve", &format!("{{{import}}}"));
     let done = service.post_json("/api/review", &format!("{{{import}}}"));
 
-    assert!(before.contains(r#""path":"video 1.mkv""#) && before.contains(r#""target":null"#), "{before}");
-    assert!(before.contains(r#""name":null"#), "{before}");
-    assert!(early.contains("Match or skip file 1 first"), "{early}");
+    assert!(before.contains(r#""path":"video 1.mkv""#) && before.contains(r#""matched":null"#), "{before}");
+    assert!(before.contains(r#""problem":"Not matched""#) && before.contains(r#""name":null"#), "{before}");
+    assert!(early.contains("Match or uncheck file 1 first"), "{early}");
     assert!(matched.starts_with("HTTP/1.1 200"), "{matched}");
-    assert!(after.contains("Frieren · S01E01"), "{after}");
+    assert!(after.contains(r#""title":"Frieren""#) && after.contains(r#""season":1"#), "{after}");
+    assert!(after.contains(r#""matched":{"kind":"episodes""#) && after.contains(r#""problem":null"#), "{after}");
     assert!(after.contains(r#""name":"Season 01/Frieren"#), "{after}");
     assert!(approved.contains("queued"), "{approved}");
     assert!(done.ends_with("null"), "{done}");

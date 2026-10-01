@@ -281,7 +281,7 @@ mod server {
         });
         let scans: Vec<_> =
             imports.iter().filter(|import| import.download.is_none() && import.source == folder.path()).collect();
-        let files = scans.iter().map(|import| import.rows.iter().filter(|row| !row.skipped).count()).sum();
+        let files = scans.iter().map(|import| import.rows.len()).sum();
         let import = scans.first()?.id;
         (files > 0).then_some(Unrecognised { files, import })
     }

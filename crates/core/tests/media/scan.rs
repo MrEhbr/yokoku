@@ -1,7 +1,7 @@
 use std::fs;
 
 use common::{App, relative};
-use yokoku_core::media::{ImportRow, ImportStatus, MediaFile, ScanReport};
+use yokoku_core::media::{Episodes, ImportRow, ImportStatus, MediaFile, RowMatch, ScanReport};
 use yokoku_domain::{
     Confidence, ItemId,
     events::{DeleteReason, FileDeleted, FilesFound, ImportNeedsReview, LinkedFile},
@@ -55,10 +55,12 @@ async fn unsure_matches_go_to_review_per_item_folder() {
     let pending = app.reviewer.pending().await.unwrap();
     assert_eq!(report.needs_review, pending.iter().map(|import| import.id).collect::<Vec<_>>());
     assert_eq!(relative(&app, pending.iter().map(|import| import.source.as_path())), ["tv/Frieren (2023)"]);
-    let rows = |index: usize| -> Vec<(Option<_>, Confidence)> {
-        pending[index].rows.iter().map(|row: &ImportRow| (row.target, row.confidence)).collect()
+    let rows = |index: usize| -> Vec<(RowMatch, Confidence)> {
+        pending[index].rows.iter().map(|row: &ImportRow| (row.matched, row.confidence)).collect()
     };
-    assert_eq!(rows(0), [(Some(app.episodes(1, 2, 2)), Confidence::Guess), (None, Confidence::Unknown)]);
+    let missing =
+        RowMatch::Series { series: app.frieren.id, season: Some(1), episodes: Some(Episodes { first: 9, last: 9 }) };
+    assert_eq!(rows(0), [(app.episodes(1, 2, 2).into(), Confidence::Guess), (missing, Confidence::Unknown)]);
     assert!(pending.iter().all(|import| import.status == ImportStatus::NeedsReview));
     let events = app.events().await;
     assert!(events.contains(&ImportNeedsReview { import: pending[0].id, source: pending[0].source.clone() }.into()));
@@ -110,7 +112,7 @@ async fn a_second_file_for_a_linked_episode_goes_to_review() {
 
     assert_eq!(report.found, 0);
     let pending = app.reviewer.pending().await.unwrap();
-    assert_eq!(pending[0].rows[0].target, Some(app.episodes(1, 1, 1)));
+    assert_eq!(pending[0].rows[0].target(), Some(app.episodes(1, 1, 1)));
     assert_eq!(pending[0].rows[0].confidence, Confidence::Certain);
 }
 

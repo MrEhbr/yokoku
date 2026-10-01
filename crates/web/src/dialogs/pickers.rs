@@ -12,6 +12,7 @@ use crate::{
         select::{Select, SelectOption},
         skeleton::Skeleton,
     },
+    format::episode as code,
 };
 
 /// A search over the library's series.
@@ -49,6 +50,55 @@ pub(crate) fn SeriesPicker(id: &'static str, series: Signal<Option<SeriesId>>) -
                         }
                     }
                 },
+            }
+        }
+    }
+}
+
+/// An episode to choose: season, number and `S01E02 Title`.
+pub(crate) type EpisodeChoice = (u16, u16, String);
+
+/// The episodes of `series`, specials last; none when it cannot be loaded.
+pub(crate) async fn episode_list(series: SeriesId) -> Vec<EpisodeChoice> {
+    let mut seasons = detail::series(series).await.ok().flatten().map(|detail| detail.seasons).unwrap_or_default();
+    seasons.sort_by_key(|season| (season.number == 0, season.number));
+    seasons
+        .into_iter()
+        .flat_map(|season| season.episodes)
+        .map(|episode| {
+            (episode.season, episode.number, format!("{} {}", code(episode.season, episode.number), episode.title))
+        })
+        .collect()
+}
+
+/// A search over `episodes`, as [`episode_list`] gives them.
+#[component]
+pub(crate) fn EpisodePicker(
+    id: String,
+    label: &'static str,
+    #[props(default)] hide_label: bool,
+    episodes: Vec<EpisodeChoice>,
+    episode: Signal<Option<(u16, u16)>>,
+) -> Element {
+    let choice = use_memo(move || episode.cloned());
+    rsx! {
+        div { class: "grid gap-1.5",
+            Label { html_for: "{id}", class: if hide_label { "sr-only" }, "{label}" }
+            Combobox::<(u16,u16)> {
+                id: "{id}",
+                value: Some(choice.into()),
+                placeholder: "Search by code or title…",
+                on_value_change: move |next: Option<(u16, u16)>| episode.set(next),
+                ComboboxEmpty { "No episode matches" }
+                for (index, (season, number, text)) in episodes.into_iter().enumerate() {
+                    ComboboxOption::<(u16,u16)> {
+                        key: "{season}-{number}",
+                        index,
+                        value: (season, number),
+                        text_value: text.clone(),
+                        "{text}"
+                    }
+                }
             }
         }
     }

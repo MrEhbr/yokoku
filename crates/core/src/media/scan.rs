@@ -217,9 +217,9 @@ fn scan_folder(
             target => rows.push(ImportRow {
                 path,
                 size,
-                target,
+                matched: row.row_match(None),
                 confidence: row.confidence,
-                skipped: false,
+                skipped: target.is_none(),
                 resolution: Resolution::Unresolved,
             }),
         }

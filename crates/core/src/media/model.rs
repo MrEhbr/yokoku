@@ -1,7 +1,10 @@
 use std::{fmt, path::PathBuf, time::Duration};
 
 use jiff::Timestamp;
-use yokoku_domain::{Confidence, DownloadId, FileTarget, ImportId, MediaFileId, SubtitleTags, events::LinkedFile};
+use yokoku_domain::{
+    Confidence, DownloadId, EpisodeSpan, FileTarget, ImportId, MediaFileId, MovieId, SeriesId, SubtitleTags,
+    events::LinkedFile,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RootKind {
@@ -75,10 +78,78 @@ yokoku_domain::string_enum!(ImportStatus, "import status" {
 pub struct ImportRow {
     pub path: PathBuf,
     pub size: u64,
-    pub target: Option<FileTarget>,
+    pub matched: RowMatch,
     pub confidence: Confidence,
+    /// Unchecked: left where it is.
     pub skipped: bool,
     pub resolution: Resolution,
+}
+
+impl ImportRow {
+    /// The complete match, whether or not the library has it.
+    pub fn target(&self) -> Option<FileTarget> {
+        self.matched.target()
+    }
+
+    /// Marks the row matched by the user: checked, certain, and settling no conflict yet.
+    pub(crate) fn confirm(&mut self) {
+        self.confidence = Confidence::Certain;
+        self.skipped = false;
+        self.resolution = Resolution::Unresolved;
+    }
+}
+
+/// What a row holds as far as it is known; its season and episodes need not be in the series.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RowMatch {
+    #[default]
+    None,
+    Series {
+        series: SeriesId,
+        season: Option<u16>,
+        episodes: Option<Episodes>,
+    },
+    Movie(MovieId),
+}
+
+/// Consecutive episode numbers of an unnamed season.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Episodes {
+    pub first: u16,
+    pub last: u16,
+}
+
+impl Episodes {
+    /// The first and last of sorted episode numbers; `None` when there are none.
+    pub fn spanning(sorted: &[u16]) -> Option<Self> {
+        Some(Self { first: *sorted.first()?, last: *sorted.last()? })
+    }
+}
+
+impl RowMatch {
+    pub fn target(&self) -> Option<FileTarget> {
+        match *self {
+            Self::None => None,
+            Self::Series { series, season: Some(season), episodes: Some(Episodes { first, last }) } => {
+                Some(FileTarget::Episodes { series, span: EpisodeSpan::new(season, first, last)? })
+            },
+            Self::Series { .. } => None,
+            Self::Movie(movie) => Some(FileTarget::Movie(movie)),
+        }
+    }
+}
+
+impl From<FileTarget> for RowMatch {
+    fn from(target: FileTarget) -> Self {
+        match target {
+            FileTarget::Episodes { series, span } => Self::Series {
+                series,
+                season: Some(span.season()),
+                episodes: Some(Episodes { first: span.first(), last: span.last() }),
+            },
+            FileTarget::Movie(movie) => Self::Movie(movie),
+        }
+    }
 }
 
 /// How a row settles a library file, or another row, that holds its target (FR-4.12).

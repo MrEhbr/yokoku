@@ -39,8 +39,8 @@ impl ImportPlanner {
     }
 
     /// Detects what the download holds. The import is `Approved` when every file is certain and
-    /// free of conflicts, `NeedsReview` otherwise, and `Failed` without any video. A download that
-    /// already has an import is left alone.
+    /// free of conflicts, `NeedsReview` otherwise, and `Failed` without any video. Files without a
+    /// complete match start unchecked. A download that already has an import is left alone.
     #[instrument(skip_all, fields(%download, content = %content.display()))]
     pub async fn plan(
         &self,
@@ -83,9 +83,9 @@ impl ImportPlanner {
             .map(|row| ImportRow {
                 path: base.join(&row.video.path),
                 size: row.video.size,
-                target: row.target,
+                matched: row.row_match(season),
                 confidence: row.confidence,
-                skipped: false,
+                skipped: row.target.is_none(),
                 resolution: Resolution::Unresolved,
             })
             .collect();

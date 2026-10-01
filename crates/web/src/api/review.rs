@@ -24,15 +24,31 @@ pub struct ReviewFile {
     pub path: String,
     /// Bytes.
     pub size: u64,
-    pub target: Option<Target>,
-    pub confidence: Confidence,
-    pub skipped: bool,
+    /// Checked: imported; unchecked files are left where they are.
+    pub included: bool,
+    /// The series or movie it is matched to, while in the library.
+    pub item: Option<Item>,
+    pub season: Option<u16>,
+    /// `3 · Fifty Shades of Green`, or `3–4 · …` for a multi-episode file.
+    pub episodes: Option<String>,
+    /// Its complete match, to start the editor from.
+    pub matched: Option<Match>,
+    /// Detection guessed the match from an unclear name.
+    pub guessed: bool,
+    /// What the match lacks, like "Futurama has no season 13".
+    pub problem: Option<String>,
     pub resolution: Resolution,
     /// Why it cannot be imported as matched, like "already has a file".
     pub conflicts: Vec<Conflict>,
-    /// Its path once imported, relative to its item's folder; none while skipped or unmatched,
-    /// and for files a scan found, which stay where they are.
+    /// Its path once imported, relative to its item's folder; none while unchecked or not fully
+    /// matched, and for files a scan found, which stay where they are.
     pub name: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Item {
+    pub id: ItemId,
+    pub title: String,
 }
 
 /// How a file settles a library file, or another file, that holds its match.
@@ -53,22 +69,6 @@ pub enum Resolution {
 pub enum Match {
     Episodes { series: SeriesId, season: u16, first: u16, last: u16 },
     Movie { id: MovieId },
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Target {
-    pub matched: Match,
-    pub item: ItemId,
-    /// `Frieren · S01E02`, or the movie's title.
-    pub label: String,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Confidence {
-    Certain,
-    Guess,
-    Unknown,
 }
 
 /// Why a matched file cannot be imported as it is.
@@ -114,15 +114,41 @@ pub async fn review(import: ImportId) -> Result<Option<Review>, ServerFnError> {
     server::review(&reviewer, &importer, &library, import).await
 }
 
+/// The file is checked.
 #[post("/api/review/match", reviewer: Dep<Reviewer>)]
 pub async fn match_file(import: ImportId, row: usize, target: Match) -> Result<(), ServerFnError> {
     server::match_file(&reviewer, import, row, target).await
 }
 
-/// The file is left where it is and not offered again.
-#[post("/api/review/skip", reviewer: Dep<Reviewer>)]
-pub async fn skip_file(import: ImportId, row: usize) -> Result<(), ServerFnError> {
-    reviewer.skip_row(import, row).await.map_err(server::failure)
+/// Checks or unchecks the files.
+#[post("/api/review/include", reviewer: Dep<Reviewer>)]
+pub async fn include_files(import: ImportId, rows: Vec<usize>, included: bool) -> Result<(), ServerFnError> {
+    reviewer.include_rows(import, &rows, included).await.map_err(server::failure)
+}
+
+/// Detects the files again against `series`, keeping it where their episodes are not found.
+#[post("/api/review/series", reviewer: Dep<Reviewer>)]
+pub async fn set_series(import: ImportId, rows: Vec<usize>, series: SeriesId) -> Result<(), ServerFnError> {
+    reviewer.set_series(import, &rows, series).await.map_err(server::failure)
+}
+
+/// Places the files' episodes in `season`, keeping their numbers.
+#[post("/api/review/season", reviewer: Dep<Reviewer>)]
+pub async fn set_season(import: ImportId, rows: Vec<usize>, season: u16) -> Result<(), ServerFnError> {
+    reviewer.set_season(import, &rows, season).await.map_err(server::failure)
+}
+
+/// Gives the files `episodes` of `series`, as season and episode numbers, in order, one each.
+#[post("/api/review/episodes", reviewer: Dep<Reviewer>)]
+pub async fn set_episodes(
+    import: ImportId,
+    rows: Vec<usize>,
+    series: SeriesId,
+    episodes: Vec<(u16, u16)>,
+) -> Result<(), ServerFnError> {
+    let episodes: Vec<_> =
+        episodes.into_iter().map(|(season, episode)| yokoku_domain::EpisodeRef { season, episode }).collect();
+    reviewer.set_episodes(import, &rows, series, &episodes).await.map_err(server::failure)
 }
 
 /// The downloaded file replaces the library file of its episode or movie.
@@ -137,19 +163,7 @@ pub async fn keep_both_file(import: ImportId, row: usize) -> Result<(), ServerFn
     reviewer.keep_both_row(import, row).await.map_err(server::failure)
 }
 
-/// Detects the files of `rows` again: against `series`, placing its names without a season in
-/// `season` when given, or against the whole library.
-#[post("/api/review/redetect", reviewer: Dep<Reviewer>)]
-pub async fn redetect_files(
-    import: ImportId,
-    rows: Vec<usize>,
-    series: Option<SeriesId>,
-    season: Option<u16>,
-) -> Result<(), ServerFnError> {
-    reviewer.redetect(import, &rows, series, season).await.map_err(server::failure)
-}
-
-/// Every row not skipped needs a match free of conflicts.
+/// Every checked file needs a match free of conflicts.
 #[post("/api/review/approve", reviewer: Dep<Reviewer>)]
 pub async fn approve(import: ImportId) -> Result<Imported, ServerFnError> {
     server::approve(&reviewer, import).await
@@ -157,7 +171,7 @@ pub async fn approve(import: ImportId) -> Result<Imported, ServerFnError> {
 
 #[cfg(feature = "server")]
 mod server {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, hash_map::Entry};
 
     use dioxus::{
         logger::tracing::{error, warn},
@@ -165,13 +179,11 @@ mod server {
     };
     use yokoku_core::{
         library::{LibraryFilter, LibrarySort},
-        media::{Approval, ImportRow, MediaError},
+        media::{Approval, Episodes, ImportRow, MediaError, Problem, RowMatch},
     };
-    use yokoku_domain::{EpisodeSpan, FileTarget, ImportId, ItemId};
+    use yokoku_domain::{Confidence, EpisodeRef, EpisodeSpan, FileTarget, ImportId, ItemId, Series, SeriesId};
 
-    use super::{
-        Confidence, Conflict, Imported, Importer, Library, Match, Resolution, Review, ReviewFile, Reviewer, Target,
-    };
+    use super::{Conflict, Imported, Importer, Item, Library, Match, Resolution, Review, ReviewFile, Reviewer};
     use crate::api::unexpected;
 
     pub(super) async fn review(
@@ -185,9 +197,16 @@ mod server {
             Err(MediaError::ImportNotFound(_) | MediaError::NotInReview(_)) => return Ok(None),
             Err(error) => return Err(failure(error)),
         };
-        let rows: Vec<ImportRow> = review.rows.iter().map(|reviewed| reviewed.row.clone()).collect();
+        let nameable: Vec<ImportRow> = review
+            .rows
+            .iter()
+            .map(|reviewed| ImportRow {
+                skipped: reviewed.row.skipped || reviewed.problem.is_some(),
+                ..reviewed.row.clone()
+            })
+            .collect();
         let names = match review.download {
-            Some(_) => importer.destinations(&rows).await.unwrap_or_else(|error| {
+            Some(_) => importer.destinations(&nameable).await.unwrap_or_else(|error| {
                 warn!(%error, "naming the files to import failed");
                 Vec::new()
             }),
@@ -198,32 +217,44 @@ mod server {
             ServerFnError::new("The library could not be loaded")
         })?;
         let titles: HashMap<ItemId, String> = items.into_iter().map(|entry| (entry.id, entry.title)).collect();
+        let mut series: HashMap<SeriesId, Option<Series>> = HashMap::new();
+        for reviewed in &review.rows {
+            if let RowMatch::Series { series: id, .. } = reviewed.row.matched
+                && let Entry::Vacant(slot) = series.entry(id)
+            {
+                slot.insert(library.series(id).await.ok());
+            }
+        }
+
         let rows = (1..)
             .zip(review.rows)
             .map(|(number, reviewed)| {
+                let row = reviewed.row;
+                let item_id = match row.matched {
+                    RowMatch::None => None,
+                    RowMatch::Series { series, .. } => Some(ItemId::Series(series)),
+                    RowMatch::Movie(movie) => Some(ItemId::Movie(movie)),
+                };
+                let title = item_id.and_then(|id| titles.get(&id).cloned());
+                let (season, episodes) = match row.matched {
+                    RowMatch::Series { series: id, season, episodes } => {
+                        (season, episodes.map(|episodes| episode_label(series[&id].as_ref(), season, episodes)))
+                    },
+                    _ => (None, None),
+                };
                 let name =
                     names.get(number - 1).cloned().flatten().map(|destination| destination.name.display().to_string());
-                let row = reviewed.row;
-                let target = row.target.map(|target| {
-                    let matched = Match::from(target);
-                    let title = titles.get(&matched.item()).cloned().unwrap_or_default();
-                    let label = match target {
-                        FileTarget::Episodes { span, .. } => format!("{title} · {span}"),
-                        FileTarget::Movie(_) => title,
-                    };
-                    Target { item: matched.item(), matched, label }
-                });
                 ReviewFile {
                     row: number,
                     path: row.path.strip_prefix(&review.source).unwrap_or(&row.path).display().to_string(),
                     size: row.size,
-                    target,
-                    confidence: match row.confidence {
-                        yokoku_domain::Confidence::Certain => Confidence::Certain,
-                        yokoku_domain::Confidence::Guess => Confidence::Guess,
-                        yokoku_domain::Confidence::Unknown => Confidence::Unknown,
-                    },
-                    skipped: row.skipped,
+                    included: !row.skipped,
+                    item: item_id.zip(title.clone()).map(|(id, title)| Item { id, title }),
+                    season,
+                    episodes,
+                    matched: row.target().filter(|_| reviewed.problem.is_none()).map(Match::from),
+                    guessed: row.confidence == Confidence::Guess,
+                    problem: reviewed.problem.map(|problem| problem_label(problem, title.as_deref().unwrap_or("It"))),
                     resolution: match row.resolution {
                         yokoku_core::media::Resolution::Unresolved => Resolution::Unresolved,
                         yokoku_core::media::Resolution::Replace => Resolution::Replace,
@@ -247,6 +278,31 @@ mod server {
             from_download: review.download.is_some(),
             rows,
         }))
+    }
+
+    /// `3 · Title` or `3–4 · Title`, the title of the first episode when the series has it.
+    fn episode_label(series: Option<&Series>, season: Option<u16>, Episodes { first, last }: Episodes) -> String {
+        let numbers = if first == last { first.to_string() } else { format!("{first}–{last}") };
+        let title = season
+            .zip(series)
+            .and_then(|(season, series)| series.episode(EpisodeRef { season, episode: first }))
+            .map(|episode| episode.title.clone())
+            .filter(|title| !title.is_empty());
+        match title {
+            Some(title) => format!("{numbers} · {title}"),
+            None => numbers,
+        }
+    }
+
+    fn problem_label(problem: Problem, title: &str) -> String {
+        match problem {
+            Problem::NoMatch => "Not matched".to_owned(),
+            Problem::NoSeason => "Set the season".to_owned(),
+            Problem::NoEpisodes => "Set the episodes".to_owned(),
+            Problem::Gone => "No longer in the library".to_owned(),
+            Problem::SeasonNotInSeries(season) => format!("{title} has no season {season}"),
+            Problem::EpisodesNotInSeries(span) => format!("{title} has no {span}"),
+        }
     }
 
     pub(super) async fn match_file(
@@ -285,10 +341,19 @@ mod server {
                 ServerFnError::new("It is no longer in the library")
             },
             MediaError::EpisodesNotFound(span) => ServerFnError::new(format!("The series has no {span}")),
-            MediaError::UnmatchedRows(rows) => ServerFnError::new(format!("Match or skip {} first", rows_named(&rows))),
+            MediaError::UnmatchedRows(rows) => {
+                ServerFnError::new(format!("Match or uncheck {} first", rows_named(&rows)))
+            },
             MediaError::ConflictingRows(rows) => {
                 ServerFnError::new(format!("Resolve the conflicts of {} first", rows_named(&rows)))
             },
+            MediaError::RowsWithoutSeries(rows) => {
+                ServerFnError::new(format!("Set the series of {} first", rows_named(&rows)))
+            },
+            MediaError::EpisodeCount { rows, episodes } => ServerFnError::new(format!(
+                "Choose {rows} {} for the checked files, not {episodes}",
+                if rows == 1 { "episode" } else { "episodes" }
+            )),
             error => unexpected(&error, "reviewing the import"),
         }
     }

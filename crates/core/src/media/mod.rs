@@ -15,11 +15,12 @@ mod scan;
 pub use deleter::Deleter;
 pub use error::MediaError;
 pub use import::{
-    Approval, Destination, ImportMode, ImportPlanner, ImportReview, ImportSettings, Importer, ReviewRow, Reviewer,
+    Approval, Destination, ImportMode, ImportPlanner, ImportReview, ImportSettings, Importer, Problem, ReviewRow,
+    Reviewer,
 };
 pub use model::{
-    AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
-    SubtitleStream, VideoStream,
+    AudioStream, Episodes, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Resolution, RootFolder, RootKind,
+    RowMatch, SubtitleStream, VideoStream,
 };
 pub use prober::{FileDetails, ProbeReport, Prober};
 pub use rename::{Move, Rename, RenameFailure, RenamePlan, RenameReport, RenameScope, Renamer, SkipReason, Skipped};

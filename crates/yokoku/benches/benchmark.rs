@@ -11,7 +11,7 @@ use yokoku_core::{
         ports::{MovieRepo, SeriesRepo},
     },
     media::{
-        Import, ImportRow, ImportStatus, MediaFile, Resolution, ScanReport, Scanner,
+        Import, ImportRow, ImportStatus, MediaFile, Resolution, RowMatch, ScanReport, Scanner,
         ports::{Changes, MediaRepo},
     },
 };
@@ -144,7 +144,7 @@ fn finished_import(video: &Path, now: Timestamp) -> Import {
     let row = ImportRow {
         path: video.to_owned(),
         size: 1,
-        target: None,
+        matched: RowMatch::None,
         confidence: yokoku_domain::Confidence::Certain,
         skipped: false,
         resolution: Resolution::Unresolved,

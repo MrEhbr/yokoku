@@ -10,7 +10,7 @@ use yokoku_domain::{
 use super::Scanner;
 use crate::{
     events::{Handler, HandlerError},
-    media::{Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution, ports::Changes},
+    media::{Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution, RowMatch, ports::Changes},
 };
 
 impl Scanner {
@@ -36,9 +36,9 @@ impl Scanner {
                     rows.push(ImportRow {
                         path: file.path.clone(),
                         size: file.size,
-                        target: None,
+                        matched: RowMatch::Series { series: series.id, season: None, episodes: None },
                         confidence: Confidence::Unknown,
-                        skipped: false,
+                        skipped: true,
                         resolution: Resolution::Unresolved,
                     });
                 },

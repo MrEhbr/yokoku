@@ -1,21 +1,26 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use jiff::Timestamp;
 use yokoku_domain::{
-    Clock, Confidence, DownloadId, FileTarget, ImportId, MediaFileId, SeriesId, events::FilesImported,
+    Clock, Confidence, DownloadId, EpisodeRef, EpisodeSpan, FileTarget, ImportId, MediaFileId, Series, SeriesId,
+    events::FilesImported,
 };
 
 use crate::{
     events::{Publisher, QueueChanges},
     media::{
-        Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
+        Episodes, Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution, RowMatch,
         detect::{Conflict, ImportPlan, ListedFile, MatchScope},
         ports::{Catalog, Changes, MediaRepo},
     },
 };
 
 /// Manual matching of files detection was unsure about (FR-4.11, FR-8.3). Rows are numbered
-/// from 1.
+/// from 1; a skipped row is unchecked and left where it is.
 pub struct Reviewer {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,
@@ -44,8 +49,22 @@ pub enum Approval {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReviewRow {
     pub row: ImportRow,
+    /// Why the row has no complete match in the library.
+    pub problem: Option<Problem>,
     /// Empty for skipped rows.
     pub conflicts: Vec<Conflict>,
+}
+
+/// What a row's match lacks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Problem {
+    NoMatch,
+    NoSeason,
+    NoEpisodes,
+    /// The series or movie is no longer in the library.
+    Gone,
+    SeasonNotInSeries(u16),
+    EpisodesNotInSeries(EpisodeSpan),
 }
 
 impl Reviewer {
@@ -66,9 +85,15 @@ impl Reviewer {
 
     pub async fn get(&self, id: ImportId) -> Result<ImportReview, MediaError> {
         let import = self.pending_import(id).await?;
+        let problems = self.problems(&import).await?;
         let conflicts = self.conflicts(&import).await?;
-        let rows =
-            import.rows.into_iter().zip(conflicts).map(|(row, conflicts)| ReviewRow { row, conflicts }).collect();
+        let rows = import
+            .rows
+            .into_iter()
+            .zip(problems)
+            .zip(conflicts)
+            .map(|((row, problem), conflicts)| ReviewRow { row, problem, conflicts })
+            .collect();
         Ok(ImportReview {
             id: import.id,
             source: import.source,
@@ -78,19 +103,107 @@ impl Reviewer {
         })
     }
 
-    /// The episodes or movie must be in the library.
+    /// The episodes or movie must be in the library; the row is checked.
     pub async fn match_row(&self, id: ImportId, row: usize, target: FileTarget) -> Result<(), MediaError> {
         self.check_exists(target).await?;
-        self.update_row(id, row, |row| {
-            row.target = Some(target);
-            row.skipped = false;
-            row.resolution = Resolution::Unresolved;
+        self.update_rows(id, &[row], |rows| {
+            for (_, row) in rows {
+                row.matched = target.into();
+                row.confirm();
+            }
+            Ok(())
         })
         .await
     }
 
-    pub async fn skip_row(&self, id: ImportId, row: usize) -> Result<(), MediaError> {
-        self.update_row(id, row, |row| row.skipped = true).await
+    /// Checks or unchecks the rows.
+    pub async fn include_rows(&self, id: ImportId, rows: &[usize], included: bool) -> Result<(), MediaError> {
+        self.update_rows(id, rows, |rows| {
+            for (_, row) in rows {
+                row.skipped = !included;
+            }
+            Ok(())
+        })
+        .await
+    }
+
+    /// Detects the rows again against `series`; each keeps the series and its names' numbers
+    /// when its episodes are not found. The rows are checked.
+    pub async fn set_series(&self, id: ImportId, rows: &[usize], series: SeriesId) -> Result<(), MediaError> {
+        let series = self.catalog.series(series).await?.ok_or(MediaError::SeriesNotFound(series))?;
+        let source = self.pending_import(id).await?.source;
+        let base = source.parent().unwrap_or(&source).to_owned();
+        self.update_rows(id, rows, |rows| {
+            let files: Vec<ListedFile> = rows
+                .iter()
+                .map(|(_, row)| ListedFile {
+                    path: row.path.strip_prefix(&base).unwrap_or(&row.path).to_owned(),
+                    size: row.size,
+                })
+                .collect();
+            let plan = ImportPlan::new(&files, MatchScope::Series(&series));
+            for ((_, row), file) in rows.iter_mut().zip(&files) {
+                let detected = plan.rows.iter().find(|detected| detected.video.path == file.path);
+                row.matched = detected
+                    .map_or(RowMatch::Series { series: series.id, season: None, episodes: None }, |detected| {
+                        detected.row_match(None)
+                    });
+                row.confidence = detected.map_or(Confidence::Unknown, |detected| detected.confidence);
+                row.skipped = false;
+                row.resolution = Resolution::Unresolved;
+            }
+            Ok(())
+        })
+        .await
+    }
+
+    /// Places the rows' episodes in `season`, keeping their numbers; fails without a change when a
+    /// row has no series.
+    pub async fn set_season(&self, id: ImportId, rows: &[usize], season: u16) -> Result<(), MediaError> {
+        self.update_rows(id, rows, |rows| {
+            let without: Vec<usize> = rows
+                .iter()
+                .filter(|(_, row)| !matches!(row.matched, RowMatch::Series { .. }))
+                .map(|(number, _)| *number)
+                .collect();
+            if !without.is_empty() {
+                return Err(MediaError::RowsWithoutSeries(without));
+            }
+            for (_, row) in rows {
+                if let RowMatch::Series { season: current, .. } = &mut row.matched {
+                    *current = Some(season);
+                }
+                row.confirm();
+            }
+            Ok(())
+        })
+        .await
+    }
+
+    /// Gives the rows `episodes` of `series` in order, one each, for files numbered differently
+    /// from the series, like a season released in parts that each start at 1.
+    pub async fn set_episodes(
+        &self,
+        id: ImportId,
+        rows: &[usize],
+        series: SeriesId,
+        episodes: &[EpisodeRef],
+    ) -> Result<(), MediaError> {
+        if episodes.len() != rows.len() {
+            return Err(MediaError::EpisodeCount { rows: rows.len(), episodes: episodes.len() });
+        }
+        let found = self.catalog.series(series).await?.ok_or(MediaError::SeriesNotFound(series))?;
+        if let Some(&missing) = episodes.iter().find(|&&episode| found.episode(episode).is_none()) {
+            return Err(MediaError::EpisodesNotFound(EpisodeSpan::single(missing)));
+        }
+        self.update_rows(id, rows, |rows| {
+            for ((_, row), &episode) in rows.iter_mut().zip(episodes) {
+                row.matched = FileTarget::Episodes { series, span: EpisodeSpan::single(episode) }.into();
+                row.confirm();
+            }
+            Ok(())
+        })
+        .await
     }
 
     /// Marks a row to replace the library file that holds its target; only for downloads.
@@ -98,88 +211,50 @@ impl Reviewer {
         if self.pending_import(id).await?.download.is_none() {
             return Err(MediaError::ReplaceInPlace);
         }
-        self.update_row(id, row, |row| {
-            row.resolution = Resolution::Replace;
-            row.skipped = false;
+        self.update_rows(id, &[row], |rows| {
+            for (_, row) in rows {
+                row.resolution = Resolution::Replace;
+                row.skipped = false;
+            }
+            Ok(())
         })
         .await
-    }
-
-    /// Detects the files of `rows` again: against `series`, placing its names without a season in
-    /// `season` when given, or against the whole library. Each keeps no match when nothing fits,
-    /// and none keeps its resolution.
-    pub async fn redetect(
-        &self,
-        id: ImportId,
-        rows: &[usize],
-        series: Option<SeriesId>,
-        season: Option<u16>,
-    ) -> Result<(), MediaError> {
-        let mut import = self.pending_import(id).await?;
-        let indexes: Vec<usize> = rows
-            .iter()
-            .map(|&row| {
-                row.checked_sub(1).filter(|&index| index < import.rows.len()).ok_or(MediaError::RowNotFound(row))
-            })
-            .collect::<Result<_, _>>()?;
-        let base = import.source.parent().unwrap_or(&import.source).to_owned();
-        let files: Vec<ListedFile> = indexes
-            .iter()
-            .map(|&index| {
-                let row = &import.rows[index];
-                ListedFile { path: row.path.strip_prefix(&base).unwrap_or(&row.path).to_owned(), size: row.size }
-            })
-            .collect();
-
-        let plan = match series {
-            Some(id) => {
-                let series = self.catalog.series(id).await?.ok_or(MediaError::SeriesNotFound(id))?;
-                let scope = match season {
-                    Some(season) => MatchScope::SeriesSeason { series: &series, season },
-                    None => MatchScope::Series(&series),
-                };
-                ImportPlan::new(&files, scope)
-            },
-            None => {
-                let (series, movies) = (self.catalog.all_series().await?, self.catalog.all_movies().await?);
-                ImportPlan::new(&files, MatchScope::Library { series: &series, movies: &movies })
-            },
-        };
-        for (index, file) in indexes.into_iter().zip(&files) {
-            let detected = plan.rows.iter().find(|row| row.video.path == file.path);
-            let row = &mut import.rows[index];
-            row.target = detected.and_then(|row| row.target);
-            row.confidence = detected.map_or(Confidence::Unknown, |row| row.confidence);
-            row.skipped = false;
-            row.resolution = Resolution::Unresolved;
-        }
-        self.repo.save(&Changes { imports: vec![import], ..Changes::default() }).await?;
-        self.changes.notify();
-        Ok(())
     }
 
     /// Marks a row to be imported beside the library file and other rows that hold its target.
     pub async fn keep_both_row(&self, id: ImportId, row: usize) -> Result<(), MediaError> {
-        self.update_row(id, row, |row| {
-            row.resolution = Resolution::KeepBoth;
-            row.skipped = false;
+        self.update_rows(id, &[row], |rows| {
+            for (_, row) in rows {
+                row.resolution = Resolution::KeepBoth;
+                row.skipped = false;
+            }
+            Ok(())
         })
         .await
     }
 
-    /// Every row that is not skipped needs a match free of conflicts. Files found by a scan are
-    /// linked where they are; files from a download wait for `Importer` to place them.
+    /// Every checked row needs a match in the library, free of conflicts. Files found by a scan
+    /// are linked where they are; files from a download wait for `Importer` to place them.
     pub async fn approve(&self, id: ImportId) -> Result<Approval, MediaError> {
         let mut import = self.pending_import(id).await?;
+        let problems = self.problems(&import).await?;
         let conflicts = self.conflicts(&import).await?;
-        let numbered = || import.rows.iter().zip(&conflicts).zip(1..).filter(|((row, _), _)| !row.skipped);
+        let checked = |flags: Vec<bool>| -> Vec<usize> {
+            import
+                .rows
+                .iter()
+                .zip(flags)
+                .zip(1..)
+                .filter(|((row, flag), _)| !row.skipped && *flag)
+                .map(|(_, n)| n)
+                .collect()
+        };
 
-        let unmatched: Vec<usize> = numbered().filter(|((row, _), _)| row.target.is_none()).map(|(_, n)| n).collect();
+        let unmatched = checked(problems.iter().map(Option::is_some).collect());
         if !unmatched.is_empty() {
             return Err(MediaError::UnmatchedRows(unmatched));
         }
-        let conflicting: Vec<usize> =
-            numbered().filter(|((_, conflicts), _)| !conflicts.is_empty()).map(|(_, n)| n).collect();
+        let conflicting = checked(conflicts.iter().map(|conflicts| !conflicts.is_empty()).collect());
         if !conflicting.is_empty() {
             return Err(MediaError::ConflictingRows(conflicting));
         }
@@ -201,7 +276,7 @@ impl Reviewer {
                     id: MediaFileId::generate(),
                     path: row.path.clone(),
                     size: row.size,
-                    target: row.target?,
+                    target: row.target()?,
                     added_at: now,
                 })
             })
@@ -227,16 +302,22 @@ impl Reviewer {
         }
     }
 
-    async fn update_row(
+    /// Applies `change` to the rows numbered `rows`, in that order, and saves the import.
+    async fn update_rows(
         &self,
         id: ImportId,
-        row: usize,
-        change: impl FnOnce(&mut ImportRow),
+        rows: &[usize],
+        change: impl FnOnce(&mut [(usize, &mut ImportRow)]) -> Result<(), MediaError>,
     ) -> Result<(), MediaError> {
         let mut import = self.pending_import(id).await?;
-        let index =
-            row.checked_sub(1).filter(|&index| index < import.rows.len()).ok_or(MediaError::RowNotFound(row))?;
-        change(&mut import.rows[index]);
+        let count = import.rows.len();
+        for &row in rows {
+            row.checked_sub(1).filter(|&index| index < count).ok_or(MediaError::RowNotFound(row))?;
+        }
+        let mut by_index: Vec<Option<&mut ImportRow>> = import.rows.iter_mut().map(Some).collect();
+        let mut chosen: Vec<(usize, &mut ImportRow)> =
+            rows.iter().filter_map(|&row| Some((row, by_index[row - 1].take()?))).collect();
+        change(&mut chosen)?;
         self.repo.save(&Changes { imports: vec![import], ..Changes::default() }).await?;
         self.changes.notify();
         Ok(())
@@ -257,11 +338,48 @@ impl Reviewer {
         Ok(())
     }
 
+    /// Per row: what its match lacks in the library.
+    async fn problems(&self, import: &Import) -> Result<Vec<Option<Problem>>, MediaError> {
+        let mut series: HashMap<SeriesId, Option<Series>> = HashMap::new();
+        for row in &import.rows {
+            if let RowMatch::Series { series: id, .. } = row.matched
+                && let Entry::Vacant(slot) = series.entry(id)
+            {
+                slot.insert(self.catalog.series(id).await?);
+            }
+        }
+        let mut problems = Vec::with_capacity(import.rows.len());
+        for row in &import.rows {
+            problems.push(match row.matched {
+                RowMatch::None => Some(Problem::NoMatch),
+                RowMatch::Movie(id) => self.catalog.movie(id).await?.is_none().then_some(Problem::Gone),
+                RowMatch::Series { series: id, season, episodes } => match (series[&id].as_ref(), season, episodes) {
+                    (None, _, _) => Some(Problem::Gone),
+                    (Some(_), None, _) => Some(Problem::NoSeason),
+                    (Some(found), Some(season), _) if !found.seasons.iter().any(|known| known.number == season) => {
+                        Some(Problem::SeasonNotInSeries(season))
+                    },
+                    (Some(_), Some(_), None) => Some(Problem::NoEpisodes),
+                    (Some(found), Some(season), Some(Episodes { first, last })) => {
+                        match EpisodeSpan::new(season, first, last) {
+                            Some(span) => span
+                                .refs()
+                                .any(|reference| found.episode(reference).is_none())
+                                .then_some(Problem::EpisodesNotInSeries(span)),
+                            None => Some(Problem::NoEpisodes),
+                        }
+                    },
+                },
+            });
+        }
+        Ok(problems)
+    }
+
     /// Per row: another row holds the same episode or movie, or a library file already does and the
     /// row does not replace it. A row kept beside both has neither, and causes none.
     async fn conflicts(&self, import: &Import) -> Result<Vec<Vec<Conflict>>, MediaError> {
         let linked: Vec<FileTarget> = self.repo.files().await?.into_iter().map(|file| file.target).collect();
-        let active = |row: &ImportRow| row.target.filter(|_| !row.skipped && row.resolution != Resolution::KeepBoth);
+        let active = |row: &ImportRow| row.target().filter(|_| !row.skipped && row.resolution != Resolution::KeepBoth);
 
         Ok(import
             .rows

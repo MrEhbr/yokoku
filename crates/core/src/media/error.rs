@@ -45,6 +45,10 @@ pub enum MediaError {
     ConflictingRows(Vec<usize>),
     #[error("row {0} has no match")]
     RowUnmatched(usize),
+    #[error("rows {} have no series; set one first", numbers(.0))]
+    RowsWithoutSeries(Vec<usize>),
+    #[error("{episodes} episodes for {rows} files; choose one per file")]
+    EpisodeCount { rows: usize, episodes: usize },
     #[error("{} already exists", .0.display())]
     AlreadyExists(PathBuf),
     #[error("{} is missing", .0.display())]

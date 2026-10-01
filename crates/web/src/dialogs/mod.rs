@@ -11,11 +11,14 @@ use crate::components::{
     dialog::{Dialog, DialogTitle},
 };
 
-/// A dialog titled `title` with a close button; `open` shows it.
+/// A dialog titled `title` with a close button; `open` shows it. A `wide` one fits a table.
 #[component]
-fn ClosableDialog(title: &'static str, open: Signal<bool>, children: Element) -> Element {
+fn ClosableDialog(title: &'static str, open: Signal<bool>, #[props(default)] wide: bool, children: Element) -> Element {
     rsx! {
-        Dialog { open: Some(open()), on_open_change: move |next| open.set(next),
+        Dialog {
+            open: Some(open()),
+            on_open_change: move |next| open.set(next),
+            class: if wide { "max-w-dialog-wide!" },
             div { class: "flex items-start justify-between gap-4",
                 DialogTitle { "{title}" }
                 Button {

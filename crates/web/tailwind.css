@@ -12,6 +12,7 @@
 @source "./gallery/**/*.rs";
 
 @theme {
+  --container-dialog-wide: 72rem;
   --shadow-popover: 3px 3px 0 var(--yk-line);
   --animate-fade-in: fade-in 150ms var(--ease-interface);
   --animate-fade-out: fade-out 100ms ease-in forwards;
