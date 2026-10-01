@@ -7,7 +7,7 @@ use tracing::warn;
 use yokoku_core::{
     downloads::Downloads,
     events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges},
-    integrations::Rescans,
+    integrations::{Rescans, WatchSync},
     library::{Artworks, Calendar, FileTracker, Library, MetadataService},
     media::{
         Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
@@ -45,6 +45,7 @@ pub struct App {
     pub deleter: Arc<Deleter>,
     pub prober: Arc<Prober>,
     pub rescans: Arc<Rescans>,
+    pub watched: Arc<WatchSync>,
     pub metadata: Arc<MetadataService>,
     pub events: Publisher,
     /// Handlers that only events reach.
@@ -88,8 +89,9 @@ impl App {
         let probe = FfProbe::new(settings.live(|config| config.files.ffprobe.clone()));
         let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(probe)));
         let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone(), events.clone()));
-        let jellyfin = JellyfinClient::new(settings.live(|config| config.jellyfin.clone()));
-        let rescans = Arc::new(Rescans::new(db.clone(), Arc::new(jellyfin), clock.clone()));
+        let jellyfin = Arc::new(JellyfinClient::new(settings.live(|config| config.jellyfin.clone())));
+        let rescans = Arc::new(Rescans::new(db.clone(), jellyfin.clone(), clock.clone()));
+        let watched = Arc::new(WatchSync::new(jellyfin, db.clone(), db.clone(), db.clone()));
         let downloads = Arc::new(Downloads::new(
             db.clone(),
             Arc::new(TransmissionClient::new(settings.live(|config| config.transmission.clone()))),
@@ -164,6 +166,7 @@ impl App {
             deleter,
             prober,
             rescans,
+            watched,
             metadata,
             artworks,
         })

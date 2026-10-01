@@ -221,6 +221,7 @@ by module in `yokoku/tests/<module>_commands.rs`.
 | File details (FR-8.6) | `core/src/media/prober.rs` `Prober` (`media.probe`) | `core/src/media/model.rs` `MediaInfo` | `media_info.rs` | `infra/src/system/probe.rs` | `files.rs`; web `api/library/detail.rs` |
 | Library lock | `core/src/media/ports.rs` `LibraryLock` | none | none | `infra/src/system/lock.rs` | every media use case |
 | Jellyfin rescan (FR-10.4) | `core/src/integrations/rescans.rs` `Rescans` | none | `rescans.rs` | `infra/src/media_servers/jellyfin.rs` | job `rescan-media-server`; `jellyfin.rs` |
+| Watched sync | `core/src/integrations/watched.rs` `WatchSync` | none | `watched.rs` | `infra/src/media_servers/jellyfin.rs` | job `sync-watched`; `watched.rs` |
 | History (FR-9.1) | `core/src/events/history.rs` `History` | text: `domain/src/events.rs` `Display`; the web words events with item links in `web/src/api/history.rs` | `events.rs` | none | web `api/history.rs`, `pages/history/`, `components/history_list.rs` (also on detail pages) |
 | Event contract, delivery | `domain/src/events.rs`; `core/src/events/publisher.rs`, `delivery.rs`, `event_log.rs` | none | `events.rs` | none | `yokoku/src/subscriptions.rs`, `app.rs` |
 | Settings (FR-10.3) | `yokoku/src/config/settings.rs` `Settings`; each crate's `*Settings` next to its code (§5.5) | `yokoku/src/config/mod.rs` (layering) | `settings.rs` | none | `settings.rs`; web `api/settings.rs`, `pages/settings/` (through `SettingsAccess` and `ConnectionTest` in `web/src/state.rs`, both implemented by `Settings` in `yokoku/src/config/web.rs`; the page's fields, with labels, hints and controls, come from `Config::fields` in `yokoku/src/config/fields.rs`) |
@@ -468,6 +469,7 @@ Jobs run **work to do** on a schedule. They are not used to deliver events.
 | `RefreshMetadata` | cron, every 12 h; only with a TMDB token; everything on demand with `yokoku refresh` | `MetadataService::refresh_due` (one item's failure is logged and the rest continue) |
 | `ScanLibrary` | cron, daily at 05:00; on demand with `yokoku scan` or Settings' Scan now (`scan_library`) | `Scanner::scan` (FR-8.7) |
 | `RescanMediaServer` | cron, every 10 s; only with Jellyfin | `Rescans::run_due(30 s)` |
+| `SyncWatched` | cron, every 15 min; only with a Jellyfin user | `WatchSync::sync`: replaces the watched files with the user's played items |
 
 Each job is a closure that calls one use case. Schedules are cron expressions with seconds in UTC, set in `[serve]` (`sync_downloads = "*/30 * * * * *"`). `jobs::spawn` starts one task per job, which sleeps until the next tick, runs the job and repeats, so a job never overlaps itself; a tick missed while the job runs is skipped. The task reads its schedule again before each tick and at least every second, so a changed schedule applies while the service runs. Each task stops when its `CancellationToken` is cancelled, after the tick it is running. Imports need no queue: approved rows in `imports` are the queue, and each run claims one import at a time. Modules that need to hand work to a job later get their own port, which `jobs` implements.
 

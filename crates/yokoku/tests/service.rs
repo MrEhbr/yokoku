@@ -34,6 +34,7 @@ sync_downloads = "0 0 0 1 1 *"
 sync_active_downloads = "0 0 0 1 1 *"
 execute_imports = "0 0 0 1 1 *"
 rescan_media_server = "0 0 0 1 1 *"
+sync_watched = "0 0 0 1 1 *"
 refresh_metadata = "0 0 0 1 1 *"
 scan_library = "0 0 0 1 1 *"
 "#;

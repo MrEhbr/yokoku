@@ -6,7 +6,7 @@ use yokoku_core::{
     events::Handler,
     integrations::{
         Rescans,
-        ports::{MediaServer, MediaServerError, RescanStore},
+        ports::{MediaServer, MediaServerError, Played, RescanStore},
     },
 };
 use yokoku_domain::{
@@ -46,6 +46,10 @@ impl MediaServer for RecordingServer {
             db.request(at).await.unwrap();
         }
         Ok(())
+    }
+
+    async fn played(&self) -> Result<Vec<Played>, MediaServerError> {
+        Ok(Vec::new())
     }
 }
 

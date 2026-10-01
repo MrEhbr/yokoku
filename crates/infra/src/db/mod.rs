@@ -12,6 +12,7 @@ mod movies;
 mod rescans;
 mod series;
 mod settings;
+mod watched;
 
 pub use database::Database;
 pub use error::DbError;

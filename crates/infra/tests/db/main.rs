@@ -7,3 +7,4 @@ mod rescan_store;
 mod settings_store;
 mod stored_values;
 mod support;
+mod watched_store;

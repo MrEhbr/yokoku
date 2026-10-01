@@ -38,6 +38,13 @@ impl Config {
                 Control::Secret,
             ),
             Field::new(
+                Section::MediaServer,
+                "jellyfin.user",
+                "User",
+                "Whose played items count as watched; empty to not sync watched files.",
+                Control::text(""),
+            ),
+            Field::new(
                 Section::Metadata,
                 "metadata.tmdb.token",
                 "TMDB token",
@@ -159,6 +166,13 @@ impl Config {
                 "serve.rescan_media_server",
                 "Jellyfin rescan",
                 "Checks whether a rescan is due.",
+                Control::text(""),
+            ),
+            Field::new(
+                Section::Schedules,
+                "serve.sync_watched",
+                "Watched sync",
+                "Mirrors the Jellyfin user's played items onto library files.",
                 Control::text(""),
             ),
             Field::new(

@@ -1,1 +1,2 @@
 mod rescans;
+mod watched;

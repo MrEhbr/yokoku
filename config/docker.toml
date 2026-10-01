@@ -91,6 +91,8 @@ sync_active_downloads = "*/5 * * * * *"
 execute_imports = "*/5 * * * * *"
 # Checks whether a Jellyfin rescan is due.
 rescan_media_server = "*/10 * * * * *"
+# Mirrors the Jellyfin user's played items onto library files.
+sync_watched = "0 */15 * * * *"
 # Refreshes only the items due, as Sonarr and Radarr decide it.
 refresh_metadata = "0 0 */12 * * *"
 # Looks for files changed outside Yokoku in the root folders.
@@ -106,6 +108,8 @@ mode = "hardlink"
 # url = "http://localhost:8096"
 # From Jellyfin's dashboard, under API keys.
 # api_key = { file = "/run/secrets/jellyfin_api_key" }
+# Whose played items count as watched; watched sync is off while unset.
+# user = "admin"
 
 # Path patterns for library files. Tokens: {title}, {year}, {season} (two digits), {episodes}
 # (S01E01 or S01E01-E02), {episode_title}; a [...] group is dropped when a token in it has no value.
