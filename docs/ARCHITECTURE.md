@@ -287,7 +287,7 @@ A use case that reacts to events from other modules implements `Handler<E>` for 
 Owns movies, series, seasons, episodes, monitoring flags, and a projection of the media file holding each episode and movie (`file: Option<MediaFileId>`). Tracking the id rather than a flag, and linking a file only where media holds it when the event is handled, keeps the projection correct whatever order file events arrive in.
 
 - **Use cases**, split by what they depend on:
-  - `Library` (repositories + clock): list with filter and sort, series and movie details, set monitoring, set numbering, remove.
+  - `Library` (repositories + clock): list with filter and sort, series and movie details, set monitoring (a season's carries to each of its episodes), set numbering, remove.
   - `MetadataService` (+ metadata source): search, add (applying a monitor preset, into a root folder of the item's kind, which the caller takes from `media`), refresh one item or all.
   - `Calendar` (repositories + clock): calendar for a date range, missing grouped by series. Only monitored items appear (FR-2.3).
   - `Artworks` (repositories + artwork source and cache): an item's poster, backdrop or logo. Metadata gives each item an `Artwork` (`domain`) of paths at its source; the first request for a kind downloads the image and stores it, later ones read it from the cache. The image's file name keys the cache, so a refresh that changes an image downloads the new one, which replaces the old.

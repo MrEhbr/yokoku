@@ -117,6 +117,35 @@ async fn monitoring_and_numbering_changes_are_stored(#[future(awt)] app: App) {
 
 #[rstest]
 #[tokio::test]
+async fn a_season_takes_its_episodes_along_when_monitored(#[future(awt)] app: App) {
+    app.provider.put_series(series_metadata(
+        1,
+        "Frieren",
+        SourceStatus::Returning,
+        &[(1, &[None, None]), (2, &[None])],
+    ));
+    let series = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();
+    let episodes = async || {
+        let stored = app.library.series(series.id).await.unwrap();
+        stored
+            .seasons
+            .iter()
+            .map(|season| (season.monitored, season.episodes.iter().map(|e| e.monitored).collect::<Vec<_>>()))
+            .collect::<Vec<_>>()
+    };
+
+    app.library.set_episode_monitored(series.id, EpisodeRef { season: 1, episode: 2 }, false).await.unwrap();
+    app.library.set_season_monitored(series.id, 1, false).await.unwrap();
+    let off = episodes().await;
+    app.library.set_season_monitored(series.id, 1, true).await.unwrap();
+    let on = episodes().await;
+
+    assert_eq!(off, [(false, vec![false, false]), (true, vec![true])]);
+    assert_eq!(on, [(true, vec![true, true]), (true, vec![true])]);
+}
+
+#[rstest]
+#[tokio::test]
 async fn monitoring_rejects_unknown_targets(#[future(awt)] app: App) {
     app.provider.put_series(series_metadata(1, "Frieren", SourceStatus::Returning, &[(1, &[None])]));
     let series = app.metadata.add_series(ExternalId::Tmdb(1), MonitorPreset::All, ROOT.into(), None).await.unwrap();

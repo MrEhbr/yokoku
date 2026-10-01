@@ -91,9 +91,14 @@ impl Library {
         .await
     }
 
+    /// Sets the season and each of its episodes.
     pub async fn set_season_monitored(&self, id: SeriesId, season: u16, monitored: bool) -> Result<(), LibraryError> {
         self.update_series(id, |series| {
-            series.season_mut(season).ok_or(LibraryError::SeasonNotFound(season))?.monitored = monitored;
+            let season = series.season_mut(season).ok_or(LibraryError::SeasonNotFound(season))?;
+            season.monitored = monitored;
+            for episode in &mut season.episodes {
+                episode.monitored = monitored;
+            }
             Ok(())
         })
         .await
