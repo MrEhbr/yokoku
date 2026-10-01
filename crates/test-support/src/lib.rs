@@ -4,4 +4,5 @@ pub mod clock;
 pub mod events;
 pub mod jellyfin;
 pub mod metadata;
+pub mod services;
 pub mod transmission;

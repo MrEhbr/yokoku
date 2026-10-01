@@ -1,7 +1,6 @@
 use std::{
     fs,
-    net::TcpListener,
-    path::Path,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::Arc,
     time::{Duration, Instant},
@@ -17,14 +16,14 @@ use yokoku_core::{
     events::{EventLog, QueueChanges},
 };
 use yokoku_domain::{
-    Clock, Live,
+    Clock, Live, MediaFileId,
     events::{DownloadCompleted, Event},
 };
 use yokoku_infra::{
     db::Database,
     download_clients::{TransmissionClient, TransmissionSettings},
 };
-use yokoku_test_support::events::publisher;
+use yokoku_test_support::{events::publisher, services};
 
 const WAIT: Duration = Duration::from_secs(20);
 
@@ -36,8 +35,13 @@ impl Clock for SystemTime {
     }
 }
 
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+/// A file in Transmission's download folder, removed on drop.
+struct Downloaded(PathBuf);
+
+impl Drop for Downloaded {
+    fn drop(&mut self) {
+        _ = fs::remove_file(&self.0);
+    }
 }
 
 async fn run(program: &str, args: &[&str]) {
@@ -57,31 +61,22 @@ async fn wait_for<T>(mut attempt: impl AsyncFnMut() -> Option<T>) -> T {
 }
 
 #[tokio::test]
-#[ignore = "needs transmission-daemon, transmission-create and transmission-remote on PATH"]
+#[ignore = "needs the services from `just services`"]
 async fn a_torrent_of_local_data_is_added_and_completes() {
+    let id = MediaFileId::generate().0.simple().to_string();
+    let name = format!("Dune.2021.1080p.{}.mkv", &id[id.len() - 8..]);
+    let video = Downloaded(services::transmission_downloads().join(&name));
+    fs::write(&video.0, (0..2_000_000u32).map(|n| (n % 251) as u8).collect::<Vec<_>>()).unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let downloads = dir.path().join("downloads");
-    fs::create_dir_all(&downloads).unwrap();
-    let video = downloads.join("Dune.2021.1080p.mkv");
-    fs::write(&video, (0..2_000_000u32).map(|n| (n % 251) as u8).collect::<Vec<_>>()).unwrap();
     let torrent_file = dir.path().join("dune.torrent");
-    run("transmission-create", &["-o", path(&torrent_file), path(&video)]).await;
+    run("transmission-create", &["-o", path(&torrent_file), path(&video.0)]).await;
 
-    let port = free_port().to_string();
-    let peer_port = free_port().to_string();
-    let config = dir.path().join("config");
-    let _daemon = Command::new("transmission-daemon")
-        .args(["-f", "-g", path(&config), "-p", &port, "-T", "-w", path(&downloads), "-M", "-O", "-Y"])
-        .args(["-P", &peer_port, "--log-level=error"])
-        .kill_on_drop(true)
-        .spawn()
-        .unwrap();
-
+    let url = services::transmission_url();
     let client = Arc::new(TransmissionClient::new(Live::fixed(TransmissionSettings {
-        url: format!("http://127.0.0.1:{port}/transmission/rpc"),
+        url: url.clone(),
         ..TransmissionSettings::default()
     })));
-    let version = wait_for(async || client.version().await.ok()).await;
+    let version = client.version().await.unwrap();
     assert!(version.starts_with("Transmission 4"), "{version}");
 
     let db = Database::open_in_memory().await.unwrap();
@@ -94,7 +89,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         QueueChanges::new(),
     );
     let added = use_case.add(&TorrentSource::File(fs::read(&torrent_file).unwrap()), None, None).await.unwrap();
-    assert_eq!(added.name, "Dune.2021.1080p.mkv");
+    assert_eq!(added.name, name);
 
     let completed = wait_for(async || {
         use_case.sync().await.unwrap();
@@ -105,7 +100,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
 
     assert_eq!(completed.status.state, DownloadState::Seeding);
     assert_eq!(completed.percent_done(), 100);
-    assert_eq!(completed.content_path(), video);
+    assert_eq!(completed.content_path(), video.0);
     let events: Vec<Event> = EventLog::new(db.clone())
         .read_after(None, 10)
         .await
@@ -119,7 +114,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
             &DownloadCompleted {
                 download: added.id,
                 name: added.name,
-                content_path: video.clone(),
+                content_path: video.0.clone(),
                 item: None,
                 season: None
             }
@@ -127,16 +122,16 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
         )
     );
 
-    let all = client.all_torrents().await.unwrap();
-    assert_eq!(all.len(), 1);
-    assert_eq!(all[0].labels, ["yokoku"]);
-    assert!(!all[0].seeding_done);
+    let ours = async || client.all_torrents().await.unwrap().into_iter().find(|torrent| torrent.hash == completed.hash);
+    let torrent = ours().await.unwrap();
+    assert_eq!(torrent.labels, ["yokoku"]);
+    assert!(!torrent.seeding_done);
 
-    run("transmission-remote", &[&format!("127.0.0.1:{port}"), "-t", "all", "-sr", "0"]).await;
-    wait_for(async || client.all_torrents().await.unwrap()[0].seeding_done.then_some(())).await;
+    run("transmission-remote", &[&url, "-t", &completed.hash, "-sr", "0"]).await;
+    wait_for(async || ours().await?.seeding_done.then_some(())).await;
 
     client.remove(&completed.hash, true).await.unwrap();
-    wait_for(async || (client.all_torrents().await.unwrap().is_empty() && !video.exists()).then_some(())).await;
+    wait_for(async || (ours().await.is_none() && !video.0.exists()).then_some(())).await;
 }
 
 fn path(path: &Path) -> &str {

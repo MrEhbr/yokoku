@@ -36,9 +36,13 @@ install *opts="":
 test *opts="--workspace":
     @cargo nextest run {{ opts }}
 
-# Run integration tests
+# Run the integration tests against the services from `just services`
 test-integration filter="":
-    @cargo nextest run --workspace -E 'binary(/integration_/){{ if filter != "" { " & test(/" + filter + "/)" } else { "" } }}' --run-ignored all
+    @cargo nextest run --workspace --run-ignored only {{ if filter != "" { "-E 'test(/" + filter + "/)'" } else { "" } }}
+
+# Start Jellyfin and Transmission for development and the integration tests; state in data/services
+services *args="":
+    @nix run .#services -- {{ args }}
 
 # Generate code coverage report (requires: cargo install cargo-llvm-cov)
 test-coverage *opts="--workspace":

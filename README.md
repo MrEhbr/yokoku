@@ -63,6 +63,17 @@ just run root add movies "$PWD/data/library/movies"
 
 How web code is organized and written: [ARCHITECTURE.md §3.1](docs/ARCHITECTURE.md#31-where-things-live).
 
+`just services` runs Jellyfin (http://127.0.0.1:18096, user `dev` without a password) and
+Transmission (http://127.0.0.1:19091) from the dev shell, with their state in `data/services`.
+Jellyfin's libraries cover `data/library/series` and `data/library/movies`; point yokoku at them:
+
+```bash
+just services                           # Leave running; the integration tests use it too
+export APP__JELLYFIN__URL=http://127.0.0.1:18096 APP__JELLYFIN__API_KEY=yokoku-dev-key APP__JELLYFIN__USER=dev
+export APP__TRANSMISSION__URL=http://127.0.0.1:19091/transmission/rpc
+just test-integration [filter]          # Ignored tests: these services, ffprobe, real TMDB and TVDB
+```
+
 
 
 ### Nix Development Shell

@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -23,6 +24,8 @@
         "x86_64-darwin"
         "aarch64-darwin"
       ];
+
+      imports = [ ./nix/services.nix ];
 
       flake.overlays.default = final: prev: {
         # rustfmt comes from nightly; rustfmt.toml uses nightly-only options.
@@ -45,7 +48,7 @@
       };
 
       perSystem =
-        { system, pkgs, ... }:
+        { config, system, pkgs, ... }:
         {
           _module.args.pkgs = import inputs.nixpkgs {
             inherit system;
@@ -56,6 +59,7 @@
           };
 
           devShells.default = pkgs.mkShell {
+            inputsFrom = [ config.devShells.services ];
             packages = with pkgs; [
               rustToolchain
               rust-analyzer
@@ -74,7 +78,6 @@
               zig_0_13
               curl
               prek
-              transmission_4
             ];
 
             env = {
