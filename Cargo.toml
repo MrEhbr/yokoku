@@ -17,7 +17,7 @@ yokoku-web = { path = "crates/web" }
 
 anyhow = "1.0"
 async-trait = "0.1"
-isolang = { version = "2.4", features = ["lowercase_names"] }
+isolang = { version = "2.4", features = ["list_languages", "lowercase_names"] }
 jiff = "0.2"
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls"] }
 serde = { version = "1.0", features = ["derive"] }

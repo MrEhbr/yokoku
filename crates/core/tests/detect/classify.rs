@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use isolang::Language;
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_core::media::detect::{Classified, ListedFile};
@@ -137,6 +138,21 @@ fn reads_subtitle_language_and_flags(
 
     let tags = &classified.videos[0].subtitles[0].tags;
     assert_eq!(tags, &SubtitleTags { language: language.map(Into::into), sdh, forced });
+}
+
+#[test]
+fn reads_every_single_word_language_name_as_isolang_does() {
+    for language in isolang::languages().filter(|language| language.to_639_1().is_some()) {
+        let name = language.to_name();
+        if name.contains(['.', '_', ' ', '-']) || matches!(name.len(), 2 | 3) {
+            continue;
+        }
+        let expected = Language::from_name_lowercase(&name.to_lowercase()).and_then(|found| found.to_639_1());
+
+        let classified = Classified::from_files(&files(&["Movie.mkv", &format!("Movie.{name}.srt")]));
+
+        assert_eq!(classified.videos[0].subtitles[0].tags.language.as_deref(), expected, "{name}");
+    }
 }
 
 fn any_path() -> impl Strategy<Value = String> {

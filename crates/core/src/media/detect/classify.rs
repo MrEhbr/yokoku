@@ -1,4 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 
 use isolang::Language;
 use yokoku_domain::SubtitleTags;
@@ -18,6 +22,15 @@ const EXTRAS_FOLDERS: &[&str] = &[
     "shorts",
 ];
 /// ISO 639-2/B codes and their ISO 639-3 equivalents.
+/// Lowercase English names, each to the first language with that name.
+static LANGUAGE_NAMES: LazyLock<HashMap<String, Language>> = LazyLock::new(|| {
+    let mut names = HashMap::new();
+    for language in isolang::languages() {
+        names.entry(language.to_name().to_ascii_lowercase()).or_insert(language);
+    }
+    names
+});
+
 const BIBLIOGRAPHIC_CODES: [(&str, &str); 20] = [
     ("alb", "sqi"),
     ("arm", "hye"),
@@ -171,7 +184,8 @@ impl Subtitle {
         let language = match code.len() {
             2 => Language::from_639_1(code),
             3 => Language::from_639_3(code),
-            _ => Language::from_name_lowercase(code),
+            _ if code.chars().all(char::is_alphabetic) => LANGUAGE_NAMES.get(code).copied(),
+            _ => None,
         };
         language?.to_639_1().map(str::to_owned)
     }
