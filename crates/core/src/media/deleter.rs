@@ -35,12 +35,13 @@ impl Deleter {
 
     /// The library files holding any of `target`.
     pub async fn files_of(&self, target: FileTarget) -> Result<Vec<MediaFile>, MediaError> {
-        Ok(self.repo.files().await?.into_iter().filter(|file| file.target.overlaps(&target)).collect())
+        let files = self.repo.files_of(target.item()).await?;
+        Ok(files.into_iter().filter(|file| file.target.overlaps(&target)).collect())
     }
 
     /// The library files of `item`.
     pub async fn files_of_item(&self, item: ItemId) -> Result<Vec<MediaFile>, MediaError> {
-        Ok(self.repo.files().await?.into_iter().filter(|file| file.target.item() == item).collect())
+        Ok(self.repo.files_of(item).await?)
     }
 
     /// Removes the library files holding any of `target`, with their subtitles.
