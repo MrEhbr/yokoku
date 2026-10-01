@@ -72,6 +72,7 @@ just services                           # Leave running; the integration tests u
 export APP__JELLYFIN__URL=http://127.0.0.1:18096 APP__JELLYFIN__API_KEY=yokoku-dev-key APP__JELLYFIN__USER=dev
 export APP__TRANSMISSION__URL=http://127.0.0.1:19091/transmission/rpc
 just test-integration [filter]          # Ignored tests: these services, ffprobe, real TMDB and TVDB
+just services down                      # Stop them from another terminal
 ```
 
 
