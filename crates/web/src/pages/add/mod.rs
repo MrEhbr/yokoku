@@ -17,7 +17,7 @@ use crate::{
         button::{Button, ButtonVariant},
         input::Input,
     },
-    layout::BackButton,
+    layout::{BackButton, RootPrompt},
     route::{Route, SearchText},
 };
 
@@ -34,6 +34,7 @@ pub fn Add(query: SearchText, kind: Kind) -> Element {
         document::Title { "Add · Yokoku" }
         BackButton { fallback: Route::Library {} }
         h1 { class: "yk-page-title mt-4", "Add" }
+        RootPrompt { kind }
         form {
             role: "search",
             class: "mt-6 flex flex-wrap gap-2",

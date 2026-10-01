@@ -18,7 +18,7 @@ use crate::{
         select::{Select, SelectOption},
         skeleton::Skeleton,
     },
-    route::Route,
+    route::{Route, SettingsPart},
 };
 
 /// The options of the picked result; adding it opens its page (FR-1.1, 2.2, 8.1). Closing it
@@ -131,7 +131,11 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
                 AlertTitle { "No root folder for {kind_name}" }
                 AlertDescription {
                     "Add one in "
-                    Link { class: "underline", to: Route::Settings {}, "Settings" }
+                    Link {
+                        class: "underline",
+                        to: Route::Settings { part: SettingsPart::RootFolders },
+                        "Settings"
+                    }
                     ", then try again."
                 }
             }

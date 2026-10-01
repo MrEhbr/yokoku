@@ -20,12 +20,13 @@ use crate::{
         button::Button,
         skeleton::Skeleton,
     },
+    route::SettingsPart,
 };
 
-/// The settings in effect, grouped by what they configure, and the root folders (FR-10.1). A
-/// change is stored in the database over the config file and applies at once.
+/// The settings in effect, grouped by what they configure, and the root folders (FR-10.1), scrolled
+/// to `part`. A change is stored in the database over the config file and applies at once.
 #[component]
-pub fn Settings() -> Element {
+pub fn Settings(part: SettingsPart) -> Element {
     let loaded = use_server_future(settings)?;
     rsx! {
         document::Title { "Settings · Yokoku" }
@@ -45,7 +46,7 @@ pub fn Settings() -> Element {
                     }
                 },
                 Some(Ok(all)) => rsx! {
-                    Sections { settings: all.clone() }
+                    Sections { settings: all.clone(), part }
                 },
             }
         }
@@ -53,7 +54,7 @@ pub fn Settings() -> Element {
 }
 
 #[component]
-fn Sections(settings: Vec<Setting>) -> Element {
+fn Sections(settings: Vec<Setting>, part: SettingsPart) -> Element {
     use_context_provider(|| Unsaved(Signal::new(BTreeMap::new())));
     let of = |section: Section| -> Vec<Setting> {
         settings.iter().filter(|setting| setting.field.section == section).cloned().collect()
@@ -84,7 +85,7 @@ fn Sections(settings: Vec<Setting>) -> Element {
             }
             Group { title: "Metadata", {fields(Section::Metadata)} }
             Group { title: "Library",
-                RootFolders {}
+                RootFolders { scrolled_to: part == SettingsPart::RootFolders }
                 {fields(Section::Library)}
             }
             Group { title: "Import", {fields(Section::Import)} }

@@ -35,8 +35,8 @@ pub(crate) enum Route {
     Downloads {},
     #[route("/history")]
     History {},
-    #[route("/settings")]
-    Settings {},
+    #[route("/settings#:part")]
+    Settings { part: SettingsPart },
 }
 
 impl Route {
@@ -58,8 +58,45 @@ impl Route {
             Self::Upcoming {} => Self::Upcoming {},
             Self::Downloads {} => Self::Downloads {},
             Self::History {} => Self::History {},
-            Self::Settings {} => Self::Settings {},
+            Self::Settings { .. } => Self::settings(),
         }
+    }
+
+    pub(crate) fn settings() -> Self {
+        Self::Settings { part: SettingsPart::Top }
+    }
+}
+
+/// The part of the Settings page scrolled to, as the URL's hash fragment.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum SettingsPart {
+    #[default]
+    Top,
+    RootFolders,
+}
+
+impl SettingsPart {
+    /// The element id; empty for the top.
+    pub(crate) fn id(self) -> &'static str {
+        match self {
+            Self::Top => "",
+            Self::RootFolders => "root-folders",
+        }
+    }
+}
+
+impl fmt::Display for SettingsPart {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.id())
+    }
+}
+
+impl FromStr for SettingsPart {
+    type Err = Infallible;
+
+    /// The top for an unknown part.
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(if value == Self::RootFolders.id() { Self::RootFolders } else { Self::Top })
     }
 }
 
@@ -103,7 +140,19 @@ pub fn App() -> Element {
 mod tests {
     use rstest::rstest;
 
-    use super::{Kind, Route, SearchText};
+    use super::{Kind, Route, SearchText, SettingsPart};
+
+    #[rstest]
+    #[case::top(SettingsPart::Top, "/settings")]
+    #[case::root_folders(SettingsPart::RootFolders, "/settings#root-folders")]
+    fn a_settings_part_is_the_hash_fragment(#[case] part: SettingsPart, #[case] url: &str) {
+        let route = Route::Settings { part };
+
+        let parsed: Route = url.parse().unwrap();
+
+        assert_eq!(route.to_string(), url);
+        assert!(parsed == route, "{url} parsed as {parsed}");
+    }
 
     #[rstest]
     #[case::words("dune part two")]

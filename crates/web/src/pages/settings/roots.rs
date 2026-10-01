@@ -15,11 +15,13 @@ use crate::{
         skeleton::Skeleton,
     },
     format::plural,
+    route::SettingsPart,
 };
 
-/// The folders that hold series and movies (FR-8.1); one holding items cannot be removed.
+/// The folders that hold series and movies (FR-8.1); one holding items cannot be removed. Scrolls
+/// into view once mounted when `scrolled_to`.
 #[component]
-pub(super) fn RootFolders() -> Element {
+pub(super) fn RootFolders(scrolled_to: bool) -> Element {
     let mut listed = use_resource(roots);
     let mut error = use_signal(|| None::<String>);
     let mut kind = use_signal(|| Some(Kind::Series));
@@ -39,7 +41,14 @@ pub(super) fn RootFolders() -> Element {
         adding.set(false);
     };
     rsx! {
-        div { class: "grid gap-3",
+        div {
+            id: SettingsPart::RootFolders.id(),
+            class: "grid scroll-mt-28 gap-3",
+            onmounted: move |mounted: MountedEvent| async move {
+                if scrolled_to {
+                    _ = mounted.scroll_to(ScrollBehavior::Smooth).await;
+                }
+            },
             h3 { class: "font-medium", "Root folders" }
             match &*listed.read() {
                 None => rsx! {

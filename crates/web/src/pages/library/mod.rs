@@ -18,6 +18,7 @@ use crate::{
         load_failed::LoadFailed,
         skeleton::Skeleton,
     },
+    layout::RootPrompt,
     route::{Route, SearchText},
 };
 
@@ -73,6 +74,7 @@ pub fn Library() -> Element {
                 }
             }
         }
+        RootPrompt {}
         FilterBar { filters }
         div { class: "mt-8",
             match &*entries.read() {

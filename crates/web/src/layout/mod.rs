@@ -2,11 +2,12 @@ mod back_button;
 pub mod document_head;
 mod live_downloads;
 mod nav_badges;
+mod root_prompt;
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide::Settings;
 
-pub(crate) use self::{back_button::BackButton, live_downloads::LiveDownloads};
+pub(crate) use self::{back_button::BackButton, live_downloads::LiveDownloads, root_prompt::RootPrompt};
 use self::{
     back_button::use_in_app_history,
     document_head::DocumentHead,
@@ -49,11 +50,11 @@ pub fn Shell() -> Element {
                     }
                     div { class: "ml-auto flex items-center gap-1",
                         Link {
-                            to: Route::Settings {},
+                            to: Route::settings(),
                             class: "inline-flex size-9 items-center justify-center text-muted transition-colors hover:bg-subtle \
                                     hover:text-ink aria-[current=page]:bg-subtle aria-[current=page]:text-ink [&>svg]:size-4",
                             aria_label: "Settings",
-                            aria_current: if section == (Route::Settings {}) { "page" } else { "false" },
+                            aria_current: if section == Route::settings() { "page" } else { "false" },
                             Settings {}
                         }
                         ThemeSwitch {}
