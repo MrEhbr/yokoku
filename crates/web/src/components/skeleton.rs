@@ -12,3 +12,11 @@ pub fn Skeleton(#[props(extends=GlobalAttributes)] attributes: Vec<Attribute>) -
         div { ..merged }
     }
 }
+
+/// The content that takes a [`Skeleton`]'s place, faded in when it mounts.
+#[component]
+pub fn Loaded(children: Element) -> Element {
+    rsx! {
+        div { class: "animate-fade-in motion-reduce:animate-none", {children} }
+    }
+}

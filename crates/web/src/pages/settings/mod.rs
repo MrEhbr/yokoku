@@ -18,7 +18,7 @@ use crate::{
     components::{
         alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
         button::Button,
-        skeleton::Skeleton,
+        skeleton::{Loaded, Skeleton},
     },
     route::SettingsPart,
 };
@@ -46,7 +46,9 @@ pub fn Settings(part: SettingsPart) -> Element {
                     }
                 },
                 Some(Ok(all)) => rsx! {
-                    Sections { settings: all.clone(), part }
+                    Loaded {
+                        Sections { settings: all.clone(), part }
+                    }
                 },
             }
         }

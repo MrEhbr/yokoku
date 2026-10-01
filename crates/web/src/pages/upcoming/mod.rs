@@ -9,7 +9,10 @@ use self::{
 };
 use crate::{
     api::library::calendar::{Period, agenda},
-    components::{load_failed::LoadFailed, skeleton::Skeleton},
+    components::{
+        load_failed::LoadFailed,
+        skeleton::{Loaded, Skeleton},
+    },
 };
 
 /// Episodes and movie releases of monitored items, coming up from today or a week or month at a
@@ -33,18 +36,20 @@ pub fn Upcoming() -> Element {
                 LoadFailed { class: "mt-6", subject: "The calendar" }
             },
             Some(Ok(agenda)) => rsx! {
-                WindowBar { window, agenda: agenda.clone() }
-                div { class: "mt-8",
-                    if agenda.entries.is_empty() {
-                        p { class: "text-muted",
-                            match window().period {
-                                Period::ComingUp => "Nothing is scheduled for monitored items in the next year.",
-                                Period::Week => "Nothing is scheduled for monitored items this week.",
-                                Period::Month => "Nothing is scheduled for monitored items this month.",
+                Loaded {
+                    WindowBar { window, agenda: agenda.clone() }
+                    div { class: "mt-8",
+                        if agenda.entries.is_empty() {
+                            p { class: "text-muted",
+                                match window().period {
+                                    Period::ComingUp => "Nothing is scheduled for monitored items in the next year.",
+                                    Period::Week => "Nothing is scheduled for monitored items this week.",
+                                    Period::Month => "Nothing is scheduled for monitored items this month.",
+                                }
                             }
+                        } else {
+                            AgendaList { entries: agenda.entries.clone(), today: agenda.today }
                         }
-                    } else {
-                        AgendaList { entries: agenda.entries.clone(), today: agenda.today }
                     }
                 }
             },

@@ -11,6 +11,8 @@ use crate::{
     route::Route,
 };
 
+const APPEAR: &str = "animate-fade-in motion-reduce:animate-none";
+
 /// The missing episodes and movies, read again on each navigation and each finished import.
 #[component]
 pub(super) fn WantedBadge() -> Element {
@@ -59,7 +61,10 @@ pub(super) fn QueueBadge() -> Element {
             span { class: "sr-only", ", {active} active" }
         }
         if attention > 0 {
-            Badge { variant: BadgeVariant::Warning, aria_hidden: true,
+            Badge {
+                variant: BadgeVariant::Warning,
+                aria_hidden: true,
+                class: APPEAR,
                 TriangleAlert {}
                 "{attention}"
             }
@@ -71,7 +76,7 @@ pub(super) fn QueueBadge() -> Element {
 #[component]
 fn Count(count: usize) -> Element {
     rsx! {
-        Badge { aria_hidden: true,
+        Badge { aria_hidden: true, class: APPEAR,
             if count > 99 {
                 "99+"
             } else {

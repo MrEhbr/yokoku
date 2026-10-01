@@ -171,7 +171,7 @@ fn Retry(import: ImportId) -> Element {
     rsx! {
         div { class: "flex shrink-0 items-center gap-2",
             if let Some(error) = failed() {
-                span { class: "text-caption text-danger", "{error}" }
+                span { class: "animate-fade-in text-caption text-danger motion-reduce:animate-none", "{error}" }
             }
             Button {
                 size: ButtonSize::Sm,

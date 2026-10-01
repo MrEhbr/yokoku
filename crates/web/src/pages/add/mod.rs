@@ -16,6 +16,7 @@ use crate::{
     components::{
         button::{Button, ButtonVariant},
         input::Input,
+        skeleton::Loaded,
     },
     layout::{BackButton, RootPrompt},
     route::{Route, SearchText},
@@ -138,14 +139,16 @@ fn Results(query: SearchText, kind: Kind, picked: Signal<Option<SearchHit>>) -> 
                 p { class: "text-muted", "No {what} found for “{searched}”." }
             },
             Some(Ok(Some(hits))) => rsx! {
-                ul {
-                    aria_label: "Results",
-                    class: "grid divide-y divide-line border-y border-line",
-                    for hit in hits.iter().cloned() {
-                        HitRow {
-                            key: "{hit.source}",
-                            hit,
-                            on_pick: move |hit| picked.set(Some(hit)),
+                Loaded {
+                    ul {
+                        aria_label: "Results",
+                        class: "grid divide-y divide-line border-y border-line",
+                        for hit in hits.iter().cloned() {
+                            HitRow {
+                                key: "{hit.source}",
+                                hit,
+                                on_pick: move |hit| picked.set(Some(hit)),
+                            }
                         }
                     }
                 }

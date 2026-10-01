@@ -21,7 +21,7 @@ use crate::{
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
         remove_item::RemoveItem,
-        skeleton::Skeleton,
+        skeleton::{Loaded, Skeleton},
         unrecognised_files::UnrecognisedFiles,
     },
     dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, rename::RenameButton},
@@ -51,7 +51,9 @@ pub fn MovieDetail(id: MovieId) -> Element {
                     p { class: "mt-2 text-muted", "It may have been removed from the library." }
                 },
                 Some(Ok(Some(movie))) => rsx! {
-                    Page { key: "{movie.id}", movie: movie.clone() }
+                    Loaded {
+                        Page { key: "{movie.id}", movie: movie.clone() }
+                    }
                 },
             }
         }

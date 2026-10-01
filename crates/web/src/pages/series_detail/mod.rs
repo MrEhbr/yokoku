@@ -24,7 +24,7 @@ use crate::{
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
         remove_item::RemoveItem,
-        skeleton::Skeleton,
+        skeleton::{Loaded, Skeleton},
         unrecognised_files::UnrecognisedFiles,
     },
     dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, rename::RenameButton},
@@ -55,7 +55,9 @@ pub fn SeriesDetail(id: SeriesId) -> Element {
                     p { class: "mt-2 text-muted", "It may have been removed from the library." }
                 },
                 Some(Ok(Some(series))) => rsx! {
-                    Page { key: "{series.id}", series: series.clone() }
+                    Loaded {
+                        Page { key: "{series.id}", series: series.clone() }
+                    }
                 },
             }
         }

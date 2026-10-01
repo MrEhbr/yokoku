@@ -14,13 +14,15 @@ use dioxus_primitives::{
 pub fn Dialog(props: DialogRootProps) -> Element {
     let base = attributes!(div {
         class: "relative my-auto flex w-full max-w-dialog flex-col gap-4 \
-                border border-ink bg-surface p-5 text-ink shadow-dialog",
+                border border-ink bg-surface p-5 text-ink shadow-dialog \
+                group-data-[state=open]/dialog:animate-popover-in \
+                group-data-[state=closed]/dialog:animate-popover-out motion-reduce:animate-none",
     });
     let merged = merge_attributes(vec![base, props.attributes]);
 
     rsx! {
         dialog::DialogRoot {
-            class: "fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-overlay p-4 \
+            class: "group/dialog fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-overlay p-4 \
                     data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
             id: props.id,
             is_modal: props.is_modal,

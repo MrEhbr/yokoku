@@ -40,7 +40,8 @@ pub fn HoverCardTrigger(props: HoverCardTriggerProps) -> Element {
 pub fn HoverCardContent(props: HoverCardContentProps) -> Element {
     let base = attributes!(div {
         class: "absolute z-50 w-64 border border-control bg-surface p-4 text-ink shadow-popover \
-                {POPOVER_PLACEMENT}",
+                data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out \
+                motion-reduce:animate-none {POPOVER_PLACEMENT}",
     });
     let merged = merge_attributes(vec![base, props.attributes]);
 

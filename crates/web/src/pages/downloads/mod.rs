@@ -5,7 +5,10 @@ use dioxus::prelude::*;
 use self::torrents::Torrents;
 use crate::{
     api::downloads::downloads,
-    components::{load_failed::LoadFailed, skeleton::Skeleton},
+    components::{
+        load_failed::LoadFailed,
+        skeleton::{Loaded, Skeleton},
+    },
     dialogs::add_torrent::AddTorrentButton,
     layout::LiveDownloads,
 };
@@ -38,7 +41,9 @@ pub fn Downloads() -> Element {
                     LoadFailed { subject: "Downloads" }
                 },
                 Some(Ok(downloads)) => rsx! {
-                    Torrents { downloads }
+                    Loaded {
+                        Torrents { downloads }
+                    }
                 },
             }
         }

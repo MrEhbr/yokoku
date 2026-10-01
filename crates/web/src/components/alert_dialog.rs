@@ -14,7 +14,7 @@ use dioxus_primitives::{
 #[component]
 pub fn AlertDialog(props: AlertDialogRootProps) -> Element {
     let base = attributes!(div {
-        class: "fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-overlay p-4 \
+        class: "group/dialog fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-overlay p-4 \
                 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
     });
     let merged = merge_attributes(vec![base, props.attributes]);
@@ -28,7 +28,10 @@ pub fn AlertDialog(props: AlertDialogRootProps) -> Element {
             attributes: merged,
             alert_dialog::AlertDialogContent {
                 class: "relative my-auto flex w-full max-w-dialog flex-col gap-4 border border-ink \
-                                                bg-surface p-5 text-ink shadow-dialog"
+                                                bg-surface p-5 text-ink shadow-dialog \
+                                                group-data-[state=open]/dialog:animate-popover-in \
+                                                group-data-[state=closed]/dialog:animate-popover-out \
+                                                motion-reduce:animate-none"
                     .to_string(),
                 {props.children}
             }

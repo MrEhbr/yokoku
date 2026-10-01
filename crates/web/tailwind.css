@@ -51,6 +51,21 @@
     outline: 2px solid var(--yk-ink);
     outline-offset: 3px;
   }
+
+  details { interpolate-size: allow-keywords; }
+  details::details-content {
+    block-size: 0;
+    overflow-y: clip;
+    overflow-clip-margin: 5px;
+    transition:
+      block-size 200ms var(--ease-interface),
+      content-visibility 200ms var(--ease-interface) allow-discrete;
+  }
+  details[open]::details-content { block-size: auto; }
+
+  @media (prefers-reduced-motion: reduce) {
+    details::details-content { transition: none; }
+  }
 }
 
 @media (max-width: 39.999rem) {
