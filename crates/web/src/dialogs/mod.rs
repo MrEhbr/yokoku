@@ -18,7 +18,7 @@ fn ClosableDialog(title: &'static str, open: Signal<bool>, #[props(default)] wid
         Dialog {
             open: Some(open()),
             on_open_change: move |next| open.set(next),
-            class: if wide { "max-w-dialog-wide!" },
+            class: if wide { "max-w-dialog-wide!" } else { "" },
             div { class: "flex items-start justify-between gap-4",
                 DialogTitle { "{title}" }
                 Button {

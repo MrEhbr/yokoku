@@ -83,7 +83,7 @@ pub(crate) fn EpisodePicker(
     let choice = use_memo(move || episode.cloned());
     rsx! {
         div { class: "grid gap-1.5",
-            Label { html_for: "{id}", class: if hide_label { "sr-only" }, "{label}" }
+            Label { html_for: "{id}", class: if hide_label { "sr-only" } else { "" }, "{label}" }
             Combobox::<(u16,u16)> {
                 id: "{id}",
                 value: Some(choice.into()),
