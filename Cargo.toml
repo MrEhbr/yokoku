@@ -58,6 +58,9 @@ opt-level = "z"
 
 [profile.bench]
 inherits = "release"
+# Symbols and line tables for profiles taken with `--profile-time`.
+strip = false
+debug = "line-tables-only"
 
 # The profile that 'dist' will build with
 [profile.dist]

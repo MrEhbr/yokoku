@@ -1,7 +1,9 @@
-use std::{fs, path::Path, sync::Arc};
+use std::{fs, path::Path, sync::Arc, time::Duration};
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use async_trait::async_trait;
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main, profiler::Profiler};
 use jiff::{Timestamp, tz::TimeZone};
+use pprof::{ProfilerGuard, protos::Message};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use yokoku_core::{
@@ -11,13 +13,15 @@ use yokoku_core::{
         ports::{MovieRepo, SeriesRepo},
     },
     media::{
-        Import, ImportRow, ImportStatus, MediaFile, Resolution, RowMatch, ScanReport, Scanner,
-        ports::{Changes, MediaRepo},
+        AudioStream, Import, ImportRow, ImportStatus, MediaFile, MediaInfo, Prober, Resolution, RowMatch, ScanReport,
+        Scanner, SubtitleStream, VideoStream,
+        ports::{Changes, MediaProbe, MediaRepo, ProbeError},
     },
 };
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder, Live,
-    MediaFileId, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder,
+    ItemId, Live, MediaFileId, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesId,
+    SeriesMetadata, SourceStatus,
 };
 use yokoku_infra::{
     db::Database,
@@ -28,6 +32,8 @@ const SEASONS: u16 = 2;
 const EPISODES: u16 = 10;
 const IMPORTS_PER_ITEM: usize = 2;
 const SIZES: [usize; 2] = [100, 1000];
+const LONG_SEASONS: u16 = 12;
+const EPISODES_PER_SEASON: [u16; 2] = [10, 100];
 
 /// A library of `items` items, half series and half movies, every episode and movie with a file
 /// on disk, and finished imports as history.
@@ -179,5 +185,95 @@ fn bench_library(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_library);
+/// One series' files, `seasons` folders of `episodes` each, every video with a subtitle beside it
+/// and stored media info.
+struct LongSeries {
+    _dir: TempDir,
+    db: Database,
+    series: SeriesId,
+}
+
+impl LongSeries {
+    async fn new(seasons: u16, episodes: u16) -> Self {
+        let dir = TempDir::new().unwrap();
+        let db = Database::open(&dir.path().join("yokoku.db")).await.unwrap();
+        let series = SeriesId::generate();
+        let mut changes = Changes::default();
+        for season in 1..=seasons {
+            for episode in 1..=episodes {
+                let path = dir.path().join(format!("tv/Long (2020)/Season {season:02}/S{season:02}E{episode:03}.mkv"));
+                let span = EpisodeSpan::single(EpisodeRef { season, episode });
+                changes.added_files.push(media_file(&path, FileTarget::Episodes { series, span }));
+                fs::write(path.with_extension("en.srt"), [0]).unwrap();
+            }
+        }
+        MediaRepo::save(&db, &changes).await.unwrap();
+        for file in &changes.added_files {
+            db.save_media_info(file.id, &full_hd()).await.unwrap();
+        }
+        Self { _dir: dir, db, series }
+    }
+
+    fn prober(&self) -> Prober {
+        Prober::new(Arc::new(self.db.clone()), Arc::new(LocalFileSystem), Arc::new(NoProbe))
+    }
+}
+
+fn full_hd() -> MediaInfo {
+    MediaInfo {
+        duration: Some(Duration::from_secs(1440)),
+        video: Some(VideoStream { codec: "h264".into(), width: 1920, height: 1080 }),
+        audio: vec![AudioStream { codec: "aac".into(), language: Some("jpn".into()), channels: 2 }],
+        subtitles: vec![SubtitleStream { codec: "ass".into(), language: Some("eng".into()), forced: false }],
+    }
+}
+
+/// A probe that is never installed.
+struct NoProbe;
+
+#[async_trait]
+impl MediaProbe for NoProbe {
+    async fn probe(&self, _path: &Path) -> Result<MediaInfo, ProbeError> {
+        Err(ProbeError::Missing)
+    }
+}
+
+fn bench_prober(c: &mut Criterion) {
+    let runtime = Runtime::new().unwrap();
+    let mut group = c.benchmark_group("prober");
+    group.sample_size(10);
+    for episodes in EPISODES_PER_SEASON {
+        let long = runtime.block_on(LongSeries::new(LONG_SEASONS, episodes));
+        let (prober, item) = (long.prober(), ItemId::Series(long.series));
+        let files = usize::from(LONG_SEASONS * episodes);
+        group.bench_with_input(BenchmarkId::new("details", files), &files, |b, &files| {
+            b.iter(|| assert_eq!(runtime.block_on(prober.details(item)).unwrap().len(), files));
+        });
+    }
+    group.finish();
+}
+
+/// Samples a benchmark run with `--profile-time` and writes `profile.pb` beside its report.
+struct Pprof(Option<ProfilerGuard<'static>>);
+
+impl Profiler for Pprof {
+    fn start_profiling(&mut self, _id: &str, _dir: &Path) {
+        self.0 = Some(ProfilerGuard::new(1000).unwrap());
+    }
+
+    fn stop_profiling(&mut self, _id: &str, dir: &Path) {
+        let Some(guard) = self.0.take() else { return };
+        let profile = guard.report().build().unwrap().pprof().unwrap();
+        let mut content = Vec::new();
+        profile.write_to_vec(&mut content).unwrap();
+        fs::create_dir_all(dir).unwrap();
+        fs::write(dir.join("profile.pb"), content).unwrap();
+    }
+}
+
+criterion_group! {
+    name = benches;
+    config = Criterion::default().with_profiler(Pprof(None));
+    targets = bench_library, bench_prober
+}
 criterion_main!(benches);
