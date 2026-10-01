@@ -7,7 +7,7 @@ use std::{
 
 use tracing::{info, instrument, warn};
 use yokoku_domain::{
-    FileTarget, Live, MediaFileId, MovieId, Series, SeriesId,
+    FileTarget, ItemId, Live, MediaFileId, MovieId, Series, SeriesId,
     events::FileRenamed,
     naming::{Naming, subtitle_path},
 };
@@ -117,7 +117,11 @@ impl Renamer {
         let mut series: HashMap<SeriesId, Option<Series>> = HashMap::new();
         let mut plan = RenamePlan::default();
 
-        for file in self.repo.files().await?.into_iter().filter(|file| scope.contains(file.target)) {
+        let files = match scope.item() {
+            Some(item) => self.repo.files_of(item).await?,
+            None => self.repo.files().await?,
+        };
+        for file in files {
             let skip = |reason| Skipped { path: file.path.clone(), reason };
             let Some(root) = roots.iter().find(|root| file.path.starts_with(&root.path)) else {
                 plan.skipped.push(skip(SkipReason::OutsideRoots));
@@ -235,12 +239,12 @@ impl Renamer {
 }
 
 impl RenameScope {
-    fn contains(self, target: FileTarget) -> bool {
-        match (self, target) {
-            (Self::All, _) => true,
-            (Self::Series(id), FileTarget::Episodes { series, .. }) => id == series,
-            (Self::Movie(id), FileTarget::Movie(movie)) => id == movie,
-            _ => false,
+    /// The one item in scope; `None` for the whole library.
+    fn item(self) -> Option<ItemId> {
+        match self {
+            Self::All => None,
+            Self::Series(id) => Some(ItemId::Series(id)),
+            Self::Movie(id) => Some(ItemId::Movie(id)),
         }
     }
 }

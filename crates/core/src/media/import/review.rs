@@ -1,13 +1,13 @@
 use std::{
-    collections::{HashMap, hash_map::Entry},
+    collections::{HashMap, HashSet, hash_map::Entry},
     path::PathBuf,
     sync::Arc,
 };
 
 use jiff::Timestamp;
 use yokoku_domain::{
-    Clock, Confidence, DownloadId, EpisodeRef, EpisodeSpan, FileTarget, ImportId, MediaFileId, Series, SeriesId,
-    events::FilesImported,
+    Clock, Confidence, DownloadId, EpisodeRef, EpisodeSpan, FileTarget, ImportId, ItemId, MediaFileId, Series,
+    SeriesId, events::FilesImported,
 };
 
 use crate::{
@@ -378,8 +378,12 @@ impl Reviewer {
     /// Per row: another row holds the same episode or movie, or a library file already does and the
     /// row does not replace it. A row kept beside both has neither, and causes none.
     async fn conflicts(&self, import: &Import) -> Result<Vec<Vec<Conflict>>, MediaError> {
-        let linked: Vec<FileTarget> = self.repo.files().await?.into_iter().map(|file| file.target).collect();
         let active = |row: &ImportRow| row.target().filter(|_| !row.skipped && row.resolution != Resolution::KeepBoth);
+        let items: HashSet<ItemId> = import.rows.iter().filter_map(active).map(|target| target.item()).collect();
+        let mut linked: Vec<FileTarget> = Vec::new();
+        for item in items {
+            linked.extend(self.repo.files_of(item).await?.into_iter().map(|file| file.target));
+        }
 
         Ok(import
             .rows
