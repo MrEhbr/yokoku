@@ -47,7 +47,7 @@ pub(super) fn PosterGrid(entries: Vec<Entry>) -> Element {
                     }
                     div { class: "mt-2 flex flex-wrap gap-x-3 gap-y-1",
                         Lifecycle { status: entry.status }
-                        Files { present: entry.has_files }
+                        Files { kind: entry.status.kind(), files: entry.files }
                     }
                     if let Some(release) = entry.next_release {
                         p { class: "mt-1 text-caption text-muted", "Next {date(release)}" }

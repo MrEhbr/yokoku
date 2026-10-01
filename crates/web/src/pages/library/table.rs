@@ -43,7 +43,7 @@ pub(super) fn EntryTable(entries: Vec<Entry>) -> Element {
                             Lifecycle { status: entry.status }
                         }
                         TableCell {
-                            Files { present: entry.has_files }
+                            Files { kind: entry.status.kind(), files: entry.files }
                         }
                         TableCell { class: "tabular-nums whitespace-nowrap",
                             {entry.next_release.map_or_else(|| "—".to_owned(), date)}

@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt};
 
 use jiff::{Timestamp, civil::Date};
-use yokoku_domain::{ExternalId, ItemId, MediaKind, Movie, MovieStatus, Series, SeriesStatus};
+use yokoku_domain::{ExternalId, FileStatus, ItemId, MediaKind, Movie, MovieStatus, Series, SeriesStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LibraryStatus {
@@ -27,9 +27,17 @@ pub struct LibraryEntry {
     pub year: Option<i16>,
     pub poster_path: Option<String>,
     pub status: LibraryStatus,
-    pub has_files: bool,
+    pub files: FileCount,
     pub added_at: Timestamp,
     pub next_release: Option<Date>,
+}
+
+/// A movie's file, or a series' episode files, on disk and missing; missing counts only what is
+/// monitored and released without a file, as on the Wanted page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct FileCount {
+    pub downloaded: usize,
+    pub missing: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -57,7 +65,13 @@ impl LibraryEntry {
             year: series.year,
             poster_path: series.artwork.poster.clone(),
             status: LibraryStatus::Series(series.status(today)),
-            has_files: series.episodes().any(|episode| episode.file.is_some()),
+            files: FileCount {
+                downloaded: series.episodes().filter(|episode| episode.file.is_some()).count(),
+                missing: series
+                    .monitored_episodes()
+                    .filter(|(_, episode)| episode.file_status(today) == FileStatus::Missing)
+                    .count(),
+            },
             added_at: series.added_at,
             next_release: series.next_episode(today).and_then(|(_, episode)| episode.air_date),
         }
@@ -72,7 +86,10 @@ impl LibraryEntry {
             year: movie.year,
             poster_path: movie.artwork.poster.clone(),
             status: LibraryStatus::Movie(movie.status(today)),
-            has_files: movie.file.is_some(),
+            files: FileCount {
+                downloaded: usize::from(movie.file.is_some()),
+                missing: usize::from(movie.monitored && movie.file_status(today) == FileStatus::Missing),
+            },
             added_at: movie.added_at,
             next_release: releases.into_iter().flatten().filter(|&date| date >= today).min(),
         }
@@ -109,7 +126,7 @@ mod tests {
     use rstest::rstest;
     use yokoku_domain::{ExternalId, ItemId, MediaKind, MovieId, MovieStatus, SeriesId, SeriesStatus};
 
-    use super::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
+    use super::{FileCount, LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
 
     /// Added `hour` hours after the epoch, with its next release `days` from 2026-09-26.
     fn entry(title: &str, status: LibraryStatus, hour: i64, days: Option<i64>) -> LibraryEntry {
@@ -124,7 +141,7 @@ mod tests {
             year: None,
             poster_path: None,
             status,
-            has_files: false,
+            files: FileCount::default(),
             added_at: Timestamp::UNIX_EPOCH + hour.hours(),
             next_release: days.map(|days| date(2026, 9, 26) + days.days()),
         }

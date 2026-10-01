@@ -50,6 +50,14 @@ pub enum Sort {
     NextRelease,
 }
 
+/// A movie's file, or a series' episode files, on disk and missing; missing counts only what is
+/// monitored and released without a file.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileCount {
+    pub downloaded: usize,
+    pub missing: usize,
+}
+
 /// One item of the library list.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
@@ -57,7 +65,7 @@ pub struct Entry {
     pub title: String,
     pub year: Option<i16>,
     pub status: Status,
-    pub has_files: bool,
+    pub files: FileCount,
     pub next_release: Option<Date>,
     /// The poster's URL; `None` when the item has no poster.
     pub poster: Option<String>,
@@ -159,7 +167,7 @@ mod server {
     };
     use yokoku_domain::{ArtworkKind, MediaKind, MovieStatus, SeriesStatus};
 
-    use super::{Entry, FileStatus, Kind, Library, Sort, Status};
+    use super::{Entry, FileCount, FileStatus, Kind, Library, Sort, Status};
     use crate::api::artwork;
 
     pub(super) async fn library(
@@ -271,7 +279,7 @@ mod server {
                 title: entry.title,
                 year: entry.year,
                 status: entry.status.into(),
-                has_files: entry.has_files,
+                files: FileCount { downloaded: entry.files.downloaded, missing: entry.files.missing },
                 next_release: entry.next_release,
             }
         }

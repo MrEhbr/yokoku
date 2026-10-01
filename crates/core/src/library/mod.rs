@@ -19,7 +19,7 @@ pub use calendar::{
 pub use error::LibraryError;
 pub use files::FileTracker;
 use jiff::civil::Date;
-pub use listing::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
+pub use listing::{FileCount, LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
 pub use metadata::{MetadataService, RefreshFailure, RefreshReport, SearchHit};
 use tracing::{info, instrument};
 use yokoku_domain::{

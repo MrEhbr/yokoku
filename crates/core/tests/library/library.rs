@@ -1,7 +1,7 @@
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use jiff::{SignedDuration, ToSpan};
 use rstest::{fixture, rstest};
-use yokoku_core::library::{LibraryError, LibraryFilter, LibrarySort, LibraryStatus};
+use yokoku_core::library::{FileCount, LibraryError, LibraryFilter, LibrarySort, LibraryStatus};
 use yokoku_domain::{
     EpisodeRef, ExternalId, MediaFileId, MediaKind, MonitorPreset, MovieStatus, Numbering, Releases, SeriesId,
     SeriesStatus, SourceStatus,
@@ -78,14 +78,15 @@ async fn list_entries_show_status_files_and_next_release() {
     let entries = app.library.list(LibraryFilter::default(), LibrarySort::Title).await.unwrap();
 
     let summary: Vec<_> =
-        entries.iter().map(|entry| (entry.title.as_str(), entry.status, entry.has_files, entry.next_release)).collect();
+        entries.iter().map(|entry| (entry.title.as_str(), entry.status, entry.files, entry.next_release)).collect();
+    let files = |downloaded, missing| FileCount { downloaded, missing };
     assert_eq!(
         summary,
         [
-            ("Arrakis", LibraryStatus::Movie(MovieStatus::Announced), false, Some(TODAY + 30.days())),
-            ("Dune", LibraryStatus::Movie(MovieStatus::Released), false, Some(TODAY + 60.days())),
-            ("frieren", LibraryStatus::Series(SeriesStatus::Continuing), true, Some(TODAY + 7.days())),
-            ("Pluto", LibraryStatus::Series(SeriesStatus::Ended), false, None),
+            ("Arrakis", LibraryStatus::Movie(MovieStatus::Announced), files(0, 0), Some(TODAY + 30.days())),
+            ("Dune", LibraryStatus::Movie(MovieStatus::Released), files(0, 1), Some(TODAY + 60.days())),
+            ("frieren", LibraryStatus::Series(SeriesStatus::Continuing), files(1, 0), Some(TODAY + 7.days())),
+            ("Pluto", LibraryStatus::Series(SeriesStatus::Ended), files(0, 1), None),
         ]
     );
 }
