@@ -263,9 +263,11 @@ async fn the_wanted_page_lists_aired_episodes_without_a_file() {
     let service = Service::start(dir.path());
 
     let page = service.get("/wanted");
+    let missing = service.get("/api/missing");
 
     assert!(page.starts_with("HTTP/1.1 200"), "{page}");
-    assert!(page.contains("Frieren") && page.contains("Departure"), "{page}");
+    assert!(page.contains("Frieren") && page.contains("1 episode missing"), "{page}");
+    assert!(missing.contains("Departure"), "{missing}");
 }
 
 #[tokio::test]
