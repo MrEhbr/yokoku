@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use reqwest::{Method, StatusCode};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tracing::debug;
 use yokoku_core::integrations::ports::{MediaServer, MediaServerError};
 use yokoku_domain::{Live, Secret};
@@ -68,13 +68,17 @@ impl JellyfinClient {
             _ => Ok(response),
         }
     }
+
+    async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T, MediaServerError> {
+        let response = self.send(Method::GET, path).await?;
+        response.json().await.map_err(|error| MediaServerError::Unavailable(error.into()))
+    }
 }
 
 #[async_trait]
 impl MediaServer for JellyfinClient {
     async fn version(&self) -> Result<String, MediaServerError> {
-        let response = self.send(Method::GET, "/System/Info").await?;
-        let info: SystemInfo = response.json().await.map_err(|error| MediaServerError::Unavailable(error.into()))?;
+        let info: SystemInfo = self.get("/System/Info").await?;
         Ok(format!("Jellyfin {}", info.version))
     }
 
