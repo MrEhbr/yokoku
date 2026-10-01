@@ -22,6 +22,28 @@ struct StreamRow {
     forced: bool,
 }
 
+fn media_info(row: InfoRow, streams: Vec<StreamRow>) -> Result<MediaInfo, DbError> {
+    let video = match (row.video_codec, row.width, row.height) {
+        (Some(codec), Some(width), Some(height)) => Some(VideoStream { codec, width, height }),
+        _ => None,
+    };
+    let mut info = MediaInfo { duration: row.duration_ms.map(Duration::from_millis), video, ..MediaInfo::default() };
+    for stream in streams {
+        match (stream.kind.as_str(), stream.channels) {
+            ("audio", Some(channels)) => {
+                info.audio.push(AudioStream { codec: stream.codec, language: stream.language, channels });
+            },
+            ("subtitle", None) => info.subtitles.push(SubtitleStream {
+                codec: stream.codec,
+                language: stream.language,
+                forced: stream.forced,
+            }),
+            (kind, _) => return Err(DbError::InvalidValue(format!("stream kind {kind}"))),
+        }
+    }
+    Ok(info)
+}
+
 impl Database {
     pub(crate) async fn load_media_info(&self, file: MediaFileId) -> Result<Option<MediaInfo>, DbError> {
         let file = file.to_string();
@@ -40,27 +62,7 @@ impl Database {
         .bind(&file)
         .fetch_all(self.pool())
         .await?;
-
-        let video = match (row.video_codec, row.width, row.height) {
-            (Some(codec), Some(width), Some(height)) => Some(VideoStream { codec, width, height }),
-            _ => None,
-        };
-        let mut info =
-            MediaInfo { duration: row.duration_ms.map(Duration::from_millis), video, ..MediaInfo::default() };
-        for stream in streams {
-            match (stream.kind.as_str(), stream.channels) {
-                ("audio", Some(channels)) => {
-                    info.audio.push(AudioStream { codec: stream.codec, language: stream.language, channels });
-                },
-                ("subtitle", None) => info.subtitles.push(SubtitleStream {
-                    codec: stream.codec,
-                    language: stream.language,
-                    forced: stream.forced,
-                }),
-                (kind, _) => return Err(DbError::InvalidValue(format!("stream kind {kind}"))),
-            }
-        }
-        Ok(Some(info))
+        Ok(Some(media_info(row, streams)?))
     }
 
     pub(crate) async fn store_media_info(&self, file: MediaFileId, info: &MediaInfo) -> Result<(), DbError> {
