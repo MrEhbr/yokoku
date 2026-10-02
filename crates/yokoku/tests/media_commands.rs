@@ -75,8 +75,8 @@ impl Setup {
         let mut command = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
         command
             .current_dir(self.dir.path())
-            .env("APP__DATABASE__PATH", &self.database)
-            .env("APP__CLOCK__TIMEZONE", "UTC");
+            .env("YOKOKU__DATABASE__PATH", &self.database)
+            .env("YOKOKU__CLOCK__TIMEZONE", "UTC");
         command
     }
 
@@ -155,8 +155,8 @@ async fn the_jellyfin_api_key_can_be_read_from_a_file() {
     setup
         .command()
         .args(["jellyfin", "test"])
-        .env("APP__JELLYFIN__URL", jellyfin.uri())
-        .env("APP__JELLYFIN__API_KEY__FILE", &key_file)
+        .env("YOKOKU__JELLYFIN__URL", jellyfin.uri())
+        .env("YOKOKU__JELLYFIN__API_KEY__FILE", &key_file)
         .assert()
         .success()
         .stdout("Connected to Jellyfin 10.10.7\n");
@@ -180,8 +180,8 @@ async fn found_files_are_probed_and_shown_with_their_details() {
     setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.en.sdh.srt");
     let ffprobe = stand_in_ffprobe(setup.dir.path());
 
-    setup.command().arg("scan").env("APP__FILES__FFPROBE", &ffprobe).assert().success();
-    setup.command().args(["files", "probe"]).env("APP__FILES__FFPROBE", &ffprobe).assert().success();
+    setup.command().arg("scan").env("YOKOKU__FILES__FFPROBE", &ffprobe).assert().success();
+    setup.command().args(["files", "probe"]).env("YOKOKU__FILES__FFPROBE", &ffprobe).assert().success();
     let shown = setup.stdout(&["files", "show", "series", "tmdb:1"]);
 
     let path = setup.path("tv").canonicalize().unwrap().join("Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
@@ -198,13 +198,13 @@ async fn found_files_are_probed_and_shown_with_their_details() {
 async fn files_are_probed_on_request_once_ffprobe_is_there() {
     let setup = Setup::new().await;
     setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
-    let missing = [("APP__FILES__FFPROBE", "/nonexistent/ffprobe")];
+    let missing = [("YOKOKU__FILES__FFPROBE", "/nonexistent/ffprobe")];
     setup.command().arg("scan").envs(missing).assert().success();
 
     let unprobed = setup.command().args(["files", "show", "series", "tmdb:1"]).envs(missing).output().unwrap();
     let failure = setup.command().args(["files", "probe"]).envs(missing).output().unwrap();
     let ffprobe = stand_in_ffprobe(setup.dir.path());
-    let probed = setup.command().args(["files", "probe"]).env("APP__FILES__FFPROBE", &ffprobe).output().unwrap();
+    let probed = setup.command().args(["files", "probe"]).env("YOKOKU__FILES__FFPROBE", &ffprobe).output().unwrap();
 
     assert!(String::from_utf8(unprobed.stdout).unwrap().contains("not probed yet; run `yokoku files probe`"));
     assert!(String::from_utf8(failure.stderr).unwrap().contains("/nonexistent/ffprobe is not installed"));
@@ -237,8 +237,8 @@ async fn a_movie_file_is_shown_with_its_details() {
     setup.write("films/Dune (2021)/Dune (2021).mkv");
     let ffprobe = stand_in_ffprobe(setup.dir.path());
 
-    setup.command().arg("scan").env("APP__FILES__FFPROBE", &ffprobe).assert().success();
-    setup.command().args(["files", "probe"]).env("APP__FILES__FFPROBE", &ffprobe).assert().success();
+    setup.command().arg("scan").env("YOKOKU__FILES__FFPROBE", &ffprobe).assert().success();
+    setup.command().args(["files", "probe"]).env("YOKOKU__FILES__FFPROBE", &ffprobe).assert().success();
     let shown = setup.stdout(&["files", "show", "movie", "tmdb:2"]);
 
     let path = films.join("Dune (2021)/Dune (2021).mkv");

@@ -62,11 +62,11 @@ impl Service {
         let child = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
             .arg("--config")
             .arg(dir.join("app.toml"))
-            .env("APP__DATABASE__PATH", dir.join("yokoku.db"))
+            .env("YOKOKU__DATABASE__PATH", dir.join("yokoku.db"))
             .env("DIOXUS_PUBLIC_PATH", dir.join("public"))
-            .env("APP__WEB__PORT", port.to_string())
-            .env_remove("APP__METADATA__TMDB__TOKEN")
-            .env_remove("APP__METADATA__TVDB__API_KEY")
+            .env("YOKOKU__WEB__PORT", port.to_string())
+            .env_remove("YOKOKU__METADATA__TMDB__TOKEN")
+            .env_remove("YOKOKU__METADATA__TVDB__API_KEY")
             .envs(env.iter().copied())
             .stdout(Stdio::null())
             .stderr(std::fs::File::create(&log).unwrap())
@@ -484,7 +484,7 @@ async fn scanned(dir: &Path) -> bool {
 async fn scheduled_jobs_run_on_their_cron_schedule_until_the_service_stops() {
     let dir = tempfile::tempdir().unwrap();
     seed_unscanned_movie(dir.path()).await;
-    let _service = Service::start_with(dir.path(), &[("APP__SERVE__SCAN_LIBRARY", "* * * * * *")]);
+    let _service = Service::start_with(dir.path(), &[("YOKOKU__SERVE__SCAN_LIBRARY", "* * * * * *")]);
 
     assert!(scanned(dir.path()).await, "the library was not scanned on schedule");
 }
@@ -493,11 +493,11 @@ async fn scheduled_jobs_run_on_their_cron_schedule_until_the_service_stops() {
 async fn a_schedule_changed_from_the_command_line_applies_while_the_service_runs() {
     let dir = tempfile::tempdir().unwrap();
     seed_unscanned_movie(dir.path()).await;
-    let _service = Service::start_with(dir.path(), &[("APP__EVENTS__POLL_INTERVAL_MS", "100")]);
+    let _service = Service::start_with(dir.path(), &[("YOKOKU__EVENTS__POLL_INTERVAL_MS", "100")]);
 
     Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
         .args(["settings", "set", "serve.scan_library", "* * * * * *"])
-        .env("APP__DATABASE__PATH", dir.path().join("yokoku.db"))
+        .env("YOKOKU__DATABASE__PATH", dir.path().join("yokoku.db"))
         .assert()
         .success();
 
@@ -560,9 +560,9 @@ async fn missing_artwork_unknown_items_and_unknown_kinds_are_not_found() {
 fn the_service_stops_at_startup_without_web_assets() {
     let dir = tempfile::tempdir().unwrap();
     Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
-        .env("APP__DATABASE__PATH", dir.path().join("yokoku.db"))
+        .env("YOKOKU__DATABASE__PATH", dir.path().join("yokoku.db"))
         .env("DIOXUS_PUBLIC_PATH", dir.path().join("public"))
-        .env("APP__WEB__PORT", "0")
+        .env("YOKOKU__WEB__PORT", "0")
         .assert()
         .failure()
         .stderr(
@@ -576,9 +576,9 @@ fn the_service_stops_at_startup_when_the_web_port_is_taken() {
     let dir = tempfile::tempdir().unwrap();
     let taken = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
-        .env("APP__DATABASE__PATH", dir.path().join("yokoku.db"))
+        .env("YOKOKU__DATABASE__PATH", dir.path().join("yokoku.db"))
         .env("DIOXUS_PUBLIC_PATH", dir.path())
-        .env("APP__WEB__PORT", taken.local_addr().unwrap().port().to_string())
+        .env("YOKOKU__WEB__PORT", taken.local_addr().unwrap().port().to_string())
         .assert()
         .failure()
         .stderr(predicate::str::contains("Failed to start the web server"));
@@ -853,7 +853,7 @@ async fn a_torrent_can_be_added_for_an_item() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
     let url = format!("{}/transmission/rpc", transmission.uri());
-    let service = Service::start_with(dir.path(), &[("APP__TRANSMISSION__URL", &url)]);
+    let service = Service::start_with(dir.path(), &[("YOKOKU__TRANSMISSION__URL", &url)]);
     let magnet = |link: &str| format!(r#"{{"torrent":{{"magnet":"{link}"}},"item":{{"Movie":"{dune}"}}}}"#);
 
     let not_a_magnet = service.post_json("/api/downloads", &magnet("https://example.com/dune"));
@@ -873,7 +873,8 @@ async fn a_torrent_can_be_added_for_an_item() {
 async fn adding_a_torrent_says_when_transmission_is_unreachable() {
     let dir = tempfile::tempdir().unwrap();
     seed(&dir.path().join("yokoku.db")).await;
-    let service = Service::start_with(dir.path(), &[("APP__TRANSMISSION__URL", "http://127.0.0.1:9/transmission/rpc")]);
+    let service =
+        Service::start_with(dir.path(), &[("YOKOKU__TRANSMISSION__URL", "http://127.0.0.1:9/transmission/rpc")]);
 
     let added = service.post_json("/api/downloads", r#"{"torrent":{"file":[100,56]},"item":null}"#);
 
@@ -889,11 +890,11 @@ async fn transmission_can_be_tested_from_settings() {
     answer(&transmission, "session-get", success(json!({ "version": "4.1.3 (0)" }))).await;
     let url = format!("{}/transmission/rpc", transmission.uri());
     let dir = tempfile::tempdir().unwrap();
-    let service = Service::start_with(dir.path(), &[("APP__TRANSMISSION__URL", &url)]);
+    let service = Service::start_with(dir.path(), &[("YOKOKU__TRANSMISSION__URL", &url)]);
     let unreachable_dir = tempfile::tempdir().unwrap();
     let unreachable = Service::start_with(
         unreachable_dir.path(),
-        &[("APP__TRANSMISSION__URL", "http://127.0.0.1:9/transmission/rpc")],
+        &[("YOKOKU__TRANSMISSION__URL", "http://127.0.0.1:9/transmission/rpc")],
     );
 
     let unsaved_dir = tempfile::tempdir().unwrap();
@@ -1007,7 +1008,7 @@ async fn a_search_result_can_be_added_to_a_root_folder() {
     let uri = tmdb.uri();
     let service = Service::start_with(
         dir.path(),
-        &[("APP__METADATA__TMDB__TOKEN", "test-token"), ("APP__METADATA__TMDB__URL", &uri)],
+        &[("YOKOKU__METADATA__TMDB__TOKEN", "test-token"), ("YOKOKU__METADATA__TMDB__URL", &uri)],
     );
     let root = movies.display().to_string();
     let item = format!(

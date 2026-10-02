@@ -80,7 +80,7 @@ pub struct Setting {
     pub value: Value,
     /// Stored in the database, over the config file.
     pub stored: bool,
-    /// Set by an `APP__` environment variable, which the page cannot change.
+    /// Set by a `YOKOKU__` environment variable, which the page cannot change.
     pub from_env: bool,
 }
 

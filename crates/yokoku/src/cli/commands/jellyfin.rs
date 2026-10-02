@@ -19,7 +19,7 @@ pub enum Command {
 
 pub async fn run(app: &App, args: Args) -> Result<()> {
     if app.settings.current().jellyfin.url.is_none() {
-        bail!("No Jellyfin configured; set jellyfin.url and APP__JELLYFIN__API_KEY");
+        bail!("No Jellyfin configured; set jellyfin.url and YOKOKU__JELLYFIN__API_KEY");
     }
     let rescans = &app.rescans;
     match args.command {

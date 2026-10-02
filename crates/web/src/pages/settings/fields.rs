@@ -76,7 +76,7 @@ pub(super) fn SettingField(setting: Setting) -> Element {
         }
     });
     let setting = current();
-    let variable = format!("APP__{}", setting.field.key.to_uppercase().replace('.', "__"));
+    let variable = format!("YOKOKU__{}", setting.field.key.to_uppercase().replace('.', "__"));
     rsx! {
         Field {
             div { class: "flex items-center gap-2",

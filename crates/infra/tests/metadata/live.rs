@@ -4,14 +4,14 @@ use yokoku_domain::{ExternalId, Live, MediaKind, Secret};
 use yokoku_infra::metadata::{MetadataSettings, TmdbClient, TvdbClient};
 
 fn client() -> TmdbClient {
-    let token = std::env::var("APP__METADATA__TMDB__TOKEN").expect("APP__METADATA__TMDB__TOKEN is set");
+    let token = std::env::var("YOKOKU__METADATA__TMDB__TOKEN").expect("YOKOKU__METADATA__TMDB__TOKEN is set");
     let mut settings = MetadataSettings::default();
     settings.tmdb.token = Some(Secret::new(token));
     TmdbClient::new(Live::fixed(settings))
 }
 
 #[tokio::test]
-#[ignore = "calls the real TMDB API; run with APP__METADATA__TMDB__TOKEN set"]
+#[ignore = "calls the real TMDB API; run with YOKOKU__METADATA__TMDB__TOKEN set"]
 async fn real_tmdb_matches_the_recorded_shapes() {
     let client = client();
 
@@ -28,12 +28,12 @@ async fn real_tmdb_matches_the_recorded_shapes() {
 }
 
 #[tokio::test]
-#[ignore = "calls the real TVDB API; run with APP__METADATA__TVDB__API_KEY and APP__METADATA__TVDB__PIN set"]
+#[ignore = "calls the real TVDB API; run with YOKOKU__METADATA__TVDB__API_KEY and YOKOKU__METADATA__TVDB__PIN set"]
 async fn real_tvdb_matches_the_assumed_shapes() {
-    let api_key = std::env::var("APP__METADATA__TVDB__API_KEY").expect("APP__METADATA__TVDB__API_KEY is set");
+    let api_key = std::env::var("YOKOKU__METADATA__TVDB__API_KEY").expect("YOKOKU__METADATA__TVDB__API_KEY is set");
     let mut settings = MetadataSettings::default();
     settings.tvdb.api_key = Some(Secret::new(api_key));
-    settings.tvdb.pin = std::env::var("APP__METADATA__TVDB__PIN").ok().map(Secret::new);
+    settings.tvdb.pin = std::env::var("YOKOKU__METADATA__TVDB__PIN").ok().map(Secret::new);
     let client = TvdbClient::new(Live::fixed(settings));
 
     let results = client.search("frieren", None).await.unwrap();

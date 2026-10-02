@@ -73,11 +73,11 @@ impl Tmdb {
     fn command(&self) -> Command {
         let mut command = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
         command
-            .env("APP__DATABASE__PATH", &self.database)
-            .env("APP__CLOCK__TIMEZONE", "UTC")
-            .env("APP__METADATA__TMDB__TOKEN", "test-token")
-            .env("APP__METADATA__TMDB__URL", self.server.uri())
-            .env_remove("APP__METADATA__TVDB__API_KEY");
+            .env("YOKOKU__DATABASE__PATH", &self.database)
+            .env("YOKOKU__CLOCK__TIMEZONE", "UTC")
+            .env("YOKOKU__METADATA__TMDB__TOKEN", "test-token")
+            .env("YOKOKU__METADATA__TMDB__URL", self.server.uri())
+            .env_remove("YOKOKU__METADATA__TVDB__API_KEY");
         command
     }
 }
@@ -95,9 +95,9 @@ async fn metadata_commands_need_a_token() {
     let tmdb = tmdb().await;
 
     tmdb.command()
-        .env_remove("APP__METADATA__TMDB__TOKEN")
+        .env_remove("YOKOKU__METADATA__TMDB__TOKEN")
         .args(["refresh"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("No TMDB token configured; set APP__METADATA__TMDB__TOKEN"));
+        .stderr(predicate::str::contains("No TMDB token configured; set YOKOKU__METADATA__TMDB__TOKEN"));
 }

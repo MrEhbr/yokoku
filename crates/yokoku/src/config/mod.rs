@@ -29,7 +29,7 @@ pub use crate::config::{
 };
 use crate::jobs::ScheduleSettings;
 
-const ENV_PREFIX: &str = "APP";
+const ENV_PREFIX: &str = "YOKOKU";
 const ENV_SEPARATOR: &str = "__";
 /// Sections read once, when the service starts.
 const READ_AT_START: [&str; 4] = ["database", "log", "web", "events"];
@@ -54,7 +54,7 @@ pub struct Config {
 }
 
 impl Config {
-    /// Loads with precedence: env vars (APP__*) > stored settings > config file > defaults.
+    /// Loads with precedence: env vars (YOKOKU__*) > stored settings > config file > defaults.
     /// `stored` holds values by dotted key, such as `import.mode`.
     pub fn load(config_path: Option<&Path>, stored: &[(String, Value)]) -> Result<Self> {
         let layers = Self::layers(config_path, stored)?;
@@ -97,7 +97,7 @@ impl Config {
         loaded.and_then(|config| config.setting(key)).unwrap_or_else(|_| stored.to_string())
     }
 
-    /// An `APP__` environment variable, or its `__FILE` form, sets `key` over any stored value.
+    /// A `YOKOKU__` environment variable, or its `__FILE` form, sets `key` over any stored value.
     pub fn set_by_env(key: &str) -> bool {
         let variable = format!("{ENV_PREFIX}{ENV_SEPARATOR}{}", key.to_uppercase().replace('.', ENV_SEPARATOR));
         env::var_os(&variable).is_some() || env::var_os(format!("{variable}{ENV_SEPARATOR}FILE")).is_some()

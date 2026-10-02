@@ -26,7 +26,7 @@ fn setup() -> Setup {
 impl Setup {
     fn command(&self) -> Command {
         let mut command = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
-        command.env("APP__DATABASE__PATH", &self.database).env("APP__CLOCK__TIMEZONE", "UTC");
+        command.env("YOKOKU__DATABASE__PATH", &self.database).env("YOKOKU__CLOCK__TIMEZONE", "UTC");
         command
     }
 
@@ -78,15 +78,15 @@ fn environment_variables_take_precedence_over_stored_settings() {
     let set = setup
         .command()
         .args(["settings", "set", "import.mode", "copy"])
-        .env("APP__IMPORT__MODE", "move")
+        .env("YOKOKU__IMPORT__MODE", "move")
         .output()
         .unwrap();
     let effective =
-        setup.command().args(["settings", "get", "import.mode"]).env("APP__IMPORT__MODE", "move").output().unwrap();
+        setup.command().args(["settings", "get", "import.mode"]).env("YOKOKU__IMPORT__MODE", "move").output().unwrap();
 
     assert_eq!(
         String::from_utf8(set.stdout).unwrap(),
-        "Set import.mode = \"copy\"\nAPP__IMPORT__MODE is set and takes precedence\n"
+        "Set import.mode = \"copy\"\nYOKOKU__IMPORT__MODE is set and takes precedence\n"
     );
     assert_eq!(String::from_utf8(effective.stdout).unwrap(), "\"move\"\n");
 }
@@ -98,13 +98,13 @@ fn secrets_are_shown_masked() {
     let unset = setup
         .command()
         .args(["settings", "get", "metadata.tmdb.token"])
-        .env_remove("APP__METADATA__TMDB__TOKEN")
+        .env_remove("YOKOKU__METADATA__TMDB__TOKEN")
         .output()
         .unwrap();
     let set = setup
         .command()
         .args(["settings", "get", "metadata.tmdb.token"])
-        .env("APP__METADATA__TMDB__TOKEN", "very-secret")
+        .env("YOKOKU__METADATA__TMDB__TOKEN", "very-secret")
         .output()
         .unwrap();
 
@@ -117,7 +117,7 @@ fn secrets_can_be_stored_but_are_shown_masked() {
     let setup = setup();
 
     let run = |args: &[&str]| {
-        let output = setup.command().args(args).env_remove("APP__METADATA__TMDB__TOKEN").output().unwrap();
+        let output = setup.command().args(args).env_remove("YOKOKU__METADATA__TMDB__TOKEN").output().unwrap();
         assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
         String::from_utf8(output.stdout).unwrap()
     };
@@ -137,7 +137,7 @@ fn loading_the_configuration_does_not_create_the_database() {
 
     setup
         .command()
-        .env("APP__SERVE__SCAN_LIBRARY", "not a schedule")
+        .env("YOKOKU__SERVE__SCAN_LIBRARY", "not a schedule")
         .assert()
         .failure()
         .stderr(predicate::str::contains("Invalid schedule"));
@@ -176,8 +176,8 @@ async fn a_running_service_reloads_a_setting_changed_from_the_command_line() {
     let mut serve = setup
         .command()
         .env("DIOXUS_PUBLIC_PATH", assets.path())
-        .env("APP__WEB__PORT", "0")
-        .env("APP__EVENTS__POLL_INTERVAL_MS", "100")
+        .env("YOKOKU__WEB__PORT", "0")
+        .env("YOKOKU__EVENTS__POLL_INTERVAL_MS", "100")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()

@@ -69,8 +69,8 @@ Jellyfin's libraries cover `data/library/series` and `data/library/movies`; poin
 
 ```bash
 just services                           # Leave running; the integration tests use it too
-export APP__JELLYFIN__URL=http://127.0.0.1:18096 APP__JELLYFIN__API_KEY=yokoku-dev-key APP__JELLYFIN__USER=dev
-export APP__TRANSMISSION__URL=http://127.0.0.1:19091/transmission/rpc
+export YOKOKU__JELLYFIN__URL=http://127.0.0.1:18096 YOKOKU__JELLYFIN__API_KEY=yokoku-dev-key YOKOKU__JELLYFIN__USER=dev
+export YOKOKU__TRANSMISSION__URL=http://127.0.0.1:19091/transmission/rpc
 just test-integration [filter]          # Ignored tests: these services, ffprobe, real TMDB and TVDB
 just services down                      # Stop them from another terminal
 ```
@@ -149,7 +149,7 @@ fn apply_overrides(&self, config: &ExampleConfig) -> ExampleConfig {
 }
 ```
 
-Configuration precedence is command flags > `APP__*` env vars > settings stored
+Configuration precedence is command flags > `YOKOKU__*` env vars > settings stored
 in the database > config file > defaults.
 
 ## CI/CD

@@ -61,7 +61,7 @@ pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Res
             events.publish(SettingsChanged { key: key.clone() }).await;
             events.flush().await.context(EVENTS_LOST)?;
             success!("Set {key} = {}", Config::shown(&key, &value))?;
-            let variable = format!("APP__{}", key.to_uppercase().replace('.', "__"));
+            let variable = format!("YOKOKU__{}", key.to_uppercase().replace('.', "__"));
             if std::env::var_os(&variable).is_some() {
                 say!("{variable} is set and takes precedence")?;
             }

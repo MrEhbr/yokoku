@@ -53,7 +53,7 @@ pub trait SettingsAccess: Send + Sync {
     /// The value in effect as JSON, a secret masked; `None` for a key that is not a setting.
     fn value(&self, key: &str) -> Option<serde_json::Value>;
 
-    /// An `APP__` environment variable sets `key`, over any stored value.
+    /// A `YOKOKU__` environment variable sets `key`, over any stored value.
     fn set_by_env(&self, key: &str) -> bool;
 
     async fn stored_keys(&self) -> Result<Vec<String>, String>;

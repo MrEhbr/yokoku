@@ -1,7 +1,7 @@
 # Yokoku configuration. Every setting is listed; a commented one is unset by default.
 #
-# Each value can also come from an environment variable APP__<SECTION>__<KEY>, like APP__WEB__PORT
-# or APP__METADATA__TMDB__TOKEN, which goes over this file and over the Settings page.
+# Each value can also come from an environment variable YOKOKU__<SECTION>__<KEY>, like YOKOKU__WEB__PORT
+# or YOKOKU__METADATA__TMDB__TOKEN, which goes over this file and over the Settings page.
 # [log], [database], [web] and [events] are read when the service starts: a change needs a restart,
 # and the Settings page only shows them. Every other setting can be changed on the Settings page,
 # which keeps it in the database, over this file, and applies it at once.
@@ -47,7 +47,7 @@ language = "en-US"
 region = "US"
 
 # Secrets (token, api_key, pin, password) take a value or { file = "/run/secrets/name" };
-# APP__METADATA__TMDB__TOKEN or APP__METADATA__TMDB__TOKEN__FILE set them from the environment.
+# YOKOKU__METADATA__TMDB__TOKEN or YOKOKU__METADATA__TMDB__TOKEN__FILE set them from the environment.
 [metadata.tmdb]
 # The API read access token; needed to search, add and refresh items.
 # token = { file = "/run/secrets/tmdb_token" }
