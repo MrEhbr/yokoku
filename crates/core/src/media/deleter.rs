@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::{info, instrument, warn};
 use yokoku_domain::{
-    FileTarget, ItemId, MediaFileId,
+    ItemId, MediaFileId,
     events::{DeleteReason, FileDeleted, MovieRemoved, SeriesRemoved},
 };
 
@@ -33,25 +33,9 @@ impl Deleter {
         Self { repo, fs, lock, events }
     }
 
-    /// The library files holding any of `target`.
-    pub async fn files_of(&self, target: FileTarget) -> Result<Vec<MediaFile>, MediaError> {
-        let files = self.repo.files_of(target.item()).await?;
-        Ok(files.into_iter().filter(|file| file.target.overlaps(&target)).collect())
-    }
-
     /// The library files of `item`.
     pub async fn files_of_item(&self, item: ItemId) -> Result<Vec<MediaFile>, MediaError> {
         Ok(self.repo.files_of(item).await?)
-    }
-
-    /// Removes the library files holding any of `target`, with their subtitles.
-    pub async fn delete(&self, target: FileTarget) -> Result<Vec<MediaFile>, MediaError> {
-        let _lock = self.lock.acquire().await?;
-        let files = self.files_of(target).await?;
-        if files.is_empty() {
-            return Err(MediaError::NoFile);
-        }
-        self.remove(files, DeleteReason::User).await
     }
 
     /// Removes the library files of `item` among `ids`, with their subtitles; ids of other items

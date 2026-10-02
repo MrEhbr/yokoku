@@ -7,7 +7,7 @@ use yokoku_core::{
     events::Handler,
     media::{ImportMode, RenameScope, ports::LibraryLock},
 };
-use yokoku_domain::events::SeriesRemoved;
+use yokoku_domain::{ItemId, events::SeriesRemoved};
 
 use crate::common;
 
@@ -25,7 +25,7 @@ async fn run(app: &App, change: Change) {
         Change::Scan => drop(app.scanner.scan().await),
         Change::Import => drop(app.importer(ImportMode::HardLink).run_pending().await),
         Change::Rename => drop(app.renamer.apply(RenameScope::All, None).await),
-        Change::Delete => drop(app.deleter().delete(app.movie()).await),
+        Change::Delete => drop(app.deleter().delete_files(ItemId::Movie(app.dune.id), &[]).await),
         Change::RemoveSeries => {
             let removed = SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files: true };
             drop(app.deleter().handle(&removed).await);

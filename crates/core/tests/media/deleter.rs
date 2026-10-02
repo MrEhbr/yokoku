@@ -1,9 +1,13 @@
 use std::{fs, os::unix::fs::PermissionsExt};
 
 use common::{App, TODAY, frieren_metadata, now};
-use yokoku_core::{events::Handler, library::ports::SeriesRepo, media::MediaError};
+use yokoku_core::{
+    events::Handler,
+    library::ports::SeriesRepo,
+    media::{MediaError, MediaFile},
+};
 use yokoku_domain::{
-    ItemFolder, ItemId, MonitorPreset, Series,
+    ItemFolder, ItemId, MediaFileId, MonitorPreset, Series,
     events::{DeleteReason, Event, FileDeleted, MovieRemoved, SeriesAdded, SeriesRemoved},
 };
 
@@ -18,12 +22,18 @@ fn deleted_events(events: &[Event]) -> Vec<DeleteReason> {
     events.iter().filter_map(Event::get::<FileDeleted>).map(|deleted| deleted.reason).collect()
 }
 
+/// The id of the file at `relative` among `files`.
+fn id_of(app: &App, files: &[MediaFile], relative: &str) -> MediaFileId {
+    files.iter().find(|file| file.path == app.path(relative)).unwrap().id
+}
+
 #[tokio::test]
 async fn deleting_removes_the_file_its_subtitles_and_empty_folders() {
     let app = App::new().await;
-    app.linked(&[E01, E01_SUBTITLE, E02]).await;
+    let files = app.linked(&[E01, E01_SUBTITLE, E02]).await;
 
-    let deleted = app.deleter().delete(app.episodes(1, 1, 1)).await.unwrap();
+    let deleted =
+        app.deleter().delete_files(ItemId::Series(app.frieren.id), &[id_of(&app, &files, E01)]).await.unwrap();
 
     assert_eq!(deleted.len(), 1);
     assert_eq!((app.path(E01).exists(), app.path(E01_SUBTITLE).exists()), (false, false));
@@ -34,26 +44,14 @@ async fn deleting_removes_the_file_its_subtitles_and_empty_folders() {
 }
 
 #[tokio::test]
-async fn one_episode_deletes_the_multi_episode_file_holding_it() {
-    let app = App::new().await;
-    app.linked(&[E02]).await;
-
-    app.deleter().delete(app.episodes(2, 2, 2)).await.unwrap();
-
-    assert!(!app.path(E02).exists());
-    assert!(app.db_files().await.is_empty());
-}
-
-#[tokio::test]
 async fn deleting_chosen_files_keeps_the_others() {
     let app = App::new().await;
     let files = app.linked(&[E01, E01_SUBTITLE, E02, DUNE]).await;
-    let e01 = files.iter().find(|file| file.path == app.path(E01)).unwrap();
-    let dune = files.iter().find(|file| file.path == app.path(DUNE)).unwrap();
+    let (e01, dune) = (id_of(&app, &files, E01), id_of(&app, &files, DUNE));
 
-    let deleted = app.deleter().delete_files(ItemId::Series(app.frieren.id), &[e01.id, dune.id]).await.unwrap();
+    let deleted = app.deleter().delete_files(ItemId::Series(app.frieren.id), &[e01, dune]).await.unwrap();
 
-    assert_eq!(deleted.iter().map(|file| file.id).collect::<Vec<_>>(), [e01.id]);
+    assert_eq!(deleted.iter().map(|file| file.id).collect::<Vec<_>>(), [e01]);
     assert_eq!((app.path(E01).exists(), app.path(E01_SUBTITLE).exists()), (false, false));
     assert_eq!((app.path(E02).exists(), app.path(DUNE).exists()), (true, true));
     assert_eq!(deleted_events(&app.events().await), [DeleteReason::User]);
@@ -68,15 +66,6 @@ async fn deleting_no_file_of_the_item_fails() {
 
     assert!(matches!(error, MediaError::NoFile), "{error}");
     assert!(app.path(DUNE).exists());
-}
-
-#[tokio::test]
-async fn deleting_what_has_no_file_fails() {
-    let app = App::new().await;
-
-    let error = app.deleter().delete(app.movie()).await.unwrap_err();
-
-    assert!(matches!(error, MediaError::NoFile), "{error}");
 }
 
 #[tokio::test]
@@ -132,11 +121,11 @@ async fn files_kept_when_removing_a_series_return_when_it_is_added_again() {
 #[tokio::test]
 async fn a_folder_that_cannot_be_removed_does_not_keep_the_deleted_file() {
     let app = App::new().await;
-    app.linked(&[E01, E01_SUBTITLE]).await;
+    let files = app.linked(&[E01, E01_SUBTITLE]).await;
     let series = app.path("tv/Frieren (2023)");
     fs::set_permissions(&series, fs::Permissions::from_mode(0o555)).unwrap();
 
-    let result = app.deleter().delete(app.episodes(1, 1, 1)).await;
+    let result = app.deleter().delete_files(ItemId::Series(app.frieren.id), &[id_of(&app, &files, E01)]).await;
 
     fs::set_permissions(&series, fs::Permissions::from_mode(0o755)).unwrap();
     result.unwrap();
