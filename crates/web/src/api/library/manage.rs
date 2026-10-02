@@ -109,7 +109,11 @@ mod server {
         deleter: &Deleter,
         item: ItemId,
     ) -> Result<Vec<ItemFile>, ServerFnError> {
-        let files = deleter.files_of_item(item).await.map_err(|error| media_failure(error, item))?;
+        let mut files = deleter.files_of_item(item).await.map_err(|error| media_failure(error, item))?;
+        files.sort_by_key(|file| match file.target {
+            FileTarget::Episodes { span, .. } => (span.season(), span.first(), span.last()),
+            FileTarget::Movie(_) => (0, 0, 0),
+        });
         let watched = library.watched_files().await.map_err(|error| library_failure(error, "reading watched files"))?;
         let titles: HashMap<EpisodeRef, String> = match item {
             ItemId::Series(id) => {
@@ -132,7 +136,7 @@ mod server {
             },
             ItemId::Series(_) => String::new(),
         };
-        let mut files: Vec<_> = files
+        let files = files
             .into_iter()
             .map(|file| {
                 let (season, episodes, title) = match file.target {
@@ -154,7 +158,6 @@ mod server {
                 ItemFile { id: file.id, season, episodes, title, size: file.size, watched }
             })
             .collect();
-        files.sort_by(|a, b| (a.season, &a.episodes).cmp(&(b.season, &b.episodes)));
         Ok(files)
     }
 

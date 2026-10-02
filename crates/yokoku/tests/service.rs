@@ -21,9 +21,9 @@ use yokoku_core::{
     },
 };
 use yokoku_domain::{
-    Artwork, Confidence, CorrelationId, Description, DownloadId, EpisodeMetadata, ExternalId, FileTarget, ImportId,
-    ItemFolder, ItemId, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, SeasonMetadata, Series,
-    SeriesId, SeriesMetadata, SourceStatus,
+    Artwork, Confidence, CorrelationId, Description, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget,
+    ImportId, ItemFolder, ItemId, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, SeasonMetadata,
+    Series, SeriesId, SeriesMetadata, SourceStatus,
     events::{FileRenamed, FilesFound, ImportFailed, MovieRemoved, TorrentAdded},
 };
 use yokoku_infra::db::Database;
@@ -351,6 +351,28 @@ async fn deleting_files_that_are_gone_asks_for_a_reload() {
     );
 
     assert!(!deleted.starts_with("HTTP/1.1 200") && deleted.contains("gone already"), "{deleted}");
+}
+
+#[tokio::test]
+async fn an_items_files_are_listed_in_episode_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (frieren, _) = seed(&path).await;
+    let db = Database::open(&path).await.unwrap();
+    let files = [99, 100].map(|number| MediaFile {
+        id: MediaFileId::generate(),
+        path: format!("/shows/Frieren/Season 01/Frieren - S01E{number}.mkv").into(),
+        size: 1,
+        target: FileTarget::Episodes { series: frieren, span: EpisodeSpan::new(1, number, number).unwrap() },
+        added_at: Timestamp::now(),
+    });
+    MediaRepo::save(&db, &Changes { added_files: files.to_vec(), ..Changes::default() }).await.unwrap();
+    let service = Service::start(dir.path());
+
+    let listed = service.get(&format!("/api/items/files?item[Series]={frieren}"));
+
+    let position = |episode: &str| listed.find(&format!(r#""episodes":"{episode}""#));
+    assert!(position("S01E99").is_some() && position("S01E99") < position("S01E100"), "{listed}");
 }
 
 #[tokio::test]
