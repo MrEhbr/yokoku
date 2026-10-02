@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use dioxus::prelude::*;
+use dioxus_icons::lucide::Lock;
 use serde_json::Value;
 
 use crate::{
@@ -78,7 +79,15 @@ pub(super) fn SettingField(setting: Setting) -> Element {
     let variable = format!("APP__{}", setting.field.key.to_uppercase().replace('.', "__"));
     rsx! {
         Field {
-            Label { html_for: "{id}", "{setting.field.label}" }
+            div { class: "flex items-center gap-2",
+                Label { html_for: "{id}", "{setting.field.label}" }
+                if setting.from_env {
+                    span { class: "inline-flex items-center gap-1 text-caption text-muted [&>svg]:size-3.5",
+                        Lock {}
+                        "Locked"
+                    }
+                }
+            }
             match &setting.field.control {
                 Control::Switch => rsx! {
                     Switch {
@@ -167,6 +176,9 @@ pub(super) fn SettingField(setting: Setting) -> Element {
                             autocomplete: "off",
                             value: "{draft}",
                             placeholder: match (&setting.field.control, &setting.value) {
+                                (Control::Secret, Value::String(masked)) if setting.from_env => {
+                                    format!("Set ({masked})")
+                                }
                                 (Control::Secret, Value::String(masked)) => {
                                     format!("Set ({masked}); type to replace it")
                                 }
@@ -203,9 +215,9 @@ pub(super) fn SettingField(setting: Setting) -> Element {
                     code { class: "yk-code", "{variable}" }
                     "."
                 } else if setting.from_env {
-                    " Set by "
+                    " Locked: set by "
                     code { class: "yk-code", "{variable}" }
-                    ", which takes precedence."
+                    ", which takes precedence; unset it to edit here."
                 } else if setting.stored {
                     " Saved here, over the config file. "
                     Button {
