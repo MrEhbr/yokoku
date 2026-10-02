@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-2024+-orange)](https://www.rust-lang.org)
 
-TBD
+Self-hosted manager for a movie and TV library: tracks releases, imports torrents from Transmission and organizes files for Jellyfin.
 
 ## Quick Start
 

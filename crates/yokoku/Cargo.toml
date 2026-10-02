@@ -1,6 +1,6 @@
 [package]
 name = "yokoku"
-description = "TBD"
+description = "Self-hosted manager for a movie and TV library: tracks releases, imports torrents from Transmission and organizes files for Jellyfin."
 readme = "../../README.md"
 version.workspace = true
 edition.workspace = true
