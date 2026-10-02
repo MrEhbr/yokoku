@@ -2,7 +2,11 @@
 # See: https://github.com/crate-ci/typos
 
 [files]
-extend-exclude = ["**/tests/fixtures/**"]
+extend-exclude = ["**/fixtures/**"]
+
+[default]
+# Commit hashes in backticks
+extend-ignore-re = ["`[0-9a-f]{7,40}`"]
 
 [default.extend-words]
 # Add project-specific words/abbreviations here

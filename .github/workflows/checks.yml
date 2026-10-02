@@ -31,6 +31,7 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/stylesheet
       - name: Check
         run: cargo check --locked --verbose
 
@@ -41,7 +42,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Check typos
-        uses: crate-ci/typos@master
+        uses: crate-ci/typos@v1.50.3
 
   test:
     name: Test suite
@@ -58,6 +59,7 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/stylesheet
       - name: Run tests
         run: just test
 
@@ -70,6 +72,7 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/stylesheet
       - name: Check the lints
         run: cargo clippy --workspace --no-deps --all-targets -- -D warnings
 
