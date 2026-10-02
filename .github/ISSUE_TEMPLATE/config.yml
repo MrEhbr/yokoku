@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://mrehbr.github.io/yokoku/
+    about: Installation, configuration and troubleshooting.
+  - name: Security issue
+    url: https://github.com/MrEhbr/yokoku/security/advisories/new
+    about: Report vulnerabilities privately.

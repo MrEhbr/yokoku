@@ -2,8 +2,11 @@
 
 [![CI](https://github.com/mrehbr/yokoku/actions/workflows/checks.yml/badge.svg)](https://github.com/mrehbr/yokoku/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-user%20guide-blue)](https://mrehbr.github.io/yokoku/)
 
 Self-hosted manager for a movie and TV library: tracks releases, imports torrents from Transmission and organizes files for Jellyfin.
+
+See the [user guide](https://mrehbr.github.io/yokoku/) for installation, configuration and troubleshooting.
 
 ## Install
 
@@ -26,6 +29,8 @@ just test
 just lint
 just services      # Jellyfin and Transmission for integration tests
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the rest.
 
 ## Data sources
 
