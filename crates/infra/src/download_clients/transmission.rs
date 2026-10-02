@@ -47,6 +47,7 @@ impl TransmissionClient {
     }
 
     fn with_timeout(settings: Live<TransmissionSettings>, timeout: Duration) -> Self {
+        crate::tls::install_crypto_provider();
         let http = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(timeout)

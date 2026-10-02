@@ -37,6 +37,7 @@ impl Http {
     }
 
     fn with_timeout(source: &'static str, timeout: Duration) -> Self {
+        crate::tls::install_crypto_provider();
         let client = Client::builder()
             .user_agent(USER_AGENT)
             .connect_timeout(CONNECT_TIMEOUT)

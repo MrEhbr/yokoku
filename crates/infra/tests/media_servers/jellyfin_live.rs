@@ -46,6 +46,7 @@ struct Admin {
 impl Admin {
     fn new() -> Self {
         let authorization = format!("MediaBrowser Token=\"{}\"", services::jellyfin_api_key());
+        let _ = rustls::crypto::ring::default_provider().install_default();
         Self { http: reqwest::Client::new(), url: services::jellyfin_url(), authorization }
     }
 

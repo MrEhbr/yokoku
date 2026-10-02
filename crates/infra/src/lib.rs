@@ -6,3 +6,4 @@ pub mod download_clients;
 pub mod media_servers;
 pub mod metadata;
 pub mod system;
+mod tls;
