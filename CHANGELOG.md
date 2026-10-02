@@ -406,7 +406,7 @@ All notable changes to this project will be documented in this file. See [conven
 - **(nix)** build the flake with flake-parts - ([79de137](https://github.com/MrEhbr/yokoku/commit/79de13702558dead7f07e2596fcfdf20dc8b5c88)) `+87 / -45 across 2 file(s)` - Aleksei Burmistrov
 - **(service)** stop the jobs, then the rest, through two tokens and JoinSets - ([0692776](https://github.com/MrEhbr/yokoku/commit/069277653f1ab98f4ae71c72abd2ce49d2033945)) `+27 / -32 across 3 file(s)` - Aleksei Burmistrov
 - **(settings)** describe the Settings page's fields in the configuration - ([ac1a5b8](https://github.com/MrEhbr/yokoku/commit/ac1a5b81005fe28242e67260c8a8ad607a0e5fef)) `+421 / -334 across 11 file(s)` - Aleksei Burmistrov
-- **(system)** convert ffprobe reports through From<Report> for MediaInfo - ([ab29f6e](https://github.com/MrEhbr/yokoku/commit/ab29f6edf627c86f06256a0a3335e4ef2eb55b1d)) `+29 / -27 across 1 file(s)` - Aleksei Burmistrov
+- **(system)** convert ffprobe reports through From&lt;Report> for MediaInfo - ([ab29f6e](https://github.com/MrEhbr/yokoku/commit/ab29f6edf627c86f06256a0a3335e4ef2eb55b1d)) `+29 / -27 across 1 file(s)` - Aleksei Burmistrov
 - **(system)** walk folders with walkdir - ([f85e3a3](https://github.com/MrEhbr/yokoku/commit/f85e3a334c6d670cd2dbcc825878d2ef2f4d4e11)) `+45 / -27 across 5 file(s)` - Aleksei Burmistrov
 - **(test)** name the CLI test binary cli - ([cf5ab5d](https://github.com/MrEhbr/yokoku/commit/cf5ab5d9d05de420821d1d7c4fb2e1a92c7213f3)) `+61 / -61 across 2 file(s)` - Aleksei Burmistrov
 - **(transmission)** convert wire torrents through From - ([ae24ef3](https://github.com/MrEhbr/yokoku/commit/ae24ef32f2851de62ab349c043f20b8c3c696e16)) `+32 / -28 across 1 file(s)` - Aleksei Burmistrov
@@ -494,5 +494,3 @@ All notable changes to this project will be documented in this file. See [conven
 - 6 day(s) between first and last commit.
 - 392 commit(s) parsed as conventional.
 - Diff totals: +131003 / -72898 across 3986 file change(s) (sum across commits, may double-count files touched in multiple commits).
-
-

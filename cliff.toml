@@ -24,14 +24,14 @@ body = """
     | filter(attribute="scope")
     | sort(attribute="scope") %}
         - **({{commit.scope}})**{% if commit.breaking %} [**breaking**]{% endif %} \
-            {{ commit.message }} - ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/commit/{{ commit.id }})) \
+            {{ commit.message | replace(from="<", to="&lt;") }} - ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/commit/{{ commit.id }})) \
             `+{{ commit.statistics.additions | default(value=0) }} / -{{ commit.statistics.deletions | default(value=0) }} across {{ commit.statistics.files_changed | default(value=0) }} file(s)` - {{ commit.author.name }}
     {%- endfor %}
     {%- for commit in commits %}
         {%- if commit.scope -%}
         {% else %}
 - {% if commit.breaking %} [**breaking**]{% endif %}\
-    {{ commit.message }} - ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/commit/{{ commit.id }})) \
+    {{ commit.message | replace(from="<", to="&lt;") }} - ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/commit/{{ commit.id }})) \
     `+{{ commit.statistics.additions | default(value=0) }} / -{{ commit.statistics.deletions | default(value=0) }} across {{ commit.statistics.files_changed | default(value=0) }} file(s)` - {{ commit.author.name }}
         {%- endif -%}
     {% endfor -%}
