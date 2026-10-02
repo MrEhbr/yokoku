@@ -29,21 +29,15 @@
 
       flake.overlays.default = final: prev: {
         # rustfmt comes from nightly; rustfmt.toml uses nightly-only options.
-        # Everything else is stable, and clippy must match its rustc.
+        # Everything else comes from rust-toolchain.toml, which CI uses too.
         rustToolchain =
           with inputs.fenix.packages.${prev.stdenv.hostPlatform.system};
           combine [
-            stable.clippy
-            stable.rustc
-            stable.cargo
-            stable.rust-src
-            stable.llvm-tools
+            (fromToolchainFile {
+              file = ./rust-toolchain.toml;
+              sha256 = "sha256-p8h3Sl/YRByZfZTAKXdsvF6xEenXKrXSVvpphmZENH4=";
+            })
             latest.rustfmt
-            targets.x86_64-apple-darwin.stable.rust-std
-            targets.aarch64-apple-darwin.stable.rust-std
-            targets.x86_64-unknown-linux-gnu.stable.rust-std
-            targets.aarch64-unknown-linux-gnu.stable.rust-std
-            targets.wasm32-unknown-unknown.stable.rust-std
           ];
       };
 

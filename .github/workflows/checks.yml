@@ -29,7 +29,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - name: Check
         run: cargo check --locked --verbose
@@ -56,7 +56,7 @@ jobs:
         with:
           tool: just,nextest
       - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: just test
@@ -68,9 +68,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - name: Check the lints
         run: cargo clippy --workspace --no-deps --all-targets -- -D warnings
@@ -87,7 +85,7 @@ jobs:
           components: rustfmt
       - uses: Swatinem/rust-cache@v2
       - name: Check the formatting
-        run: cargo fmt --all -- --check --verbose
+        run: cargo +nightly fmt --all -- --check --verbose
 
   deny:
     name: Dependency audit
@@ -96,7 +94,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny,cargo-shear
