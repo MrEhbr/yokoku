@@ -5,8 +5,8 @@
 extend-exclude = ["**/fixtures/**"]
 
 [default]
-# Commit hashes in backticks
-extend-ignore-re = ["`[0-9a-f]{7,40}`"]
+# Commit hashes in backticks, and in git-cliff's `[hash](…/commit/hash)` links
+extend-ignore-re = ["`[0-9a-f]{7,40}`", "\\[[0-9a-f]{7,40}\\]", "/commit/[0-9a-f]{40}"]
 
 [default.extend-words]
 # Add project-specific words/abbreviations here
