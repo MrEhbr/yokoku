@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.1.1](https://github.com/MrEhbr/yokoku/compare/v0.1.0..v0.1.1) - 2026-10-02
+
+### CI/CD
+
+- ignore commit hashes in changelog links for typos - ([998860e](https://github.com/MrEhbr/yokoku/commit/998860e95347378b0a6cdf1d3c0410dc1ac69825)) `+2 / -2 across 1 file(s)` - Aleksei Burmistrov
+
+### Build
+
+- **(web)** load the stylesheet with option_asset - ([9784457](https://github.com/MrEhbr/yokoku/commit/9784457356a237258fddd3e7e2522cd10143cb80)) `+6 / -3610 across 4 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 2 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 2 commit(s) parsed as conventional.
+- Diff totals: +8 / -3612 across 5 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
 ## [0.1.0] - 2026-10-02
 
 ### Bug Fixes
