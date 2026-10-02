@@ -1,6 +1,7 @@
 mod fields;
 mod filters;
 mod grid;
+mod sections;
 mod table;
 
 use dioxus::prelude::*;
@@ -8,8 +9,7 @@ use dioxus_icons::lucide::{LayoutGrid, Plus, Rows3};
 
 use self::{
     filters::{FilterBar, Filters},
-    grid::PosterGrid,
-    table::EntryTable,
+    sections::RootSections,
 };
 use crate::{
     api::library::library,
@@ -101,14 +101,7 @@ pub fn Library() -> Element {
                 },
                 Some(Ok(entries)) => rsx! {
                     Loaded {
-                        match view() {
-                            View::Grid => rsx! {
-                                PosterGrid { entries: entries.clone() }
-                            },
-                            View::Table => rsx! {
-                                EntryTable { entries: entries.clone() }
-                            },
-                        }
+                        RootSections { entries: entries.clone(), view: view() }
                     }
                 },
             }

@@ -78,6 +78,8 @@ pub struct Entry {
     pub next_release: Option<Date>,
     /// The poster's URL; `None` when the item has no poster.
     pub poster: Option<String>,
+    /// The root folder holding the item's folder.
+    pub root: String,
 }
 
 impl Kind {
@@ -319,6 +321,7 @@ mod server {
                 status: entry.status.into(),
                 files: FileCount { downloaded: entry.files.downloaded, missing: entry.files.missing },
                 next_release: entry.next_release,
+                root: entry.root.display().to_string(),
             }
         }
     }

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashSet, fmt};
+use std::{cmp::Ordering, collections::HashSet, fmt, path::PathBuf};
 
 use jiff::{Timestamp, civil::Date};
 use yokoku_domain::{ExternalId, FileStatus, ItemId, MediaFileId, MediaKind, Movie, MovieStatus, Series, SeriesStatus};
@@ -32,6 +32,8 @@ pub struct LibraryEntry {
     pub watched: Option<WatchState>,
     pub added_at: Timestamp,
     pub next_release: Option<Date>,
+    /// The root folder holding the item's folder.
+    pub root: PathBuf,
 }
 
 /// A movie's file, or a series' episode files, on disk and missing; missing counts only what is
@@ -101,6 +103,7 @@ impl LibraryEntry {
             watched: WatchState::of(series.episodes().filter_map(|episode| episode.file), watched),
             added_at: series.added_at,
             next_release: series.next_episode(today).and_then(|(_, episode)| episode.air_date),
+            root: series.folder.root.clone(),
         }
     }
 
@@ -120,6 +123,7 @@ impl LibraryEntry {
             watched: WatchState::of(movie.file, watched),
             added_at: movie.added_at,
             next_release: releases.into_iter().flatten().filter(|&date| date >= today).min(),
+            root: movie.folder.root.clone(),
         }
     }
 }
@@ -186,6 +190,7 @@ mod tests {
             watched,
             added_at: Timestamp::UNIX_EPOCH + hour.hours(),
             next_release: days.map(|days| date(2026, 9, 26) + days.days()),
+            root: "/media".into(),
         }
     }
 
