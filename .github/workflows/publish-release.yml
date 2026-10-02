@@ -48,6 +48,9 @@ jobs:
         with:
           tool: cargo-zigbuild,dioxus-cli@0.7.10
 
+      - name: Install Nix for the Nix package's hashes
+        uses: cachix/install-nix-action@v31
+
       - name: Generate release changelog
         uses: orhun/git-cliff-action@v4
         with:
