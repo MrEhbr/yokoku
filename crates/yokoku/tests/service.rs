@@ -339,17 +339,18 @@ async fn a_removed_item_leaves_the_library() {
 }
 
 #[tokio::test]
-async fn deleting_a_file_that_is_gone_asks_for_a_reload() {
+async fn deleting_files_that_are_gone_asks_for_a_reload() {
     let dir = tempfile::tempdir().unwrap();
     let (frieren, _) = seed(&dir.path().join("yokoku.db")).await;
     let service = Service::start(dir.path());
+    let gone = MediaFileId::generate();
 
     let deleted = service.post_json(
-        "/api/files/delete",
-        &format!(r#"{{"target":{{"kind":"episode","id":"{frieren}","season":1,"episode":1}}}}"#),
+        "/api/items/delete-files",
+        &format!(r#"{{"item":{{"Series":"{frieren}"}},"files":["{gone}"],"unmonitor":true}}"#),
     );
 
-    assert!(!deleted.starts_with("HTTP/1.1 200") && deleted.contains("no file anymore"), "{deleted}");
+    assert!(!deleted.starts_with("HTTP/1.1 200") && deleted.contains("gone already"), "{deleted}");
 }
 
 #[tokio::test]

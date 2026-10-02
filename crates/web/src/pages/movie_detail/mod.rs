@@ -7,12 +7,11 @@ use crate::{
         library::{
             FileStatus,
             detail::{self, movie},
-            manage::{FileOf, MonitorTarget},
+            manage::MonitorTarget,
         },
     },
     components::{
         button::ButtonSize,
-        delete_file::DeleteFile,
         file_info::FileDetails,
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
@@ -161,12 +160,7 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     section {
                         h2 { class: "text-caption font-medium text-muted", "File" }
                         div { class: "mt-2 flex flex-col items-start gap-3",
-                            FileDetails { info: info.clone() }
-                            DeleteFile {
-                                target: FileOf::Movie { id },
-                                path: info.path,
-                                on_change: reload,
-                            }
+                            FileDetails { info }
                         }
                     }
                 }

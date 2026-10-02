@@ -71,47 +71,16 @@ pub async fn delete_files(item: ItemId, files: Vec<MediaFileId>, unmonitor: bool
     server::delete_files(&library, &deleter, item, files, unmonitor).await
 }
 
-/// What holds a file to delete.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", tag = "kind")]
-pub enum FileOf {
-    Episode { id: SeriesId, season: u16, episode: u16 },
-    Movie { id: MovieId },
-}
-
-/// Deletes the file holding `target` from disk, with its subtitles (FR-8.4); a file holding
-/// several episodes goes as a whole.
-#[post("/api/files/delete", deleter: Dep<Deleter>)]
-pub async fn delete_file(target: FileOf) -> Result<(), ServerFnError> {
-    server::delete_file(&deleter, target).await
-}
-
 #[cfg(feature = "server")]
 mod server {
     use std::collections::HashMap;
 
     use dioxus::{logger::tracing::error, prelude::*};
     use yokoku_core::media::MediaError;
-    use yokoku_domain::{EpisodeRef, EpisodeSpan, FileTarget, ItemId, MediaFileId, SeriesId};
+    use yokoku_domain::{EpisodeRef, FileTarget, ItemId, MediaFileId, SeriesId};
 
-    use super::{Deleter, FileOf, ItemFile, Library, MetadataService, MonitorTarget, Numbering, Watched};
+    use super::{Deleter, ItemFile, Library, MetadataService, MonitorTarget, Numbering, Watched};
     use crate::{api::library_failure, format::episode};
-
-    pub(super) async fn delete_file(deleter: &Deleter, target: FileOf) -> Result<(), ServerFnError> {
-        let target = match target {
-            FileOf::Episode { id, season, episode } => {
-                FileTarget::Episodes { series: id, span: EpisodeSpan::single(EpisodeRef { season, episode }) }
-            },
-            FileOf::Movie { id } => FileTarget::Movie(id),
-        };
-        deleter.delete(target).await.map(drop).map_err(|error| match error {
-            MediaError::NoFile => ServerFnError::new("It has no file anymore; reload the page"),
-            error => {
-                error!(%error, ?target, "deleting the file failed");
-                ServerFnError::new("The file could not be deleted; the server log has the cause")
-            },
-        })
-    }
 
     /// Deleting every file goes with the removal, so history names it.
     pub(super) async fn remove(
