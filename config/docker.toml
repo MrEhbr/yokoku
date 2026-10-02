@@ -93,7 +93,7 @@ execute_imports = "*/5 * * * * *"
 rescan_media_server = "*/10 * * * * *"
 # Mirrors the Jellyfin user's played items onto library files.
 sync_watched = "0 */15 * * * *"
-# Refreshes only the items due, as Sonarr and Radarr decide it.
+# Refreshes only the items due for it.
 refresh_metadata = "0 0 */12 * * *"
 # Looks for files changed outside Yokoku in the root folders.
 scan_library = "0 0 5 * * *"

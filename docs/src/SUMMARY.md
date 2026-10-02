@@ -20,9 +20,9 @@
 
 # Integrations
 
-- [Transmission]()
-- [Jellyfin]()
-- [TMDB and TVDB]()
+- [Transmission](./integrations/transmission.md)
+- [Jellyfin](./integrations/jellyfin.md)
+- [TMDB and TVDB](./integrations/metadata.md)
 
 # Configuration
 
