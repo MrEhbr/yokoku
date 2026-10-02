@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.2.0](https://github.com/MrEhbr/yokoku/compare/v0.1.1..v0.2.0) - 2026-10-02
+
+### Documentation
+
+- remove the design kit, requirements and architecture docs - ([5e71bf7](https://github.com/MrEhbr/yokoku/commit/5e71bf73a60379c4724b3a1288c382e45690cfea)) `+204 / -2465 across 22 file(s)` - Aleksei Burmistrov
+
+### Features
+
+- **(config)** [**breaking**] read environment variables with the YOKOKU__ prefix - ([21711dd](https://github.com/MrEhbr/yokoku/commit/21711ddad3d9b764d9416d9bd6d06ea11f7742ce)) `+70 / -69 across 17 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 2 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 2 commit(s) parsed as conventional.
+- Diff totals: +274 / -2534 across 39 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
 ## [0.1.1](https://github.com/MrEhbr/yokoku/compare/v0.1.0..v0.1.1) - 2026-10-02
 
 ### Build

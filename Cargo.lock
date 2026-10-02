@@ -6251,7 +6251,7 @@ dependencies = [
 
 [[package]]
 name = "yokoku"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -6286,7 +6286,7 @@ dependencies = [
 
 [[package]]
 name = "yokoku-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "hunch",
@@ -6310,7 +6310,7 @@ dependencies = [
 
 [[package]]
 name = "yokoku-domain"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "jiff",
@@ -6327,7 +6327,7 @@ dependencies = [
 
 [[package]]
 name = "yokoku-infra"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -6355,7 +6355,7 @@ dependencies = [
 
 [[package]]
 name = "yokoku-test-support"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "jiff",
  "serde_json",
@@ -6368,7 +6368,7 @@ dependencies = [
 
 [[package]]
 name = "yokoku-web"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "dioxus",

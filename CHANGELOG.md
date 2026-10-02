@@ -3,6 +3,40 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.2.0](https://github.com/MrEhbr/yokoku/compare/v0.1.1..v0.2.0) - 2026-10-02
+
+### CI/CD
+
+- **(release)** publish a Nix package to MrEhbr/nur-packages - ([1078f9e](https://github.com/MrEhbr/yokoku/commit/1078f9ea46223b3c36ffe657b146f50f01ef6569)) `+21 / -0 across 2 file(s)` - Aleksei Burmistrov
+
+### Documentation
+
+- describe yokoku in the CLI help and README - ([4addb34](https://github.com/MrEhbr/yokoku/commit/4addb34358e333b5f4ee607338fd3d280c34ba37)) `+2 / -2 across 2 file(s)` - Aleksei Burmistrov
+- remove the design kit, requirements and architecture docs - ([5e71bf7](https://github.com/MrEhbr/yokoku/commit/5e71bf73a60379c4724b3a1288c382e45690cfea)) `+204 / -2465 across 22 file(s)` - Aleksei Burmistrov
+
+### Features
+
+- **(config)** [**breaking**] read environment variables with the YOKOKU__ prefix - ([21711dd](https://github.com/MrEhbr/yokoku/commit/21711ddad3d9b764d9416d9bd6d06ea11f7742ce)) `+70 / -69 across 17 file(s)` - Aleksei Burmistrov
+
+### Refactoring
+
+- **(infra)** use ring instead of aws-lc for TLS - ([3b6245a](https://github.com/MrEhbr/yokoku/commit/3b6245a472be0a36a7607b4327074cc233d3d013)) `+13 / -55 across 9 file(s)` - Aleksei Burmistrov
+
+### Build
+
+- **(deps)** pin wasm-bindgen to 0.2.127, which nixpkgs' dx bundles - ([f0cb1b5](https://github.com/MrEhbr/yokoku/commit/f0cb1b5fe71d79729b4ff49feda3685725b55a9a)) `+14 / -14 across 1 file(s)` - Aleksei Burmistrov
+- **(docker)** ship ffprobe in the image - ([ebfd35f](https://github.com/MrEhbr/yokoku/commit/ebfd35f93e23da4ab2ee15f7fe1c4ea9eec7a833)) `+1 / -0 across 1 file(s)` - Aleksei Burmistrov
+- **(release)** publish one checksums.txt - ([c5666a4](https://github.com/MrEhbr/yokoku/commit/c5666a467e2adeff07d9c07aadc0dfb8578271df)) `+1 / -1 across 1 file(s)` - Aleksei Burmistrov
+- **(release)** ship static musl binaries with mimalloc - ([38d2bd4](https://github.com/MrEhbr/yokoku/commit/38d2bd4048c7b9385c0da6094a2539be64efbc9c)) `+28 / -2 across 4 file(s)` - Aleksei Burmistrov
+- add the musl targets to the toolchain - ([a23d03a](https://github.com/MrEhbr/yokoku/commit/a23d03a75328b4b125bd6a5bdd6f9471ae4629d3)) `+2 / -0 across 1 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 10 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 10 commit(s) parsed as conventional.
+- Diff totals: +356 / -2608 across 60 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
 ## [0.1.1](https://github.com/MrEhbr/yokoku/compare/v0.1.0..v0.1.1) - 2026-10-02
 
 ### CI/CD

@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.2.0](https://github.com/MrEhbr/yokoku/compare/v0.1.0..v0.2.0) - 2026-10-02
+
+### Features
+
+- **(config)** [**breaking**] read environment variables with the YOKOKU__ prefix - ([21711dd](https://github.com/MrEhbr/yokoku/commit/21711ddad3d9b764d9416d9bd6d06ea11f7742ce)) `+70 / -69 across 17 file(s)` - Aleksei Burmistrov
+
+### Refactoring
+
+- **(infra)** use ring instead of aws-lc for TLS - ([3b6245a](https://github.com/MrEhbr/yokoku/commit/3b6245a472be0a36a7607b4327074cc233d3d013)) `+13 / -55 across 9 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 2 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 2 commit(s) parsed as conventional.
+- Diff totals: +83 / -124 across 26 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
 ## [0.1.0] - 2026-10-02
 
 ### Bug Fixes
