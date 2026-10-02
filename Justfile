@@ -65,6 +65,10 @@ fmt:
 typos:
     @typos --write-changes
 
+# Serve the user docs with live reload
+docs:
+    @mdbook serve docs --open
+
 # Tidy dependencies
 tidy:
     @cargo update

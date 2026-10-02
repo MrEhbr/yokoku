@@ -68,6 +68,7 @@
               gnuplot
               typos
               git-cliff
+              mdbook
               nur.repos.goreleaser.goreleaser
               zig_0_13
               curl

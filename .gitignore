@@ -85,6 +85,7 @@ pkg/
 .intentionally-empty-file.o
 
 # Release artifacts
+docs/book/
 RELEASE_NOTES.md
 dist/
 
