@@ -23,7 +23,7 @@ use crate::{
     route::SettingsPart,
 };
 
-/// The settings in effect, grouped by what they configure, and the root folders (FR-10.1), scrolled
+/// The settings in effect, grouped by what they configure, and the root folders, scrolled
 /// to `part`. A change is stored in the database over the config file and applies at once.
 #[component]
 pub fn Settings(part: SettingsPart) -> Element {

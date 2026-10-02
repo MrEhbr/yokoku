@@ -8,7 +8,7 @@ use crate::media::{
     ports::{Catalog, FileSystem, MediaRepo},
 };
 
-/// Root folder settings (FR-8.1).
+/// Root folder settings.
 pub struct RootFolders {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,

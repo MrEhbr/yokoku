@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// Episodes and movie releases of monitored items, coming up from today or a week or month at a
-/// time, by day (FR-7.1–7.4).
+/// time, by day.
 #[component]
 pub fn Upcoming() -> Element {
     let window = use_signal(Window::default);

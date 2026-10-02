@@ -28,7 +28,7 @@ enum View {
     Table,
 }
 
-/// Movies and series with type, status and watched filters, a sort order, and a poster or table view (FR-1.2, 1.3).
+/// Movies and series with type, status and watched filters, a sort order, and a poster or table view.
 #[component]
 pub fn Library() -> Element {
     let mut filters = use_signal(Filters::default);

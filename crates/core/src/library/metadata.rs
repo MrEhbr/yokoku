@@ -21,7 +21,7 @@ pub struct MetadataService {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
     metadata: Arc<dyn MetadataProvider>,
-    /// Names a new item's folder when the caller gives none (FR-5.1).
+    /// Names a new item's folder when the caller gives none.
     naming: Live<Naming>,
     clock: Arc<dyn Clock>,
     events: Publisher,

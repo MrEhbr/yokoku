@@ -17,7 +17,7 @@ yokoku_domain::string_enum!(RootKind, "root folder kind" {
     Movies => "movies",
 });
 
-/// A folder holding the library's series or movies (FR-8.1).
+/// A folder holding the library's series or movies.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootFolder {
     pub kind: RootKind,
@@ -40,7 +40,7 @@ impl MediaFile {
     }
 }
 
-/// Files waiting for the user to confirm what they hold (FR-4.11, FR-8.3).
+/// Files waiting for the user to confirm what they hold.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Import {
     pub id: ImportId,
@@ -152,7 +152,7 @@ impl From<FileTarget> for RowMatch {
     }
 }
 
-/// How a row settles a library file, or another row, that holds its target (FR-4.12).
+/// How a row settles a library file, or another row, that holds its target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Resolution {
     /// Either is a conflict the user resolves.
@@ -170,7 +170,7 @@ yokoku_domain::string_enum!(Resolution, "resolution" {
     KeepBoth => "keep-both",
 });
 
-/// Streams a probe read from a video file (FR-8.6).
+/// Streams a probe read from a video file.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MediaInfo {
     pub duration: Option<Duration>,

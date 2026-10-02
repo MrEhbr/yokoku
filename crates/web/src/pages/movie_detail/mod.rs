@@ -29,7 +29,7 @@ use crate::{
     route::Route,
 };
 
-/// A movie with its cinema, digital and physical release dates and file status (FR-1.5).
+/// A movie with its cinema, digital and physical release dates and file status.
 #[component]
 pub fn MovieDetail(id: MovieId) -> Element {
     let movie = use_server_future(use_reactive!(|id| movie(id)))?;

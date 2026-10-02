@@ -16,7 +16,7 @@ use crate::{
     },
 };
 
-/// Plans an import for every finished download (FR-3.5, FR-4).
+/// Plans an import for every finished download.
 pub struct ImportPlanner {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,

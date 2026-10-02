@@ -20,7 +20,7 @@ use crate::{
     },
 };
 
-/// Moves library files to the paths naming gives them (FR-5.7).
+/// Moves library files to the paths naming gives them.
 pub struct Renamer {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,

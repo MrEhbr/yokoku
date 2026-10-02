@@ -18,7 +18,7 @@ impl fmt::Display for LibraryStatus {
     }
 }
 
-/// One row of the library list (FR-1.2).
+/// One row of the library list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibraryEntry {
     pub id: ItemId,

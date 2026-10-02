@@ -86,7 +86,7 @@ fn NavItem(to: Route, label: &'static str, children: Element) -> Element {
     }
 }
 
-/// Version and the metadata attribution every page showing metadata carries (FR-10.5).
+/// Version and the metadata attribution every page showing metadata carries.
 #[component]
 fn Footer() -> Element {
     let version = env!("CARGO_PKG_VERSION");

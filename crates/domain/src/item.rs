@@ -166,7 +166,7 @@ impl Artwork {
     }
 }
 
-/// Where an item's files live: a folder named `name` directly in the root folder `root` (FR-8.1).
+/// Where an item's files live: a folder named `name` directly in the root folder `root`.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ItemFolder {
     pub root: PathBuf,

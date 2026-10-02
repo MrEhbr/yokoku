@@ -1,5 +1,4 @@
-//! One series or movie with its description, episodes or releases, and files (FR-1.4, 1.5, 6.1,
-//! 6.2, 8.6).
+//! One series or movie with its description, episodes or releases, and files.
 
 use dioxus::prelude::*;
 use jiff::civil::Date;

@@ -87,7 +87,7 @@ impl YearFit {
 }
 
 impl ParsedName {
-    /// The single best title match; certain only for an exact title whose year agrees or is unknown (FR-4.6).
+    /// The single best title match; certain only for an exact title whose year agrees or is unknown.
     pub(crate) fn choose<'a, T: Titled>(&self, items: &'a [T]) -> Option<(&'a T, bool)> {
         let title = self.title.as_deref()?;
         let scored: Vec<_> = items

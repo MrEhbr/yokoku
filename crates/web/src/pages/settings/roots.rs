@@ -18,7 +18,7 @@ use crate::{
     route::SettingsPart,
 };
 
-/// The folders that hold series and movies (FR-8.1); one holding items cannot be removed. Scrolls
+/// The folders that hold series and movies; one holding items cannot be removed. Scrolls
 /// into view once mounted when `scrolled_to`.
 #[component]
 pub(super) fn RootFolders(scrolled_to: bool) -> Element {

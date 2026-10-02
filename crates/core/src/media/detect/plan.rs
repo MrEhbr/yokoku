@@ -7,7 +7,7 @@ use crate::media::{
     detect::{Classified, EpisodeHint, ListedFile, ParsedName, Video, titles::normalize},
 };
 
-/// What the download was added for (FR-4.7).
+/// What the download was added for.
 #[derive(Debug, Clone, Copy)]
 pub enum MatchScope<'a> {
     Series(&'a Series),
@@ -60,7 +60,7 @@ impl fmt::Display for Conflict {
 }
 
 impl ImportPlan {
-    /// Matches every video in a download to the library (FR-4).
+    /// Matches every video in a download to the library.
     pub fn new(files: &[ListedFile], scope: MatchScope<'_>) -> Self {
         let Classified { videos, mut ignored } = Classified::from_files(files);
 
@@ -158,7 +158,7 @@ impl PlanRow {
         RowMatch::Series { series, season: named, episodes }
     }
 
-    /// Only the largest video is the movie; the others are extras (FR-4.13).
+    /// Only the largest video is the movie; the others are extras.
     fn movie<'a>(
         mut videos: Vec<Video>,
         ignored: &mut Vec<PathBuf>,
@@ -200,7 +200,7 @@ impl PlanRow {
 }
 
 impl ParsedName {
-    /// The episodes this name refers to, and whether that reading is certain (FR-4.3, 4.5, 4.8, 4.9).
+    /// The episodes this name refers to, and whether that reading is certain.
     /// A name without a season is in `season` when one is given.
     fn episodes_in(&self, series: &Series, given: Option<u16>) -> Option<(EpisodeSpan, bool)> {
         let only = |matches: &dyn Fn(&Episode) -> bool| {

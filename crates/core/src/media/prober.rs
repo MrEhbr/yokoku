@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-/// Reads and keeps the streams of library files (FR-8.6).
+/// Reads and keeps the streams of library files.
 pub struct Prober {
     repo: Arc<dyn MediaRepo>,
     fs: Arc<dyn FileSystem>,

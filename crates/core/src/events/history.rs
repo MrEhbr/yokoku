@@ -4,7 +4,7 @@ use crate::events::{EventId, EventLog, Recorded};
 
 const BATCH: u32 = 200;
 
-/// What happened, newest first (FR-9.1), read from the event log.
+/// What happened, newest first, read from the event log.
 pub struct History {
     log: EventLog,
 }

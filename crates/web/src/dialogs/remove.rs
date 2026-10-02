@@ -22,7 +22,7 @@ use crate::{
 };
 
 /// A "Remove…" button: deletes the chosen files of the item, or removes it from the library after
-/// deleting the chosen ones, its other files staying on disk (FR-1.7, 8.4, 8.5). `on_change` runs
+/// deleting the chosen ones, its other files staying on disk. `on_change` runs
 /// after files of an item that stays are deleted; the Library opens once the item is removed.
 #[component]
 pub fn RemoveButton(item: ItemId, title: String, on_change: Callback) -> Element {

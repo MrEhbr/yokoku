@@ -1,5 +1,4 @@
-//! Downloads as of the last sync with the download client, each with its import (FR-3.4, 4.11,
-//! 9.2).
+//! Downloads as of the last sync with the download client, each with its import.
 
 use dioxus::{fullstack::ServerEvents, prelude::*};
 use serde::{Deserialize, Serialize};
@@ -113,7 +112,7 @@ pub enum NewTorrent {
 }
 
 /// Sends the torrent to the download client for `item`, or for detection to work out what it
-/// holds (FR-3.2); for a series, `season` places its files whose names give none.
+/// holds; for a series, `season` places its files whose names give none.
 #[post("/api/downloads", downloads: Dep<Downloads>)]
 pub async fn add_torrent(torrent: NewTorrent, item: Option<ItemId>, season: Option<u16>) -> Result<(), ServerFnError> {
     server::add(&downloads, torrent, item, season).await

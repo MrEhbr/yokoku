@@ -23,7 +23,7 @@ use yokoku_domain::{
 use self::ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource};
 use crate::events::{Handler, HandlerError, Publisher, QueueChanges};
 
-/// Torrents added through Yokoku and their state in the download client (FR-3).
+/// Torrents added through Yokoku and their state in the download client.
 pub struct Downloads {
     repo: Arc<dyn DownloadRepo>,
     client: Arc<dyn DownloadClient>,
@@ -35,12 +35,12 @@ pub struct Downloads {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DownloadOptions {
-    /// Removes a torrent with its data once it is imported and the client finished seeding it (FR-3.7).
+    /// Removes a torrent with its data once it is imported and the client finished seeding it.
     pub remove_after_seeding: bool,
-    /// Torrents added to the client outside Yokoku with any of these labels are taken on (FR-3.3).
+    /// Torrents added to the client outside Yokoku with any of these labels are taken on.
     #[serde(default)]
     pub pick_up_labels: Vec<String>,
-    /// Torrents added to the client outside Yokoku that download at or under this folder are taken on (FR-3.3).
+    /// Torrents added to the client outside Yokoku that download at or under this folder are taken on.
     pub pick_up_folder: Option<PathBuf>,
 }
 
@@ -83,7 +83,7 @@ impl Downloads {
         Ok(self.repo.list().await?)
     }
 
-    /// Adds a torrent for `item`, or for detection to work out when `None` (FR-3.2); for a series,
+    /// Adds a torrent for `item`, or for detection to work out when `None`; for a series,
     /// `season` places its files whose names give none.
     #[instrument(skip_all, fields(item = ?item, season = ?season))]
     pub async fn add(

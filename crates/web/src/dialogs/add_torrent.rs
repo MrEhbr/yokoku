@@ -42,7 +42,7 @@ pub fn AddTorrentButton(#[props(default)] item: Option<ItemLink>) -> Element {
 }
 
 /// Adds a magnet link or .torrent file for `item`, or without one for a library item chosen in
-/// the dialog or for detection to work out (FR-3.2); the Downloads page opens once it is added.
+/// the dialog or for detection to work out; the Downloads page opens once it is added.
 /// `open` closes it.
 #[component]
 fn AddTorrent(open: Signal<bool>, item: Option<ItemLink>) -> Element {

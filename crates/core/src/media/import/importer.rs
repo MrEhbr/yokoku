@@ -22,7 +22,7 @@ use crate::{
     },
 };
 
-/// How files reach the library (FR-3.6).
+/// How files reach the library.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ImportMode {
@@ -39,7 +39,7 @@ pub struct ImportSettings {
     pub mode: ImportMode,
 }
 
-/// Places the files of approved imports in the library (FR-5).
+/// Places the files of approved imports in the library.
 pub struct Importer {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,

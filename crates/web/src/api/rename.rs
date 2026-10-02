@@ -1,4 +1,4 @@
-//! Renaming an item's files to the naming patterns, with a preview first (FR-5.7).
+//! Renaming an item's files to the naming patterns, with a preview first.
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};

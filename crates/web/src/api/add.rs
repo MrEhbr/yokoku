@@ -1,4 +1,4 @@
-//! Searching the metadata source and adding a result to the library (FR-1.1, 2.2, 8.1).
+//! Searching the metadata source and adding a result to the library.
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};

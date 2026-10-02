@@ -18,7 +18,7 @@ pub enum Kind {
     Movie,
 }
 
-/// Series and movie lifecycle statuses (FR-1.2).
+/// Series and movie lifecycle statuses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Status {
@@ -30,7 +30,7 @@ pub enum Status {
     Released,
 }
 
-/// Whether an episode or movie has its file (FR-1.4, 1.5, 7.4).
+/// Whether an episode or movie has its file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum FileStatus {

@@ -1,4 +1,4 @@
-//! Matching the files detection was unsure about, then importing them (FR-4.11, 4.12, 8.3).
+//! Matching the files detection was unsure about, then importing them.
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};

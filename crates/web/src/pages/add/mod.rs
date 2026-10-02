@@ -22,7 +22,7 @@ use crate::{
     route::{Route, SearchText},
 };
 
-/// Searches the metadata source for series or movies to add (FR-1.1); the search is in the URL.
+/// Searches the metadata source for series or movies to add; the search is in the URL.
 #[component]
 pub fn Add(query: SearchText, kind: Kind) -> Element {
     let mut text = use_signal(|| query.0.clone());

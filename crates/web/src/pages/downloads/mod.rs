@@ -13,8 +13,8 @@ use crate::{
     layout::LiveDownloads,
 };
 
-/// Downloads as of the last sync with the download client, each with the state of its import
-/// (FR-3.4, 4.11, 9.2). Rendered on the server, then updated in place from [`LiveDownloads`].
+/// Downloads as of the last sync with the download client, each with the state of its import.
+/// Rendered on the server, then updated in place from [`LiveDownloads`].
 #[component]
 pub fn Downloads() -> Element {
     let first = use_server_future(downloads)?;

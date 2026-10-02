@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::components::alert::{Alert, AlertDescription, AlertTitle, AlertVariant};
 
-/// Files a scan found in an item's folder without recognising them (FR-8.3), with `children` as
+/// Files a scan found in an item's folder without recognising them, with `children` as
 /// the action that matches them.
 #[component]
 pub fn UnrecognisedFiles(count: usize, children: Element) -> Element {

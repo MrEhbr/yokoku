@@ -1,5 +1,4 @@
-//! The settings in effect, the root folders and the library scan, as the Settings page edits them
-//! (FR-10.1, 3.1, 8.1, 8.2).
+//! The settings in effect, the root folders and the library scan, as the Settings page edits them.
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -150,7 +149,7 @@ pub struct Scanned {
     pub unrecognised: usize,
 }
 
-/// Links new files in the item folders and forgets those gone from disk (FR-8.2, 8.7).
+/// Links new files in the item folders and forgets those gone from disk.
 #[post("/api/library/scan", scanner: Dep<Scanner>)]
 pub async fn scan_library() -> Result<Scanned, ServerFnError> {
     server::scan(&scanner).await

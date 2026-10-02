@@ -21,7 +21,7 @@ use crate::{
     route::{Route, SettingsPart},
 };
 
-/// The options of the picked result; adding it opens its page (FR-1.1, 2.2, 8.1). Closing it
+/// The options of the picked result; adding it opens its page. Closing it
 /// clears `picked`.
 #[component]
 pub(super) fn AddDialog(

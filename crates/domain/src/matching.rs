@@ -174,7 +174,7 @@ impl fmt::Display for SubtitleTags {
     }
 }
 
-/// How sure detection is about a file's match (FR-4.10).
+/// How sure detection is about a file's match.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Confidence {
     Unknown,

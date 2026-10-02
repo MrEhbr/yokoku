@@ -1,4 +1,4 @@
-//! A library file as probed (FR-8.6): a short summary and the full details.
+//! A library file as probed: a short summary and the full details.
 
 use dioxus::prelude::*;
 

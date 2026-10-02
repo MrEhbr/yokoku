@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-/// Deletes library files (FR-8.4).
+/// Deletes library files.
 pub struct Deleter {
     repo: Arc<dyn MediaRepo>,
     fs: Arc<dyn FileSystem>,

@@ -31,7 +31,7 @@ use crate::{
     format::{episode as code, plural, size},
 };
 
-/// A button that opens the review of `import` (FR-4.11, 4.12, 8.3); `on_done` is called once
+/// A button that opens the review of `import`; `on_done` is called once
 /// its files are imported.
 #[component]
 pub fn ReviewButton(

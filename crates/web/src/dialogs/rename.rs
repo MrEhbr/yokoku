@@ -18,7 +18,7 @@ use crate::{
     dialogs::ClosableDialog,
 };
 
-/// A "Rename files…" button that previews and renames the item's files (FR-5.7) and calls
+/// A "Rename files…" button that previews and renames the item's files and calls
 /// `on_change` after a rename.
 #[component]
 pub fn RenameButton(item: ItemId, on_change: Callback) -> Element {

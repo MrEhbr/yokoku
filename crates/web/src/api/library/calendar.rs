@@ -1,4 +1,4 @@
-//! Upcoming releases and missing files of monitored items (FR-6.3, 6.4, 7.1–7.4).
+//! Upcoming releases and missing files of monitored items.
 
 use dioxus::prelude::*;
 use jiff::civil::Date;

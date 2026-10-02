@@ -13,7 +13,7 @@ use crate::{
     integrations::ports::{MediaServer, MediaServerError, RescanStore},
 };
 
-/// Tells the media server to rescan after library files change (FR-10.4); a burst of changes
+/// Tells the media server to rescan after library files change; a burst of changes
 /// leads to one rescan.
 pub struct Rescans {
     store: Arc<dyn RescanStore>,

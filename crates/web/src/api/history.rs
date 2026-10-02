@@ -1,4 +1,4 @@
-//! What happened in the library, newest first (FR-9.1).
+//! What happened in the library, newest first.
 
 use dioxus::prelude::*;
 use jiff::civil::{Date, DateTime};

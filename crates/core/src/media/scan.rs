@@ -73,7 +73,7 @@ impl Scanner {
     }
 
     /// Links new files in the folder of every library item, sends the rest to review and forgets
-    /// linked files that are gone (FR-8.2, FR-8.3, FR-8.7). Nothing else in a root folder is read.
+    /// linked files that are gone. Nothing else in a root folder is read.
     /// Each item folder is committed on its own; a root folder that cannot be read stops the scan
     /// before anything in it changes.
     #[instrument(skip_all)]
@@ -94,7 +94,7 @@ impl Scanner {
         Ok(report)
     }
 
-    /// Scans the folder of one item, as `scan` does (FR-8.8); an item no longer in the library is
+    /// Scans the folder of one item, as `scan` does; an item no longer in the library is
     /// left alone.
     #[instrument(skip_all, fields(?item))]
     pub async fn scan_item(&self, item: ItemId) -> Result<ScanReport, MediaError> {

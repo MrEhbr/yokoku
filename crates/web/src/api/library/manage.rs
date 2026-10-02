@@ -1,5 +1,5 @@
-//! Changes to a library item from its page: monitoring (FR-2.1), refresh (FR-1.6), numbering
-//! (FR-1.8), removal (FR-1.7) and deleting files (FR-8.4).
+//! Changes to a library item from its page: monitoring, refresh, numbering, removal and deleting
+//! files.
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -24,20 +24,20 @@ pub async fn set_monitored(target: MonitorTarget, monitored: bool) -> Result<(),
     server::set_monitored(&library, target, monitored).await
 }
 
-/// Reads the item's metadata from its source again (FR-1.6).
+/// Reads the item's metadata from its source again.
 #[post("/api/items/refresh", metadata: Dep<MetadataService>)]
 pub async fn refresh(item: ItemId) -> Result<(), ServerFnError> {
     server::refresh(&metadata, item).await
 }
 
-/// Sets how the series' episode numbers are read from file names (FR-1.8).
+/// Sets how the series' episode numbers are read from file names.
 #[post("/api/series/{id}/numbering", library: Dep<Library>)]
 pub async fn set_numbering(id: SeriesId, numbering: Numbering) -> Result<(), ServerFnError> {
     server::set_numbering(&library, id, numbering).await
 }
 
 /// Removes the item from the library after deleting `delete`, files of it; its other files stay
-/// on disk (FR-1.7, 8.5).
+/// on disk.
 #[post("/api/items/remove", library: Dep<Library>, deleter: Dep<Deleter>)]
 pub async fn remove(item: ItemId, delete: Vec<MediaFileId>) -> Result<(), ServerFnError> {
     server::remove(&library, &deleter, item, delete).await
@@ -64,7 +64,7 @@ pub async fn item_files(item: ItemId) -> Result<Vec<ItemFile>, ServerFnError> {
     server::item_files(&library, &deleter, item).await
 }
 
-/// Deletes `files` of `item` from disk with their subtitles (FR-8.4), and stops monitoring the
+/// Deletes `files` of `item` from disk with their subtitles, and stops monitoring the
 /// episodes or movie they held when `unmonitor`.
 #[post("/api/items/delete-files", library: Dep<Library>, deleter: Dep<Deleter>)]
 pub async fn delete_files(item: ItemId, files: Vec<MediaFileId>, unmonitor: bool) -> Result<(), ServerFnError> {

@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// Monitored episodes that aired without a file, grouped by series, and released monitored
-/// movies without one (FR-6.3, 6.4).
+/// movies without one.
 #[component]
 pub fn Missing() -> Element {
     let missing = use_server_future(missing)?;

@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-/// Manual matching of files detection was unsure about (FR-4.11, FR-8.3). Rows are numbered
+/// Manual matching of files detection was unsure about. Rows are numbered
 /// from 1; a skipped row is unchecked and left where it is.
 pub struct Reviewer {
     repo: Arc<dyn MediaRepo>,

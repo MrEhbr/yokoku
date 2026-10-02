@@ -15,7 +15,7 @@ use crate::{
 const CHOICES: [(Numbering, &str); 2] =
     [(Numbering::Standard, "Standard · S01E02"), (Numbering::Absolute, "Absolute · 12")];
 
-/// How episode numbers in the series' file names are read (FR-1.8); a choice is saved at once and
+/// How episode numbers in the series' file names are read; a choice is saved at once and
 /// `on_change` called once the server has it.
 #[component]
 pub(super) fn NumberingSelect(series: SeriesId, numbering: Numbering, on_change: Callback) -> Element {

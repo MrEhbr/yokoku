@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use jiff::Timestamp;
 use yokoku_domain::{DownloadId, ItemId};
 
-/// A torrent Yokoku added to the download client (FR-3.4).
+/// A torrent Yokoku added to the download client.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Download {
     pub id: DownloadId,

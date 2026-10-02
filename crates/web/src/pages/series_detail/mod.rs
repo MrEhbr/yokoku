@@ -33,7 +33,7 @@ use crate::{
 };
 
 /// A series with its next and last episodes, and every season's episodes with air date and
-/// file status (FR-1.4, 6.1, 6.2).
+/// file status.
 #[component]
 pub fn SeriesDetail(id: SeriesId) -> Element {
     let series = use_server_future(use_reactive!(|id| series(id)))?;
