@@ -30,8 +30,8 @@ builds:
         - zig objcopy --strip-all {{ .Path }} {{ .Path }}.stripped
         - mv {{ .Path }}.stripped {{ .Path }}
     targets:
-      - x86_64-unknown-linux-gnu
-      - aarch64-unknown-linux-gnu
+      - x86_64-unknown-linux-musl
+      - aarch64-unknown-linux-musl
 
 archives:
   - formats: [tar.gz]

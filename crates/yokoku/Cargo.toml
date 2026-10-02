@@ -40,6 +40,9 @@ jiff-cron = "0.3"
 owo-colors = { version = "4.4", features = ["supports-colors"] }
 tracing-appender = "0.2"
 
+[target.'cfg(target_env = "musl")'.dependencies]
+mimalloc = "0.1"
+
 [dev-dependencies]
 yokoku-test-support.workspace = true
 

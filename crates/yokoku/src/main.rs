@@ -18,6 +18,10 @@ use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::cli::args::{self, Args};
 
+#[cfg(target_env = "musl")]
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 async fn run() -> Result<()> {
     let matches = Args::command().get_matches();
     let command = matches.subcommand_name().unwrap_or("service").to_owned();
