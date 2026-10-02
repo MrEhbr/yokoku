@@ -54,7 +54,7 @@ archives:
         formats: [zip]
 
 checksum:
-  split: true
+  name_template: checksums.txt
 changelog:
   disable: false
 
