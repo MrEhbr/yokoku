@@ -44,5 +44,5 @@
 
 # Reference
 
-- [Troubleshooting]()
+- [Troubleshooting](./troubleshooting.md)
 - [Changelog](./changelog.md)
