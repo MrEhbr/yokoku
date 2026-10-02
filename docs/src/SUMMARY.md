@@ -26,11 +26,11 @@
 
 # Configuration
 
-- [Overview]()
-- [Naming]()
-- [Imports]()
-- [Schedules]()
-- [Logging and Database]()
+- [Overview](./configuration/index.md)
+- [Naming](./configuration/naming.md)
+- [Imports](./configuration/imports.md)
+- [Schedules](./configuration/schedules.md)
+- [Logging and Database](./configuration/logging-database.md)
 
 # CLI Reference
 
