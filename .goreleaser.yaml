@@ -58,6 +58,26 @@ checksum:
 changelog:
   disable: false
 
+nix:
+  - name: yokoku
+    repository:
+      owner: MrEhbr
+      name: nur-packages
+      token: "{{ .Env.NUR_TOKEN }}"
+    homepage: https://github.com/MrEhbr/yokoku
+    description: Self-hosted manager for a movie and TV library
+    license: mit
+    main_program: yokoku
+    dependencies:
+      - ffmpeg-headless
+    install: |
+      mkdir -p $out/bin $out/share/yokoku
+      cp -v ./yokoku $out/bin/yokoku
+      cp -vr ./public $out/share/yokoku/public
+      wrapProgram $out/bin/yokoku \
+        --prefix PATH : ${lib.makeBinPath [ ffmpeg-headless ]} \
+        --set-default DIOXUS_PUBLIC_PATH $out/share/yokoku/public
+
 release:
   draft: false
   prerelease: auto
