@@ -122,7 +122,16 @@ pub struct EpisodeRow {
     pub file: FileStatus,
     /// The episode's file, when it has one.
     pub file_info: Option<FileInfo>,
+    /// Set when the Jellyfin user has played the episode's file.
+    pub watched: Option<Watched>,
     pub monitored: bool,
+}
+
+/// A file the Jellyfin user has played.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Watched {
+    /// When it was last played, in the server's time zone; `None` when Jellyfin gives no date.
+    pub on: Option<Date>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -146,6 +155,8 @@ pub struct MovieDetail {
     pub file: FileStatus,
     /// The movie's file, when it has one.
     pub file_info: Option<FileInfo>,
+    /// Set when the Jellyfin user has played the movie's file.
+    pub watched: Option<Watched>,
     /// Files a scan found in the movie's folder that wait to be matched.
     pub unrecognised: Option<Unrecognised>,
 }
@@ -178,6 +189,13 @@ impl SeriesDetail {
             .filter_map(|episode| episode.file_info.as_ref().map(|info| (info.path.as_str(), info.size)))
             .collect();
         DiskUsage { files: files.len(), size: files.values().sum() }
+    }
+
+    /// Episodes the Jellyfin user has played, and episodes downloaded.
+    pub fn watch_progress(&self) -> (usize, usize) {
+        let episodes = self.seasons.iter().flat_map(|season| &season.episodes);
+        let downloaded = episodes.clone().filter(|episode| episode.file == FileStatus::Downloaded).count();
+        (episodes.filter(|episode| episode.watched.is_some()).count(), downloaded)
     }
 }
 
@@ -226,11 +244,12 @@ mod server {
 
     use super::{
         Description, EpisodeRow, FileInfo, Images, Library, MovieDetail, Numbering, Prober, Release, Reviewer,
-        SeasonDetail, SeriesDetail, Streams, Unrecognised, Video,
+        SeasonDetail, SeriesDetail, Streams, Unrecognised, Video, Watched,
     };
     use crate::api::artwork;
 
     type Files = HashMap<MediaFileId, FileInfo>;
+    type WatchedFiles = HashMap<MediaFileId, Watched>;
 
     pub(super) async fn series(
         library: &Library,
@@ -248,8 +267,9 @@ mod server {
             },
         };
         let files = files(prober, ItemId::Series(id)).await;
+        let watched = watched(library).await;
         let unrecognised = unrecognised(reviewer, &series.folder).await;
-        Ok(Some(SeriesDetail::new(&series, &files, unrecognised, today)))
+        Ok(Some(SeriesDetail::new(&series, &files, &watched, unrecognised, today)))
     }
 
     pub(super) async fn movie(
@@ -268,8 +288,9 @@ mod server {
             },
         };
         let files = files(prober, ItemId::Movie(id)).await;
+        let watched = watched(library).await;
         let unrecognised = unrecognised(reviewer, &movie.folder).await;
-        Ok(Some(MovieDetail::new(&movie, &files, unrecognised, today)))
+        Ok(Some(MovieDetail::new(&movie, &files, &watched, unrecognised, today)))
     }
 
     /// Files of scans of `folder` waiting for review; none when imports cannot be read, so the
@@ -297,9 +318,28 @@ mod server {
         }
     }
 
+    /// Played library files; none when they cannot be read, so the page still shows the item.
+    async fn watched(library: &Library) -> WatchedFiles {
+        match library.watched_files().await {
+            Ok(watched) => {
+                watched.into_iter().map(|(file, at)| (file, Watched { on: at.map(|at| library.date_of(at)) })).collect()
+            },
+            Err(error) => {
+                error!(%error, "reading the watched files failed");
+                WatchedFiles::new()
+            },
+        }
+    }
+
     impl SeriesDetail {
-        fn new(series: &Series, files: &Files, unrecognised: Option<Unrecognised>, today: Date) -> Self {
-            let row = |(reference, episode)| EpisodeRow::new(reference, episode, files, today);
+        fn new(
+            series: &Series,
+            files: &Files,
+            watched: &WatchedFiles,
+            unrecognised: Option<Unrecognised>,
+            today: Date,
+        ) -> Self {
+            let row = |(reference, episode)| EpisodeRow::new(reference, episode, files, watched, today);
             Self {
                 id: series.id,
                 title: series.title.clone(),
@@ -336,7 +376,7 @@ mod server {
     }
 
     impl EpisodeRow {
-        fn new(reference: EpisodeRef, episode: &Episode, files: &Files, today: Date) -> Self {
+        fn new(reference: EpisodeRef, episode: &Episode, files: &Files, watched: &WatchedFiles, today: Date) -> Self {
             Self {
                 season: reference.season,
                 number: reference.episode,
@@ -345,13 +385,20 @@ mod server {
                 air_date: episode.air_date,
                 file: episode.file_status(today).into(),
                 file_info: episode.file.and_then(|file| files.get(&file)).cloned(),
+                watched: episode.file.and_then(|file| watched.get(&file)).copied(),
                 monitored: episode.monitored,
             }
         }
     }
 
     impl MovieDetail {
-        fn new(movie: &Movie, files: &Files, unrecognised: Option<Unrecognised>, today: Date) -> Self {
+        fn new(
+            movie: &Movie,
+            files: &Files,
+            watched: &WatchedFiles,
+            unrecognised: Option<Unrecognised>,
+            today: Date,
+        ) -> Self {
             let releases = &movie.releases;
             Self {
                 id: movie.id,
@@ -372,6 +419,7 @@ mod server {
                 ],
                 file: movie.file_status(today).into(),
                 file_info: movie.file.and_then(|file| files.get(&file)).cloned(),
+                watched: movie.file.and_then(|file| watched.get(&file)).copied(),
                 unrecognised,
             }
         }

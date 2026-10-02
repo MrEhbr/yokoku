@@ -18,7 +18,7 @@ use crate::{
 /// A search over the library's series.
 #[component]
 pub(crate) fn SeriesPicker(id: &'static str, series: Signal<Option<SeriesId>>) -> Element {
-    let items = use_resource(|| library(Some(Kind::Series), None, None));
+    let items = use_resource(|| library(Some(Kind::Series), None, None, None));
     let choice = use_memo(move || Some(series()));
     rsx! {
         div { class: "grid gap-1.5",

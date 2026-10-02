@@ -106,7 +106,7 @@ impl App {
         let repo = Arc::new(db.clone());
         let dir = TempDir::new().unwrap();
         let events = publisher(&db);
-        let library = Library::new(repo.clone(), repo.clone(), clock.clone(), events.clone());
+        let library = Library::new(repo.clone(), repo.clone(), repo.clone(), clock.clone(), events.clone());
         let calendar = Calendar::new(repo.clone(), repo.clone(), clock.clone());
         let metadata = MetadataService::new(
             repo.clone(),

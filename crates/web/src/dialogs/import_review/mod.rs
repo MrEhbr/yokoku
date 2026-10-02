@@ -414,7 +414,7 @@ fn MatchEditor(
     on_saved: Callback,
     on_cancel: Callback,
 ) -> Element {
-    let items = use_resource(|| library(None, None, None));
+    let items = use_resource(|| library(None, None, None, None));
     let mut item = use_signal(|| current.map(Match::item).or(suggested));
     let mut episodes = use_signal(|| match current {
         Some(Match::Episodes { season, first, last, .. }) => Some((season, first, last)),

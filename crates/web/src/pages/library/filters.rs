@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::{
-    api::library::{Kind, Sort, Status},
+    api::library::{Kind, Sort, Status, WatchState},
     components::select::{Select, SelectOption},
 };
 
@@ -10,6 +10,7 @@ use crate::{
 pub(super) struct Filters {
     pub kind: Option<Kind>,
     pub status: Option<Status>,
+    pub watched: Option<WatchState>,
     pub sort: Sort,
 }
 
@@ -23,26 +24,27 @@ impl Filters {
     }
 
     pub(super) fn narrows(self) -> bool {
-        self.kind.is_some() || self.status.is_some()
+        self.kind.is_some() || self.status.is_some() || self.watched.is_some()
     }
 
-    /// Clears type and status, keeping the sort.
+    /// Clears type, status and watched, keeping the sort.
     pub(super) fn clear(&mut self) {
         *self = Self { sort: self.sort, ..Self::default() };
     }
 }
 
-/// Type, status and sort selects over the page's [`Filters`].
+/// Type, status, watched and sort selects over the page's [`Filters`].
 #[component]
 pub(super) fn FilterBar(filters: Signal<Filters>) -> Element {
     let kind_value = use_memo(move || Some(filters().kind));
     let status_value = use_memo(move || Some(filters().status));
+    let watched_value = use_memo(move || Some(filters().watched));
     let sort_value = use_memo(move || Some(filters().sort));
-    let Filters { kind, status, sort } = filters();
+    let Filters { kind, status, watched, sort } = filters();
     let statuses = Status::ALL.into_iter().filter(move |status| kind.is_none_or(|kind| status.kind() == kind));
 
     rsx! {
-        div { class: "mt-6 grid gap-4 sm:grid-cols-3 sm:max-w-3xl",
+        div { class: "mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:max-w-5xl",
             Field { label: "Type",
                 Select::<Option<Kind>> {
                     aria_label: "Type",
@@ -76,6 +78,24 @@ pub(super) fn FilterBar(filters: Signal<Filters>) -> Element {
                     for (index, option) in statuses.enumerate() {
                         SelectOption::<Option<Status>> {
                             key: "{option.label()}",
+                            index: index + 1,
+                            value: Some(option),
+                            text_value: option.label(),
+                            "{option.label()}"
+                        }
+                    }
+                }
+            }
+            Field { label: "Watched",
+                Select::<Option<WatchState>> {
+                    aria_label: "Watched",
+                    placeholder: watched.map_or("Any", WatchState::label),
+                    value: Some(watched_value.into()),
+                    on_value_change: move |next: Option<Option<WatchState>>| filters.write().watched = next.flatten(),
+                    SelectOption::<Option<WatchState>> { index: 0usize, value: None, text_value: "Any", "Any" }
+                    for (index, option) in WatchState::ALL.into_iter().enumerate() {
+                        SelectOption::<Option<WatchState>> {
+                            key: "{index}",
                             index: index + 1,
                             value: Some(option),
                             text_value: option.label(),

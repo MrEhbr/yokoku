@@ -83,7 +83,13 @@ impl Seeded {
 
     fn library(&self) -> Library {
         let db = Arc::new(self.db.clone());
-        Library::new(db.clone(), db, Arc::new(SystemClock::new(Live::fixed(TimeZone::UTC))), self.publisher())
+        Library::new(
+            db.clone(),
+            db.clone(),
+            db,
+            Arc::new(SystemClock::new(Live::fixed(TimeZone::UTC))),
+            self.publisher(),
+        )
     }
 
     fn scanner(&self) -> Scanner {

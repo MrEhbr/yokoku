@@ -5,6 +5,7 @@ use crate::{
     api::{
         downloads::ItemLink,
         library::{
+            FileStatus,
             detail::{self, movie},
             manage::{FileOf, MonitorTarget},
         },
@@ -16,7 +17,7 @@ use crate::{
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
-        item_status::{FileState, Lifecycle},
+        item_status::{FileState, FileWatched, Lifecycle},
         load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
@@ -108,6 +109,9 @@ fn Page(movie: detail::MovieDetail) -> Element {
                 FileState { status: movie.file, monitored: movie.monitored }
                 if let Some(info) = &movie.file_info {
                     span { class: "text-caption text-muted", "{size(info.size)} on disk" }
+                }
+                if movie.file == FileStatus::Downloaded {
+                    FileWatched { watched: movie.watched }
                 }
             }
             div { class: "flex flex-wrap items-center gap-x-6 gap-y-2",

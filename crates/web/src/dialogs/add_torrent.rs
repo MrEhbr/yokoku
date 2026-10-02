@@ -201,7 +201,7 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
 /// A choice of library item, or none for detection.
 #[component]
 fn ItemField(chosen: Signal<Option<Option<ItemId>>>) -> Element {
-    let items = use_resource(|| library(None, None, None));
+    let items = use_resource(|| library(None, None, None, None));
     rsx! {
         Field {
             Label { html_for: "torrent-item", "For" }

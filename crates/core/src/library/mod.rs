@@ -10,7 +10,10 @@ pub mod ports;
 mod retry;
 mod snapshot;
 
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 pub use artwork::{Artworks, Image, artwork_name};
 pub use calendar::{
@@ -18,12 +21,12 @@ pub use calendar::{
 };
 pub use error::LibraryError;
 pub use files::FileTracker;
-use jiff::civil::Date;
-pub use listing::{FileCount, LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus};
+use jiff::{Timestamp, civil::Date};
+pub use listing::{FileCount, LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus, WatchState};
 pub use metadata::{MetadataService, RefreshFailure, RefreshReport, SearchHit};
 use tracing::{info, instrument};
 use yokoku_domain::{
-    Clock, EpisodeRef, ExternalId, Movie, MovieId, Numbering, Series, SeriesId,
+    Clock, EpisodeRef, ExternalId, MediaFileId, Movie, MovieId, Numbering, Series, SeriesId,
     events::{MovieRemoved, SeriesRemoved},
 };
 
@@ -31,12 +34,13 @@ use self::{
     ports::{MovieRepo, SeriesRepo},
     snapshot::Snapshot,
 };
-use crate::events::Publisher;
+use crate::{events::Publisher, integrations::ports::WatchedStore};
 
 /// Queries and changes that need no metadata source.
 pub struct Library {
     series: Arc<dyn SeriesRepo>,
     movies: Arc<dyn MovieRepo>,
+    watched: Arc<dyn WatchedStore>,
     clock: Arc<dyn Clock>,
     events: Publisher,
 }
@@ -45,21 +49,33 @@ impl Library {
     pub fn new(
         series: Arc<dyn SeriesRepo>,
         movies: Arc<dyn MovieRepo>,
+        watched: Arc<dyn WatchedStore>,
         clock: Arc<dyn Clock>,
         events: Publisher,
     ) -> Self {
-        Self { series, movies, clock, events }
+        Self { series, movies, watched, clock, events }
     }
 
     pub fn today(&self) -> Date {
         self.clock.now().date()
     }
 
+    /// The date of `at` in the clock's time zone.
+    pub fn date_of(&self, at: Timestamp) -> Date {
+        at.to_zoned(self.clock.now().time_zone().clone()).date()
+    }
+
+    /// The library files the media server's user has played, with when they were last played, if known.
+    pub async fn watched_files(&self) -> Result<HashMap<MediaFileId, Option<Timestamp>>, LibraryError> {
+        Ok(self.watched.watched().await?.into_iter().map(|watched| (watched.file, watched.at)).collect())
+    }
+
     pub async fn list(&self, filter: LibraryFilter, sort: LibrarySort) -> Result<Vec<LibraryEntry>, LibraryError> {
         let today = self.today();
         let snapshot = Snapshot::load(self.series.as_ref(), self.movies.as_ref()).await?;
-        let series = snapshot.series.iter().map(|series| LibraryEntry::from_series(series, today));
-        let movies = snapshot.movies.iter().map(|movie| LibraryEntry::from_movie(movie, today));
+        let watched: HashSet<MediaFileId> = self.watched_files().await?.into_keys().collect();
+        let series = snapshot.series.iter().map(|series| LibraryEntry::from_series(series, &watched, today));
+        let movies = snapshot.movies.iter().map(|movie| LibraryEntry::from_movie(movie, &watched, today));
         let mut entries: Vec<_> = series.chain(movies).collect();
 
         entries.retain(|entry| filter.matches(entry));

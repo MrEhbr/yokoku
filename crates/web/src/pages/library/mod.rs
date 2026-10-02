@@ -28,14 +28,14 @@ enum View {
     Table,
 }
 
-/// Movies and series with type and status filters, a sort order, and a poster or table view (FR-1.2, 1.3).
+/// Movies and series with type, status and watched filters, a sort order, and a poster or table view (FR-1.2, 1.3).
 #[component]
 pub fn Library() -> Element {
     let mut filters = use_signal(Filters::default);
     let mut view = use_signal(|| View::Grid);
     let entries = use_server_future(move || {
-        let Filters { kind, status, sort } = filters();
-        library(kind, status, Some(sort))
+        let Filters { kind, status, watched, sort } = filters();
+        library(kind, status, watched, Some(sort))
     })?;
 
     rsx! {

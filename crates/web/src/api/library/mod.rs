@@ -39,6 +39,15 @@ pub enum FileStatus {
     Upcoming,
 }
 
+/// How many of an item's files the Jellyfin user has watched.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum WatchState {
+    Watched,
+    InProgress,
+    Unwatched,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Sort {
@@ -137,6 +146,18 @@ impl FileStatus {
     }
 }
 
+impl WatchState {
+    pub const ALL: [Self; 3] = [Self::Watched, Self::InProgress, Self::Unwatched];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Watched => "Watched",
+            Self::InProgress => "In progress",
+            Self::Unwatched => "Unwatched",
+        }
+    }
+}
+
 impl Sort {
     pub const ALL: [Self; 3] = [Self::Title, Self::Added, Self::NextRelease];
 
@@ -149,13 +170,15 @@ impl Sort {
     }
 }
 
-#[get("/api/library?kind&status&sort", library: Dep<Library>)]
+/// `watched`: `Unwatched` keeps every item not fully watched, items without files included.
+#[get("/api/library?kind&status&watched&sort", library: Dep<Library>)]
 pub async fn library(
     kind: Option<Kind>,
     status: Option<Status>,
+    watched: Option<WatchState>,
     sort: Option<Sort>,
 ) -> Result<Vec<Entry>, ServerFnError> {
-    server::library(&library, kind, status, sort).await
+    server::library(&library, kind, status, watched, sort).await
 }
 
 #[cfg(feature = "server")]
@@ -167,16 +190,21 @@ mod server {
     };
     use yokoku_domain::{ArtworkKind, MediaKind, MovieStatus, SeriesStatus};
 
-    use super::{Entry, FileCount, FileStatus, Kind, Library, Sort, Status};
+    use super::{Entry, FileCount, FileStatus, Kind, Library, Sort, Status, WatchState};
     use crate::api::artwork;
 
     pub(super) async fn library(
         library: &Library,
         kind: Option<Kind>,
         status: Option<Status>,
+        watched: Option<WatchState>,
         sort: Option<Sort>,
     ) -> Result<Vec<Entry>, ServerFnError> {
-        let filter = LibraryFilter { kind: kind.map(Kind::into), status: status.map(Status::into) };
+        let filter = LibraryFilter {
+            kind: kind.map(Kind::into),
+            status: status.map(Status::into),
+            watched: watched.map(WatchState::into),
+        };
         let entries = library.list(filter, sort.unwrap_or_default().into()).await.map_err(|error| {
             error!(%error, "listing the library failed");
             ServerFnError::new("The library could not be loaded")
@@ -252,6 +280,16 @@ mod server {
                 yokoku_domain::FileStatus::Downloaded => Self::Downloaded,
                 yokoku_domain::FileStatus::Missing => Self::Missing,
                 yokoku_domain::FileStatus::Upcoming => Self::Upcoming,
+            }
+        }
+    }
+
+    impl From<WatchState> for yokoku_core::library::WatchState {
+        fn from(state: WatchState) -> Self {
+            match state {
+                WatchState::Watched => Self::Watched,
+                WatchState::InProgress => Self::InProgress,
+                WatchState::Unwatched => Self::Unwatched,
             }
         }
     }

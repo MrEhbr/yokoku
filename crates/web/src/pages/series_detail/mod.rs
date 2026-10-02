@@ -19,7 +19,7 @@ use crate::{
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
-        item_status::Lifecycle,
+        item_status::{Lifecycle, SeriesWatched},
         load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
@@ -84,6 +84,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
     });
     let series = current();
     let usage = series.disk_usage();
+    let (watched, downloaded) = series.watch_progress();
     let images = series.images.clone();
     let today = series.today;
     let (regular, specials): (Vec<_>, Vec<_>) = series.seasons.iter().cloned().partition(|season| season.number != 0);
@@ -109,6 +110,9 @@ fn Page(series: detail::SeriesDetail) -> Element {
             }
             div { class: "flex flex-wrap gap-x-4 gap-y-1",
                 Lifecycle { status: series.status }
+                if downloaded > 0 {
+                    SeriesWatched { watched, downloaded }
+                }
                 if usage.files > 0 {
                     span { class: "text-caption text-muted",
                         if usage.files == 1 {

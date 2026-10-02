@@ -1,10 +1,17 @@
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
-use jiff::{SignedDuration, ToSpan};
+use jiff::{SignedDuration, Timestamp, ToSpan};
 use rstest::{fixture, rstest};
-use yokoku_core::library::{FileCount, LibraryError, LibraryFilter, LibrarySort, LibraryStatus};
+use yokoku_core::{
+    integrations::ports::{Watched, WatchedStore},
+    library::{FileCount, LibraryError, LibraryFilter, LibrarySort, LibraryStatus, WatchState},
+    media::{
+        MediaFile,
+        ports::{Changes, MediaRepo},
+    },
+};
 use yokoku_domain::{
-    EpisodeRef, ExternalId, MediaFileId, MediaKind, MonitorPreset, MovieStatus, Numbering, Releases, SeriesId,
-    SeriesStatus, SourceStatus,
+    EpisodeRef, EpisodeSpan, ExternalId, FileTarget, MediaFileId, MediaKind, MonitorPreset, MovieStatus, Numbering,
+    Releases, SeriesId, SeriesStatus, SourceStatus,
     events::{MovieRemoved, SeriesRemoved},
 };
 
@@ -58,7 +65,7 @@ async fn populated() -> App {
 #[tokio::test]
 async fn list_filters_and_sorts_entries() {
     let app = populated().await;
-    let movies = LibraryFilter { kind: Some(MediaKind::Movie), status: None };
+    let movies = LibraryFilter { kind: Some(MediaKind::Movie), ..LibraryFilter::default() };
     let titles = async |filter, sort| {
         let entries = app.library.list(filter, sort).await.unwrap();
         entries.into_iter().map(|entry| entry.title).collect::<Vec<_>>()
@@ -69,6 +76,35 @@ async fn list_filters_and_sorts_entries() {
 
     assert_eq!(by_release, ["frieren", "Arrakis", "Dune", "Pluto"]);
     assert_eq!(movie_titles, ["Arrakis", "Dune"]);
+}
+
+#[tokio::test]
+async fn list_filters_by_what_the_media_server_user_watched() {
+    let app = populated().await;
+    let frieren = app.library.find_series(ExternalId::Tmdb(1)).await.unwrap().unwrap();
+    let file = frieren.seasons[0].episodes[0].file.unwrap();
+    let stored = MediaFile {
+        id: file,
+        path: "/tv/frieren/S01E01.mkv".into(),
+        size: 1,
+        target: FileTarget::Episodes { series: frieren.id, span: EpisodeSpan::new(1, 1, 1).unwrap() },
+        added_at: Timestamp::UNIX_EPOCH,
+    };
+    MediaRepo::save(&app.db, &Changes { added_files: vec![stored], ..Changes::default() }).await.unwrap();
+    let titles = async |watched| {
+        let filter = LibraryFilter { watched: Some(watched), ..LibraryFilter::default() };
+        let entries = app.library.list(filter, LibrarySort::Title).await.unwrap();
+        entries.into_iter().map(|entry| entry.title).collect::<Vec<_>>()
+    };
+
+    let before = (titles(WatchState::Unwatched).await, titles(WatchState::Watched).await);
+    app.db.replace_watched(&[Watched { file, at: None }]).await.unwrap();
+    let after = (titles(WatchState::Unwatched).await, titles(WatchState::Watched).await);
+
+    assert_eq!(before.0, ["Arrakis", "Dune", "frieren", "Pluto"]);
+    assert!(before.1.is_empty());
+    assert_eq!(after.0, ["Arrakis", "Dune", "Pluto"]);
+    assert_eq!(after.1, ["frieren"]);
 }
 
 #[tokio::test]

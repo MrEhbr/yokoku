@@ -13,7 +13,7 @@ use crate::{
         delete_file::DeleteFile,
         disclosure::Disclosure,
         file_info::{FileDetails, FileSummary},
-        item_status::FileState,
+        item_status::{FileState, FileWatched},
         monitor_toggle::MonitorToggle,
         table::{Table, TableBody, TableCell, TableHead, TableHeader, TableRow},
     },
@@ -35,6 +35,7 @@ pub(super) fn SeasonItem(
     let count = season.episodes.len();
     let followed = series_monitored && season.monitored;
     let downloaded = season.episodes.iter().filter(|episode| episode.file == FileStatus::Downloaded).count();
+    let watched = season.episodes.iter().filter(|episode| episode.watched.is_some()).count();
     let missing = season
         .episodes
         .iter()
@@ -59,6 +60,9 @@ pub(super) fn SeasonItem(
                     span { class: "text-section font-medium", "{name}" }
                     span { class: "text-caption text-muted",
                         "{downloaded} of {count} downloaded"
+                        if watched > 0 {
+                            ", {watched} watched"
+                        }
                         if missing > 0 {
                             ", {missing} missing"
                         }
@@ -181,6 +185,11 @@ fn EpisodeTable(series: SeriesId, season: SeasonDetail, followed: bool, today: D
                                 status: episode.file,
                                 episode: true,
                                 monitored: followed && episode.monitored,
+                            }
+                            if episode.file == FileStatus::Downloaded {
+                                div {
+                                    FileWatched { watched: episode.watched }
+                                }
                             }
                             if let Some(info) = episode.file_info {
                                 div {

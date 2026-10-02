@@ -117,7 +117,7 @@ impl App {
         ));
 
         Ok(Self {
-            library: Arc::new(Library::new(db.clone(), db.clone(), clock.clone(), events.clone())),
+            library: Arc::new(Library::new(db.clone(), db.clone(), db.clone(), clock.clone(), events.clone())),
             calendar: Arc::new(Calendar::new(db.clone(), db.clone(), clock.clone())),
             roots: Arc::new(RootFolders::new(db.clone(), db.clone(), fs.clone())),
             scanner: scanner.clone(),
