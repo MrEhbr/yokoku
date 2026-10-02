@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 
-const STYLES: Asset = asset!("/assets/tailwind.css");
+/// `None` when `dx` has not rendered the stylesheet, as in a plain `cargo` build.
+const STYLES: Option<Asset> = option_asset!("/assets/tailwind.css");
 /// The bundled fonts; the kit's `@font-face` rules load them from `fonts/` next to the stylesheet.
 const _FONTS: Asset = asset!("/assets/fonts", AssetOptions::folder().with_hash_suffix(false));
 
@@ -28,6 +29,8 @@ const THEME: &str = r#"(() => {
 pub fn DocumentHead() -> Element {
     rsx! {
         document::Script { {THEME} }
-        document::Stylesheet { href: STYLES }
+        if let Some(styles) = STYLES {
+            document::Stylesheet { href: styles }
+        }
     }
 }
