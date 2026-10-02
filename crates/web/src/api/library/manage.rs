@@ -82,7 +82,7 @@ mod server {
     use super::{Deleter, ItemFile, Library, MetadataService, MonitorTarget, Numbering, Watched};
     use crate::{api::library_failure, format::episode};
 
-    /// Deleting every file goes with the removal, so history names it.
+    /// When `delete` holds every file, the removal itself deletes them.
     pub(super) async fn remove(
         library: &Library,
         deleter: &Deleter,

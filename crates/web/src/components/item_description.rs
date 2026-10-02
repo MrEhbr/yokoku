@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::{api::library::detail::Description, format::runtime};
 
-/// Genres, runtime and overview; nothing for an item not refreshed since descriptions were added.
+/// Genres, runtime and overview, each only when present.
 /// A series' runtime is `per_episode`.
 #[component]
 pub fn ItemDescription(description: Description, #[props(default)] per_episode: bool) -> Element {

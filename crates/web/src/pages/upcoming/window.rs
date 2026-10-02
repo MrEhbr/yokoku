@@ -8,7 +8,7 @@ use crate::{
     format::date,
 };
 
-/// The period the page shows: the week or month holding `day`, or holding today.
+/// The period the page shows: coming up from today, or the week or month holding `day` or today.
 #[derive(Clone, Copy, PartialEq, Default)]
 pub(super) struct Window {
     pub period: Period,

@@ -122,7 +122,7 @@ impl Drop for Service {
 
 /// "Frieren" (tmdb:1), a series without a poster whose one episode, S01E01 "Departure", aired on
 /// 2023-09-29 without a file, and "Dune" (tmdb:10), a movie with the poster `/dune.jpg` and a probed
-/// 1080p file. Both have a description.
+/// 1080p file. Frieren has an overview, genres and a runtime; Dune has only a runtime.
 async fn seed(path: &Path) -> (SeriesId, MovieId) {
     let db = Database::open(path).await.unwrap();
     let now = Timestamp::now();

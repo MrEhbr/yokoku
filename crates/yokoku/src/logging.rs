@@ -13,7 +13,7 @@ const QUIET_DEPENDENCIES: &str =
 
 /// Filters by `RUST_LOG` when set, else by the configured level.
 ///
-/// Returns a WorkerGuard that must be held until program exit to ensure log flush.
+/// The returned guard flushes the log when dropped; hold it until exit.
 pub fn setup(config: &LogConfig) -> Result<WorkerGuard> {
     let level_filter: LevelFilter = config.level.into();
     let directives = match std::env::var(EnvFilter::DEFAULT_ENV) {

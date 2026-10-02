@@ -1,10 +1,10 @@
 //! `GET /artwork/{series|movie}/{id}/{kind}/{name}`: an item's poster, backdrop or logo. `name`
-//! changes with the image, so a URL's image never changes and browsers keep it.
+//! changes with the image; responses are cached as immutable.
 //!
 //! `GET /artwork/preview/{source}/{kind}?path=`: an image of an item not in the library, like a
 //! search result's poster, from its source's image server.
 //!
-//! Plain routes, not server functions: they answer with the image itself.
+//! Plain axum routes, not server functions; they answer with the image bytes.
 
 use dioxus::{
     logger::tracing::error,

@@ -69,7 +69,7 @@ pub fn AccordionTrigger(props: AccordionTriggerProps) -> Element {
 }
 
 /// The content shown while its [`AccordionItem`] is open. Animates its height with a
-/// `grid-template-rows` transition so it stays measurable during layout.
+/// `grid-template-rows` transition.
 #[component]
 pub fn AccordionContent(props: AccordionContentProps) -> Element {
     let base = attributes!(div {

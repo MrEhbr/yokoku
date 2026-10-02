@@ -198,7 +198,7 @@ mod server {
         connections.test(connection, changes).await.map_err(ServerFnError::new)
     }
 
-    /// Empty, so the config file's value applies.
+    /// Null, blank text or an empty list; such a value unsets the key.
     fn cleared(value: &Value) -> bool {
         match value {
             Value::Null => true,

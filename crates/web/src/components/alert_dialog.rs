@@ -85,8 +85,7 @@ pub fn AlertDialogCancel(props: AlertDialogCancelProps) -> Element {
     }
 }
 
-/// Confirms the action and closes the dialog. Styled for a destructive confirmation; it is never
-/// pink.
+/// Confirms the action and closes the dialog. Styled as destructive.
 #[component]
 pub fn AlertDialogAction(props: AlertDialogActionProps) -> Element {
     let base = attributes!(button {

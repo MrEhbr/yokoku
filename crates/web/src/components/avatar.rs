@@ -9,7 +9,6 @@ use dioxus_primitives::{
 pub enum AvatarSize {
     /// A compact avatar for dense lists.
     Sm,
-    /// The standard avatar size.
     #[default]
     Md,
     /// A prominent avatar for profile headers.
@@ -26,7 +25,6 @@ impl AvatarSize {
     }
 }
 
-/// The props for the [`Avatar`] root component.
 #[derive(Props, Clone, PartialEq)]
 pub struct AvatarProps {
     /// Callback when image loads successfully.
@@ -52,7 +50,7 @@ pub struct AvatarProps {
     pub children: Element,
 }
 
-/// A circular image with an optional fallback. Corners stay square, per Paper.
+/// An image with an optional fallback; corners stay square.
 #[component]
 pub fn Avatar(props: AvatarProps) -> Element {
     let size = props.size.class();
@@ -122,13 +120,10 @@ pub fn AvatarFallback(props: AvatarFallbackProps) -> Element {
     }
 }
 
-/// The props for the [`ImageAvatar`] convenience component.
 #[derive(Props, Clone, PartialEq)]
 pub struct ImageAvatarProps {
-    /// The image source URL.
     pub src: String,
 
-    /// The image alt text.
     #[props(default)]
     pub alt: String,
 

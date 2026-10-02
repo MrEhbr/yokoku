@@ -1,6 +1,6 @@
 use std::{fmt, sync::Arc};
 
-/// A setting read each time it is used, so a change made while the app runs takes effect.
+/// A setting read each time it is used.
 pub struct Live<T>(Arc<dyn Fn() -> T + Send + Sync>);
 
 impl<T> Live<T> {

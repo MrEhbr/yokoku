@@ -20,7 +20,7 @@ pub struct Recorded {
     pub id: EventId,
     pub occurred_at: Timestamp,
     pub event: Event,
-    /// `None` for events stored before correlation ids.
+    /// `None` for events recorded without one.
     pub correlation: Option<CorrelationId>,
 }
 

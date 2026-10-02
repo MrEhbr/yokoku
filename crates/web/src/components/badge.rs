@@ -36,11 +36,9 @@ pub struct BadgeProps {
     #[props(default)]
     pub variant: BadgeVariant,
 
-    /// Additional attributes to extend the badge element
     #[props(extends = GlobalAttributes)]
     pub attributes: Vec<Attribute>,
 
-    /// The children of the badge element
     pub children: Element,
 }
 

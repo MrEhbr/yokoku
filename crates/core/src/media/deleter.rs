@@ -49,7 +49,7 @@ impl Deleter {
         self.remove(files, DeleteReason::User).await
     }
 
-    /// Each video is removed and committed on its own, so storage matches the disk if one fails.
+    /// Removes and commits each video on its own.
     /// Subtitles and emptied folders go afterwards; a failure there is only logged.
     #[instrument(skip_all, fields(?reason))]
     async fn remove(&self, files: Vec<MediaFile>, reason: DeleteReason) -> Result<Vec<MediaFile>, MediaError> {

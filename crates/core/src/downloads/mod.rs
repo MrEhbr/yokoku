@@ -23,7 +23,7 @@ use yokoku_domain::{
 use self::ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource};
 use crate::events::{Handler, HandlerError, Publisher, QueueChanges};
 
-/// Torrents added through Yokoku and their state in the download client.
+/// Torrents Yokoku tracks and their state in the download client.
 pub struct Downloads {
     repo: Arc<dyn DownloadRepo>,
     client: Arc<dyn DownloadClient>,
@@ -110,8 +110,8 @@ impl Downloads {
     /// `DownloadCompleted` once, however often and however many syncs run. A download another
     /// sync saved in the meantime is left to that sync. With `remove_after_seeding`, an imported
     /// download whose seeding finished is removed from the client, emitting `TorrentRemoved`. Unknown
-    /// torrents labelled `LABEL`, which Yokoku added but never saved, and with `pick_up` those that
-    /// qualify, become unlinked downloads, emitting `TorrentAdded`.
+    /// torrents labelled `LABEL`, which Yokoku added but never saved, or matching `pick_up_labels` or
+    /// `pick_up_folder`, become unlinked downloads, emitting `TorrentAdded`.
     #[instrument(skip_all)]
     pub async fn sync(&self) -> Result<SyncReport, DownloadError> {
         let options = self.options.current();

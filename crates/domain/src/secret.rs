@@ -16,7 +16,7 @@ thread_local! {
 ///   `key = "literal-value"`
 ///   `key = { file = "/path" }`   the file's content, without trailing whitespace
 ///
-/// It serializes as its value, so a saved secret loads again, or masked within `Secret::masking`;
+/// It serializes as its value, or masked within `Secret::masking`;
 /// `Debug` shows nothing of it.
 #[derive(Debug, Clone)]
 pub struct Secret(SecretString);

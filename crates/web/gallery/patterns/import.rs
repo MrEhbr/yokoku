@@ -265,7 +265,7 @@ struct Verdict {
     blocking: bool,
 }
 
-/// Duplicates count only among checked rows, since unchecked rows are not imported.
+/// Duplicates count only among checked rows.
 fn verdicts(rows: &[FileRow], checked: &HashSet<u64>) -> HashMap<u64, Verdict> {
     let mut claims: HashMap<(u64, u16, u16), usize> = HashMap::new();
     for row in rows.iter().filter(|row| checked.contains(&row.id)) {

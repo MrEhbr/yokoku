@@ -25,8 +25,8 @@ pub fn DropdownMenu(props: DropdownMenuProps) -> Element {
     }
 }
 
-/// Give it Paper button classes through `attrs` to look like a button; a `group-data-[state=open]:`
-/// variant on a child icon can react to the open state.
+/// Give it Paper button classes through `attributes` to look like a button; a
+/// `group-data-[state=open]:` variant on a child icon can react to the open state.
 #[component]
 pub fn DropdownMenuTrigger(props: DropdownMenuTriggerProps) -> Element {
     let base = attributes!(button {

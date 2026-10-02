@@ -61,8 +61,8 @@ pub fn rate(bytes: u64) -> String {
     format!("{}/s", size(bytes))
 }
 
-/// The usual name of a picture size, by width so cropped films count too: `2160p`, `1080p`,
-/// `720p`, else the height, like `480p`.
+/// The usual name of a picture size, by width: `2160p`, `1080p`, `720p`, else the height, like
+/// `480p`.
 pub fn resolution(width: u32, height: u32) -> String {
     match width {
         3800.. => "2160p".to_owned(),

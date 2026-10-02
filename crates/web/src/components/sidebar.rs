@@ -10,7 +10,6 @@ use crate::components::{
     tooltip::{Tooltip, TooltipContent, TooltipTrigger},
 };
 
-// constants
 const SIDEBAR_WIDTH: &str = "16rem";
 const SIDEBAR_WIDTH_MOBILE: &str = "18rem";
 const SIDEBAR_WIDTH_ICON: &str = "3rem";
@@ -91,15 +90,12 @@ pub struct SidebarCtx {
     pub state: Memo<SidebarState>,
     pub side: Signal<SidebarSide>,
     pub is_mobile: Signal<bool>,
-    // From use_controlled:
     open: Memo<bool>,
     set_open: Callback<bool>,
-    // Mobile state:
     open_mobile: Signal<bool>,
 }
 
 impl SidebarCtx {
-    /// Toggle the sidebar open/closed state
     pub fn toggle(&self) {
         if (self.is_mobile)() {
             let current = (self.open_mobile)();
@@ -110,13 +106,12 @@ impl SidebarCtx {
         }
     }
 
-    /// Set the mobile sidebar open state
     pub fn set_open_mobile(&self, value: bool) {
         let mut open_mobile = self.open_mobile;
         open_mobile.set(value);
     }
 
-    /// Get the current open state (desktop)
+    /// Desktop only; mobile uses `open_mobile`.
     pub fn open(&self) -> bool {
         self.open.cloned()
     }

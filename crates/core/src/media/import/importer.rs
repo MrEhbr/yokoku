@@ -26,7 +26,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ImportMode {
-    /// The torrent keeps seeding; falls back to a copy across file systems.
+    /// Falls back to a copy across file systems.
     #[default]
     #[serde(rename = "hardlink")]
     HardLink,
@@ -100,11 +100,9 @@ impl Importer {
         Ok(imports)
     }
 
-    /// Carries out approved imports one at a time until none is left; each is claimed first, so
-    /// concurrent runners never share one. Returns each import with the status it ended in.
-    ///
-    /// Imports run only under the library lock, so one still `Importing` once the lock is held was
-    /// left by a stopped process and is queued again.
+    /// Carries out approved imports one at a time until none is left; concurrent runners never share
+    /// one. Returns each import with the status it ended in. An import still `Importing` once the
+    /// library lock is held is queued again.
     pub async fn run_pending(&self) -> Result<Vec<Import>, MediaError> {
         let mut finished = Vec::new();
         loop {
@@ -277,8 +275,7 @@ impl Importer {
     }
 
     /// The destination's name or the first of `name (2)`, `name (3)`, … that already holds
-    /// `source`, or holds nothing: no file on disk, in the library, or in `taken`. Ends because
-    /// only finitely many of those names are occupied.
+    /// `source`, or holds nothing: no file on disk, in the library, or in `taken`.
     async fn free_name(
         &self,
         source: &Path,
@@ -356,8 +353,7 @@ impl Importer {
         })
     }
 
-    /// A destination that already holds the file counts as placed, so a retry picks up where an
-    /// interrupted import stopped.
+    /// A destination that already holds the file counts as placed.
     async fn place(&self, source: &Path, destination: &Path) -> Result<(), MediaError> {
         if self.already_placed(source, destination).await? {
             return Ok(());

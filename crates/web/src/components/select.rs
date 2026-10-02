@@ -7,10 +7,8 @@ use dioxus_primitives::{
     select::{self, SelectGroupLabelProps, SelectOptionProps},
 };
 
-/// Stops Escape pressed in an open listbox or combobox at `<body>`, after Dioxus closed the list
-/// at the app root, so a dialog's document-level Escape listener doesn't close the dialog around
-/// it. Dioxus has already marked the list closed by then, so whether it was open is read in the
-/// capture phase.
+/// Stops at `<body>` an Escape pressed in an open listbox or combobox, keeping it from a
+/// dialog's document-level listener; openness is read in the capture phase.
 pub(super) const CONTAIN_ESCAPE: &str = r#"if (!window.ykSelectEscape) {
   window.ykSelectEscape = true;
   const open = '[role="listbox"], [role="combobox"][aria-expanded="true"]';

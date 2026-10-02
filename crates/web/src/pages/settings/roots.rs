@@ -155,7 +155,7 @@ pub(super) fn RootFolders(scrolled_to: bool) -> Element {
     }
 }
 
-/// Scans the item folders now, as the daily scan does at 05:00, and says what changed.
+/// Scans the item folders now and says what changed.
 #[component]
 fn ScanLibrary() -> Element {
     let mut scanning = use_signal(|| false);

@@ -59,8 +59,7 @@ impl Args {
     fn resolve_config(&self) -> Result<Config> {
         let mut config = Config::load(self.config.as_deref(), &[]).context("Failed to load configuration")?;
 
-        // `tracing_level()` yields the default level even when no flag was
-        // passed, so only consult it when the user actually supplied one.
+        // `tracing_level()` returns the default level even without a flag.
         if self.verbosity.is_present() {
             config.log.level = self.verbosity.tracing_level();
         }

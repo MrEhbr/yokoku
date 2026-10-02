@@ -286,8 +286,8 @@ mod server {
         Ok(Some(MovieDetail::new(&movie, &files, &watched, unrecognised, today)))
     }
 
-    /// Files of scans of `folder` waiting for review; none when imports cannot be read, so the
-    /// page still shows the item.
+    /// Files of scans of `folder` waiting for review; `None` when there are none or imports
+    /// cannot be read.
     async fn unrecognised(reviewer: &Reviewer, folder: &ItemFolder) -> Option<Unrecognised> {
         let imports = reviewer.pending().await.unwrap_or_else(|error| {
             error!(%error, folder = %folder.path().display(), "reading the imports failed");
@@ -300,7 +300,7 @@ mod server {
         (files > 0).then_some(Unrecognised { files, import })
     }
 
-    /// The item's files by id; none when they cannot be read, so the page still shows the item.
+    /// The item's files by id; empty when they cannot be read.
     async fn files(prober: &Prober, item: ItemId) -> Files {
         match prober.details(item).await {
             Ok(details) => details.into_iter().map(|details| (details.file.id, FileInfo::from(details))).collect(),
@@ -311,7 +311,7 @@ mod server {
         }
     }
 
-    /// Played library files; none when they cannot be read, so the page still shows the item.
+    /// Played library files; empty when they cannot be read.
     async fn watched(library: &Library) -> WatchedFiles {
         match library.watched_files().await {
             Ok(watched) => {

@@ -8,8 +8,7 @@ use dioxus_primitives::{
 
 use super::select::CONTAIN_ESCAPE;
 
-/// A single-choice picker over typed values whose options filter as the user types; for long
-/// lists, where [`Select`](super::select::Select) makes scrolling slow.
+/// A single-choice picker over typed values whose options filter as the user types.
 ///
 /// Closed, the input shows the chosen option's text; a click empties it to search. `id` and
 /// `aria_describedby` go to the input, so a `Label` with `html_for` names it. Put a

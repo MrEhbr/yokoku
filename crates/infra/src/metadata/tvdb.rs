@@ -119,7 +119,7 @@ impl TvdbClient {
 
 #[async_trait]
 impl MetadataProvider for TvdbClient {
-    /// Series only; Yokoku takes movies from TMDB.
+    /// Series only; a movie search finds nothing.
     async fn search(&self, query: &str, kind: Option<MediaKind>) -> Result<Vec<SearchResult>, MetadataError> {
         if kind == Some(MediaKind::Movie) {
             return Ok(Vec::new());

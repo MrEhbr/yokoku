@@ -27,8 +27,8 @@ pub enum Command {
     Unset { key: String },
 }
 
-/// `config` comes from the config file and environment alone, so a stored value that no longer
-/// loads can still be unset. A change publishes `SettingsChanged`, which a running service reloads on.
+/// `config` comes from the config file and environment alone, without the stored settings. A change
+/// publishes `SettingsChanged`, which a running service reloads on.
 pub async fn run(config: &Config, config_path: Option<&Path>, args: Args) -> Result<()> {
     let path = &config.database.path;
     let db = Database::open(path).await.with_context(|| format!("Failed to open database: {}", path.display()))?;

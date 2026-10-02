@@ -56,7 +56,7 @@ pub enum MetadataError {
     NotFound(ExternalId),
     #[error("metadata source unavailable")]
     Unavailable(#[source] Box<dyn Error + Send + Sync>),
-    /// The source rejected the credentials; trying again does not help.
+    /// Credentials are missing or rejected; trying again does not help.
     #[error("metadata source refused the request: {0}")]
     Refused(String),
     #[error("unexpected answer from the metadata source")]

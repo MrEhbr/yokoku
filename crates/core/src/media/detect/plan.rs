@@ -7,7 +7,7 @@ use crate::media::{
     detect::{Classified, EpisodeHint, ListedFile, ParsedName, Video, titles::normalize},
 };
 
-/// What the download was added for.
+/// What the files are matched against.
 #[derive(Debug, Clone, Copy)]
 pub enum MatchScope<'a> {
     Series(&'a Series),
@@ -60,7 +60,7 @@ impl fmt::Display for Conflict {
 }
 
 impl ImportPlan {
-    /// Matches every video in a download to the library.
+    /// Matches every video in `files` to the library.
     pub fn new(files: &[ListedFile], scope: MatchScope<'_>) -> Self {
         let Classified { videos, mut ignored } = Classified::from_files(files);
 
@@ -99,7 +99,7 @@ impl ImportPlan {
         plan
     }
 
-    /// Every row is certain and free of conflicts, so the plan can be imported without review.
+    /// Every row is certain and free of conflicts.
     pub fn is_automatic(&self) -> bool {
         !self.rows.is_empty()
             && self.rows.iter().all(|row| row.confidence == Confidence::Certain && row.conflicts.is_empty())

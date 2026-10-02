@@ -1,5 +1,3 @@
-//! The settings the web's Settings page shows, with their labels, hints and controls.
-
 use yokoku_web::{Control, Field, Section};
 
 use crate::config::Config;

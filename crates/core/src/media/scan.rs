@@ -45,7 +45,7 @@ pub struct ScanReport {
 
 /// Library files and the files already taken by imports, read once per scan.
 struct Known {
-    /// Ordered by path, so the files under a folder are adjacent.
+    /// Ordered by path; the files under a folder are adjacent.
     files: Vec<MediaFile>,
     paths: HashSet<PathBuf>,
     claimed: HashSet<PathBuf>,

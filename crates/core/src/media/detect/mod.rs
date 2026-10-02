@@ -1,4 +1,4 @@
-//! Pure detection: downloaded files to an import plan.
+//! Pure detection: listed files to an import plan.
 
 mod classify;
 mod parse;

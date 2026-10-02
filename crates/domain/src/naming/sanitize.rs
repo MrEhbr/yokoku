@@ -1,5 +1,4 @@
 const MAX_COMPONENT_BYTES: usize = 255;
-/// Leaves room for subtitle suffixes such as `.en.sdh.forced.srt`.
 pub(crate) const MAX_STEM_BYTES: usize = 200;
 
 const RESERVED_NAMES: [&str; 22] = [

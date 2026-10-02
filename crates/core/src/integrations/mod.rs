@@ -1,4 +1,4 @@
-//! Media server rescans and watched sync; later, notifications.
+//! Media server rescans and watched sync.
 
 pub mod ports;
 mod rescans;

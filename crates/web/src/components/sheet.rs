@@ -29,7 +29,7 @@ impl SheetSide {
 }
 
 /// Position, border and motion for every `data-side`. `in-[[data-state=…]]` reads the
-/// state the [`Sheet`] root sets, since the content panel carries no state of its own.
+/// state the [`Sheet`] root sets.
 const CONTENT: &str = "fixed z-50 flex flex-col gap-4 overflow-y-auto border-ink bg-surface text-ink shadow-dialog \
     data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:w-3/4 data-[side=right]:max-w-sm data-[side=right]:border-l \
     data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:w-3/4 data-[side=left]:max-w-sm data-[side=left]:border-r \

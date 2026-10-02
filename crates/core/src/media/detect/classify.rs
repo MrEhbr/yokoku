@@ -21,7 +21,6 @@ const EXTRAS_FOLDERS: &[&str] = &[
     "interviews",
     "shorts",
 ];
-/// ISO 639-2/B codes and their ISO 639-3 equivalents.
 /// Lowercase English names, each to the first language with that name.
 static LANGUAGE_NAMES: LazyLock<HashMap<String, Language>> = LazyLock::new(|| {
     let mut names = HashMap::new();
@@ -31,6 +30,7 @@ static LANGUAGE_NAMES: LazyLock<HashMap<String, Language>> = LazyLock::new(|| {
     names
 });
 
+/// ISO 639-2/B codes and their ISO 639-3 equivalents.
 const BIBLIOGRAPHIC_CODES: [(&str, &str); 20] = [
     ("alb", "sqi"),
     ("arm", "hye"),

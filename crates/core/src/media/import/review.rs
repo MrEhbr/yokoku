@@ -180,8 +180,7 @@ impl Reviewer {
         .await
     }
 
-    /// Gives the rows `episodes` of `series` in order, one each, for files numbered differently
-    /// from the series, like a season released in parts that each start at 1.
+    /// Gives the rows `episodes` of `series` in order, one each.
     pub async fn set_episodes(
         &self,
         id: ImportId,

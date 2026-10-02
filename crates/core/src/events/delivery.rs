@@ -81,8 +81,7 @@ impl Delivery {
         }
     }
 
-    /// Tries each event given up on once more. They arrive after newer events, which idempotent
-    /// handlers accept.
+    /// Tries each event given up on once more; they arrive after newer events.
     async fn retry_failed(&self) -> Result<(), StorageError> {
         let subscriber = self.subscriber.name();
         for (recorded, failure) in self.log.failed(subscriber).await? {

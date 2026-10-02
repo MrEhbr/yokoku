@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
 /// A detail page's header: the backdrop, 3:1 but no taller than 40% of the window and never
-/// cropped past 5:1, with the logo as the title, then the poster beside `children`. The logo shows only over a backdrop, as logos are
-/// drawn for dark images; without one the title is text. Each image is an optional URL; its frame
-/// shows while it loads.
+/// cropped past 5:1, with the logo as the title, then the poster beside `children`. The logo
+/// shows only over a backdrop; without one the title is text. Each image is an optional URL;
+/// its frame shows while it loads.
 #[component]
 pub fn ItemHero(
     title: String,

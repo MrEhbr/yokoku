@@ -68,7 +68,7 @@ impl Titled for Movie {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum YearFit {
-    /// One year apart, e.g. a festival premiere against the release year.
+    /// One year apart.
     Near,
     Unknown,
     Exact,

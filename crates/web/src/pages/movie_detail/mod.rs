@@ -59,9 +59,8 @@ pub fn MovieDetail(id: MovieId) -> Element {
     }
 }
 
-/// Each release shows how far away it is, which explains the lifecycle and file status: a
-/// movie counts as released, and its file as missing, from its digital or physical release. The
-/// movie is read again after each change made on the page.
+/// Each release shows how far away it is. A movie counts as released, and its file as missing,
+/// from its digital or physical release. The movie is read again after each change made on the page.
 #[component]
 fn Page(movie: detail::MovieDetail) -> Element {
     let id = movie.id;

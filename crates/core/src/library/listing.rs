@@ -37,7 +37,7 @@ pub struct LibraryEntry {
 }
 
 /// A movie's file, or a series' episode files, on disk and missing; missing counts only what is
-/// monitored and released without a file, as on the Wanted page.
+/// monitored and released without a file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct FileCount {
     pub downloaded: usize,

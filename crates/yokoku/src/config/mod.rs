@@ -89,8 +89,8 @@ impl Config {
         Ok(self.value(key)?.to_string())
     }
 
-    /// A stored value as `setting` shows it over the defaults alone, so a secret is masked; as stored
-    /// when it does not load.
+    /// A stored value as `setting` shows it over the defaults alone, a secret masked; as stored when
+    /// it does not load.
     pub fn shown(key: &str, stored: &Value) -> String {
         let alone = [(key.to_owned(), stored.clone())];
         let loaded = Self::layers(None, &alone).and_then(|layers| Ok(layers.build()?.try_deserialize::<Self>()?));

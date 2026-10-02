@@ -18,7 +18,7 @@ use crate::{components::theme_switch::ThemeSwitch, route::Route};
 
 const TMDB_LOGO: Asset = asset!("/assets/tmdb.svg");
 
-/// Page width and side padding, shared by the top bar and the page so their edges line up.
+/// Page width and side padding of the top bar and the page.
 const CONTAINER: &str = "mx-auto w-full max-w-[120rem] px-4 sm:px-6 lg:px-10";
 
 /// The top bar with the main navigation, and the page below it. Below `md` the navigation

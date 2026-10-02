@@ -1,5 +1,4 @@
-//! Navigation links showing the path to the current page. No upstream primitive; written
-//! in the same style as the other plain-markup components.
+//! Navigation links showing the path to the current page. No upstream primitive.
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide::{ChevronRight, Ellipsis};

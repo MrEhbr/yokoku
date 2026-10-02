@@ -100,7 +100,7 @@ pub struct FilesFound {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FilesImported {
     pub import: ImportId,
-    /// `None` for scanned files, and in events stored before imports carried it.
+    /// `None` for scanned files and in older stored events.
     #[serde(default)]
     pub download: Option<DownloadId>,
     pub files: Vec<LinkedFile>,
@@ -119,7 +119,7 @@ pub struct FileRenamed {
     pub file: MediaFileId,
     pub from: PathBuf,
     pub to: PathBuf,
-    /// `None` in events stored before renames carried it.
+    /// `None` in older stored events.
     #[serde(default)]
     pub target: Option<FileTarget>,
 }
@@ -179,7 +179,7 @@ pub struct TorrentRemoved {
     pub item: Option<ItemId>,
 }
 
-/// A stored setting was set or unset; the value is left out, since it may be a secret.
+/// A stored setting was set or unset; carries the key only.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SettingsChanged {
     pub key: String,

@@ -101,7 +101,7 @@ pub(crate) async fn blocking<T: Send + 'static>(
     }
 }
 
-/// Any unreadable folder fails the whole walk, so a missing folder never looks empty.
+/// Any unreadable folder, including a missing root, fails the whole walk.
 fn walk(root: &Path, recursive: bool) -> Result<Vec<ListedFile>, FsError> {
     let entries = WalkDir::new(root)
         .min_depth(1)

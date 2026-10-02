@@ -12,7 +12,7 @@ use crate::api::{Dep, Importer, Library, Reviewer};
 pub struct Review {
     pub id: ImportId,
     pub source: String,
-    /// From a download, so a row may replace a library file; a scan's files stay where they are.
+    /// From a download; only then may a row replace a library file.
     pub from_download: bool,
     pub rows: Vec<ReviewFile>,
 }

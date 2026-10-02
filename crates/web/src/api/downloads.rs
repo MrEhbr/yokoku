@@ -14,7 +14,6 @@ pub struct ItemLink {
     pub title: String,
 }
 
-/// Newest first; torrents no longer in the client are left out.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DownloadEntry {
     pub id: DownloadId,
@@ -78,6 +77,7 @@ impl DownloadState {
     }
 }
 
+/// Newest first; torrents removed from the client are left out.
 #[get("/api/downloads", downloads: Dep<Downloads>, reviewer: Dep<Reviewer>, importer: Dep<Importer>, library: Dep<Library>)]
 pub async fn downloads() -> Result<Vec<DownloadEntry>, ServerFnError> {
     server::downloads(&downloads, &reviewer, &importer, &library).await
@@ -146,7 +146,7 @@ mod server {
 
     /// How long a burst of saves settles before the downloads are read again.
     const SETTLE: Duration = Duration::from_millis(250);
-    /// Reads again this often without a change signal, for changes made by other processes.
+    /// Re-read interval when no change signal arrives.
     const FALLBACK: Duration = Duration::from_secs(30);
 
     pub(super) struct Sources {

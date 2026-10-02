@@ -21,7 +21,7 @@ use crate::{
     route::Route,
 };
 
-/// Bytes; .torrent files are kilobytes.
+/// Bytes.
 const MAX_TORRENT_FILE: u64 = 10_000_000;
 
 /// A picked .torrent file.
