@@ -9,14 +9,14 @@
 
 # Using Yokoku
 
-- [Library]()
-- [Adding Series and Movies]()
-- [Series and Movie Pages]()
-- [Wanted]()
-- [Upcoming]()
-- [Queue and Import Review]()
-- [History]()
-- [Settings]()
+- [Library](./using/library.md)
+- [Adding Series and Movies](./using/adding.md)
+- [Series and Movie Pages](./using/items.md)
+- [Wanted](./using/wanted.md)
+- [Upcoming](./using/upcoming.md)
+- [Queue and Import Review](./using/queue.md)
+- [History](./using/history.md)
+- [Settings](./using/settings.md)
 
 # Integrations
 
