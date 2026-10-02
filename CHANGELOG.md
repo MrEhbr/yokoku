@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.2.1](https://github.com/MrEhbr/yokoku/compare/v0.2.0..v0.2.1) - 2026-10-02
+
+### CI/CD
+
+- **(release)** install Nix so GoReleaser can hash the Nix package - ([25eb355](https://github.com/MrEhbr/yokoku/commit/25eb355b74ffa74b4219220aebc66c41ea24d248)) `+3 / -0 across 1 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 1 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 1 commit(s) parsed as conventional.
+- Diff totals: +3 / -0 across 1 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
 ## [0.2.0](https://github.com/MrEhbr/yokoku/compare/v0.1.1..v0.2.0) - 2026-10-02
 
 ### CI/CD
