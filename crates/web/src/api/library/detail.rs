@@ -199,12 +199,6 @@ impl SeriesDetail {
     }
 }
 
-impl MovieDetail {
-    pub fn disk_usage(&self) -> DiskUsage {
-        self.file_info.as_ref().map_or_else(DiskUsage::default, |info| DiskUsage { files: 1, size: info.size })
-    }
-}
-
 impl SeasonDetail {
     /// `Season 1`, or `Specials` for season 0.
     pub fn name(&self) -> String {

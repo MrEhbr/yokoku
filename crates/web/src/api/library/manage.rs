@@ -3,9 +3,9 @@
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
-use yokoku_domain::{ItemId, MovieId, SeriesId};
+use yokoku_domain::{ItemId, MediaFileId, MovieId, SeriesId};
 
-use super::detail::Numbering;
+use super::detail::{Numbering, Watched};
 #[cfg(feature = "server")]
 use crate::api::{Deleter, Dep, Library, MetadataService};
 
@@ -36,10 +36,39 @@ pub async fn set_numbering(id: SeriesId, numbering: Numbering) -> Result<(), Ser
     server::set_numbering(&library, id, numbering).await
 }
 
-/// Removes the item from the library, and its files from disk when `delete_files` (FR-1.7).
-#[post("/api/items/remove", library: Dep<Library>)]
-pub async fn remove(item: ItemId, delete_files: bool) -> Result<(), ServerFnError> {
-    server::remove(&library, item, delete_files).await
+/// Removes the item from the library after deleting `delete`, files of it; its other files stay
+/// on disk (FR-1.7, 8.5).
+#[post("/api/items/remove", library: Dep<Library>, deleter: Dep<Deleter>)]
+pub async fn remove(item: ItemId, delete: Vec<MediaFileId>) -> Result<(), ServerFnError> {
+    server::remove(&library, &deleter, item, delete).await
+}
+
+/// One library file of an item, to choose what to delete.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ItemFile {
+    pub id: MediaFileId,
+    /// `None` for a movie.
+    pub season: Option<u16>,
+    /// `S01E01`, or `S01E01–E02` for a file of several; empty for a movie.
+    pub episodes: String,
+    /// The episodes' titles, or the movie's.
+    pub title: String,
+    /// Bytes.
+    pub size: u64,
+    pub watched: Option<Watched>,
+}
+
+/// The item's library files, by season and episode.
+#[get("/api/items/files?item", library: Dep<Library>, deleter: Dep<Deleter>)]
+pub async fn item_files(item: ItemId) -> Result<Vec<ItemFile>, ServerFnError> {
+    server::item_files(&library, &deleter, item).await
+}
+
+/// Deletes `files` of `item` from disk with their subtitles (FR-8.4), and stops monitoring the
+/// episodes or movie they held when `unmonitor`.
+#[post("/api/items/delete-files", library: Dep<Library>, deleter: Dep<Deleter>)]
+pub async fn delete_files(item: ItemId, files: Vec<MediaFileId>, unmonitor: bool) -> Result<(), ServerFnError> {
+    server::delete_files(&library, &deleter, item, files, unmonitor).await
 }
 
 /// What holds a file to delete.
@@ -59,12 +88,14 @@ pub async fn delete_file(target: FileOf) -> Result<(), ServerFnError> {
 
 #[cfg(feature = "server")]
 mod server {
+    use std::collections::HashMap;
+
     use dioxus::{logger::tracing::error, prelude::*};
     use yokoku_core::media::MediaError;
-    use yokoku_domain::{EpisodeRef, EpisodeSpan, FileTarget, ItemId, SeriesId};
+    use yokoku_domain::{EpisodeRef, EpisodeSpan, FileTarget, ItemId, MediaFileId, SeriesId};
 
-    use super::{Deleter, FileOf, Library, MetadataService, MonitorTarget, Numbering};
-    use crate::api::library_failure;
+    use super::{Deleter, FileOf, ItemFile, Library, MetadataService, MonitorTarget, Numbering, Watched};
+    use crate::{api::library_failure, format::episode};
 
     pub(super) async fn delete_file(deleter: &Deleter, target: FileOf) -> Result<(), ServerFnError> {
         let target = match target {
@@ -82,12 +113,105 @@ mod server {
         })
     }
 
-    pub(super) async fn remove(library: &Library, item: ItemId, delete_files: bool) -> Result<(), ServerFnError> {
+    /// Deleting every file goes with the removal, so history names it.
+    pub(super) async fn remove(
+        library: &Library,
+        deleter: &Deleter,
+        item: ItemId,
+        delete: Vec<MediaFileId>,
+    ) -> Result<(), ServerFnError> {
+        let all = deleter.files_of_item(item).await.map_err(|error| media_failure(error, item))?;
+        let delete_all = !all.is_empty() && all.iter().all(|file| delete.contains(&file.id));
+        if !delete_all && !delete.is_empty() {
+            match deleter.delete_files(item, &delete).await {
+                Ok(_) | Err(MediaError::NoFile) => {},
+                Err(error) => return Err(media_failure(error, item)),
+            }
+        }
         let removed = match item {
-            ItemId::Series(id) => library.remove_series(id, delete_files).await,
-            ItemId::Movie(id) => library.remove_movie(id, delete_files).await,
+            ItemId::Series(id) => library.remove_series(id, delete_all).await,
+            ItemId::Movie(id) => library.remove_movie(id, delete_all).await,
         };
         removed.map_err(|error| library_failure(error, "removing the item"))
+    }
+
+    pub(super) async fn item_files(
+        library: &Library,
+        deleter: &Deleter,
+        item: ItemId,
+    ) -> Result<Vec<ItemFile>, ServerFnError> {
+        let files = deleter.files_of_item(item).await.map_err(|error| media_failure(error, item))?;
+        let watched = library.watched_files().await.map_err(|error| library_failure(error, "reading watched files"))?;
+        let titles: HashMap<EpisodeRef, String> = match item {
+            ItemId::Series(id) => {
+                let series = library.series(id).await.map_err(|error| library_failure(error, "reading the series"))?;
+                series
+                    .seasons
+                    .iter()
+                    .flat_map(|season| {
+                        season.episodes.iter().map(|episode| {
+                            (EpisodeRef { season: season.number, episode: episode.number }, episode.title.clone())
+                        })
+                    })
+                    .collect()
+            },
+            ItemId::Movie(_) => HashMap::new(),
+        };
+        let movie_title = match item {
+            ItemId::Movie(id) => {
+                library.movie(id).await.map_err(|error| library_failure(error, "reading the movie"))?.title
+            },
+            ItemId::Series(_) => String::new(),
+        };
+        let mut files: Vec<_> = files
+            .into_iter()
+            .map(|file| {
+                let (season, episodes, title) = match file.target {
+                    FileTarget::Episodes { span, .. } => {
+                        let first = episode(span.season(), span.first());
+                        let episodes =
+                            if span.first() == span.last() { first } else { format!("{first}–E{:02}", span.last()) };
+                        let title = (span.first()..=span.last())
+                            .filter_map(|number| titles.get(&EpisodeRef { season: span.season(), episode: number }))
+                            .filter(|title| !title.is_empty())
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join(" / ");
+                        (Some(span.season()), episodes, title)
+                    },
+                    FileTarget::Movie(_) => (None, String::new(), movie_title.clone()),
+                };
+                let watched = watched.get(&file.id).map(|at| Watched { on: at.map(|at| library.date_of(at)) });
+                ItemFile { id: file.id, season, episodes, title, size: file.size, watched }
+            })
+            .collect();
+        files.sort_by(|a, b| (a.season, &a.episodes).cmp(&(b.season, &b.episodes)));
+        Ok(files)
+    }
+
+    pub(super) async fn delete_files(
+        library: &Library,
+        deleter: &Deleter,
+        item: ItemId,
+        files: Vec<MediaFileId>,
+        unmonitor: bool,
+    ) -> Result<(), ServerFnError> {
+        let deleted = deleter.delete_files(item, &files).await.map_err(|error| media_failure(error, item))?;
+        if unmonitor {
+            let targets: Vec<_> = deleted.iter().map(|file| file.target).collect();
+            library.stop_monitoring(&targets).await.map_err(|error| library_failure(error, "changing monitoring"))?;
+        }
+        Ok(())
+    }
+
+    fn media_failure(error: MediaError, item: ItemId) -> ServerFnError {
+        match error {
+            MediaError::NoFile => ServerFnError::new("Those files are gone already; reload the page"),
+            error => {
+                error!(%error, ?item, "deleting files failed");
+                ServerFnError::new("The files could not be deleted; the server log has the cause")
+            },
+        }
     }
 
     impl From<Numbering> for yokoku_domain::Numbering {

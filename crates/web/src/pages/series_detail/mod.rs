@@ -23,11 +23,10 @@ use crate::{
         load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
         refresh_button::RefreshButton,
-        remove_item::RemoveItem,
         skeleton::{Loaded, Skeleton},
         unrecognised_files::UnrecognisedFiles,
     },
-    dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, rename::RenameButton},
+    dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, remove::RemoveButton, rename::RenameButton},
     format::{size, year},
     layout::BackButton,
     route::Route,
@@ -146,10 +145,10 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     }
                     RefreshButton { item: ItemId::Series(id), on_change: reload }
                     RenameButton { item: ItemId::Series(id), on_change: reload }
-                    RemoveItem {
+                    RemoveButton {
                         item: ItemId::Series(id),
                         title: series.title.clone(),
-                        usage,
+                        on_change: reload,
                     }
                 }
             }

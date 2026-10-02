@@ -26,7 +26,7 @@ pub use listing::{FileCount, LibraryEntry, LibraryFilter, LibrarySort, LibrarySt
 pub use metadata::{MetadataService, RefreshFailure, RefreshReport, SearchHit};
 use tracing::{info, instrument};
 use yokoku_domain::{
-    Clock, EpisodeRef, ExternalId, MediaFileId, Movie, MovieId, Numbering, Series, SeriesId,
+    Clock, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, MediaFileId, Movie, MovieId, Numbering, Series, SeriesId,
     events::{MovieRemoved, SeriesRemoved},
 };
 
@@ -148,6 +148,32 @@ impl Library {
             Ok(self.movies.save(&mut movie).await?)
         })
         .await
+    }
+
+    /// Stops monitoring every episode and movie `deleted` held; an episode no longer in its series
+    /// is skipped.
+    pub async fn stop_monitoring(&self, deleted: &[FileTarget]) -> Result<(), LibraryError> {
+        let mut spans: HashMap<SeriesId, Vec<EpisodeSpan>> = HashMap::new();
+        for target in deleted {
+            match *target {
+                FileTarget::Episodes { series, span } => spans.entry(series).or_default().push(span),
+                FileTarget::Movie(movie) => self.set_movie_monitored(movie, false).await?,
+            }
+        }
+        for (series, spans) in spans {
+            self.update_series(series, |series| {
+                for span in &spans {
+                    for episode in span.first()..=span.last() {
+                        if let Some(episode) = series.episode_mut(EpisodeRef { season: span.season(), episode }) {
+                            episode.monitored = false;
+                        }
+                    }
+                }
+                Ok(())
+            })
+            .await?;
+        }
+        Ok(())
     }
 
     #[instrument(skip_all, fields(series = %id, delete_files))]

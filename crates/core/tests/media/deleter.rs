@@ -45,6 +45,32 @@ async fn one_episode_deletes_the_multi_episode_file_holding_it() {
 }
 
 #[tokio::test]
+async fn deleting_chosen_files_keeps_the_others() {
+    let app = App::new().await;
+    let files = app.linked(&[E01, E01_SUBTITLE, E02, DUNE]).await;
+    let e01 = files.iter().find(|file| file.path == app.path(E01)).unwrap();
+    let dune = files.iter().find(|file| file.path == app.path(DUNE)).unwrap();
+
+    let deleted = app.deleter().delete_files(ItemId::Series(app.frieren.id), &[e01.id, dune.id]).await.unwrap();
+
+    assert_eq!(deleted.iter().map(|file| file.id).collect::<Vec<_>>(), [e01.id]);
+    assert_eq!((app.path(E01).exists(), app.path(E01_SUBTITLE).exists()), (false, false));
+    assert_eq!((app.path(E02).exists(), app.path(DUNE).exists()), (true, true));
+    assert_eq!(deleted_events(&app.events().await), [DeleteReason::User]);
+}
+
+#[tokio::test]
+async fn deleting_no_file_of_the_item_fails() {
+    let app = App::new().await;
+    let files = app.linked(&[DUNE]).await;
+
+    let error = app.deleter().delete_files(ItemId::Series(app.frieren.id), &[files[0].id]).await.unwrap_err();
+
+    assert!(matches!(error, MediaError::NoFile), "{error}");
+    assert!(app.path(DUNE).exists());
+}
+
+#[tokio::test]
 async fn deleting_what_has_no_file_fails() {
     let app = App::new().await;
 

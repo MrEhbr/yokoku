@@ -327,7 +327,7 @@ async fn a_removed_item_leaves_the_library() {
     let dir = tempfile::tempdir().unwrap();
     let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
     let service = Service::start(dir.path());
-    let body = format!(r#"{{"item":{{"Movie":"{dune}"}},"delete_files":false}}"#);
+    let body = format!(r#"{{"item":{{"Movie":"{dune}"}},"delete":[]}}"#);
 
     let removed = service.post_json("/api/items/remove", &body);
     let again = service.post_json("/api/items/remove", &body);

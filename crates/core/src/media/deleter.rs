@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::{info, instrument, warn};
 use yokoku_domain::{
-    FileTarget, ItemId,
+    FileTarget, ItemId, MediaFileId,
     events::{DeleteReason, FileDeleted, MovieRemoved, SeriesRemoved},
 };
 
@@ -48,6 +48,17 @@ impl Deleter {
     pub async fn delete(&self, target: FileTarget) -> Result<Vec<MediaFile>, MediaError> {
         let _lock = self.lock.acquire().await?;
         let files = self.files_of(target).await?;
+        if files.is_empty() {
+            return Err(MediaError::NoFile);
+        }
+        self.remove(files, DeleteReason::User).await
+    }
+
+    /// Removes the library files of `item` among `ids`, with their subtitles; ids of other items
+    /// are left alone.
+    pub async fn delete_files(&self, item: ItemId, ids: &[MediaFileId]) -> Result<Vec<MediaFile>, MediaError> {
+        let _lock = self.lock.acquire().await?;
+        let files: Vec<_> = self.files_of_item(item).await?.into_iter().filter(|file| ids.contains(&file.id)).collect();
         if files.is_empty() {
             return Err(MediaError::NoFile);
         }

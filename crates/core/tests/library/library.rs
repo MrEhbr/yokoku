@@ -220,3 +220,19 @@ async fn removing_items_records_whether_files_go_too(#[future(awt)] app: App) {
         ]
     );
 }
+
+#[tokio::test]
+async fn stopping_monitoring_covers_the_deleted_episodes_and_movie() {
+    let app = populated().await;
+    let frieren = app.library.find_series(ExternalId::Tmdb(1)).await.unwrap().unwrap();
+    let dune = app.library.find_movie(ExternalId::Tmdb(10)).await.unwrap().unwrap();
+    let first = FileTarget::Episodes { series: frieren.id, span: EpisodeSpan::new(1, 1, 1).unwrap() };
+    let gone = FileTarget::Episodes { series: frieren.id, span: EpisodeSpan::new(9, 1, 1).unwrap() };
+
+    app.library.stop_monitoring(&[first, gone, FileTarget::Movie(dune.id)]).await.unwrap();
+
+    let frieren = app.library.series(frieren.id).await.unwrap();
+    let monitored: Vec<_> = frieren.seasons[0].episodes.iter().map(|episode| episode.monitored).collect();
+    assert_eq!(monitored, [false, true]);
+    assert!(!app.library.movie(dune.id).await.unwrap().monitored);
+}
