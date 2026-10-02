@@ -34,12 +34,13 @@
 
 # CLI Reference
 
-- [root]()
-- [scan]()
-- [refresh]()
-- [files]()
-- [jellyfin]()
-- [settings]()
+- [Overview](./cli/index.md)
+- [root](./cli/root.md)
+- [scan](./cli/scan.md)
+- [refresh](./cli/refresh.md)
+- [files](./cli/files.md)
+- [jellyfin](./cli/jellyfin.md)
+- [settings](./cli/settings.md)
 
 # Reference
 
