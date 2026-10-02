@@ -1,5 +1,0 @@
-@import 'tailwindcss' source(none);
-@import './tokens.css';
-@import './components.css';
-@source './index.html';
-@source './specimen.js';

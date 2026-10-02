@@ -1,12 +1,11 @@
-/* Paper, Yokoku's design system. Specification: docs/design-system/DESIGN-SYSTEM.md.
-   Tokens and base styles come from the kit in docs/design-system; this file adds what the
-   components here need on top. `dx` renders it to assets/tailwind.css. */
+/* Paper, Yokoku's design system. Tokens and base styles come from styles/; this file adds what
+   the components here need on top. `dx` renders it to assets/tailwind.css. */
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @import "tailwindcss";
-@import "../../docs/design-system/tokens.css";
-@import "../../docs/design-system/components.css";
+@import "./styles/tokens.css";
+@import "./styles/components.css";
 
 @source "./src/**/*.rs";
 @source "./gallery/**/*.rs";

@@ -61,8 +61,6 @@ just run root add series "$PWD/data/library/series"
 just run root add movies "$PWD/data/library/movies"
 ```
 
-How web code is organized and written: [ARCHITECTURE.md §3.1](docs/ARCHITECTURE.md#31-where-things-live).
-
 `just services` runs Jellyfin (http://127.0.0.1:18096, user `dev` without a password) and
 Transmission (http://127.0.0.1:19091) from the dev shell, with their state in `data/services`.
 Jellyfin's libraries cover `data/library/series` and `data/library/movies`; point yokoku at them:
@@ -110,7 +108,6 @@ crates/
   web/                # Web UI on Dioxus: pages, server functions, components, gallery
   test-support/       # Fakes and fixtures shared by tests
 config/               # Configuration files
-docs/                 # Requirements and architecture
 ```
 
 ## Adding a Command
