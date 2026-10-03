@@ -25,8 +25,7 @@ scan_library          = "0 0 5 * * *"
 | `refresh_metadata` | every 12 h | Refreshes the items that are [due](../integrations/metadata.md#refreshing) |
 | `scan_library` | 05:00 daily | Looks for files added or deleted outside Yokoku in the root folders |
 
-> [!IMPORTANT]
-> Schedules run in **UTC**, not the server's time zone or the **Time zone**
-> setting. `0 0 5 * * *` is 05:00 UTC.
+Schedules follow the **Time zone** setting (`clock.timezone`), or the server's own
+zone when it's empty: `0 0 5 * * *` is 05:00 there.
 
 An invalid schedule is refused with `Invalid schedule "...": <reason>`.

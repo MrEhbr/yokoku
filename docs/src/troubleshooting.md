@@ -109,7 +109,9 @@ holds its hard link.
 
 ## A Job Runs at the Wrong Time
 
-Schedules run in UTC; see [Schedules](./configuration/schedules.md).
+Schedules follow the **Time zone** setting, or the server's zone when it's empty. In
+Docker the server's zone is UTC unless you set `TZ` or the **Time zone**. See
+[Schedules](./configuration/schedules.md).
 
 ## File Details Say "Not read yet"
 

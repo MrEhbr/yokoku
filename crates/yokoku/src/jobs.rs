@@ -45,6 +45,13 @@ impl TryFrom<String> for Cron {
     }
 }
 
+impl Cron {
+    /// The next tick after now, in `time_zone`.
+    fn next_tick(&self, time_zone: TimeZone) -> Option<Zoned> {
+        self.schedule.upcoming(time_zone).next()
+    }
+}
+
 impl From<Cron> for String {
     fn from(cron: Cron) -> Self {
         cron.expression
@@ -171,11 +178,13 @@ impl Job {
         Ok(())
     }
 
-    /// Runs on each tick of the job's schedule in UTC, reading the schedule again before each tick
-    /// and at least every `RECHECK`; a tick missed while the job runs is skipped.
+    /// Runs on each tick of the job's schedule in the configured time zone, reading the schedule and
+    /// the zone again before each tick and at least every `RECHECK`; a tick missed while the job runs
+    /// is skipped.
     async fn every(self, app: App, shutdown: CancellationToken) {
         loop {
-            let next = self.schedule(&app.settings.current().serve).schedule.upcoming(TimeZone::UTC).next();
+            let config = app.settings.current();
+            let next = self.schedule(&config.serve).next_tick(config.clock.time_zone());
             let wait = next.as_ref().map_or(RECHECK, |tick| {
                 Duration::try_from(Zoned::now().duration_until(tick)).unwrap_or_default().min(RECHECK)
             });
@@ -215,9 +224,10 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
+    use jiff::tz::TimeZone;
     use tracing::{Instrument, info_span};
 
-    use super::{ScheduleSettings, run};
+    use super::{Cron, ScheduleSettings, run};
 
     /// Fails because of `source`.
     #[derive(Debug)]
@@ -268,5 +278,15 @@ mod tests {
     #[test]
     fn the_default_schedules_parse() {
         ScheduleSettings::default();
+    }
+
+    #[test]
+    fn a_tick_falls_at_its_time_in_the_given_time_zone() {
+        let berlin = TimeZone::get("Europe/Berlin").unwrap();
+        let daily = Cron::try_from("0 0 5 * * *".to_owned()).unwrap();
+
+        let tick = daily.next_tick(berlin.clone()).unwrap();
+
+        assert_eq!((tick.hour(), tick.minute(), tick.time_zone()), (5, 0, &berlin));
     }
 }
