@@ -40,6 +40,7 @@
 - [refresh](./cli/refresh.md)
 - [files](./cli/files.md)
 - [jellyfin](./cli/jellyfin.md)
+- [job](./cli/job.md)
 - [settings](./cli/settings.md)
 
 # Reference

@@ -1,5 +1,6 @@
 pub mod files;
 pub mod jellyfin;
+pub mod job;
 pub mod refresh;
 pub mod root;
 pub mod scan;

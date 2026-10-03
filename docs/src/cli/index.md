@@ -15,6 +15,7 @@ run while the service does, against the same config and database.
 | [`refresh`](./refresh.md) | Refresh metadata for one item or the whole library |
 | [`files`](./files.md) | Show the details of library files, or read them with ffprobe |
 | [`jellyfin`](./jellyfin.md) | Test the Jellyfin connection or ask it to rescan |
+| [`job`](./job.md) | Run a scheduled job once, now |
 | [`settings`](./settings.md) | Store settings in the database, over the config file |
 
 ## Global Options

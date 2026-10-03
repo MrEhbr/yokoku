@@ -49,6 +49,8 @@ pub enum Command {
     Files(commands::files::Args),
     /// Test the Jellyfin connection or ask it to rescan
     Jellyfin(commands::jellyfin::Args),
+    /// Run a scheduled job once, now
+    Job(commands::job::Args),
     /// Store settings in the database, over the config file
     Settings(commands::settings::Args),
 }
@@ -101,6 +103,7 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
         Scan(cmd_args) => commands::scan::run(&app, cmd_args).await,
         Files(cmd_args) => commands::files::run(&app, cmd_args).await,
         Jellyfin(cmd_args) => commands::jellyfin::run(&app, cmd_args).await,
+        Job(cmd_args) => commands::job::run(&app, cmd_args).await,
         Settings(_) => unreachable!("settings run before the app opens"),
     };
     result.and(app.events.flush().await.context(EVENTS_LOST))

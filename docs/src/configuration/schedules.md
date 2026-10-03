@@ -28,4 +28,7 @@ scan_library          = "0 0 5 * * *"
 Schedules follow the **Time zone** setting (`clock.timezone`), or the server's own
 zone when it's empty: `0 0 5 * * *` is 05:00 there.
 
+To run a job now instead of waiting for it, use
+[`yokoku job <name>`](../cli/job.md), like `yokoku job sync-watched`.
+
 An invalid schedule is refused with `Invalid schedule "...": <reason>`.

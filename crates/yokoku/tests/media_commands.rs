@@ -134,6 +134,20 @@ async fn root_folders_from_the_config_file_are_listed_and_not_removed() {
 }
 
 #[tokio::test]
+async fn a_job_runs_once_on_request() {
+    let setup = Setup::new().await;
+    setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");
+
+    let stdout = setup.stdout(&["job", "scan-library"]);
+
+    assert_eq!(stdout, "Ran scan-library\n");
+    let log = EventLog::new(Database::open(&setup.database).await.unwrap());
+    let events: Vec<&str> =
+        log.read_after(None, 10).await.unwrap().iter().map(|recorded| recorded.event.name()).collect();
+    assert_eq!(events, ["FilesFound"]);
+}
+
+#[tokio::test]
 async fn a_scan_records_its_files_and_leaves_their_handling_to_the_service() {
     let setup = Setup::new().await;
     setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");

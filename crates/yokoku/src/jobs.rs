@@ -113,14 +113,21 @@ pub fn spawn(app: &App, shutdown: &CancellationToken) -> JoinSet<()> {
 }
 
 /// A scheduled job; `[serve]` holds its schedule under the same name.
-#[derive(Debug, Clone, Copy)]
-enum Job {
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum Job {
+    /// Read torrents from the download client and pick up new ones
     SyncDownloads,
+    /// The same, only while a download is queued or downloading
     SyncActiveDownloads,
+    /// Place the files of approved imports
     ExecuteImports,
+    /// Look for files changed outside Yokoku in the root folders
     ScanLibrary,
+    /// Refresh the items due for it
     RefreshMetadata,
+    /// Ask Jellyfin to rescan once the library has been quiet for a while
     RescanMediaServer,
+    /// Read the Jellyfin user's played items
     SyncWatched,
 }
 
@@ -135,7 +142,7 @@ impl Job {
         Self::SyncWatched,
     ];
 
-    fn name(self) -> &'static str {
+    pub fn name(self) -> &'static str {
         match self {
             Self::SyncDownloads => "sync-downloads",
             Self::SyncActiveDownloads => "sync-active-downloads",
@@ -159,7 +166,8 @@ impl Job {
         }
     }
 
-    async fn run(self, app: &App) -> Result<(), BoxError> {
+    /// One run of the job, as on a tick of its schedule.
+    pub async fn run(self, app: &App) -> Result<(), BoxError> {
         match self {
             Self::SyncDownloads => app.downloads.sync().await.map(drop)?,
             Self::SyncActiveDownloads => app.downloads.sync_active().await.map(drop)?,
@@ -224,10 +232,11 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
+    use clap::ValueEnum;
     use jiff::tz::TimeZone;
     use tracing::{Instrument, info_span};
 
-    use super::{Cron, ScheduleSettings, run};
+    use super::{Cron, Job, ScheduleSettings, run};
 
     /// Fails because of `source`.
     #[derive(Debug)]
@@ -273,6 +282,13 @@ mod tests {
         let logs = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
         assert!(logs.contains("ERROR job{name=\"sync-downloads\" correlation="), "{logs}");
         assert!(logs.contains("error=download client unavailable error.sources=[connection refused]"), "{logs}");
+    }
+
+    #[test]
+    fn every_job_is_named_on_the_command_line_as_in_the_log() {
+        for job in Job::ALL {
+            assert_eq!(job.to_possible_value().unwrap().get_name(), job.name());
+        }
     }
 
     #[test]
