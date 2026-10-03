@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.3.0](https://github.com/MrEhbr/yokoku/compare/v0.2.0..v0.3.0) - 2026-10-03
+
+### Bug Fixes
+
+- **(jobs)** run schedules in the configured time zone - ([e344be6](https://github.com/MrEhbr/yokoku/commit/e344be658e1f39a3b23c792bd4961a39f9d2e046)) `+29 / -8 across 3 file(s)` - Aleksei Burmistrov
+
+### Features
+
+- **(library)** read root folders from the config file and name them - ([2160e59](https://github.com/MrEhbr/yokoku/commit/2160e598c49cd96b869a615f97f24a54828738eb)) `+542 / -136 across 35 file(s)` - Aleksei Burmistrov
+
+### Miscellaneous Chores
+
+- cut rationale and fix stale comments - ([d28ece7](https://github.com/MrEhbr/yokoku/commit/d28ece784d5e4156e04d259a06ca549dd6984a92)) `+73 / -101 across 52 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 3 commit(s) contributed to the release.
+- 1 day(s) between first and last commit.
+- 3 commit(s) parsed as conventional.
+- Diff totals: +644 / -245 across 90 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 1 day(s) since the previous release.
+
 ## [0.2.0](https://github.com/MrEhbr/yokoku/compare/v0.1.0..v0.2.0) - 2026-10-02
 
 ### Documentation

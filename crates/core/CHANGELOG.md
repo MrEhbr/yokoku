@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.3.0](https://github.com/MrEhbr/yokoku/compare/v0.1.0..v0.3.0) - 2026-10-03
+
+### Features
+
+- **(library)** read root folders from the config file and name them - ([2160e59](https://github.com/MrEhbr/yokoku/commit/2160e598c49cd96b869a615f97f24a54828738eb)) `+542 / -136 across 35 file(s)` - Aleksei Burmistrov
+
+### Miscellaneous Chores
+
+- drop requirement ids from comments - ([70edda4](https://github.com/MrEhbr/yokoku/commit/70edda45108a1de65f40bcd23d33bcc64ac67d72)) `+69 / -72 across 48 file(s)` - Aleksei Burmistrov
+- cut rationale and fix stale comments - ([d28ece7](https://github.com/MrEhbr/yokoku/commit/d28ece784d5e4156e04d259a06ca549dd6984a92)) `+73 / -101 across 52 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 3 commit(s) contributed to the release.
+- 1 day(s) between first and last commit.
+- 3 commit(s) parsed as conventional.
+- Diff totals: +684 / -309 across 135 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 1 day(s) since the previous release.
+
 ## [0.1.0] - 2026-10-02
 
 ### Bug Fixes

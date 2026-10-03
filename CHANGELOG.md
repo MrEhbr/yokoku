@@ -3,6 +3,48 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.3.0](https://github.com/MrEhbr/yokoku/compare/v0.2.1..v0.3.0) - 2026-10-03
+
+### Bug Fixes
+
+- **(jobs)** run schedules in the configured time zone - ([e344be6](https://github.com/MrEhbr/yokoku/commit/e344be658e1f39a3b23c792bd4961a39f9d2e046)) `+29 / -8 across 3 file(s)` - Aleksei Burmistrov
+- **(release)** escape &lt; in changelog commit messages - ([1b1da01](https://github.com/MrEhbr/yokoku/commit/1b1da01f8a9c818187142e60af8f65d8c93fb255)) `+3 / -5 across 2 file(s)` - Aleksei Burmistrov
+
+### Documentation
+
+- shorten the README - ([8adbc98](https://github.com/MrEhbr/yokoku/commit/8adbc988a1970f3d53a83b67cd5b125115bc39ef)) `+14 / -144 across 1 file(s)` - Aleksei Burmistrov
+- add the user guide with installation and first run - ([f896b08](https://github.com/MrEhbr/yokoku/commit/f896b08346e8a87bf143dcafb5c0ffec663c1088)) `+390 / -0 across 10 file(s)` - Aleksei Burmistrov
+- describe each page of the web UI - ([a1120c3](https://github.com/MrEhbr/yokoku/commit/a1120c32f7a4be20a3f87ece09ae70f4cb9ba446)) `+523 / -8 across 9 file(s)` - Aleksei Burmistrov
+- describe the Transmission, Jellyfin and metadata integrations - ([7dace77](https://github.com/MrEhbr/yokoku/commit/7dace77bd71d553e206513e04db2fc3a3a0a2e29)) `+221 / -5 across 6 file(s)` - Aleksei Burmistrov
+- describe the configuration - ([d5d997d](https://github.com/MrEhbr/yokoku/commit/d5d997d181ed2d8015fc40ed81b4c158cf4d5d9e)) `+302 / -5 across 6 file(s)` - Aleksei Burmistrov
+- add the CLI reference - ([351c516](https://github.com/MrEhbr/yokoku/commit/351c516280eed64db0c638eec57025cec3538fd0)) `+236 / -6 across 8 file(s)` - Aleksei Burmistrov
+- add troubleshooting - ([a20f71e](https://github.com/MrEhbr/yokoku/commit/a20f71e4751e558ab42220c7a713b81d293b2814)) `+118 / -1 across 2 file(s)` - Aleksei Burmistrov
+- add contributing, security policy, issue templates and Dependabot - ([62a0b51](https://github.com/MrEhbr/yokoku/commit/62a0b5119c1b974b1cc49fb5207e1b6a47a7fb91)) `+208 / -0 across 7 file(s)` - Aleksei Burmistrov
+
+### Features
+
+- **(library)** read root folders from the config file and name them - ([2160e59](https://github.com/MrEhbr/yokoku/commit/2160e598c49cd96b869a615f97f24a54828738eb)) `+542 / -136 across 35 file(s)` - Aleksei Burmistrov
+
+### Miscellaneous Chores
+
+- drop requirement ids from comments - ([70edda4](https://github.com/MrEhbr/yokoku/commit/70edda45108a1de65f40bcd23d33bcc64ac67d72)) `+69 / -72 across 48 file(s)` - Aleksei Burmistrov
+- cut rationale and fix stale comments - ([d28ece7](https://github.com/MrEhbr/yokoku/commit/d28ece784d5e4156e04d259a06ca549dd6984a92)) `+73 / -101 across 52 file(s)` - Aleksei Burmistrov
+
+### Build
+
+- **(deps)** bump the actions group with 4 updates (#1) - ([0fa9434](https://github.com/MrEhbr/yokoku/commit/0fa9434bbbe3c0179f4733fde6b3d0f8d3b23ab9)) `+12 / -12 across 4 file(s)` - dependabot[bot]
+- **(deps)** bump the patch-and-minor group with 5 updates (#2) - ([674e576](https://github.com/MrEhbr/yokoku/commit/674e576f719894d74119d4947111055cef4879a6)) `+16 / -15 across 1 file(s)` - dependabot[bot]
+- **(deps)** bump base64 from 0.22.1 to 0.23.1 (#4) - ([311d8e6](https://github.com/MrEhbr/yokoku/commit/311d8e682f2c5550d6e13ab43e7484b4ba0abba6)) `+2 / -2 across 2 file(s)` - dependabot[bot]
+- **(deps)** bump gloo-timers from 0.3.0 to 0.4.0 (#3) - ([8fd0c9b](https://github.com/MrEhbr/yokoku/commit/8fd0c9bbe0f65dcfa7d5126dbae5c967c3e12663)) `+16 / -4 across 2 file(s)` - dependabot[bot]
+
+### Statistics
+
+- 17 commit(s) contributed to the release.
+- 1 day(s) between first and last commit.
+- 17 commit(s) parsed as conventional.
+- Diff totals: +2774 / -524 across 198 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 1 day(s) since the previous release.
+
 ## [0.2.1](https://github.com/MrEhbr/yokoku/compare/v0.2.0..v0.2.1) - 2026-10-02
 
 ### CI/CD
@@ -494,3 +536,5 @@ All notable changes to this project will be documented in this file. See [conven
 - 6 day(s) between first and last commit.
 - 392 commit(s) parsed as conventional.
 - Diff totals: +131003 / -72898 across 3986 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
+
