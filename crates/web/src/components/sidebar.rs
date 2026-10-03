@@ -2,12 +2,15 @@ use dioxus::{core::use_drop, prelude::*};
 use dioxus_icons::lucide::PanelLeft;
 use dioxus_primitives::{dioxus_attributes::attributes, merge_attributes, use_controlled};
 
-use crate::components::{
-    button::{Button, ButtonSize, ButtonVariant},
-    separator::Separator,
-    sheet::{Sheet, SheetContentClose, SheetDescription, SheetHeader, SheetSide, SheetTitle},
-    skeleton::Skeleton,
-    tooltip::{Tooltip, TooltipContent, TooltipTrigger},
+use crate::{
+    components::{
+        button::{Button, ButtonSize, ButtonVariant},
+        separator::Separator,
+        sheet::{Sheet, SheetContentClose, SheetDescription, SheetHeader, SheetSide, SheetTitle},
+        skeleton::Skeleton,
+        tooltip::{Tooltip, TooltipContent, TooltipTrigger},
+    },
+    hooks::use_media_query,
 };
 
 const SIDEBAR_WIDTH: &str = "16rem";
@@ -89,7 +92,7 @@ impl SidebarCollapsible {
 pub struct SidebarCtx {
     pub state: Memo<SidebarState>,
     pub side: Signal<SidebarSide>,
-    pub is_mobile: Signal<bool>,
+    pub is_mobile: ReadSignal<bool>,
     open: Memo<bool>,
     set_open: Callback<bool>,
     open_mobile: Signal<bool>,
@@ -121,42 +124,8 @@ pub fn use_sidebar() -> SidebarCtx {
     use_context::<SidebarCtx>()
 }
 
-pub fn use_is_mobile() -> Signal<bool> {
-    let mut is_mobile = use_signal(|| false);
-
-    use_effect(move || {
-        spawn(async move {
-            let js_code = format!(
-                r"
-                function checkMobile() {{
-                    return window.innerWidth < {MOBILE_BREAKPOINT};
-                }}
-                function handleResize() {{
-                    dioxus.send(checkMobile());
-                }}
-                window.__sidebarResizeHandler = handleResize;
-                window.addEventListener('resize', window.__sidebarResizeHandler);
-                dioxus.send(checkMobile());
-                "
-            );
-            let mut eval = document::eval(&js_code);
-
-            while let Ok(result) = eval.recv::<bool>().await {
-                is_mobile.set(result);
-            }
-        });
-    });
-
-    use_drop(|| {
-        _ = document::eval(
-            r"
-            window.removeEventListener('resize', window.__sidebarResizeHandler);
-            delete window.__sidebarResizeHandler;
-            ",
-        );
-    });
-
-    is_mobile
+pub fn use_is_mobile() -> ReadSignal<bool> {
+    use_media_query(&format!("(max-width: {}px)", MOBILE_BREAKPOINT - 1))
 }
 
 #[component]
