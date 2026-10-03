@@ -39,6 +39,8 @@ tokio = { workspace = true, features = ["macros", "net", "sync", "time"] }
 uuid = { workspace = true, features = ["js"] }
 
 gloo-timers = { version = "0.4", features = ["futures"] }
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["Clipboard", "Navigator", "Window"] }
 
 [dev-dependencies]
 dioxus-ssr = "=0.7.10"

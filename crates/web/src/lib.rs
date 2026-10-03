@@ -4,6 +4,7 @@ mod api;
 pub mod components;
 mod dialogs;
 mod format;
+mod hooks;
 pub mod layout;
 mod pages;
 mod route;

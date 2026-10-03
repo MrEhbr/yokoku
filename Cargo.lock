@@ -6395,6 +6395,8 @@ dependencies = [
  "serde_json",
  "tokio",
  "uuid",
+ "wasm-bindgen",
+ "web-sys",
  "yokoku-core",
  "yokoku-domain",
 ]

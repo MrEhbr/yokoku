@@ -1,9 +1,15 @@
 use dioxus::prelude::*;
+use dioxus_icons::lucide::{Check, Copy};
+
+use crate::{
+    components::button::{Button, ButtonSize, ButtonVariant},
+    hooks::use_copy_clipboard,
+};
 
 /// A detail page's header: the backdrop, 3:1 but no taller than 40% of the window and never
-/// cropped past 5:1, with the logo as the title, then the poster beside `children`. The logo
-/// shows only over a backdrop; without one the title is text. Each image is an optional URL;
-/// its frame shows while it loads.
+/// cropped past 5:1, with the logo over it, then the poster beside the title, a button that
+/// copies it, and `children`. The logo shows only over a backdrop. Each image is an optional
+/// URL; its frame shows while it loads.
 #[component]
 pub fn ItemHero(
     title: String,
@@ -13,6 +19,7 @@ pub fn ItemHero(
     children: Element,
 ) -> Element {
     let logo = logo.filter(|_| backdrop.is_some());
+    let (copy, copied) = use_copy_clipboard(None);
     rsx! {
         header { class: "@container",
             if let Some(backdrop) = &backdrop {
@@ -25,13 +32,11 @@ pub fn ItemHero(
                     }
                     if let Some(logo) = &logo {
                         div { class: "absolute inset-0 flex items-end bg-linear-to-t from-black/70 via-black/20 to-transparent p-4 sm:p-6",
-                            h1 {
-                                img {
-                                    class: "max-h-12 max-w-[60%] object-contain object-left-bottom sm:max-h-24",
-                                    src: "{logo}",
-                                    alt: "{title}",
-                                    decoding: "async",
-                                }
+                            img {
+                                class: "max-h-12 max-w-[60%] object-contain object-left-bottom sm:max-h-24",
+                                src: "{logo}",
+                                alt: "",
+                                decoding: "async",
                             }
                         }
                     }
@@ -49,8 +54,23 @@ pub fn ItemHero(
                     }
                 }
                 div { class: "flex min-w-0 flex-1 flex-col gap-3",
-                    if logo.is_none() {
-                        h1 { class: "yk-page-title break-words", "{title}" }
+                    div { class: "flex items-start gap-2",
+                        h1 { class: "yk-page-title min-w-0 break-words", "{title}" }
+                        Button {
+                            variant: ButtonVariant::Quiet,
+                            size: ButtonSize::Icon,
+                            aria_label: "Copy title",
+                            title: if copied() { "Copied" } else { "Copy title" },
+                            onclick: {
+                                let title = title.clone();
+                                move |_| copy(&title)
+                            },
+                            if copied() {
+                                Check { size: "1rem" }
+                            } else {
+                                Copy { size: "1rem" }
+                            }
+                        }
                     }
                     {children}
                 }
