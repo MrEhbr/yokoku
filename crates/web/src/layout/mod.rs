@@ -23,6 +23,9 @@ const CONTAINER: &str = "mx-auto w-full max-w-[120rem] px-4 sm:px-6 lg:px-10";
 
 /// The top bar with the main navigation, and the page below it. Below `md` the navigation
 /// wraps to its own row, which scrolls sideways when it doesn't fit.
+/// The localStorage key of the light/dark choice.
+const THEME_KEY: &str = "yokoku-theme";
+
 #[component]
 pub fn Shell() -> Element {
     use_in_app_history();
@@ -30,7 +33,7 @@ pub fn Shell() -> Element {
     let section = use_route::<Route>().section();
     rsx! {
         document::Title { "Yokoku" }
-        DocumentHead {}
+        DocumentHead { theme_key: THEME_KEY }
         div { class: "flex min-h-dvh flex-col",
             header { class: "sticky top-0 z-40 border-b border-line bg-canvas",
                 div { class: "{CONTAINER} flex flex-wrap items-center gap-x-8",
@@ -57,7 +60,7 @@ pub fn Shell() -> Element {
                             aria_current: if section == Route::settings() { "page" } else { "false" },
                             Settings {}
                         }
-                        ThemeSwitch {}
+                        ThemeSwitch { storage_key: THEME_KEY }
                     }
                 }
             }

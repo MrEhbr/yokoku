@@ -143,11 +143,14 @@ fn main() {
     dioxus::launch(App);
 }
 
+/// The localStorage key of the light/dark choice, shared with the app.
+const THEME_KEY: &str = "yokoku-theme";
+
 #[component]
 fn App() -> Element {
     rsx! {
         document::Title { "Yokoku components" }
-        DocumentHead {}
+        DocumentHead { theme_key: THEME_KEY }
         Router::<Route> {}
     }
 }
@@ -163,7 +166,7 @@ fn Shell() -> Element {
                         class: "font-mono text-xl tracking-tight",
                         "yokoku"
                     }
-                    ThemeSwitch {}
+                    ThemeSwitch { storage_key: THEME_KEY }
                 }
                 nav {
                     aria_label: "Components",
