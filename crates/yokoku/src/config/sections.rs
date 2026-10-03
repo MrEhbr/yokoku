@@ -4,6 +4,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use yokoku_core::media::{RootFolder, RootKind};
 use yokoku_domain::MonitorPreset;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -50,5 +51,22 @@ pub struct EventsConfig {
 impl Default for EventsConfig {
     fn default() -> Self {
         Self { poll_interval_ms: 5000 }
+    }
+}
+
+/// A root folder from the config file.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct RootConfig {
+    pub kind: RootKind,
+    pub path: PathBuf,
+    /// Shown instead of the path; the folder's name when unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+impl From<RootConfig> for RootFolder {
+    fn from(root: RootConfig) -> Self {
+        RootFolder::new(root.kind, root.path, root.name, true)
     }
 }

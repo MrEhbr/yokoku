@@ -15,7 +15,7 @@ use yokoku_domain::{
 use crate::{
     events::Publisher,
     media::{
-        MediaError, MediaFile, files,
+        MediaError, MediaFile, RootFolders, files,
         ports::{Catalog, Changes, FileSystem, LibraryLock, MediaRepo},
     },
 };
@@ -24,6 +24,7 @@ use crate::{
 pub struct Renamer {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,
+    roots: Arc<RootFolders>,
     fs: Arc<dyn FileSystem>,
     lock: Arc<dyn LibraryLock>,
     naming: Live<Naming>,
@@ -103,17 +104,18 @@ impl Renamer {
     pub fn new(
         repo: Arc<dyn MediaRepo>,
         catalog: Arc<dyn Catalog>,
+        roots: Arc<RootFolders>,
         fs: Arc<dyn FileSystem>,
         lock: Arc<dyn LibraryLock>,
         naming: Live<Naming>,
         events: Publisher,
     ) -> Self {
-        Self { repo, catalog, fs, lock, naming, events }
+        Self { repo, catalog, roots, fs, lock, naming, events }
     }
 
     /// The moves `apply` would make; nothing on disk changes.
     pub async fn preview(&self, scope: RenameScope) -> Result<RenamePlan, MediaError> {
-        let roots = self.repo.root_folders().await?;
+        let roots = self.roots.list().await?;
         let mut series: HashMap<SeriesId, Option<Series>> = HashMap::new();
         let mut plan = RenamePlan::default();
 

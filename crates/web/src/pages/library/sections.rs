@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::Path};
+use std::collections::BTreeMap;
 
 use dioxus::prelude::*;
 
@@ -18,7 +18,7 @@ pub(super) fn RootSections(entries: Vec<Entry>, view: View) -> Element {
             for (root, entries) in groups {
                 section { key: "{root}",
                     h2 { class: "flex flex-wrap items-baseline gap-x-2 text-section font-medium",
-                        "{folder_name(&root)}"
+                        "{entries[0].root_name}"
                         span { class: "text-caption font-normal text-muted", "{entries.len()}" }
                     }
                     div { class: "mt-4", {shown(entries, view)} }
@@ -48,16 +48,11 @@ fn by_root(entries: Vec<Entry>) -> Vec<(String, Vec<Entry>)> {
     groups.into_iter().map(|((_, root), entries)| (root, entries)).collect()
 }
 
-fn folder_name(root: &str) -> &str {
-    Path::new(root).file_name().and_then(|name| name.to_str()).unwrap_or(root)
-}
-
 #[cfg(test)]
 mod tests {
-    use rstest::rstest;
     use yokoku_domain::{ItemId, MovieId, SeriesId};
 
-    use super::{by_root, folder_name};
+    use super::by_root;
     use crate::api::library::{Entry, FileCount, Status};
 
     fn entry(title: &str, status: Status, root: &str) -> Entry {
@@ -74,6 +69,7 @@ mod tests {
             next_release: None,
             poster: None,
             root: root.into(),
+            root_name: root.into(),
         }
     }
 
@@ -102,13 +98,5 @@ mod tests {
                 ("/media/movies".into(), vec!["Zeta".into(), "Alpha".into()]),
             ]
         );
-    }
-
-    #[rstest]
-    #[case::last_component("/media/anime", "anime")]
-    #[case::trailing_slash("/media/anime/", "anime")]
-    #[case::filesystem_root("/", "/")]
-    fn names_a_root_by_its_last_component(#[case] root: &str, #[case] name: &str) {
-        assert_eq!(folder_name(root), name);
     }
 }

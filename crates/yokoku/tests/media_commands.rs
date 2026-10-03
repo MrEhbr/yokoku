@@ -105,14 +105,32 @@ async fn root_folders_are_added_as_absolute_paths_listed_and_removed() {
 
     let films = tv.with_file_name("films");
     fs::create_dir(setup.path("films")).unwrap();
-    let added = setup.stdout(&["root", "add", "movies", "films"]);
+    let added = setup.stdout(&["root", "add", "movies", "films", "--name", "Films"]);
     let listed = setup.stdout(&["root", "list"]);
     let removed = setup.stdout(&["root", "remove", "films"]);
 
-    assert_eq!(added, format!("Added movies root {}\n", films.display()));
-    assert_eq!(listed, format!("movies  {}\nseries  {}\n", films.display(), tv.display()));
+    assert_eq!(added, format!("Added movies root {} as Films\n", films.display()));
+    assert_eq!(listed, format!("movies  {}  Films\nseries  {}  tv\n", films.display(), tv.display()));
     assert_eq!(removed, format!("Removed root {}\n", films.display()));
-    assert_eq!(setup.stdout(&["root", "list"]), format!("series  {}\n", tv.display()));
+    assert_eq!(setup.stdout(&["root", "list"]), format!("series  {}  tv\n", tv.display()));
+}
+
+#[tokio::test]
+async fn root_folders_from_the_config_file_are_listed_and_not_removed() {
+    let setup = Setup::new().await;
+    let tv = setup.path("tv").canonicalize().unwrap();
+    let anime = tv.with_file_name("anime");
+    let config = setup.path("app.toml");
+    fs::write(&config, format!("[[roots]]\nkind = \"series\"\npath = \"{}\"\nname = \"Anime\"\n", anime.display()))
+        .unwrap();
+    let config = config.to_str().unwrap();
+
+    let listed = setup.stdout(&["--config", config, "root", "list"]);
+    let removed = setup.command().args(["--config", config, "root", "remove", "anime"]).output().unwrap();
+
+    assert_eq!(listed, format!("series  {}  Anime  (config file)\nseries  {}  tv\n", anime.display(), tv.display()));
+    assert!(!removed.status.success());
+    assert!(String::from_utf8_lossy(&removed.stderr).contains("is set in the config file"));
 }
 
 #[tokio::test]

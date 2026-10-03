@@ -50,9 +50,9 @@ fn row(path: &str, target: Option<FileTarget>) -> ImportRow {
 
 #[rstest]
 #[tokio::test]
-async fn root_folders_are_listed_by_path_and_removed_by_path(#[future(awt)] db: Database) {
-    let series = RootFolder { kind: RootKind::Series, path: "/media/tv".into() };
-    let movies = RootFolder { kind: RootKind::Movies, path: "/media/movies".into() };
+async fn root_folders_are_listed_by_path_with_their_names_and_removed_by_path(#[future(awt)] db: Database) {
+    let series = RootFolder::new(RootKind::Series, "/media/tv".into(), Some("Shows".into()), false);
+    let movies = RootFolder::new(RootKind::Movies, "/media/movies".into(), None, false);
     db.add_root_folder(&series).await.unwrap();
     db.add_root_folder(&movies).await.unwrap();
 

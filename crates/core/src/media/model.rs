@@ -6,7 +6,8 @@ use yokoku_domain::{
     events::LinkedFile,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RootKind {
     Series,
     Movies,
@@ -22,6 +23,20 @@ yokoku_domain::string_enum!(RootKind, "root folder kind" {
 pub struct RootFolder {
     pub kind: RootKind,
     pub path: PathBuf,
+    /// Shown instead of the path.
+    pub name: String,
+    /// Set in the config file rather than stored.
+    pub configured: bool,
+}
+
+impl RootFolder {
+    /// Named `name`, or by the folder at `path` when `name` is missing or blank.
+    pub fn new(kind: RootKind, path: PathBuf, name: Option<String>, configured: bool) -> Self {
+        let name = name.map(|name| name.trim().to_owned()).filter(|name| !name.is_empty()).unwrap_or_else(|| {
+            path.file_name().map_or_else(|| path.display().to_string(), |folder| folder.to_string_lossy().into_owned())
+        });
+        Self { kind, path, name, configured }
+    }
 }
 
 /// A video file in a root folder, linked to what it holds.

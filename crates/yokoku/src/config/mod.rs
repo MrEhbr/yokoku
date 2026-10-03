@@ -24,7 +24,7 @@ use yokoku_infra::{
 
 pub use crate::config::{
     log::{LogConfig, LogFormat, LogOutput},
-    sections::{AddConfig, DatabaseConfig, EventsConfig, WebConfig},
+    sections::{AddConfig, DatabaseConfig, EventsConfig, RootConfig, WebConfig},
     settings::Settings,
 };
 use crate::jobs::ScheduleSettings;
@@ -32,7 +32,7 @@ use crate::jobs::ScheduleSettings;
 const ENV_PREFIX: &str = "YOKOKU";
 const ENV_SEPARATOR: &str = "__";
 /// Sections read once, when the service starts.
-const READ_AT_START: [&str; 4] = ["database", "log", "web", "events"];
+const READ_AT_START: [&str; 5] = ["database", "log", "web", "events", "roots"];
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(default)]
@@ -51,6 +51,8 @@ pub struct Config {
     pub jellyfin: JellyfinSettings,
     pub files: ProbeSettings,
     pub naming: Naming,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub roots: Vec<RootConfig>,
 }
 
 impl Config {

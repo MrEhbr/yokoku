@@ -68,10 +68,13 @@ version, or the error.
 
 Root folders hold the item folders, one root for series and one for movies or
 more. Under **Library → Root folders**, enter the absolute path of an existing
-folder, choose **Series** or **Movies**, and click **Add**. Root folders can't
-overlap.
+folder, choose **Series** or **Movies**, optionally give it a name, and click
+**Add**. The name shows instead of the path, in the Library and the add dialog;
+without one, the folder's name is used. Root folders can't overlap.
 
-**Remove** only works on a root folder no item belongs to anymore.
+**Remove** only works on a root folder no item belongs to anymore. Root folders
+marked **Config file** come from the
+[config file](../configuration/index.md#root-folders) and are changed there.
 
 **Scan now** looks through the item folders for files added or deleted
 outside Yokoku, which it otherwise does once a day. It reports the files it

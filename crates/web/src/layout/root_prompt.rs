@@ -51,7 +51,7 @@ mod tests {
     use crate::api::{library::Kind, settings::Root};
 
     fn root(kind: Kind) -> Root {
-        Root { kind, path: "/media".to_owned(), items: 0 }
+        Root { kind, path: "/media".to_owned(), name: "media".to_owned(), configured: false, items: 0 }
     }
 
     #[rstest]

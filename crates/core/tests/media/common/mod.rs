@@ -11,7 +11,7 @@ use tempfile::TempDir;
 use yokoku_core::{
     events::{EventLog, Publisher, QueueChanges},
     library::ports::{MovieRepo, SeriesRepo},
-    media::{ImportPlanner, Renamer, Reviewer, RootFolders, RootKind, Scanner},
+    media::{ImportPlanner, Renamer, Reviewer, RootFolder, RootFolders, RootKind, Scanner},
 };
 use yokoku_domain::{
     Clock, EpisodeSpan, FileTarget, ItemFolder, Live, MonitorPreset, Movie, MovieMetadata, Releases, Series,
@@ -40,7 +40,7 @@ pub fn now() -> Timestamp {
 pub struct App {
     pub dir: TempDir,
     pub db: Database,
-    pub roots: RootFolders,
+    pub roots: Arc<RootFolders>,
     pub scanner: Scanner,
     pub reviewer: Reviewer,
     pub renamer: Renamer,
@@ -62,7 +62,7 @@ impl App {
         let events = publisher(&db);
         let fs = Arc::new(LocalFileSystem);
         let clock = Arc::new(TestClock::default());
-        let roots = RootFolders::new(repo.clone(), repo.clone(), fs.clone());
+        let roots = Arc::new(RootFolders::new(repo.clone(), repo.clone(), fs.clone(), Vec::new()));
         let lock = Arc::new(LockFile::new(dir.path().join(LOCK)));
         let changes = QueueChanges::new();
         let scanner =
@@ -71,6 +71,7 @@ impl App {
         let renamer = Renamer::new(
             repo.clone(),
             repo.clone(),
+            roots.clone(),
             Arc::new(LocalFileSystem),
             lock,
             Live::fixed(Naming::default()),
@@ -93,9 +94,15 @@ impl App {
         MovieRepo::save(&db, &mut dune).await.unwrap();
 
         let app = Self { dir, db, roots, scanner, reviewer, renamer, planner, changes, frieren, dune };
-        app.roots.add(RootKind::Series, &app.path("tv")).await.unwrap();
-        app.roots.add(RootKind::Movies, &app.path("movies")).await.unwrap();
+        app.roots.add(RootKind::Series, &app.path("tv"), None).await.unwrap();
+        app.roots.add(RootKind::Movies, &app.path("movies"), None).await.unwrap();
         app
+    }
+
+    /// Root folders with `configured` from the config file, over the stored `tv` and `movies`.
+    pub fn roots_with(&self, configured: Vec<RootFolder>) -> RootFolders {
+        let repo = Arc::new(self.db.clone());
+        RootFolders::new(repo.clone(), repo, Arc::new(LocalFileSystem), configured)
     }
 
     pub fn path(&self, relative: &str) -> PathBuf {
@@ -154,6 +161,7 @@ impl App {
     pub fn deleter(&self) -> yokoku_core::media::Deleter {
         yokoku_core::media::Deleter::new(
             Arc::new(self.db.clone()),
+            self.roots.clone(),
             Arc::new(LocalFileSystem),
             self.lock(),
             self.publisher(),

@@ -47,6 +47,8 @@ impl AddOptions {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RootChoice {
     pub path: String,
+    /// Its name, else the name of its folder.
+    pub name: String,
     /// Names of the folders already in it.
     pub folders: Vec<String>,
     /// Names of its items' folders, which a new item cannot take.
@@ -129,7 +131,7 @@ mod server {
         for root in roots.list().await.map_err(root_listing_failed)? {
             let folders = roots.folders(&root).await.map_err(root_listing_failed)?;
             let taken = roots.item_folders(&root).await.map_err(root_listing_failed)?;
-            let choice = RootChoice { path: root.path.display().to_string(), folders, taken };
+            let choice = RootChoice { path: root.path.display().to_string(), name: root.name.clone(), folders, taken };
             match root.kind {
                 RootKind::Series => options.series_roots.push(choice),
                 RootKind::Movies => options.movie_roots.push(choice),

@@ -219,13 +219,13 @@ fn OptionFields(
                 id: "add-root",
                 value: Some(root.into()),
                 on_value_change: move |next| root.set(next),
-                for (index, RootChoice { path, .. }) in roots.into_iter().enumerate() {
+                for (index, RootChoice { path, name, .. }) in roots.into_iter().enumerate() {
                     SelectOption::<String> {
                         key: "{path}",
                         index,
                         value: path.clone(),
-                        text_value: path.clone(),
-                        "{path}"
+                        text_value: name.clone(),
+                        "{name}"
                     }
                 }
             }

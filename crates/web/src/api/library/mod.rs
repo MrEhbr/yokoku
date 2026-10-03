@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use yokoku_domain::ItemId;
 
 #[cfg(feature = "server")]
-use super::{Dep, Library};
+use super::{Dep, Library, RootFolders};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -80,6 +80,8 @@ pub struct Entry {
     pub poster: Option<String>,
     /// The root folder holding the item's folder.
     pub root: String,
+    /// The root folder's name, else the name of its folder.
+    pub root_name: String,
 }
 
 impl Kind {
@@ -173,18 +175,20 @@ impl Sort {
 }
 
 /// `watched`: `Unwatched` keeps every item not fully watched, items without files included.
-#[get("/api/library?kind&status&watched&sort", library: Dep<Library>)]
+#[get("/api/library?kind&status&watched&sort", library: Dep<Library>, roots: Dep<RootFolders>)]
 pub async fn library(
     kind: Option<Kind>,
     status: Option<Status>,
     watched: Option<WatchState>,
     sort: Option<Sort>,
 ) -> Result<Vec<Entry>, ServerFnError> {
-    server::library(&library, kind, status, watched, sort).await
+    server::library(&library, &roots, kind, status, watched, sort).await
 }
 
 #[cfg(feature = "server")]
 mod server {
+    use std::{collections::HashMap, path::PathBuf};
+
     use dioxus::{logger::tracing::error, prelude::*};
     use yokoku_core::{
         library::{LibraryEntry, LibraryFilter, LibrarySort, LibraryStatus, artwork_name},
@@ -192,11 +196,12 @@ mod server {
     };
     use yokoku_domain::{ArtworkKind, MediaKind, MovieStatus, SeriesStatus};
 
-    use super::{Entry, FileCount, FileStatus, Kind, Library, Sort, Status, WatchState};
+    use super::{Entry, FileCount, FileStatus, Kind, Library, RootFolders, Sort, Status, WatchState};
     use crate::api::artwork;
 
     pub(super) async fn library(
         library: &Library,
+        roots: &RootFolders,
         kind: Option<Kind>,
         status: Option<Status>,
         watched: Option<WatchState>,
@@ -211,7 +216,20 @@ mod server {
             error!(%error, "listing the library failed");
             ServerFnError::new("The library could not be loaded")
         })?;
-        Ok(entries.into_iter().map(Entry::from).collect())
+        let names: HashMap<PathBuf, String> = match roots.list().await {
+            Ok(roots) => roots.into_iter().map(|root| (root.path, root.name)).collect(),
+            Err(error) => {
+                error!(%error, "listing the root folders failed; naming them by their folders");
+                HashMap::new()
+            },
+        };
+        Ok(entries
+            .into_iter()
+            .map(|entry| {
+                let root_name = names.get(&entry.root).cloned().unwrap_or_else(|| entry.root.display().to_string());
+                Entry::new(entry, root_name)
+            })
+            .collect())
     }
 
     impl From<Kind> for MediaKind {
@@ -306,8 +324,8 @@ mod server {
         }
     }
 
-    impl From<LibraryEntry> for Entry {
-        fn from(entry: LibraryEntry) -> Self {
+    impl Entry {
+        fn new(entry: LibraryEntry, root_name: String) -> Self {
             let poster = entry
                 .poster_path
                 .as_deref()
@@ -322,6 +340,7 @@ mod server {
                 files: FileCount { downloaded: entry.files.downloaded, missing: entry.files.missing },
                 next_release: entry.next_release,
                 root: entry.root.display().to_string(),
+                root_name,
             }
         }
     }

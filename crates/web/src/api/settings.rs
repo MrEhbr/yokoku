@@ -94,6 +94,10 @@ pub enum Connection {
 pub struct Root {
     pub kind: Kind,
     pub path: String,
+    /// Its name, else the name of its folder.
+    pub name: String,
+    /// Set in the config file, so it cannot be removed here.
+    pub configured: bool,
     /// Library items in it.
     pub items: usize,
 }
@@ -128,11 +132,12 @@ pub async fn roots() -> Result<Vec<Root>, ServerFnError> {
 }
 
 #[post("/api/roots", roots: Dep<RootFolders>)]
-pub async fn add_root(kind: Kind, path: String) -> Result<(), ServerFnError> {
-    server::add_root(&roots, kind, &path).await
+/// Without a `name`, or with a blank one, the root folder is shown by its folder's name.
+pub async fn add_root(kind: Kind, path: String, name: Option<String>) -> Result<(), ServerFnError> {
+    server::add_root(&roots, kind, &path, name).await
 }
 
-/// Refused while library items belong to it.
+/// Refused while library items belong to it, and for one in the config file.
 #[post("/api/roots/remove", roots: Dep<RootFolders>)]
 pub async fn remove_root(path: String) -> Result<(), ServerFnError> {
     server::remove_root(&roots, &path).await
@@ -212,13 +217,24 @@ mod server {
         let mut listed = Vec::new();
         for root in roots.list().await.map_err(root_listing_failed)? {
             let items = roots.item_folders(&root).await.map_err(root_listing_failed)?.len();
-            listed.push(Root { kind: root.kind.into(), path: root.path.display().to_string(), items });
+            listed.push(Root {
+                kind: root.kind.into(),
+                path: root.path.display().to_string(),
+                name: root.name.clone(),
+                configured: root.configured,
+                items,
+            });
         }
         Ok(listed)
     }
 
-    pub(super) async fn add_root(roots: &RootFolders, kind: Kind, path: &str) -> Result<(), ServerFnError> {
-        roots.add(kind.into(), Path::new(path.trim())).await.map(drop).map_err(root_failure)
+    pub(super) async fn add_root(
+        roots: &RootFolders,
+        kind: Kind,
+        path: &str,
+        name: Option<String>,
+    ) -> Result<(), ServerFnError> {
+        roots.add(kind.into(), Path::new(path.trim()), name).await.map(drop).map_err(root_failure)
     }
 
     pub(super) async fn remove_root(roots: &RootFolders, path: &str) -> Result<(), ServerFnError> {
@@ -257,7 +273,8 @@ mod server {
             | MediaError::NotAFolder(_)
             | MediaError::OverlappingRoot { .. }
             | MediaError::RootNotFound(_)
-            | MediaError::RootInUse { .. } => ServerFnError::new(error.to_string()),
+            | MediaError::RootInUse { .. }
+            | MediaError::ConfiguredRoot(_) => ServerFnError::new(error.to_string()),
             error => unexpected(&error, "changing root folders"),
         }
     }

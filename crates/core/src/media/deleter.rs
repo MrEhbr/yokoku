@@ -10,7 +10,7 @@ use yokoku_domain::{
 use crate::{
     events::{Handler, HandlerError, Publisher},
     media::{
-        MediaError, MediaFile, files,
+        MediaError, MediaFile, RootFolders, files,
         ports::{Changes, FileSystem, LibraryLock, MediaRepo},
     },
 };
@@ -18,6 +18,7 @@ use crate::{
 /// Deletes library files.
 pub struct Deleter {
     repo: Arc<dyn MediaRepo>,
+    roots: Arc<RootFolders>,
     fs: Arc<dyn FileSystem>,
     lock: Arc<dyn LibraryLock>,
     events: Publisher,
@@ -26,11 +27,12 @@ pub struct Deleter {
 impl Deleter {
     pub fn new(
         repo: Arc<dyn MediaRepo>,
+        roots: Arc<RootFolders>,
         fs: Arc<dyn FileSystem>,
         lock: Arc<dyn LibraryLock>,
         events: Publisher,
     ) -> Self {
-        Self { repo, fs, lock, events }
+        Self { repo, roots, fs, lock, events }
     }
 
     /// The library files of `item`.
@@ -53,7 +55,7 @@ impl Deleter {
     /// Subtitles and emptied folders go afterwards; a failure there is only logged.
     #[instrument(skip_all, fields(?reason))]
     async fn remove(&self, files: Vec<MediaFile>, reason: DeleteReason) -> Result<Vec<MediaFile>, MediaError> {
-        let roots = self.repo.root_folders().await?;
+        let roots = self.roots.list().await?;
         for file in &files {
             let subtitles = files::sidecar_subtitles(self.fs.as_ref(), &file.path).await?;
             self.fs.remove_file(&file.path).await?;

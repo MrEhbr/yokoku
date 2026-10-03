@@ -8,20 +8,59 @@ use crate::media::{
     ports::{Catalog, FileSystem, MediaRepo},
 };
 
-/// Root folder settings.
+/// Root folder settings: the ones in the config file and the stored ones.
 pub struct RootFolders {
     repo: Arc<dyn MediaRepo>,
     catalog: Arc<dyn Catalog>,
     fs: Arc<dyn FileSystem>,
+    configured: Vec<RootFolder>,
 }
 
 impl RootFolders {
-    pub fn new(repo: Arc<dyn MediaRepo>, catalog: Arc<dyn Catalog>, fs: Arc<dyn FileSystem>) -> Self {
-        Self { repo, catalog, fs }
+    /// `configured` are the root folders of the config file.
+    pub fn new(
+        repo: Arc<dyn MediaRepo>,
+        catalog: Arc<dyn Catalog>,
+        fs: Arc<dyn FileSystem>,
+        configured: Vec<RootFolder>,
+    ) -> Self {
+        let configured = configured
+            .into_iter()
+            .map(|root| RootFolder { path: root.path.components().collect(), configured: true, ..root })
+            .collect();
+        Self { repo, catalog, fs, configured }
     }
 
+    /// The configured root folders and the stored ones, by path; a stored one at the path of a
+    /// configured one is left out.
     pub async fn list(&self) -> Result<Vec<RootFolder>, MediaError> {
-        Ok(self.repo.root_folders().await?)
+        let stored = self.repo.root_folders().await?;
+        let mut roots = self.configured.clone();
+        roots.extend(stored.into_iter().filter(|root| !self.configured.iter().any(|known| known.path == root.path)));
+        roots.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(roots)
+    }
+
+    /// Fails when a configured root folder is relative, overlaps another configured one, or
+    /// conflicts with a stored one: the same path with another kind, or one inside the other.
+    pub async fn check(&self) -> Result<(), MediaError> {
+        for (index, root) in self.configured.iter().enumerate() {
+            if !root.path.is_absolute() {
+                return Err(MediaError::RelativePath(root.path.clone()));
+            }
+            if let Some(other) = self.configured[index + 1..].iter().find(|other| overlap(&root.path, &other.path)) {
+                return Err(MediaError::OverlappingRoot { path: other.path.clone(), existing: root.path.clone() });
+            }
+        }
+        for stored in self.repo.root_folders().await? {
+            let conflict = self.configured.iter().find(|root| {
+                if root.path == stored.path { root.kind != stored.kind } else { overlap(&root.path, &stored.path) }
+            });
+            if let Some(root) = conflict {
+                return Err(MediaError::ConflictingRoot { configured: root.path.clone(), stored: stored.path });
+            }
+        }
+        Ok(())
     }
 
     /// The root folder of `kind` at `path`, for adding an item to it.
@@ -37,7 +76,7 @@ impl RootFolders {
 
     /// The path must be an existing absolute folder that neither contains nor lies inside
     /// another root folder.
-    pub async fn add(&self, kind: RootKind, path: &Path) -> Result<RootFolder, MediaError> {
+    pub async fn add(&self, kind: RootKind, path: &Path, name: Option<String>) -> Result<RootFolder, MediaError> {
         if !path.is_absolute() {
             return Err(MediaError::RelativePath(path.to_owned()));
         }
@@ -45,14 +84,11 @@ impl RootFolders {
         if !self.fs.is_dir(&path).await? {
             return Err(MediaError::NotAFolder(path));
         }
-        let roots = self.repo.root_folders().await?;
-        if let Some(existing) =
-            roots.into_iter().find(|root| path.starts_with(&root.path) || root.path.starts_with(&path))
-        {
+        if let Some(existing) = self.list().await?.into_iter().find(|root| overlap(&path, &root.path)) {
             return Err(MediaError::OverlappingRoot { path, existing: existing.path });
         }
 
-        let root = RootFolder { kind, path };
+        let root = RootFolder::new(kind, path, name, false);
         self.repo.add_root_folder(&root).await?;
         Ok(root)
     }
@@ -69,9 +105,12 @@ impl RootFolders {
         Ok(series.chain(movies).filter(|folder| folder.root == root.path).map(|folder| folder.name).collect())
     }
 
-    /// Refused while series or movies belong to the folder.
+    /// Refused for a configured root folder, and while series or movies belong to the folder.
     pub async fn remove(&self, path: &Path) -> Result<(), MediaError> {
         let path: PathBuf = path.components().collect();
+        if self.configured.iter().any(|root| root.path == path) {
+            return Err(MediaError::ConfiguredRoot(path));
+        }
         let series = self.catalog.all_series().await?;
         let movies = self.catalog.all_movies().await?;
         let items = series.iter().filter(|series| series.folder.root == path).count()
@@ -84,4 +123,9 @@ impl RootFolders {
         }
         Ok(())
     }
+}
+
+/// One path is the other or lies inside it.
+fn overlap(a: &Path, b: &Path) -> bool {
+    a.starts_with(b) || b.starts_with(a)
 }

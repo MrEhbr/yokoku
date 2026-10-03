@@ -92,6 +92,10 @@ services.yokoku = {
     web.host = "0.0.0.0";
     metadata.tmdb.token.file = "/run/secrets/tmdb-token";
     transmission.url = "http://127.0.0.1:9091/transmission/rpc";
+    roots = [
+      { kind = "series"; path = "/media/library/Shows"; }
+      { kind = "movies"; path = "/media/library/Movies"; }
+    ];
   };
 };
 ```

@@ -111,7 +111,7 @@ async fn adding_a_non_utf8_root_folder_fails() {
     use yokoku_core::media::{RootFolder, RootKind, ports::MediaRepo};
 
     let db = Database::open_in_memory().await.unwrap();
-    let root = RootFolder { kind: RootKind::Series, path: PathBuf::from(OsStr::from_bytes(b"/media/\xff")) };
+    let root = RootFolder::new(RootKind::Series, PathBuf::from(OsStr::from_bytes(b"/media/\xff")), None, false);
 
     assert!(db.add_root_folder(&root).await.is_err());
     assert_eq!(db.root_folders().await.unwrap(), []);

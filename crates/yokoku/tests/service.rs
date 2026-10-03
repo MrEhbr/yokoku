@@ -423,13 +423,16 @@ async fn root_folders_can_be_added_and_removed() {
     let service = Service::start(dir.path());
     let path = shows.display().to_string();
 
-    let added = service.post_json("/api/roots", &format!(r#"{{"kind":"series","path":"{path}"}}"#));
+    let added = service.post_json("/api/roots", &format!(r#"{{"kind":"series","path":"{path}","name":"Shows"}}"#));
     let listed = service.get("/api/roots");
     let removed = service.post_json("/api/roots/remove", &format!(r#"{{"path":"{path}"}}"#));
     let relative = service.post_json("/api/roots", r#"{"kind":"movie","path":"movies"}"#);
 
     assert!(added.starts_with("HTTP/1.1 200"), "{added}");
-    assert!(listed.contains(&format!(r#"{{"kind":"series","path":"{path}","items":0}}"#)), "{listed}");
+    assert!(
+        listed.contains(&format!(r#"{{"kind":"series","path":"{path}","name":"Shows","configured":false,"items":0}}"#)),
+        "{listed}"
+    );
     assert!(removed.starts_with("HTTP/1.1 200"), "{removed}");
     assert!(relative.contains("is not an absolute path"), "{relative}");
 }
@@ -452,7 +455,7 @@ async fn seed_unscanned_movie(dir: &Path) {
     std::fs::create_dir_all(folder.path()).unwrap();
     std::fs::write(folder.path().join("Dune (2021).mkv"), b"video").unwrap();
     let db = Database::open(&dir.join("yokoku.db")).await.unwrap();
-    MediaRepo::add_root_folder(&db, &RootFolder { kind: RootKind::Movies, path: movies }).await.unwrap();
+    MediaRepo::add_root_folder(&db, &RootFolder::new(RootKind::Movies, movies, None, false)).await.unwrap();
     let dune = MovieMetadata {
         source: ExternalId::Tmdb(438631),
         title: "Dune".into(),
@@ -1004,7 +1007,7 @@ async fn a_search_result_can_be_added_to_a_root_folder() {
     let movies = dir.path().join("movies");
     std::fs::create_dir_all(movies.join("Dune (2021)")).unwrap();
     let db = Database::open(&dir.path().join("yokoku.db")).await.unwrap();
-    MediaRepo::add_root_folder(&db, &RootFolder { kind: RootKind::Movies, path: movies.clone() }).await.unwrap();
+    MediaRepo::add_root_folder(&db, &RootFolder::new(RootKind::Movies, movies.clone(), None, false)).await.unwrap();
     let uri = tmdb.uri();
     let service = Service::start_with(
         dir.path(),
@@ -1035,8 +1038,9 @@ async fn a_search_result_can_be_added_to_a_root_folder() {
         before.contains(r#""overview":"Paul Atreides"#) && before.contains(r#""folder":"Dune (2021)""#),
         "{before}"
     );
-    let movie_roots =
-        format!(r#""movie_roots":[{{"path":"{root}","folders":["Dune (2021)"],"taken":[]}}],"monitor":"all""#);
+    let movie_roots = format!(
+        r#""movie_roots":[{{"path":"{root}","name":"movies","folders":["Dune (2021)"],"taken":[]}}],"monitor":"all""#
+    );
     assert!(options.contains(&movie_roots), "{options}");
     assert!(added.starts_with("HTTP/1.1 200"), "{added}");
     assert_ne!(in_library(&after, "tmdb:438631"), "null", "{after}");

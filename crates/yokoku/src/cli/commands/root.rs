@@ -14,10 +14,16 @@ pub struct Args {
 #[derive(Subcommand)]
 pub enum Command {
     /// Add a folder that holds series or movies
-    Add { kind: RootKind, path: PathBuf },
-    /// List root folders
+    Add {
+        kind: RootKind,
+        path: PathBuf,
+        /// Shown instead of the path; the folder's name by default
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// List root folders, those from the config file included
     List,
-    /// Remove a root folder; refused while series or movies belong to it
+    /// Remove a root folder; refused while series or movies belong to it, and for one in the config file
     Remove { path: PathBuf },
 }
 
@@ -29,9 +35,14 @@ pub enum RootKind {
 
 pub async fn run(app: &App, args: Args) -> Result<()> {
     match args.command {
-        Command::Add { kind, path } => {
-            let root = app.roots.add(kind.into(), &path::absolute(path)?).await?;
-            success!("Added {} root {}", root.kind, root.path.display())?;
+        Command::Add { kind, path, name } => {
+            let named = name.is_some();
+            let root = app.roots.add(kind.into(), &path::absolute(path)?, name).await?;
+            if named {
+                success!("Added {} root {} as {}", root.kind, root.path.display(), root.name)?;
+            } else {
+                success!("Added {} root {}", root.kind, root.path.display())?;
+            }
         },
         Command::List => {
             let roots = app.roots.list().await?;
@@ -39,7 +50,8 @@ pub async fn run(app: &App, args: Args) -> Result<()> {
                 hint!("No root folders; add one with `yokoku root add`.")?;
             }
             for root in roots {
-                say!("{:<7} {}", root.kind, root.path.display())?;
+                let origin = if root.configured { "  (config file)" } else { "" };
+                say!("{:<7} {}  {}{origin}", root.kind, root.path.display(), root.name)?;
             }
         },
         Command::Remove { path } => {

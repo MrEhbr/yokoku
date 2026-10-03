@@ -9,6 +9,10 @@ use crate::app::App;
 
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App) -> Result<()> {
+    app.roots.check().await.context(
+        "The root folders in the config file are invalid; fix them, or remove the stored root folder they \
+         conflict with using `yokoku root remove`",
+    )?;
     let state = yokoku_web::AppState {
         library: app.library.clone(),
         artworks: app.artworks.clone(),

@@ -43,4 +43,4 @@ The table has the same information in columns.
 ## Root Folder Sections
 
 With more than one root folder, the library is split into a section per root
-folder, series roots first, each with its item count.
+folder, series roots first, each headed by its name and item count.

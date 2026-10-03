@@ -26,7 +26,11 @@ applies at once and is kept in the database, over the config file.
 Root folders hold your item folders: one for series and one for movies, like
 `/srv/media/series` and `/srv/media/movies`. Under **Settings → Library →
 Root folders**, enter the absolute path of an existing folder, choose
-**Series** or **Movies**, and click **Add**.
+**Series** or **Movies**, optionally give it a name, and click **Add**.
+
+> [!TIP]
+> Root folders can also be listed in the config file, which suits NixOS; see
+> [Root Folders](../configuration/index.md#root-folders).
 
 ## 3. Add a Series or Movie
 

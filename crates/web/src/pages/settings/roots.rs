@@ -18,22 +18,24 @@ use crate::{
     route::SettingsPart,
 };
 
-/// The folders that hold series and movies; one holding items cannot be removed. Scrolls
-/// into view once mounted when `scrolled_to`.
+/// The folders that hold series and movies; one holding items, or set in the config file, cannot
+/// be removed. Scrolls into view once mounted when `scrolled_to`.
 #[component]
 pub(super) fn RootFolders(scrolled_to: bool) -> Element {
     let mut listed = use_resource(roots);
     let mut error = use_signal(|| None::<String>);
     let mut kind = use_signal(|| Some(Kind::Series));
     let mut path = use_signal(String::new);
+    let mut name = use_signal(String::new);
     let mut adding = use_signal(|| false);
     let add = move || async move {
         let Some(chosen) = kind() else { return };
         adding.set(true);
         error.set(None);
-        match add_root(chosen, path()).await {
+        match add_root(chosen, path(), Some(name())).await {
             Ok(()) => {
                 path.set(String::new());
+                name.set(String::new());
                 listed.restart();
             },
             Err(failed) => error.set(Some(failure(&failed))),
@@ -73,25 +75,38 @@ pub(super) fn RootFolders(scrolled_to: bool) -> Element {
                                         "Movies"
                                     }
                                 }
-                                span { class: "yk-code min-w-0 flex-1 [overflow-wrap:anywhere]", "{folder.path}" }
+                                div { class: "grid min-w-0 flex-1",
+                                    span { class: "font-medium", "{folder.name}" }
+                                    span { class: "yk-code text-caption text-muted [overflow-wrap:anywhere]",
+                                        "{folder.path}"
+                                    }
+                                }
                                 span { class: "text-caption text-muted", {plural(folder.items, "item", "items")} }
-                                Button {
-                                    variant: ButtonVariant::Quiet,
-                                    size: ButtonSize::Sm,
-                                    disabled: folder.items > 0,
-                                    title: if folder.items > 0 { "Items still belong to it" },
-                                    aria_label: "Remove {folder.path}",
-                                    onclick: move |_| {
-                                        let path = folder.path.clone();
-                                        async move {
-                                            error.set(None);
-                                            match remove_root(path).await {
-                                                Ok(()) => listed.restart(),
-                                                Err(failed) => error.set(Some(failure(&failed))),
+                                if folder.configured {
+                                    span {
+                                        class: "text-caption text-muted",
+                                        title: "Set in the config file; change it there",
+                                        "Config file"
+                                    }
+                                } else {
+                                    Button {
+                                        variant: ButtonVariant::Quiet,
+                                        size: ButtonSize::Sm,
+                                        disabled: folder.items > 0,
+                                        title: if folder.items > 0 { "Items still belong to it" },
+                                        aria_label: "Remove {folder.path}",
+                                        onclick: move |_| {
+                                            let path = folder.path.clone();
+                                            async move {
+                                                error.set(None);
+                                                match remove_root(path).await {
+                                                    Ok(()) => listed.restart(),
+                                                    Err(failed) => error.set(Some(failure(&failed))),
+                                                }
                                             }
-                                        }
-                                    },
-                                    "Remove"
+                                        },
+                                        "Remove"
+                                    }
                                 }
                             }
                         }
@@ -131,6 +146,20 @@ pub(super) fn RootFolders(scrolled_to: bool) -> Element {
                             aria_invalid: error.read().is_some(),
                             aria_describedby: if error.read().is_some() { "root-error" } else { "root-hint" },
                             oninput: move |event: FormEvent| path.set(event.value()),
+                            onkeydown: move |event: KeyboardEvent| {
+                                if event.key() == Key::Enter && !path.read().trim().is_empty() {
+                                    spawn(add());
+                                }
+                            },
+                        }
+                    }
+                    div { class: "w-40",
+                        Input {
+                            id: "root-name",
+                            aria_label: "Name",
+                            placeholder: "Name (optional)",
+                            value: "{name}",
+                            oninput: move |event: FormEvent| name.set(event.value()),
                             onkeydown: move |event: KeyboardEvent| {
                                 if event.key() == Key::Enter && !path.read().trim().is_empty() {
                                     spawn(add());

@@ -85,10 +85,16 @@ impl App {
         ));
 
         let fs: Arc<dyn FileSystem> = Arc::new(LocalFileSystem);
+        let roots = Arc::new(RootFolders::new(
+            db.clone(),
+            db.clone(),
+            fs.clone(),
+            config.roots.iter().cloned().map(Into::into).collect(),
+        ));
         let lock: Arc<dyn LibraryLock> = Arc::new(LockFile::new(path.with_extension("lock")));
         let probe = FfProbe::new(settings.live(|config| config.files.ffprobe.clone()));
         let prober = Arc::new(Prober::new(db.clone(), fs.clone(), Arc::new(probe)));
-        let deleter = Arc::new(Deleter::new(db.clone(), fs.clone(), lock.clone(), events.clone()));
+        let deleter = Arc::new(Deleter::new(db.clone(), roots.clone(), fs.clone(), lock.clone(), events.clone()));
         let jellyfin = Arc::new(JellyfinClient::new(settings.live(|config| config.jellyfin.clone())));
         let rescans = Arc::new(Rescans::new(db.clone(), jellyfin.clone(), clock.clone()));
         let watched = Arc::new(WatchSync::new(jellyfin, db.clone(), db.clone(), db.clone()));
@@ -119,7 +125,7 @@ impl App {
         Ok(Self {
             library: Arc::new(Library::new(db.clone(), db.clone(), db.clone(), clock.clone(), events.clone())),
             calendar: Arc::new(Calendar::new(db.clone(), db.clone(), clock.clone())),
-            roots: Arc::new(RootFolders::new(db.clone(), db.clone(), fs.clone())),
+            roots: roots.clone(),
             scanner: scanner.clone(),
             reviewer: Arc::new(Reviewer::new(
                 db.clone(),
@@ -132,6 +138,7 @@ impl App {
             renamer: Arc::new(Renamer::new(
                 db.clone(),
                 db.clone(),
+                roots.clone(),
                 fs.clone(),
                 lock.clone(),
                 naming.clone(),

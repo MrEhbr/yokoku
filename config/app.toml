@@ -123,3 +123,11 @@ episode_file = "{title}[ ({year})] - {episodes}[ - {episode_title}]"
 # File details are read with ffprobe: its name on the PATH, or a path to it.
 [files]
 ffprobe = "ffprobe"
+
+# Root folders that hold series and movies, next to the ones added in the web UI or with
+# `yokoku root add`. Read when the service starts; the web UI and CLI cannot remove them.
+# name is shown instead of the path; the folder's name when unset.
+# [[roots]]
+# kind = "series"
+# path = "/media/series"
+# name = "Series"

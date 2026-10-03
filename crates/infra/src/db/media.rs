@@ -25,6 +25,7 @@ use crate::db::{
 struct RootFolderRow {
     path: String,
     kind: Text<RootKind>,
+    name: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -70,7 +71,7 @@ struct TargetColumns {
 #[async_trait]
 impl MediaRepo for Database {
     async fn root_folders(&self) -> Result<Vec<RootFolder>, StorageError> {
-        let rows: Vec<RootFolderRow> = sqlx::query_as("SELECT path, kind FROM root_folders ORDER BY path")
+        let rows: Vec<RootFolderRow> = sqlx::query_as("SELECT path, kind, name FROM root_folders ORDER BY path")
             .fetch_all(self.pool())
             .await
             .map_err(DbError::from)?;
@@ -79,9 +80,10 @@ impl MediaRepo for Database {
     }
 
     async fn add_root_folder(&self, root: &RootFolder) -> Result<(), StorageError> {
-        sqlx::query("INSERT INTO root_folders (path, kind) VALUES (?, ?)")
+        sqlx::query("INSERT INTO root_folders (path, kind, name) VALUES (?, ?, ?)")
             .bind(PathText(&root.path))
             .bind(root.kind.as_str())
+            .bind(&root.name)
             .execute(self.pool())
             .await
             .map_err(DbError::from)?;
@@ -357,7 +359,7 @@ impl Database {
 
 impl From<RootFolderRow> for RootFolder {
     fn from(row: RootFolderRow) -> Self {
-        RootFolder { kind: row.kind.0, path: PathBuf::from(row.path) }
+        RootFolder::new(row.kind.0, PathBuf::from(row.path), row.name, false)
     }
 }
 

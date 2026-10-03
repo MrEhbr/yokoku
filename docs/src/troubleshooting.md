@@ -19,6 +19,12 @@ Common problems and where to start looking.
     or a schedule or naming pattern that doesn't parse. The rest of the
     message names the setting.
 
+**"The root folders in the config file are invalid"**
+:   A `[[roots]]` entry is relative, overlaps another one, or conflicts with a
+    root folder added in the UI: the same path for the other kind, or one
+    inside the other. The message names both; see
+    [Root Folders](./configuration/index.md#root-folders).
+
 ## The Web UI Can't Be Reached
 
 `config/app.toml` listens on `127.0.0.1`, so only the server itself can open

@@ -81,8 +81,8 @@ interval, 5 seconds by default.
 
 ## Read at Start
 
-`[database]`, `[web]`, `[log]` and `[events]` are read only when Yokoku
-starts. They can't be stored; set them in the config file or environment and
+`[database]`, `[web]`, `[log]`, `[events]` and `[[roots]]` are read only when
+Yokoku starts. They can't be stored; set them in the config file or environment and
 restart.
 
 | Setting | Default | |
@@ -91,6 +91,33 @@ restart.
 | `web.port` | `8080` | |
 | `database.path` | `yokoku.db` | See [Logging and Database](./logging-database.md) |
 | `events.poll_interval_ms` | `5000` | How often the service checks for changes made from the CLI |
+
+## Root Folders
+
+Root folders can also be set in the config file, next to the ones added in the
+web UI or with `yokoku root add`:
+
+```toml
+[[roots]]
+kind = "series"            # series or movies
+path = "/media/library/Anime"
+
+[[roots]]
+kind = "movies"
+path = "/media/library/AnimeMovies"
+name = "Anime movies"      # shown instead of the path; the folder's name when unset
+```
+
+- They show in Settings marked **Config file**, and can't be removed there or
+  with `yokoku root remove`; delete them from the file instead.
+- A root folder both in the file and added earlier in the UI counts once, as
+  the file's.
+- The service refuses to start when a configured root folder is relative,
+  overlaps another one, or conflicts with a stored one: the same path for the
+  other kind, or one inside the other. Remove the stored one with
+  `yokoku root remove`, or change the file.
+- Items on a root folder removed from the file keep working; only new items
+  can't be added to it.
 
 ## Sections
 

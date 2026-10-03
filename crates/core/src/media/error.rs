@@ -21,6 +21,14 @@ pub enum MediaError {
     WrongRootKind { path: PathBuf, kind: RootKind },
     #[error("{} still holds {items} library items", .path.display())]
     RootInUse { path: PathBuf, items: usize },
+    #[error("{} is set in the config file", .0.display())]
+    ConfiguredRoot(PathBuf),
+    #[error(
+        "root folder {} in the config file conflicts with the stored root folder {}",
+        .configured.display(),
+        .stored.display()
+    )]
+    ConflictingRoot { configured: PathBuf, stored: PathBuf },
     #[error("import {0} does not exist")]
     ImportNotFound(ImportId),
     #[error("import {0} is not waiting for review")]
