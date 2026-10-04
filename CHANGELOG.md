@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.6.1](https://github.com/MrEhbr/yokoku/compare/v0.6.0..v0.6.1) - 2026-10-04
+
+### Bug Fixes
+
+- **(web)** keep switches their size on touch screens - ([f20289a](https://github.com/MrEhbr/yokoku/commit/f20289ae6363407fc1e90eea413b1dc26ecade2f)) `+1 / -1 across 1 file(s)` - Aleksei Burmistrov
+- **(web)** fit tables and pages on phone screens - ([457b2e1](https://github.com/MrEhbr/yokoku/commit/457b2e1a639af1148b77aeeeb3dd9d80426e7ac3)) `+148 / -66 across 9 file(s)` - Aleksei Burmistrov
+
+### Documentation
+
+- add CLAUDE.md - ([6aaa430](https://github.com/MrEhbr/yokoku/commit/6aaa4306533baf41aaf1b4aee2eecbd5b5b196da)) `+89 / -0 across 1 file(s)` - Aleksei Burmistrov
+
+### Style
+
+- **(web)** apply dx fmt - ([90f3b6a](https://github.com/MrEhbr/yokoku/commit/90f3b6a0c0b4238b9017a5b8ad6955820f99906b)) `+36 / -13 across 6 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 4 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 4 commit(s) parsed as conventional.
+- Diff totals: +274 / -80 across 17 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
 ## [0.6.0](https://github.com/MrEhbr/yokoku/compare/v0.5.0..v0.6.0) - 2026-10-04
 
 ### Bug Fixes
