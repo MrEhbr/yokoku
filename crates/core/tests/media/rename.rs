@@ -27,8 +27,8 @@ async fn preview_lists_moves_without_touching_disk() {
     let rename = &plan.renames[0];
     assert_eq!(relative(&app, [rename.video.from.as_path(), rename.video.to.as_path()]), [MESSY, E01]);
     assert_eq!(
-        relative(&app, rename.subtitles.iter().map(|subtitle| subtitle.to.as_path())),
-        ["tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.en.srt"]
+        relative(&app, rename.sidecars.iter().map(|sidecar| sidecar.to.as_path())),
+        ["tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.eng.srt"]
     );
     assert!(app.path(MESSY).exists());
 }
@@ -44,7 +44,7 @@ async fn applying_moves_videos_and_subtitles_and_tidies_old_folders() {
     assert_eq!(report.renamed.len(), 1);
     assert!(report.failed.is_empty(), "{:?}", report.failed);
     assert!(app.path(E01).exists());
-    assert!(app.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.en.srt").exists());
+    assert!(app.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.eng.srt").exists());
     assert!(!app.path("tv/Frieren (2023)/S1").exists());
     let files = app.db_files().await;
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01]);

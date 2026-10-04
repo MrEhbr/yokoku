@@ -87,7 +87,7 @@ review.
 
 **Rename files…** moves files to the names your naming patterns give them,
 inside the item's folder. It shows every change before doing it, and you can
-leave files out. Subtitles named after a video move with it.
+leave files out. Subtitles and audio tracks named after a video move with it.
 
 A file stays as it is when another file would get the same name. Nothing is
 ever overwritten. Folders left empty are removed, and Jellyfin is asked to
@@ -104,7 +104,7 @@ rescan.
 3. **Also remove … from the library** stops tracking the item. Files you
    don't choose stay on disk.
 
-Deleted files are gone for good, together with their subtitles and the
+Deleted files are gone for good, together with their subtitles, audio tracks and the
 folders left empty.
 
 > [!NOTE]

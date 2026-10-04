@@ -18,7 +18,7 @@ added → downloading → finished → matched → imported → Jellyfin rescan
    while something downloads.
 3. **Matched.** When the download finishes, Yokoku matches its video files to
    episodes or the movie by their names. Samples, extras and other files are
-   left alone; subtitles go with their video.
+   left alone; subtitles and external audio tracks go with their video.
 4. **Imported.** Matched files are placed in the item's folder under your
    naming patterns, by the **Import mode** setting. Jellyfin is asked to
    rescan once the library has been quiet for 30 seconds.

@@ -1,4 +1,4 @@
-const MAX_COMPONENT_BYTES: usize = 255;
+pub(crate) const MAX_COMPONENT_BYTES: usize = 255;
 pub(crate) const MAX_STEM_BYTES: usize = 200;
 
 const RESERVED_NAMES: [&str; 22] = [
@@ -44,7 +44,7 @@ pub(crate) fn file_name(stem: &str, extension: &str) -> String {
     if extension.is_empty() { stem } else { format!("{stem}.{extension}") }
 }
 
-fn truncate(text: &str, max_bytes: usize) -> &str {
+pub(crate) fn truncate(text: &str, max_bytes: usize) -> &str {
     if text.len() <= max_bytes {
         return text;
     }

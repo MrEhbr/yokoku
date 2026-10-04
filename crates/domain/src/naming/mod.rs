@@ -1,14 +1,14 @@
 //! Pure naming: Jellyfin-compatible paths from naming templates.
 
 mod sanitize;
-mod subtitle;
+mod sidecar;
 mod template;
 
 use std::{fmt, path::PathBuf};
 
 pub use sanitize::sanitize;
 use serde::{Deserialize, Serialize};
-pub use subtitle::subtitle_path;
+pub use sidecar::sidecar_path;
 
 use self::{
     sanitize::file_name,

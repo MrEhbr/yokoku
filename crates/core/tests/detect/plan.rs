@@ -375,7 +375,7 @@ fn movies_keep_the_largest_video_and_ignore_the_rest() {
     let plan = ImportPlan::new(&files, MatchScope::Movie(dune));
 
     assert_eq!(outcome(&plan), [(Some(FileTarget::Movie(dune.id)), Confidence::Certain)]);
-    assert_eq!(plan.rows[0].video.subtitles.len(), 1);
+    assert_eq!(plan.rows[0].video.sidecars.len(), 1);
     let mut ignored: Vec<_> = plan.ignored.iter().map(|path| path.to_str().unwrap()).collect();
     ignored.sort_unstable();
     assert_eq!(ignored, ["Dune.2021/Behind.The.Dune.mkv", "Dune.2021/Dune.2021.sample.mkv"]);

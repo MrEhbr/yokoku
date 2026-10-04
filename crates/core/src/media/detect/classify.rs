@@ -9,7 +9,8 @@ use yokoku_domain::SubtitleTags;
 
 const VIDEO_EXTENSIONS: &[&str] =
     &["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "webm", "mpg", "mpeg", "flv", "ogm"];
-const SUBTITLE_EXTENSIONS: &[&str] = &["srt", "ass", "ssa", "sub", "idx", "vtt", "sup", "smi"];
+const SUBTITLE_EXTENSIONS: &[&str] = &["srt", "ass", "ssa", "sub", "idx", "vtt", "sup", "smi", "mks"];
+const AUDIO_EXTENSIONS: &[&str] = &["mka", "ac3", "eac3", "dts", "aac", "flac", "mp3", "m4a", "opus"];
 const EXTRAS_FOLDERS: &[&str] = &[
     "sample",
     "samples",
@@ -72,63 +73,81 @@ pub struct Classified {
 pub struct Video {
     pub path: PathBuf,
     pub size: u64,
-    pub subtitles: Vec<Subtitle>,
+    /// Ordered by path.
+    pub sidecars: Vec<Sidecar>,
 }
 
+/// An external subtitle or audio track of a video.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Subtitle {
+pub struct Sidecar {
     pub path: PathBuf,
+    pub kind: SidecarKind,
+    /// What its name in the library carries after the video's name: the words of its folders
+    /// below the video's, then the rest of its own name, as dot-separated parts.
+    pub suffix: String,
     pub tags: SubtitleTags,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SidecarKind {
+    Subtitle,
+    Audio,
 }
 
 enum Kind {
     Video,
-    Subtitle,
+    Sidecar(SidecarKind),
     Junk,
 }
 
 impl Classified {
-    /// Keeps videos, attaches subtitles to them and ignores samples, extras and everything else.
+    /// Keeps videos, attaches subtitles and audio tracks to them and ignores samples, extras and
+    /// everything else.
     pub fn from_files(files: &[ListedFile]) -> Self {
         let mut classified = Self::default();
-        let mut subtitles = Vec::new();
+        let mut sidecars = Vec::new();
         for file in files {
             match Kind::of(&file.path) {
                 Kind::Video => {
-                    classified.videos.push(Video { path: file.path.clone(), size: file.size, subtitles: Vec::new() });
+                    classified.videos.push(Video { path: file.path.clone(), size: file.size, sidecars: Vec::new() });
                 },
-                Kind::Subtitle => subtitles.push(file.path.clone()),
+                Kind::Sidecar(kind) => sidecars.push((file.path.clone(), kind)),
                 Kind::Junk => classified.ignored.push(file.path.clone()),
             }
         }
         classified.videos.sort_by(|a, b| a.path.cmp(&b.path));
 
-        for path in subtitles {
-            match classified.owner(&path) {
-                Some(index) => classified.videos[index].subtitles.push(Subtitle::new(path)),
+        for (path, kind) in sidecars {
+            match classified.owner(&path, kind) {
+                Some(index) => {
+                    let video = &mut classified.videos[index];
+                    let sidecar = Sidecar::new(path, kind, &video.path);
+                    video.sidecars.push(sidecar);
+                },
                 None => classified.ignored.push(path),
             }
+        }
+        for video in &mut classified.videos {
+            video.sidecars.sort_by(|a, b| a.path.cmp(&b.path));
         }
         classified
     }
 
-    /// The video named as the subtitle's prefix, the video its folder is named after, or the only video.
-    fn owner(&self, subtitle: &Path) -> Option<usize> {
-        let subtitle_stem = stem(subtitle);
+    /// The video named as the sidecar's prefix, the video its folder is named after, or, for a
+    /// subtitle, the only video.
+    fn owner(&self, sidecar: &Path, kind: SidecarKind) -> Option<usize> {
+        let sidecar_stem = stem(sidecar);
         let by_prefix = self
             .videos
             .iter()
             .enumerate()
-            .filter(|(_, video)| {
-                let video_stem = stem(&video.path);
-                subtitle_stem.strip_prefix(&video_stem).is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
-            })
+            .filter(|(_, video)| rest_of(&sidecar_stem, &stem(&video.path)).is_some())
             .max_by_key(|(_, video)| stem(&video.path).len())
             .map(|(index, _)| index);
 
-        let folder = subtitle.parent().and_then(Path::file_name).map(|folder| folder.to_string_lossy().into_owned());
+        let folder = sidecar.parent().and_then(Path::file_name).map(|folder| folder.to_string_lossy().into_owned());
         let by_folder = || self.videos.iter().position(|video| Some(stem(&video.path)) == folder);
-        let only_video = || (self.videos.len() == 1).then_some(0);
+        let only_video = || (kind == SidecarKind::Subtitle && self.videos.len() == 1).then_some(0);
 
         by_prefix.or_else(by_folder).or_else(only_video)
     }
@@ -148,16 +167,36 @@ impl Kind {
         match extension.as_str() {
             _ if in_extras => Self::Junk,
             extension if VIDEO_EXTENSIONS.contains(&extension) && !is_sample => Self::Video,
-            extension if SUBTITLE_EXTENSIONS.contains(&extension) => Self::Subtitle,
+            extension if SUBTITLE_EXTENSIONS.contains(&extension) => Self::Sidecar(SidecarKind::Subtitle),
+            extension if AUDIO_EXTENSIONS.contains(&extension) => Self::Sidecar(SidecarKind::Audio),
             _ => Self::Junk,
         }
     }
 }
 
-impl Subtitle {
-    /// Reads language and flags from the end of the name, stopping at the first unrecognised word.
-    fn new(path: PathBuf) -> Self {
-        let stem = stem(&path).to_lowercase();
+impl Sidecar {
+    fn new(path: PathBuf, kind: SidecarKind, video: &Path) -> Self {
+        let video_stem = stem(video);
+        let own_stem = stem(&path);
+        let folder_words =
+            folders_below(path.parent().unwrap_or(Path::new("")), video.parent().unwrap_or(Path::new("")))
+                .into_iter()
+                .filter(|folder| *folder != video_stem)
+                .flat_map(|folder| words(&folder).map(str::to_owned).collect::<Vec<_>>())
+                .collect::<Vec<_>>();
+        let rest = rest_of(&own_stem, &video_stem).unwrap_or(&own_stem);
+        let suffix = folder_words.iter().map(String::as_str).chain(words(rest)).collect::<Vec<_>>().join(".");
+
+        let mut tags = Self::tags(&own_stem);
+        if tags.language.is_none() {
+            tags.language = folder_words.iter().find_map(|word| Self::language(&word.to_lowercase()));
+        }
+        Self { path, kind, suffix, tags }
+    }
+
+    /// Language and flags from the end of `stem`, stopping at the first unrecognised word.
+    fn tags(stem: &str) -> SubtitleTags {
+        let stem = stem.to_lowercase();
         let mut tags = SubtitleTags::default();
         for word in stem.split(['.', '_', ' ']).rev() {
             match word {
@@ -170,7 +209,7 @@ impl Subtitle {
                 },
             }
         }
-        Self { path, tags }
+        tags
     }
 
     /// An ISO 639-1 code, with the region kept: `en`, `pt-br`.
@@ -189,6 +228,22 @@ impl Subtitle {
         };
         language?.to_639_1().map(str::to_owned)
     }
+}
+
+/// What follows `prefix` in `stem`, when `stem` is `prefix` or starts with `prefix.`.
+fn rest_of<'a>(stem: &'a str, prefix: &str) -> Option<&'a str> {
+    stem.strip_prefix(prefix).filter(|rest| rest.is_empty() || rest.starts_with('.'))
+}
+
+/// The names of the folders of `folder` below where it parts from `base`.
+fn folders_below(folder: &Path, base: &Path) -> Vec<String> {
+    let shared = folder.components().zip(base.components()).take_while(|(a, b)| a == b).count();
+    folder.components().skip(shared).map(|component| component.as_os_str().to_string_lossy().into_owned()).collect()
+}
+
+/// The words of a name, split at dots, underscores and spaces.
+fn words(name: &str) -> impl Iterator<Item = &str> {
+    name.split(['.', '_', ' ']).filter(|word| !word.is_empty())
 }
 
 fn stem(path: &Path) -> String {

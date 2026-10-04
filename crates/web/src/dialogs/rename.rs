@@ -227,12 +227,12 @@ fn Row(row: RenameRow, selected: Signal<HashSet<MediaFileId>>) -> Element {
                     span { class: "sr-only", "becomes " }
                     "{row.to}"
                 }
-                if row.subtitles > 0 {
+                if row.sidecars > 0 {
                     span { class: "text-muted",
-                        if row.subtitles == 1 {
-                            "and its subtitle"
+                        if row.sidecars == 1 {
+                            "and 1 file beside it"
                         } else {
-                            "and its {row.subtitles} subtitles"
+                            "and {row.sidecars} files beside it"
                         }
                     }
                 }

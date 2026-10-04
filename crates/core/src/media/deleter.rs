@@ -40,7 +40,7 @@ impl Deleter {
         Ok(self.repo.files_of(item).await?)
     }
 
-    /// Removes the library files of `item` among `ids`, with their subtitles; ids of other items
+    /// Removes the library files of `item` among `ids`, with their subtitles and audio tracks; ids of other items
     /// are left alone.
     pub async fn delete_files(&self, item: ItemId, ids: &[MediaFileId]) -> Result<Vec<MediaFile>, MediaError> {
         let _lock = self.lock.acquire().await?;
@@ -52,12 +52,12 @@ impl Deleter {
     }
 
     /// Removes and commits each video on its own.
-    /// Subtitles and emptied folders go afterwards; a failure there is only logged.
+    /// Subtitles, audio tracks and emptied folders go afterwards; a failure there is only logged.
     #[instrument(skip_all, fields(?reason))]
     async fn remove(&self, files: Vec<MediaFile>, reason: DeleteReason) -> Result<Vec<MediaFile>, MediaError> {
         let roots = self.roots.list().await?;
         for file in &files {
-            let subtitles = files::sidecar_subtitles(self.fs.as_ref(), &file.path).await?;
+            let sidecars = files::sidecars(self.fs.as_ref(), &file.path).await?;
             self.fs.remove_file(&file.path).await?;
             self.repo.save(&Changes { removed_files: vec![file.id], ..Changes::default() }).await?;
             self.events
@@ -65,9 +65,9 @@ impl Deleter {
                 .await;
             info!(path = %file.path.display(), "file deleted");
 
-            for subtitle in subtitles {
-                if let Err(error) = self.fs.remove_file(&subtitle.path).await {
-                    warn!(%error, path = %subtitle.path.display(), "could not delete a subtitle of a deleted file");
+            for sidecar in sidecars {
+                if let Err(error) = self.fs.remove_file(&sidecar.path).await {
+                    warn!(%error, path = %sidecar.path.display(), "could not delete a sidecar of a deleted file");
                 }
             }
             let root = roots.iter().map(|root| root.path.as_path()).find(|root| file.path.starts_with(root));

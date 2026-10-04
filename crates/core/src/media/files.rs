@@ -1,14 +1,15 @@
 use std::{io, path::Path};
 
 use crate::media::{
-    detect::{Classified, ListedFile, Subtitle},
+    detect::{Classified, ListedFile, Sidecar},
     ports::{FileSystem, FsError},
 };
 
-/// Subtitles beside `video` whose names start with the video's name; none when its folder is gone.
-pub(crate) async fn sidecar_subtitles(fs: &dyn FileSystem, video: &Path) -> Result<Vec<Subtitle>, FsError> {
+/// Subtitles and audio tracks beside `video` whose names start with the video's name; none when its
+/// folder is gone.
+pub(crate) async fn sidecars(fs: &dyn FileSystem, video: &Path) -> Result<Vec<Sidecar>, FsError> {
     let Some(folder) = video.parent() else { return Ok(Vec::new()) };
-    Ok(subtitles_of(&files_beside(fs, folder).await?, video))
+    Ok(sidecars_of(&files_beside(fs, folder).await?, video))
 }
 
 /// The files directly in `folder`; none when it is gone.
@@ -19,8 +20,9 @@ pub(crate) async fn files_beside(fs: &dyn FileSystem, folder: &Path) -> Result<V
     }
 }
 
-/// The subtitles among `listed`, the files of `video`'s folder, whose names start with the video's name.
-pub(crate) fn subtitles_of(listed: &[ListedFile], video: &Path) -> Vec<Subtitle> {
+/// The subtitles and audio tracks among `listed`, the files of `video`'s folder, whose names start
+/// with the video's name.
+pub(crate) fn sidecars_of(listed: &[ListedFile], video: &Path) -> Vec<Sidecar> {
     let Some(stem) = video.file_stem() else { return Vec::new() };
     let prefix = format!("{}.", stem.to_string_lossy());
     let candidates: Vec<ListedFile> = listed
@@ -32,5 +34,5 @@ pub(crate) fn subtitles_of(listed: &[ListedFile], video: &Path) -> Vec<Subtitle>
         .collect();
 
     let owner = Classified::from_files(&candidates).videos.into_iter().find(|candidate| candidate.path == video);
-    owner.map(|video| video.subtitles).unwrap_or_default()
+    owner.map(|video| video.sidecars).unwrap_or_default()
 }

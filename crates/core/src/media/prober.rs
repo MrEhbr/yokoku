@@ -15,7 +15,7 @@ use crate::{
     events::{Handler, HandlerError},
     media::{
         MediaError, MediaFile, MediaInfo,
-        detect::ListedFile,
+        detect::{ListedFile, SidecarKind},
         files,
         ports::{FileSystem, MediaProbe, MediaRepo, ProbeError},
     },
@@ -61,8 +61,12 @@ impl Prober {
                 let listed = files::files_beside(self.fs.as_ref(), &folder).await?;
                 listings.insert(folder.clone(), listed);
             }
-            let subtitles = files::subtitles_of(&listings[&folder], &file.path);
-            let subtitle_files = subtitles.into_iter().map(|subtitle| subtitle.tags).collect();
+            let sidecars = files::sidecars_of(&listings[&folder], &file.path);
+            let subtitle_files = sidecars
+                .into_iter()
+                .filter(|sidecar| sidecar.kind == SidecarKind::Subtitle)
+                .map(|sidecar| sidecar.tags)
+                .collect();
             details.push(FileDetails { info: infos.remove(&file.id), file, subtitle_files });
         }
         Ok(details)

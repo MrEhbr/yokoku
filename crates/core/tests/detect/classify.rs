@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use isolang::Language;
 use proptest::prelude::*;
 use rstest::rstest;
-use yokoku_core::media::detect::{Classified, ListedFile};
+use yokoku_core::media::detect::{Classified, ListedFile, Video};
 use yokoku_domain::SubtitleTags;
 
 fn files(paths: &[&str]) -> Vec<ListedFile> {
@@ -20,9 +20,16 @@ fn ignored(classified: &Classified) -> Vec<&str> {
     ignored
 }
 
-fn subtitles_of<'a>(classified: &'a Classified, video: &str) -> Vec<&'a str> {
-    let video = classified.videos.iter().find(|candidate| candidate.path.to_str() == Some(video)).unwrap();
-    video.subtitles.iter().map(|subtitle| subtitle.path.to_str().unwrap()).collect()
+fn sidecars_of<'a>(classified: &'a Classified, video: &str) -> Vec<&'a str> {
+    video_in(classified, video).sidecars.iter().map(|sidecar| sidecar.path.to_str().unwrap()).collect()
+}
+
+fn suffixes_of<'a>(classified: &'a Classified, video: &str) -> Vec<&'a str> {
+    video_in(classified, video).sidecars.iter().map(|sidecar| sidecar.suffix.as_str()).collect()
+}
+
+fn video_in<'a>(classified: &'a Classified, video: &str) -> &'a Video {
+    classified.videos.iter().find(|candidate| candidate.path.to_str() == Some(video)).unwrap()
 }
 
 #[test]
@@ -71,8 +78,8 @@ fn attaches_subtitles_named_after_their_video() {
         "Show.S01E02.en.srt",
     ]));
 
-    assert_eq!(subtitles_of(&classified, "Show.S01E01.mkv"), ["Show.S01E01.en.srt", "Show.S01E01.ru.forced.srt"]);
-    assert_eq!(subtitles_of(&classified, "Show.S01E02.mkv"), ["Show.S01E02.en.srt"]);
+    assert_eq!(sidecars_of(&classified, "Show.S01E01.mkv"), ["Show.S01E01.en.srt", "Show.S01E01.ru.forced.srt"]);
+    assert_eq!(sidecars_of(&classified, "Show.S01E02.mkv"), ["Show.S01E02.en.srt"]);
     assert!(classified.ignored.is_empty());
 }
 
@@ -86,10 +93,10 @@ fn attaches_subtitles_in_folders_named_after_their_video() {
     ]));
 
     assert_eq!(
-        subtitles_of(&classified, "Show.S01/Show.S01E02.mkv"),
+        sidecars_of(&classified, "Show.S01/Show.S01E02.mkv"),
         ["Show.S01/Subs/Show.S01E02/2_English.srt", "Show.S01/Subs/Show.S01E02/3_Russian.srt"]
     );
-    assert!(subtitles_of(&classified, "Show.S01/Show.S01E01.mkv").is_empty());
+    assert!(sidecars_of(&classified, "Show.S01/Show.S01E01.mkv").is_empty());
 }
 
 #[test]
@@ -97,7 +104,76 @@ fn attaches_any_subtitle_to_a_single_video() {
     let classified =
         Classified::from_files(&files(&["Movie.2021/Movie.2021.1080p.mkv", "Movie.2021/Subs/English.srt"]));
 
-    assert_eq!(subtitles_of(&classified, "Movie.2021/Movie.2021.1080p.mkv"), ["Movie.2021/Subs/English.srt"]);
+    assert_eq!(sidecars_of(&classified, "Movie.2021/Movie.2021.1080p.mkv"), ["Movie.2021/Subs/English.srt"]);
+}
+
+#[test]
+fn names_external_audio_and_subtitles_after_their_folders() {
+    let classified = Classified::from_files(&files(&[
+        "ReZero/[Subs] ReZero S4 - 01 [1080p].mkv",
+        "ReZero/[Subs] ReZero S4 - 02 [1080p].mkv",
+        "ReZero/RUS Sound/AniLibria/[Subs] ReZero S4 - 01 [1080p].mka",
+        "ReZero/RUS Sound/AniStar/[Subs] ReZero S4 - 01 [1080p].mka",
+        "ReZero/RUS Subs/Crunchyroll/[Subs] ReZero S4 - 01 [1080p].ass",
+        "ReZero/RUS Subs/Crunchyroll/Надписи/[Subs] ReZero S4 - 01 [1080p].ass",
+        "ReZero/RUS Sound/AniLibria/[Subs] ReZero S4 - 02 [1080p].mka",
+    ]));
+
+    assert_eq!(
+        suffixes_of(&classified, "ReZero/[Subs] ReZero S4 - 01 [1080p].mkv"),
+        ["RUS.Sound.AniLibria", "RUS.Sound.AniStar", "RUS.Subs.Crunchyroll", "RUS.Subs.Crunchyroll.Надписи"]
+    );
+    assert_eq!(suffixes_of(&classified, "ReZero/[Subs] ReZero S4 - 02 [1080p].mkv"), ["RUS.Sound.AniLibria"]);
+    assert!(classified.ignored.is_empty());
+}
+
+#[rstest]
+#[case::flags("Movie.en.forced.srt", "en.forced")]
+#[case::named_as_the_video("Movie.srt", "")]
+#[case::spaces_and_underscores("Movie.English Commentary_2.mka", "English.Commentary.2")]
+fn a_sidecar_beside_its_video_keeps_the_rest_of_its_name(#[case] sidecar: &str, #[case] suffix: &str) {
+    let classified = Classified::from_files(&files(&["Movie.mkv", sidecar]));
+
+    assert_eq!(suffixes_of(&classified, "Movie.mkv"), [suffix]);
+}
+
+#[test]
+fn a_folder_named_after_the_video_is_left_out_of_the_name() {
+    let classified = Classified::from_files(&files(&[
+        "Show.S01/Show.S01E01.mkv",
+        "Show.S01/Show.S01E02.mkv",
+        "Show.S01/Subs/Show.S01E02/2_English.srt",
+    ]));
+
+    assert_eq!(suffixes_of(&classified, "Show.S01/Show.S01E02.mkv"), ["Subs.2.English"]);
+}
+
+#[test]
+fn a_single_videos_subtitle_is_named_after_its_folder_and_name() {
+    let classified =
+        Classified::from_files(&files(&["Movie.2021/Movie.2021.1080p.mkv", "Movie.2021/Subs/English.srt"]));
+
+    assert_eq!(suffixes_of(&classified, "Movie.2021/Movie.2021.1080p.mkv"), ["Subs.English"]);
+}
+
+#[test]
+fn attaches_external_audio_by_name_but_not_to_a_single_video_by_default() {
+    let classified = Classified::from_files(&files(&[
+        "Movie/Movie.mkv",
+        "Movie/Movie.en.ac3",
+        "Movie/Dubs/Movie/Studio.mka",
+        "Movie/Soundtrack/01 Theme.mp3",
+    ]));
+
+    assert_eq!(sidecars_of(&classified, "Movie/Movie.mkv"), ["Movie/Dubs/Movie/Studio.mka", "Movie/Movie.en.ac3"]);
+    assert_eq!(ignored(&classified), ["Movie/Soundtrack/01 Theme.mp3"]);
+}
+
+#[test]
+fn reads_a_language_from_the_folders_when_the_name_has_none() {
+    let classified = Classified::from_files(&files(&["Movie.mkv", "RUS Subs/Crunchyroll/Movie.ass"]));
+
+    assert_eq!(classified.videos[0].sidecars[0].tags.language.as_deref(), Some("ru"));
 }
 
 #[test]
@@ -136,7 +212,7 @@ fn reads_subtitle_language_and_flags(
 ) {
     let classified = Classified::from_files(&files(&["Movie.mkv", subtitle]));
 
-    let tags = &classified.videos[0].subtitles[0].tags;
+    let tags = &classified.videos[0].sidecars[0].tags;
     assert_eq!(tags, &SubtitleTags { language: language.map(Into::into), sdh, forced });
 }
 
@@ -151,7 +227,7 @@ fn reads_every_single_word_language_name_as_isolang_does() {
 
         let classified = Classified::from_files(&files(&["Movie.mkv", &format!("Movie.{name}.srt")]));
 
-        assert_eq!(classified.videos[0].subtitles[0].tags.language.as_deref(), expected, "{name}");
+        assert_eq!(classified.videos[0].sidecars[0].tags.language.as_deref(), expected, "{name}");
     }
 }
 
@@ -182,7 +258,7 @@ proptest! {
         let mut output: Vec<PathBuf> = classified.ignored.clone();
         for video in &classified.videos {
             output.push(video.path.clone());
-            output.extend(video.subtitles.iter().map(|subtitle| subtitle.path.clone()));
+            output.extend(video.sidecars.iter().map(|sidecar| sidecar.path.clone()));
         }
         output.sort();
         let mut expected: Vec<PathBuf> = input.into_iter().map(|file| file.path).collect();

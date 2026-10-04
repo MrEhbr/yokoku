@@ -168,7 +168,7 @@ impl PlanRow {
         let video = videos.remove(main);
         for extra in videos {
             ignored.push(extra.path);
-            ignored.extend(extra.subtitles.into_iter().map(|subtitle| subtitle.path));
+            ignored.extend(extra.sidecars.into_iter().map(|sidecar| sidecar.path));
         }
 
         let parsed = ParsedName::parse(&video.path);

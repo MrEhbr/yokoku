@@ -44,7 +44,7 @@ async fn hard_links_the_video_and_its_subtitles_into_the_library() {
         [(id, ImportStatus::Done)]
     );
     assert_eq!(inode(&app.path(E01)), inode(&app.path(SOURCE)));
-    assert!(app.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.en.srt").exists());
+    assert!(app.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.eng.srt").exists());
     let files = app.db_files().await;
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01]);
     assert_eq!(files[0].target, app.episodes(1, 1, 1));
@@ -52,6 +52,28 @@ async fn hard_links_the_video_and_its_subtitles_into_the_library() {
     let download = MediaRepo::import(&app.db, id).await.unwrap().unwrap().download;
     assert!(download.is_some());
     assert_eq!(app.events().await.last(), Some(&FilesImported { import: id, download, files: linked }.into()));
+}
+
+#[tokio::test]
+async fn places_external_audio_and_subtitles_named_after_their_folders() {
+    let app = App::new().await;
+    let download = "downloads/Frieren.S01E01.1080p";
+    app.write(SOURCE, 10);
+    app.write(&format!("{download}/RUS Sound/AniLibria/Frieren.S01E01.1080p.mka"), 3);
+    app.write(&format!("{download}/RUS Subs/Crunchyroll/Frieren.S01E01.1080p.ass"), 2);
+    app.write(&format!("{download}/RUS Subs/Crunchyroll/Надписи/Frieren.S01E01.1080p.ass"), 1);
+    let content = app.path(download);
+    let import =
+        app.planner.plan(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None).await.unwrap();
+    assert_eq!(import.unwrap().status, ImportStatus::Approved);
+
+    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+
+    assert_eq!(finished[0].status, ImportStatus::Done);
+    let episode = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1";
+    for suffix in ["RUS.Sound.AniLibria.mka", "RUS.Subs.Crunchyroll.ass", "RUS.Subs.Crunchyroll.Надписи.ass"] {
+        assert!(app.path(&format!("{episode}.{suffix}")).exists(), "{suffix}");
+    }
 }
 
 #[tokio::test]

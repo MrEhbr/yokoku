@@ -1,4 +1,4 @@
 mod paths;
 mod sanitize;
-mod subtitles;
+mod sidecars;
 mod templates;

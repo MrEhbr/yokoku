@@ -41,13 +41,26 @@ Names are made valid on Linux, macOS, Windows and SMB shares:
 - `: ` becomes ` - `, and `:`, `/`, `\` and `|` become `-`;
 - `"` becomes `'`; `<`, `>`, `?` and `*` are dropped;
 - a name is cut to 255 bytes, a file name before its extension to 200 so
-  subtitle suffixes fit.
+  subtitle and audio suffixes fit.
 
-## Subtitles
+## Subtitles and External Audio
 
-Subtitles are named after their video, with their tags:
-`<video name>[.<language>][.sdh][.forced].<extension>`, like
-`The Simpsons (1989) - S33E01.en.forced.srt`.
+Subtitle files and external audio tracks (`.mka`, `.ac3`, `.dts` and the like)
+that belong to a video are imported with it. A file belongs to a video when its
+name starts with the video's name, or it sits in a folder named after the video;
+a subtitle also belongs to the only video of a download.
+
+In the library each is named after its video, followed by the words of the
+folders it sat in and the rest of its own name:
+
+| In the download | In the library |
+|---|---|
+| `Show - 01.en.forced.srt` | `Show (2016) - S04E01.en.forced.srt` |
+| `RUS Sound/Studio/Show - 01.mka` | `Show (2016) - S04E01.RUS.Sound.Studio.mka` |
+| `RUS Subs/Group/Show - 01.ass` | `Show (2016) - S04E01.RUS.Subs.Group.ass` |
+
+Jellyfin reads the language and flags like `forced` from these names and
+shows the other words as the track's title. Renaming an item keeps them.
 
 ## Changing Patterns
 

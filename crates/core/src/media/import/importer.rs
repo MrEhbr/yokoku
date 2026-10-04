@@ -10,7 +10,7 @@ use tracing::{debug, info, instrument, warn};
 use yokoku_domain::{
     Clock, FileTarget, ImportId, Live, MediaFileId,
     events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed},
-    naming::{Naming, subtitle_path},
+    naming::{Naming, sidecar_path},
 };
 
 use crate::{
@@ -192,7 +192,7 @@ impl Importer {
     /// error says why the import stopped. A row already in the library as its target counts as done.
     async fn place_all(&self, import: &Import, placed: &mut Placed) -> Result<(), MediaError> {
         let library = self.repo.files().await?;
-        let subtitles = self.subtitles(&import.source).await?;
+        let sidecars = self.sidecars(&import.source).await?;
         let destinations = self.destinations(&import.rows).await?;
         let now = self.clock.now().timestamp();
 
@@ -232,9 +232,9 @@ impl Importer {
                 }
                 placed.replaced.push(old.clone());
             }
-            for (subtitle, tags) in subtitles.get(&row.path).into_iter().flatten() {
-                let extension = subtitle.extension().unwrap_or_default().to_string_lossy();
-                self.place(subtitle, &subtitle_path(&destination, tags, &extension)).await?;
+            for (sidecar, suffix) in sidecars.get(&row.path).into_iter().flatten() {
+                let extension = sidecar.extension().unwrap_or_default().to_string_lossy();
+                self.place(sidecar, &sidecar_path(&destination, suffix, &extension)).await?;
             }
             placed.added.push(MediaFile {
                 id: MediaFileId::generate(),
@@ -314,11 +314,8 @@ impl Importer {
         }
     }
 
-    /// Subtitles of each video in the download.
-    async fn subtitles(
-        &self,
-        source: &Path,
-    ) -> Result<HashMap<PathBuf, Vec<(PathBuf, yokoku_domain::SubtitleTags)>>, FsError> {
+    /// The subtitles and audio tracks of each video in the download, with their suffixes.
+    async fn sidecars(&self, source: &Path) -> Result<HashMap<PathBuf, Vec<(PathBuf, String)>>, FsError> {
         let files: Vec<ListedFile> = if self.fs.is_dir(source).await? {
             self.fs.files(source).await?
         } else {
@@ -328,7 +325,7 @@ impl Importer {
             .videos
             .into_iter()
             .map(|video| {
-                (video.path, video.subtitles.into_iter().map(|subtitle| (subtitle.path, subtitle.tags)).collect())
+                (video.path, video.sidecars.into_iter().map(|sidecar| (sidecar.path, sidecar.suffix)).collect())
             })
             .collect())
     }

@@ -9,7 +9,7 @@ use tracing::{info, instrument, warn};
 use yokoku_domain::{
     FileTarget, ItemId, Live, MediaFileId, MovieId, Series, SeriesId,
     events::FileRenamed,
-    naming::{Naming, subtitle_path},
+    naming::{Naming, sidecar_path},
 };
 
 use crate::{
@@ -51,8 +51,8 @@ pub struct Rename {
     pub target: FileTarget,
     pub root: PathBuf,
     pub video: Move,
-    /// Subtitles next to the video, named after it.
-    pub subtitles: Vec<Move>,
+    /// Subtitles and audio tracks next to the video, named after it.
+    pub sidecars: Vec<Move>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,7 +137,7 @@ impl Renamer {
                 file: file.id,
                 target: file.target,
                 root: root.path.clone(),
-                subtitles: self.subtitle_moves(&file.path, &to).await?,
+                sidecars: self.sidecar_moves(&file.path, &to).await?,
                 video: Move { from: file.path, to },
             };
             if rename.moves().any(|step| step.from != step.to) {
@@ -187,9 +187,9 @@ impl Renamer {
                 self.events.publish(event).await;
                 info!(from = %video.from.display(), to = %video.to.display(), "file renamed");
             }
-            for subtitle in rename.subtitles.iter().filter(|subtitle| subtitle.from != subtitle.to) {
-                if let Err(error) = self.fs.rename(&subtitle.from, &subtitle.to).await {
-                    report.failed.push(RenameFailure { path: subtitle.from.clone(), error: error.to_string() });
+            for sidecar in rename.sidecars.iter().filter(|sidecar| sidecar.from != sidecar.to) {
+                if let Err(error) = self.fs.rename(&sidecar.from, &sidecar.to).await {
+                    report.failed.push(RenameFailure { path: sidecar.from.clone(), error: error.to_string() });
                 }
             }
             if let Some(old_folder) = video.from.parent()
@@ -227,14 +227,15 @@ impl Renamer {
         })
     }
 
-    /// Subtitles beside `video` whose names start with the video's name.
-    async fn subtitle_moves(&self, video: &Path, to: &Path) -> Result<Vec<Move>, MediaError> {
-        let subtitles = files::sidecar_subtitles(self.fs.as_ref(), video).await?;
-        Ok(subtitles
+    /// Subtitles and audio tracks beside `video` whose names start with the video's name, keeping
+    /// what follows it.
+    async fn sidecar_moves(&self, video: &Path, to: &Path) -> Result<Vec<Move>, MediaError> {
+        let sidecars = files::sidecars(self.fs.as_ref(), video).await?;
+        Ok(sidecars
             .into_iter()
-            .map(|subtitle| {
-                let extension = subtitle.path.extension().unwrap_or_default().to_string_lossy().into_owned();
-                Move { to: subtitle_path(to, &subtitle.tags, &extension), from: subtitle.path }
+            .map(|sidecar| {
+                let extension = sidecar.path.extension().unwrap_or_default().to_string_lossy().into_owned();
+                Move { to: sidecar_path(to, &sidecar.suffix, &extension), from: sidecar.path }
             })
             .collect())
     }
@@ -253,7 +254,7 @@ impl RenameScope {
 
 impl Rename {
     fn moves(&self) -> impl Iterator<Item = &Move> {
-        std::iter::once(&self.video).chain(&self.subtitles)
+        std::iter::once(&self.video).chain(&self.sidecars)
     }
 }
 

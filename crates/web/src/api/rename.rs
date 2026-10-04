@@ -22,8 +22,8 @@ pub struct RenameRow {
     pub season: Option<u16>,
     pub from: String,
     pub to: String,
-    /// Subtitle files renamed with it.
-    pub subtitles: usize,
+    /// Subtitle and audio files renamed with it.
+    pub sidecars: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -109,7 +109,7 @@ mod server {
                 },
                 from: relative(&rename.video.from),
                 to: relative(&rename.video.to),
-                subtitles: rename.subtitles.iter().filter(|subtitle| subtitle.from != subtitle.to).count(),
+                sidecars: rename.sidecars.iter().filter(|sidecar| sidecar.from != sidecar.to).count(),
             }
         }
     }
