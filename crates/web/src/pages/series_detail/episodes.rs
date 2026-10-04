@@ -4,7 +4,11 @@ use jiff::civil::Date;
 use yokoku_domain::SeriesId;
 
 use crate::{
-    api::library::{FileStatus, detail::SeasonDetail, manage::MonitorTarget},
+    api::library::{
+        FileStatus,
+        detail::{EpisodeRow, SeasonDetail},
+        manage::MonitorTarget,
+    },
     components::{
         disclosure::Disclosure,
         file_info::{FileDetails, FileSummary},
@@ -81,24 +85,22 @@ fn EpisodeTable(series: SeriesId, season: SeasonDetail, followed: bool, today: D
     let name = season.name();
     rsx! {
         Table {
-            class: "min-w-[39rem] table-fixed",
+            class: "table-fixed sm:min-w-[39rem]",
             aria_label: "{name} episodes",
             TableHeader {
                 TableRow {
                     TableHead { class: "w-12",
                         span { class: "sr-only", "Monitored" }
                     }
-                    TableHead { class: "w-28", "Episode" }
+                    TableHead { class: "hidden w-28 sm:table-cell", "Episode" }
                     TableHead { "Title" }
-                    TableHead { class: "w-44", "Air date" }
-                    TableHead { class: "w-36", "File" }
+                    TableHead { class: "hidden w-44 sm:table-cell", "Air date" }
+                    TableHead { class: "hidden w-36 sm:table-cell", "File" }
                 }
             }
             TableBody {
                 for episode in season.episodes {
-                    TableRow {
-                        key: "{episode.number}",
-                        class: "[&>td]:align-top",
+                    TableRow { key: "{episode.number}", class: "[&>td]:align-top",
                         TableCell {
                             div { class: "-my-2",
                                 MonitorToggle {
@@ -113,26 +115,30 @@ fn EpisodeTable(series: SeriesId, season: SeasonDetail, followed: bool, today: D
                                 }
                             }
                         }
-                        TableCell { class: "yk-code whitespace-nowrap",
+                        TableCell { class: "yk-code hidden whitespace-nowrap sm:table-cell",
                             "{code(episode.season, episode.number)}"
                         }
                         TableCell {
                             if episode.overview.is_empty() && episode.file_info.is_none() {
                                 EpisodeTitle { title: episode.title.clone() }
+                                EpisodeFacts { episode: episode.clone(), followed }
                             } else {
                                 details { class: "group/episode",
-                                    summary { class: "flex cursor-pointer list-none items-baseline gap-2 hover:underline [&::-webkit-details-marker]:hidden",
-                                        ChevronRight {
-                                            size: "0.75rem",
-                                            class: "shrink-0 self-center text-muted transition-transform group-open/episode:rotate-90 motion-reduce:transition-none",
+                                    summary { class: "block cursor-pointer list-none [&::-webkit-details-marker]:hidden",
+                                        span { class: "flex items-baseline gap-2 hover:underline",
+                                            ChevronRight {
+                                                size: "0.75rem",
+                                                class: "shrink-0 self-center text-muted transition-transform group-open/episode:rotate-90 motion-reduce:transition-none",
+                                            }
+                                            EpisodeTitle { title: episode.title.clone() }
                                         }
-                                        EpisodeTitle { title: episode.title.clone() }
+                                        span { class: "block pl-5",
+                                            EpisodeFacts { episode: episode.clone(), followed }
+                                        }
                                     }
                                     div { class: "mt-2 flex flex-col gap-3 pb-1 pl-5",
                                         if !episode.overview.is_empty() {
-                                            p { class: "max-w-prose text-muted",
-                                                "{episode.overview}"
-                                            }
+                                            p { class: "max-w-prose text-muted", "{episode.overview}" }
                                         }
                                         if let Some(info) = episode.file_info.clone() {
                                             FileDetails { info }
@@ -141,7 +147,7 @@ fn EpisodeTable(series: SeriesId, season: SeasonDetail, followed: bool, today: D
                                 }
                             }
                         }
-                        TableCell { class: "tabular-nums whitespace-nowrap",
+                        TableCell { class: "hidden tabular-nums whitespace-nowrap sm:table-cell",
                             match episode.air_date {
                                 Some(aired) if aired >= today => rsx! {
                                     "{date(aired)}"
@@ -151,7 +157,7 @@ fn EpisodeTable(series: SeriesId, season: SeasonDetail, followed: bool, today: D
                                 None => rsx! { "—" },
                             }
                         }
-                        TableCell {
+                        TableCell { class: "hidden sm:table-cell",
                             FileState {
                                 status: episode.file,
                                 episode: true,
@@ -170,6 +176,27 @@ fn EpisodeTable(series: SeriesId, season: SeasonDetail, followed: bool, today: D
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Code, air date and file state on one line, in place of the columns hidden below `sm`.
+#[component]
+fn EpisodeFacts(episode: EpisodeRow, followed: bool) -> Element {
+    rsx! {
+        span { class: "mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted sm:hidden",
+            span { class: "yk-code", "{code(episode.season, episode.number)}" }
+            if let Some(aired) = episode.air_date {
+                span { class: "tabular-nums", "{date(aired)}" }
+            }
+            FileState {
+                status: episode.file,
+                episode: true,
+                monitored: followed && episode.monitored,
+            }
+            if episode.file == FileStatus::Downloaded {
+                FileWatched { watched: episode.watched }
             }
         }
     }

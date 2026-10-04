@@ -31,6 +31,12 @@ use crate::{
     format::{episode as code, plural, size},
 };
 
+/// Below `sm` a file row is a card: the checkbox, then each cell on its own line.
+const CARD_ROW: &str = "max-sm:grid max-sm:grid-cols-[2.5rem_1fr_auto]";
+/// A card line that leads with its column name, from `data-label`.
+const CARD_LINE: &str = "max-sm:col-span-2 max-sm:col-start-2 max-sm:py-1 max-sm:before:mr-2 max-sm:before:text-caption \
+                         max-sm:before:text-muted max-sm:before:content-[attr(data-label)]";
+
 /// A button that opens the review of `import`; `on_done` is called once
 /// its files are imported.
 #[component]
@@ -126,9 +132,9 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
             season: checked.first().and_then(|file| file.season),
             on_change: reload,
         }
-        Table {
-            TableHeader {
-                TableRow {
+        Table { class: "max-sm:block",
+            TableHeader { class: "max-sm:block",
+                TableRow { class: CARD_ROW,
                     TableHead { class: "w-8",
                         Checkbox {
                             aria_label: "Check every file",
@@ -146,17 +152,17 @@ fn Rows(import: ImportId, on_done: Callback, on_close: Callback) -> Element {
                             },
                         }
                     }
-                    TableHead { "File" }
-                    TableHead { "Series" }
-                    TableHead { "Season" }
-                    TableHead { "Episodes" }
-                    TableHead { class: "text-right", "Size" }
-                    TableHead {
+                    TableHead { class: "max-sm:hidden", "File" }
+                    TableHead { class: "max-sm:hidden", "Series" }
+                    TableHead { class: "max-sm:hidden", "Season" }
+                    TableHead { class: "max-sm:hidden", "Episodes" }
+                    TableHead { class: "text-right max-sm:hidden", "Size" }
+                    TableHead { class: "max-sm:hidden",
                         span { class: "sr-only", "Actions" }
                     }
                 }
             }
-            TableBody {
+            TableBody { class: "max-sm:block",
                 for file in review.rows.clone() {
                     FileRow {
                         key: "{file.row}",
@@ -249,8 +255,8 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
         None => blank(),
     };
     rsx! {
-        TableRow { "data-selected": file.included,
-            TableCell { class: "align-top",
+        TableRow { class: CARD_ROW, "data-selected": file.included,
+            TableCell { class: "align-top max-sm:row-span-5",
                 Checkbox {
                     id: "review-row-{row}",
                     aria_label: "Import {file.path}",
@@ -259,7 +265,7 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
                     on_checked_change: move |state| act(RowAction::Include(state == CheckboxState::Checked)),
                 }
             }
-            TableCell { class: "min-w-64 align-top",
+            TableCell { class: "align-top max-sm:col-span-2 max-sm:pb-1 sm:min-w-64",
                 label {
                     r#for: "review-row-{row}",
                     class: "yk-code block cursor-pointer text-caption [overflow-wrap:anywhere]",
@@ -317,13 +323,13 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
                     p { role: "alert", class: "mt-1 text-caption text-danger", "{message}" }
                 }
             }
-            TableCell { class: "align-top",
+            TableCell { class: "align-top {CARD_LINE}", "data-label": "Series",
                 match file.item.clone() {
                     Some(item) => rsx! { "{item.title}" },
                     None => blank(),
                 }
             }
-            TableCell { class: "align-top tabular-nums",
+            TableCell { class: "align-top tabular-nums {CARD_LINE}", "data-label": "Season",
                 match (series, cell()) {
                     (Some(series), Some(Cell::Season)) => rsx! {
                         SeasonCell {
@@ -347,7 +353,7 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
                     (None, _) => season_text,
                 }
             }
-            TableCell { class: "align-top",
+            TableCell { class: "align-top {CARD_LINE}", "data-label": "Episodes",
                 match (series, cell()) {
                     (Some(series), Some(Cell::Episodes)) => rsx! {
                         EpisodeCell {
@@ -371,8 +377,10 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
                     (None, _) => episodes_text,
                 }
             }
-            TableCell { class: "align-top text-right whitespace-nowrap text-muted", "{size(file.size)}" }
-            TableCell { class: "align-top text-right",
+            TableCell { class: "align-top whitespace-nowrap text-muted max-sm:col-start-2 max-sm:self-center max-sm:py-1 sm:text-right",
+                "{size(file.size)}"
+            }
+            TableCell { class: "align-top text-right max-sm:py-1",
                 Button {
                     size: ButtonSize::Sm,
                     variant: ButtonVariant::Quiet,
@@ -384,8 +392,8 @@ fn FileRow(import: ImportId, file: ReviewFile, from_download: bool, on_change: C
             }
         }
         if editing() {
-            TableRow {
-                TableCell { colspan: 7,
+            TableRow { class: "max-sm:block",
+                TableCell { class: "max-sm:block", colspan: 7,
                     MatchEditor {
                         import,
                         row,
@@ -609,7 +617,7 @@ fn SeasonCell(import: ImportId, row: usize, series: SeriesId, on_done: Callback,
     };
     let name = |number: u16| if number == 0 { "Specials".to_owned() } else { format!("Season {number}") };
     rsx! {
-        div { class: "flex min-w-40 items-center gap-1",
+        div { class: "flex items-center gap-1 sm:min-w-40",
             Select::<u16> {
                 aria_label: "Season",
                 placeholder: "Season…",
@@ -663,7 +671,7 @@ fn EpisodeCell(import: ImportId, row: usize, series: SeriesId, on_done: Callback
         };
     };
     rsx! {
-        div { class: "flex min-w-72 items-center gap-1",
+        div { class: "flex items-center gap-1 sm:min-w-72",
             div { class: "min-w-0 flex-1",
                 EpisodePicker {
                     id: format!("review-row-{row}-episode"),

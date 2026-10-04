@@ -87,23 +87,30 @@ fn SeriesGroup(series: MissingSeries) -> Element {
                 "Open {series.title}"
             }
             Table {
-                class: "mt-2 min-w-[32rem] table-fixed",
+                class: "mt-2 table-fixed sm:min-w-[32rem]",
                 aria_label: "Missing episodes of {series.title}",
                 TableHeader {
                     TableRow {
-                        TableHead { class: "w-28", "Episode" }
+                        TableHead { class: "w-24 sm:w-28", "Episode" }
                         TableHead { "Title" }
-                        TableHead { class: "w-44", "Aired" }
+                        TableHead { class: "hidden w-44 sm:table-cell", "Aired" }
                     }
                 }
                 TableBody {
                     for episode in episodes {
                         TableRow { key: "{episode.season}-{episode.number}",
-                            TableCell { class: "yk-code whitespace-nowrap",
+                            TableCell { class: "yk-code align-top whitespace-nowrap",
                                 "{code(episode.season, episode.number)}"
                             }
-                            TableCell { "{episode.title}" }
-                            TableCell { class: "tabular-nums whitespace-nowrap", "{date(episode.air_date)}" }
+                            TableCell {
+                                "{episode.title}"
+                                span { class: "block text-caption text-muted tabular-nums sm:hidden",
+                                    "{date(episode.air_date)}"
+                                }
+                            }
+                            TableCell { class: "hidden tabular-nums whitespace-nowrap sm:table-cell",
+                                "{date(episode.air_date)}"
+                            }
                         }
                     }
                 }

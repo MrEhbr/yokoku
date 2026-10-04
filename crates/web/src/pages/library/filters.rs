@@ -44,7 +44,7 @@ pub(super) fn FilterBar(filters: Signal<Filters>) -> Element {
     let statuses = Status::ALL.into_iter().filter(move |status| kind.is_none_or(|kind| status.kind() == kind));
 
     rsx! {
-        div { class: "mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:max-w-5xl",
+        div { class: "mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:max-w-5xl",
             Field { label: "Type",
                 Select::<Option<Kind>> {
                     aria_label: "Type",

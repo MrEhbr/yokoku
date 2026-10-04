@@ -44,7 +44,7 @@ pub fn FileDetails(info: FileInfo) -> Element {
         None => rows.push(("Streams", "Not read yet; run `yokoku files probe`".to_owned())),
     }
     rsx! {
-        dl { class: "grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-caption",
+        dl { class: "grid gap-x-6 gap-y-1 text-caption sm:grid-cols-[auto_1fr]",
             dt { class: "text-muted", "Path" }
             dd { class: "yk-code break-all", "{info.path}" }
             for (label, value) in rows {

@@ -26,16 +26,16 @@ pub(super) fn Torrents(downloads: Vec<DownloadEntry>) -> Element {
     }
     let count = downloads.len();
     rsx! {
-        Table { class: "table-fixed",
+        Table { class: "table-fixed sm:min-w-[56rem]",
             TableCaption { {plural(count, "torrent", "torrents")} }
             TableHeader {
                 TableRow {
                     TableHead { "Name" }
-                    TableHead { class: "w-48", "Item" }
-                    TableHead { class: "w-20 text-right", "Size" }
-                    TableHead { class: "w-56", "Progress" }
-                    TableHead { class: "w-24 text-right", "Speed" }
-                    TableHead { class: "w-24 text-right", "Left" }
+                    TableHead { class: "hidden w-48 sm:table-cell", "Item" }
+                    TableHead { class: "hidden w-20 text-right sm:table-cell", "Size" }
+                    TableHead { class: "w-40 sm:w-56", "Progress" }
+                    TableHead { class: "w-24 text-right max-sm:invisible max-sm:w-0 max-sm:p-0", "Speed" }
+                    TableHead { class: "w-24 text-right max-sm:invisible max-sm:w-0 max-sm:p-0", "Left" }
                 }
             }
             TableBody {
@@ -52,8 +52,22 @@ fn Torrent(download: DownloadEntry) -> Element {
     let downloading = download.state == DownloadState::Downloading;
     rsx! {
         TableRow {
-            TableCell { class: "truncate font-medium", title: "{download.name}", "{download.name}" }
-            TableCell { class: "truncate",
+            TableCell { class: "align-top sm:truncate", title: "{download.name}",
+                span { class: "font-medium [overflow-wrap:anywhere]", "{download.name}" }
+                span { class: "mt-1 flex flex-wrap gap-x-3 text-caption text-muted sm:hidden",
+                    if let Some(item) = &download.item {
+                        Link { class: "hover:underline", to: Route::item(item.id), "{item.title}" }
+                    }
+                    span { class: "tabular-nums", "{size(download.size)}" }
+                    if downloading {
+                        span { class: "tabular-nums", "{rate(download.rate)}" }
+                        if let Some(eta) = download.eta {
+                            span { class: "tabular-nums", "{runtime(eta.div_ceil(60))} left" }
+                        }
+                    }
+                }
+            }
+            TableCell { class: "hidden truncate sm:table-cell",
                 if let Some(item) = &download.item {
                     Link {
                         class: "hover:underline",
@@ -65,7 +79,7 @@ fn Torrent(download: DownloadEntry) -> Element {
                     span { class: "text-muted", "—" }
                 }
             }
-            TableCell { class: "text-right tabular-nums whitespace-nowrap", "{size(download.size)}" }
+            TableCell { class: "hidden text-right tabular-nums whitespace-nowrap sm:table-cell", "{size(download.size)}" }
             if downloading {
                 TableCell {
                     div { class: "flex items-center gap-2",
@@ -78,8 +92,8 @@ fn Torrent(download: DownloadEntry) -> Element {
                         }
                     }
                 }
-                TableCell { class: "text-right tabular-nums whitespace-nowrap", "{rate(download.rate)}" }
-                TableCell { class: "text-right tabular-nums whitespace-nowrap",
+                TableCell { class: "hidden text-right tabular-nums whitespace-nowrap sm:table-cell", "{rate(download.rate)}" }
+                TableCell { class: "hidden text-right tabular-nums whitespace-nowrap sm:table-cell",
                     if let Some(eta) = download.eta {
                         "{runtime(eta.div_ceil(60))}"
                     }
@@ -149,7 +163,7 @@ fn Action(
     #[props(default)] children: Element,
 ) -> Element {
     rsx! {
-        div { class: "flex items-center justify-between gap-4",
+        div { class: "flex items-center justify-between gap-4 max-sm:flex-col max-sm:items-start max-sm:gap-2",
             div { class: "min-w-0",
                 Status { tone, label }
                 if let Some(reason) = reason {
@@ -171,7 +185,9 @@ fn Retry(import: ImportId) -> Element {
     rsx! {
         div { class: "flex shrink-0 items-center gap-2",
             if let Some(error) = failed() {
-                span { class: "animate-fade-in text-caption text-danger motion-reduce:animate-none", "{error}" }
+                span { class: "animate-fade-in text-caption text-danger motion-reduce:animate-none",
+                    "{error}"
+                }
             }
             Button {
                 size: ButtonSize::Sm,

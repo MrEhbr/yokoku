@@ -4,7 +4,8 @@ use dioxus_icons::lucide::ChevronDown;
 /// A section that opens and closes under its `summary`, as the accordion looks. A native
 /// `details`, so it renders on the server and toggles before the page hydrates. Its children
 /// render from the first time it opens: on the server only when `open`. `lead`, such as a
-/// control, sits before the summary without opening it.
+/// control, sits before the summary without opening it. Below `sm` the children also span the
+/// space under `lead`, which must be 2.25rem wide.
 #[component]
 pub fn Disclosure(
     #[props(default)] open: bool,
@@ -13,6 +14,7 @@ pub fn Disclosure(
     children: Element,
 ) -> Element {
     let mut opened = use_signal(|| open);
+    let content = if lead.is_some() { "pb-4 max-sm:-ml-11" } else { "pb-4" };
     rsx! {
         div { class: "flex items-start gap-2 border-b border-line",
             if let Some(lead) = lead {
@@ -29,7 +31,7 @@ pub fn Disclosure(
                     }
                 }
                 if opened() {
-                    div { class: "pb-4", {children} }
+                    div { class: content, {children} }
                 }
             }
         }

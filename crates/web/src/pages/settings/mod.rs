@@ -70,6 +70,17 @@ fn Sections(settings: Vec<Setting>, part: SettingsPart) -> Element {
     };
     let keys = |section: Section| -> Vec<String> { of(section).into_iter().map(|setting| setting.field.key).collect() };
     rsx! {
+        nav {
+            aria_label: "Settings sections",
+            class: "-mt-2 mb-8 flex max-w-3xl flex-wrap gap-x-4 gap-y-2 text-caption",
+            for title in GROUPS {
+                a {
+                    class: "text-muted underline-offset-4 hover:text-ink hover:underline",
+                    href: "#{group_id(title)}",
+                    "{title}"
+                }
+            }
+        }
         div { class: "grid max-w-3xl gap-12",
             Group { title: "Download client",
                 {fields(Section::DownloadClient)}
@@ -120,10 +131,19 @@ fn Sections(settings: Vec<Setting>, part: SettingsPart) -> Element {
     }
 }
 
+/// The titles of the groups in `Sections`, in page order.
+const GROUPS: [&str; 9] =
+    ["Download client", "Media server", "Metadata", "Library", "Import", "Naming", "Files", "Schedules", "Server"];
+
+/// `Media server` → `media-server`.
+fn group_id(title: &str) -> String {
+    title.to_lowercase().replace(' ', "-")
+}
+
 #[component]
 fn Group(title: &'static str, children: Element) -> Element {
     rsx! {
-        section { class: "grid gap-5 border-t border-line pt-6",
+        section { id: group_id(title), class: "grid scroll-mt-28 gap-5 border-t border-line pt-6",
             h2 { class: "text-section font-medium", "{title}" }
             {children}
         }

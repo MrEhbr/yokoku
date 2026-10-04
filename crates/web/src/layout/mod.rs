@@ -44,7 +44,9 @@ pub fn Shell() -> Element {
                     }
                     nav {
                         aria_label: "Main",
-                        class: "order-last flex w-full overflow-x-auto md:order-none md:w-auto",
+                        class: "order-last flex w-full overflow-x-auto max-md:pr-8 \
+                                max-md:[mask-image:linear-gradient(to_right,#000_calc(100%_-_2rem),transparent)] \
+                                md:order-none md:w-auto",
                         NavItem { to: Route::Library {}, label: "Library" }
                         NavItem { to: Route::Missing {}, label: "Wanted", WantedBadge {} }
                         NavItem { to: Route::Upcoming {}, label: "Upcoming" }
