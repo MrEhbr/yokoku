@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.6.0](https://github.com/MrEhbr/yokoku/compare/v0.3.0..v0.6.0) - 2026-10-04
+
+### Features
+
+- **(import)** merge external audio and subtitles into the video - ([bc17d07](https://github.com/MrEhbr/yokoku/commit/bc17d07b38e1c0cfe3e2be61f17c34e6ae3dcb6e)) `+642 / -74 across 23 file(s)` - Aleksei Burmistrov
+- show free disk space - ([9991666](https://github.com/MrEhbr/yokoku/commit/99916663586f6b87ab38efc90e24cacd34f1018e)) `+281 / -21 across 26 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 2 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 2 commit(s) parsed as conventional.
+- Diff totals: +923 / -95 across 49 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 1 day(s) since the previous release.
+
 ## [0.3.0](https://github.com/MrEhbr/yokoku/compare/v0.2.0..v0.3.0) - 2026-10-03
 
 ### Features

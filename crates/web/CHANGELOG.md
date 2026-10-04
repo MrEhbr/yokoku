@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.6.0](https://github.com/MrEhbr/yokoku/compare/v0.5.0..v0.6.0) - 2026-10-04
+
+### Bug Fixes
+
+- **(web)** end the live queue stream when the service stops - ([697785e](https://github.com/MrEhbr/yokoku/commit/697785e93140e8d3e20fce14e557d571f0b65be4)) `+53 / -11 across 7 file(s)` - Aleksei Burmistrov
+
+### Features
+
+- **(import)** merge external audio and subtitles into the video - ([bc17d07](https://github.com/MrEhbr/yokoku/commit/bc17d07b38e1c0cfe3e2be61f17c34e6ae3dcb6e)) `+642 / -74 across 23 file(s)` - Aleksei Burmistrov
+- show free disk space - ([9991666](https://github.com/MrEhbr/yokoku/commit/99916663586f6b87ab38efc90e24cacd34f1018e)) `+281 / -21 across 26 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 3 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 3 commit(s) parsed as conventional.
+- Diff totals: +976 / -106 across 56 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
 ## [0.5.0](https://github.com/MrEhbr/yokoku/compare/v0.4.0..v0.5.0) - 2026-10-04
 
 ### Features
