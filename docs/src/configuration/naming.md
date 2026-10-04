@@ -4,8 +4,8 @@ Patterns decide the names of item folders and of the files Yokoku imports.
 The defaults follow Jellyfin's recommended layout:
 
 ```
-The Simpsons (1989)/Season 33/The Simpsons (1989) - S33E01 - Treehouse of Horror XII.mkv
-Dune (2021)/Dune (2021).mkv
+Show Name (2020)/Season 01/Show Name (2020) - S01E01 - Pilot.mkv
+Movie Name (2021)/Movie Name (2021).mkv
 ```
 
 ```toml

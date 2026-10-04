@@ -11,8 +11,8 @@ subtitles. `KIND` is `series` or `movie`; `SOURCE` is the item's source and id,
 as shown on its page.
 
 ```console
-$ yokoku files show series tvdb:71663
-/srv/media/series/The Simpsons (1989)/Season 33/The Simpsons (1989) - S33E01 - The Star of the Backstage.mkv
+$ yokoku files show series tvdb:12345
+/srv/media/series/Show Name (2020)/Season 01/Show Name (2020) - S01E01 - Pilot.mkv
   0.9 GB, 0h 20m, 1920x1080 h264
   Audio      rus eac3 5.1, eng eac3 5.1
   Subtitles  rus, eng in the file

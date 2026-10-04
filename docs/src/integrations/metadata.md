@@ -32,7 +32,7 @@ Episodes come in TVDB's aired order.
 
 A series stays with the source it was added from. Setting a TVDB key later
 doesn't move existing TMDB series, and removing it breaks refreshes of TVDB
-series. The source and id show on the item's page, like `tvdb:71663`.
+series. The source and id show on the item's page, like `tvdb:12345`.
 
 ## Language and Region
 

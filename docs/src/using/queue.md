@@ -37,7 +37,7 @@ it waits for review. A download without any video fails.
 
 **Season**
 :   For a series, the season of files named without one, like
-    `Frieren - 05.mkv`. *From the file names* when the names include it.
+    `Show - 05.mkv`. *From the file names* when the names include it.
 
 ## Download States
 

@@ -8,8 +8,8 @@ Reads titles, dates, episodes and artwork from TMDB or TVDB again.
 
 ```bash
 yokoku refresh                    # every item in the library
-yokoku refresh series tvdb:71663  # one series
-yokoku refresh movie tmdb:438631  # one movie
+yokoku refresh series tvdb:12345  # one series
+yokoku refresh movie tmdb:67890  # one movie
 ```
 
 `KIND` is `series` or `movie`; `SOURCE` is the item's source and id, as shown
@@ -22,7 +22,7 @@ its own.
 ```console
 $ yokoku refresh
 Refreshed 9 items
-Failed Severance (2022): metadata source unavailable
+Failed Show Name (2022): metadata source unavailable
 Error: 1 items could not be refreshed
 ```
 

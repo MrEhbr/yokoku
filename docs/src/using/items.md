@@ -51,7 +51,7 @@ series, except specials, which start unmonitored.
 imported into this item, and the **Queue** opens.
 
 For a series, **Season** helps with files named without one, like
-`Frieren - 05.mkv`: pick the season they belong to. Leave it at *From the
+`Show - 05.mkv`: pick the season they belong to. Leave it at *From the
 file names* when the names include the season.
 
 ## Numbering
