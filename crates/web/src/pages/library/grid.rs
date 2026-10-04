@@ -16,7 +16,9 @@ pub(super) fn PosterGrid(entries: Vec<Entry>) -> Element {
     rsx! {
         ul { class: "grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-x-6 gap-y-8",
             for entry in entries {
-                li { key: "{entry.id:?}", class: "group/poster relative flex flex-col",
+                li {
+                    key: "{entry.id:?}",
+                    class: "group/poster relative flex flex-col",
                     div {
                         aria_hidden: "true",
                         class: "relative flex aspect-[2/3] items-end border border-ink bg-subtle p-3 shadow-paper \

@@ -135,11 +135,20 @@ fn Form(item: ItemId, title: String, files: Vec<ItemFile>, on_change: Callback, 
                     onclick: move |_| chosen.set(watched.clone()),
                     "Watched"
                 }
-                Button { size: ButtonSize::Sm, onclick: move |_| chosen.set(HashSet::new()), "None" }
+                Button {
+                    size: ButtonSize::Sm,
+                    onclick: move |_| chosen.set(HashSet::new()),
+                    "None"
+                }
             }
             div { class: "max-h-[50dvh] overflow-y-auto border-y border-line",
                 for (season, files) in seasons {
-                    Season { key: "{season:?}", season, files, chosen }
+                    Season {
+                        key: "{season:?}",
+                        season,
+                        files,
+                        chosen,
+                    }
                 }
             }
         }
@@ -220,9 +229,13 @@ fn Season(season: Option<u16>, files: Vec<ItemFile>, chosen: Signal<HashSet<Medi
                             }
                         },
                     }
-                    Label { html_for: "remove-season-{number}", class: "font-medium",
+                    Label {
+                        html_for: "remove-season-{number}",
+                        class: "font-medium",
                         "{name}"
-                        span { class: "ml-2 font-normal text-caption text-muted", "{picked} of {files.len()}" }
+                        span { class: "ml-2 font-normal text-caption text-muted",
+                            "{picked} of {files.len()}"
+                        }
                     }
                 }
             }
@@ -261,7 +274,9 @@ fn Row(file: ItemFile, chosen: Signal<HashSet<MediaFileId>>) -> Element {
                 span { class: "min-w-0 truncate", "{file.title}" }
             }
             FileWatched { watched: file.watched }
-            span { class: "w-20 shrink-0 text-right text-caption text-muted tabular-nums", "{size(file.size)}" }
+            span { class: "w-20 shrink-0 text-right text-caption text-muted tabular-nums",
+                "{size(file.size)}"
+            }
         }
     }
 }

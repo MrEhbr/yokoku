@@ -133,7 +133,9 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
                     "Add one in "
                     Link {
                         class: "underline",
-                        to: Route::Settings { part: SettingsPart::RootFolders },
+                        to: Route::Settings {
+                            part: SettingsPart::RootFolders,
+                        },
                         "Settings"
                     }
                     ", then try again."

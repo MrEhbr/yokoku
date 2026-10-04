@@ -28,10 +28,10 @@ pub fn AlertDialog(props: AlertDialogRootProps) -> Element {
             attributes: merged,
             alert_dialog::AlertDialogContent {
                 class: "relative my-auto flex w-full max-w-dialog flex-col gap-4 border border-ink \
-                                                bg-surface p-5 text-ink shadow-dialog \
-                                                group-data-[state=open]/dialog:animate-popover-in \
-                                                group-data-[state=closed]/dialog:animate-popover-out \
-                                                motion-reduce:animate-none"
+                                                            bg-surface p-5 text-ink shadow-dialog \
+                                                            group-data-[state=open]/dialog:animate-popover-in \
+                                                            group-data-[state=closed]/dialog:animate-popover-out \
+                                                            motion-reduce:animate-none"
                     .to_string(),
                 {props.children}
             }

@@ -29,7 +29,9 @@ pub(crate) fn RootPrompt(kind: Option<Kind>) -> Element {
                 "Series and movies are kept in root folders. Add one in "
                 Link {
                     class: "underline",
-                    to: Route::Settings { part: SettingsPart::RootFolders },
+                    to: Route::Settings {
+                        part: SettingsPart::RootFolders,
+                    },
                     "Settings"
                 }
                 " to add items."

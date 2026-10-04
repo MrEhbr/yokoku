@@ -33,7 +33,9 @@ pub fn Downloads() -> Element {
             div { class: "ml-auto", AddTorrentButton {} }
         }
         p { class: "mt-2 text-muted", "As of the last sync with the download client." }
-        div { class: "mt-1", FreeSpace { download_only: true } }
+        div { class: "mt-1",
+            FreeSpace { download_only: true }
+        }
         div { class: "mt-8",
             match current {
                 None => rsx! {
