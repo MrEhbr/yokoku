@@ -71,7 +71,7 @@
   :where(input, textarea) { font-size: 1rem; }
 }
 @media (pointer: coarse) {
-  :where(button:not([role="checkbox"]), input:not([type="checkbox"], [type="radio"]), [data-control]) {
+  :where(button:not([role="checkbox"], [role="switch"]), input:not([type="checkbox"], [type="radio"]), [data-control]) {
     min-height: 2.75rem;
   }
 }
