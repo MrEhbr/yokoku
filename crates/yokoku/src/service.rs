@@ -13,6 +13,7 @@ pub async fn run(app: &App) -> Result<()> {
         "The root folders in the config file are invalid; fix them, or remove the stored root folder they \
          conflict with using `yokoku root remove`",
     )?;
+    let (stop_jobs, stop_service) = (CancellationToken::new(), CancellationToken::new());
     let state = yokoku_web::AppState {
         library: app.library.clone(),
         artworks: app.artworks.clone(),
@@ -35,12 +36,12 @@ pub async fn run(app: &App) -> Result<()> {
             tmdb_token_set: app.settings.live(|config| config.metadata.tmdb.token.is_some()),
             monitor: app.settings.live(|config| config.add.monitor),
         }),
+        shutdown: Arc::new(stop_service.clone()),
     };
     let web = yokoku_web::Server::bind(app.settings.current().web.address(), state)
         .await
         .context("Failed to start the web server")?;
 
-    let (stop_jobs, stop_service) = (CancellationToken::new(), CancellationToken::new());
     let jobs = crate::jobs::spawn(app, &stop_jobs);
     let deliveries = app.spawn_deliveries(&stop_service);
     let web = tokio::spawn(web.serve(stop_service.clone().cancelled_owned()));

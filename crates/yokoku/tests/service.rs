@@ -562,6 +562,31 @@ async fn missing_artwork_unknown_items_and_unknown_kinds_are_not_found() {
 }
 
 #[test]
+fn the_service_stops_promptly_while_a_page_follows_the_queue() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut service = Service::start(dir.path());
+    let mut live = TcpStream::connect(("127.0.0.1", service.port)).unwrap();
+    live.write_all(b"GET /api/downloads/live HTTP/1.1\r\nHost: localhost\r\n\r\n").unwrap();
+    let mut first = [0; 64];
+    assert!(live.read(&mut first).unwrap() > 0, "the live downloads stream did not answer");
+
+    let terminated = Command::new("kill").args(["-TERM", &service.child.id().to_string()]).status().unwrap();
+    let started = Instant::now();
+    let status = loop {
+        if let Some(status) = service.child.try_wait().unwrap() {
+            break Some(status);
+        }
+        if started.elapsed() > Duration::from_secs(10) {
+            break None;
+        }
+        sleep(Duration::from_millis(50));
+    };
+
+    assert!(terminated.success());
+    assert!(status.is_some_and(|status| status.success()), "the service did not stop within 10 s: {status:?}");
+}
+
+#[test]
 fn the_service_stops_at_startup_without_web_assets() {
     let dir = tempfile::tempdir().unwrap();
     Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))

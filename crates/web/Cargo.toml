@@ -24,6 +24,7 @@ yokoku-core = { workspace = true, optional = true }
 yokoku-domain.workspace = true
 
 async-trait = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
 jiff = { workspace = true, features = ["serde"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -49,4 +50,4 @@ rstest.workspace = true
 [features]
 default = []
 web = ["dioxus/web"]
-server = ["dioxus/server", "dep:async-trait", "dep:yokoku-core"]
+server = ["dioxus/server", "dep:async-trait", "dep:tokio-util", "dep:yokoku-core"]

@@ -16,6 +16,7 @@ use dioxus::prelude::ServerFnError;
 #[cfg(feature = "server")]
 use {
     crate::state::{AddSettings, Dep},
+    tokio_util::sync::CancellationToken,
     yokoku_core::downloads::Downloads,
     yokoku_core::events::{History, QueueChanges},
     yokoku_core::library::{Artworks, Calendar, Library, MetadataService},

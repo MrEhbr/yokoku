@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use yokoku_domain::{DownloadId, ImportId, ItemId};
 
 #[cfg(feature = "server")]
-use crate::api::{Dep, Downloads, Importer, Library, QueueChanges, Reviewer};
+use crate::api::{CancellationToken, Dep, Downloads, Importer, Library, QueueChanges, Reviewer};
 
 /// A series or movie in the library.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -83,14 +83,15 @@ pub async fn downloads() -> Result<Vec<DownloadEntry>, ServerFnError> {
     server::downloads(&downloads, &reviewer, &importer, &library).await
 }
 
-/// The downloads at once, then again each time they or their imports change.
+/// The downloads at once, then again each time they or their imports change, until the service stops.
 #[get(
     "/api/downloads/live",
     downloads: Dep<Downloads>,
     reviewer: Dep<Reviewer>,
     importer: Dep<Importer>,
     library: Dep<Library>,
-    changes: Dep<QueueChanges>
+    changes: Dep<QueueChanges>,
+    shutdown: Dep<CancellationToken>
 )]
 pub async fn live_downloads() -> Result<ServerEvents<Vec<DownloadEntry>>, ServerFnError> {
     let sources = server::Sources {
@@ -99,7 +100,7 @@ pub async fn live_downloads() -> Result<ServerEvents<Vec<DownloadEntry>>, Server
         importer: importer.into_inner(),
         library: library.into_inner(),
     };
-    Ok(server::live(sources, changes.into_inner()))
+    Ok(server::live(sources, changes.into_inner(), shutdown.into_inner()))
 }
 
 /// A torrent to add.
@@ -140,8 +141,8 @@ mod server {
     use yokoku_domain::{DownloadId, ImportId, ItemId};
 
     use super::{
-        DownloadEntry, DownloadState, Downloads, ImportEntry, ImportState, Importer, ItemLink, Library, NewTorrent,
-        QueueChanges, Reviewer,
+        CancellationToken, DownloadEntry, DownloadState, Downloads, ImportEntry, ImportState, Importer, ItemLink,
+        Library, NewTorrent, QueueChanges, Reviewer,
     };
 
     /// How long a burst of saves settles before the downloads are read again.
@@ -157,8 +158,12 @@ mod server {
     }
 
     /// Sends the downloads, then waits for a change and sends them again when they differ from
-    /// the last ones sent; ends once the client is gone.
-    pub(super) fn live(sources: Sources, changes: Arc<QueueChanges>) -> ServerEvents<Vec<DownloadEntry>> {
+    /// the last ones sent; ends once the client is gone or `shutdown` is cancelled.
+    pub(super) fn live(
+        sources: Sources,
+        changes: Arc<QueueChanges>,
+        shutdown: Arc<CancellationToken>,
+    ) -> ServerEvents<Vec<DownloadEntry>> {
         ServerEvents::new(move |mut tx| async move {
             let mut watch = changes.watch();
             let mut sent = None;
@@ -174,10 +179,14 @@ mod server {
                     sent = Some(current);
                 }
                 tokio::select! {
+                    () = shutdown.cancelled() => break,
                     changed = watch.changed() => if changed.is_err() { break },
                     () = tokio::time::sleep(FALLBACK) => {},
                 }
-                tokio::time::sleep(SETTLE).await;
+                tokio::select! {
+                    () = shutdown.cancelled() => break,
+                    () = tokio::time::sleep(SETTLE) => {},
+                }
             }
         })
     }
