@@ -69,8 +69,8 @@ mod server {
         FileTarget, ItemId,
         events::{
             DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, FileDeleted, FileRenamed, FilesFound,
-            FilesImported, ImportFailed, ImportNeedsReview, LinkedFile, MovieAdded, MovieRemoved, SeriesAdded,
-            SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
+            FilesImported, ImportFailed, ImportNeedsReview, ImportedFrom, LinkedFile, MovieAdded, MovieRemoved,
+            SeriesAdded, SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
         },
     };
 
@@ -170,8 +170,8 @@ mod server {
                     ],
                     Vec::new(),
                 ),
-                Event::FilesFound(FilesFound { files }) => self.files("Found", files),
-                Event::FilesImported(FilesImported { files, .. }) => self.files("Imported", files),
+                Event::FilesFound(FilesFound { files }) => self.files("Found", files, &[]),
+                Event::FilesImported(FilesImported { files, sources, .. }) => self.files("Imported", files, sources),
                 Event::FileDeleted(FileDeleted { path: deleted, target, reason, .. }) => {
                     let reason = match reason {
                         DeleteReason::External => "gone from disk",
@@ -244,11 +244,17 @@ mod server {
             parts
         }
 
-        fn files(&self, verb: &str, files: &[LinkedFile]) -> Lines {
+        /// One line per file; with `sources`, each shows the download file it came from and the files
+        /// placed beside it.
+        fn files(&self, verb: &str, files: &[LinkedFile], sources: &[ImportedFrom]) -> Lines {
+            let parts_of = |file: &LinkedFile| {
+                let from = sources.iter().find(|from| from.file == file.file);
+                file_parts(file, from)
+            };
             if let [file] = files {
                 let mut summary = vec![text(format!("{verb} "))];
                 summary.extend(self.target(&file.target));
-                return (summary, vec![vec![path(&file.path)]]);
+                return (summary, vec![parts_of(file)]);
             }
             let first = files.first().map(|file| file.target.item());
             let one_item = first.filter(|first| files.iter().all(|file| file.target.item() == *first));
@@ -266,11 +272,33 @@ mod server {
                     if let FileTarget::Episodes { span, .. } = &file.target {
                         line.extend([Part::Code(span.to_string()), text(" ")]);
                     }
-                    line.push(path(&file.path));
+                    line.extend(parts_of(file));
                     line
                 })
                 .collect();
             (summary, details)
         }
+    }
+
+    /// The parts showing `file`: its path, after the name of the download file it came from, then what
+    /// follows its own name in the names of the files placed beside it.
+    fn file_parts(file: &LinkedFile, from: Option<&ImportedFrom>) -> Vec<Part> {
+        let Some(from) = from else { return vec![path(&file.path)] };
+        let source = from.source.file_name().map_or(from.source.as_path(), Path::new);
+        let mut line = vec![path(source), text(" → "), path(&file.path)];
+        if !from.sidecars.is_empty() {
+            let stem = file.path.file_stem().unwrap_or_default().to_string_lossy();
+            let names: Vec<String> = from
+                .sidecars
+                .iter()
+                .map(|sidecar| {
+                    let name = sidecar.file_name().unwrap_or_default().to_string_lossy();
+                    name.strip_prefix(stem.as_ref()).unwrap_or(&name).to_owned()
+                })
+                .collect();
+            let count = if names.len() == 1 { "1 file".to_owned() } else { format!("{} files", names.len()) };
+            line.extend([text(format!(" and {count} beside it: ")), Part::Path(names.join(", "))]);
+        }
+        line
     }
 }

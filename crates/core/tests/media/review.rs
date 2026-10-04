@@ -78,7 +78,7 @@ async fn approving_links_matched_rows_and_leaves_unchecked_ones() {
     let linked = files.iter().map(|file| LinkedFile { file: file.id, path: file.path.clone(), target: file.target });
     assert_eq!(
         app.events().await.last(),
-        Some(&FilesImported { import: id, download: None, files: linked.collect() }.into())
+        Some(&FilesImported { import: id, download: None, files: linked.collect(), sources: Vec::new() }.into())
     );
     assert!(app.reviewer.pending().await.unwrap().is_empty());
 }

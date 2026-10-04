@@ -8,7 +8,7 @@ use yokoku_core::{
 };
 use yokoku_domain::{
     DownloadId, ImportId, ItemId,
-    events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, LinkedFile},
+    events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, ImportedFrom, LinkedFile},
 };
 
 use crate::common;
@@ -51,7 +51,12 @@ async fn hard_links_the_video_and_its_subtitles_into_the_library() {
     let linked = vec![LinkedFile { file: files[0].id, path: files[0].path.clone(), target: files[0].target }];
     let download = MediaRepo::import(&app.db, id).await.unwrap().unwrap().download;
     assert!(download.is_some());
-    assert_eq!(app.events().await.last(), Some(&FilesImported { import: id, download, files: linked }.into()));
+    let sources = vec![ImportedFrom {
+        file: files[0].id,
+        source: app.path(SOURCE),
+        sidecars: vec![app.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.eng.srt")],
+    }];
+    assert_eq!(app.events().await.last(), Some(&FilesImported { import: id, download, files: linked, sources }.into()));
 }
 
 #[tokio::test]

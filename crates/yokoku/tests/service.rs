@@ -24,7 +24,9 @@ use yokoku_domain::{
     Artwork, Confidence, CorrelationId, Description, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget,
     ImportId, ItemFolder, ItemId, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, SeasonMetadata,
     Series, SeriesId, SeriesMetadata, SourceStatus,
-    events::{FileRenamed, FilesFound, ImportFailed, MovieRemoved, TorrentAdded},
+    events::{
+        FileRenamed, FilesFound, FilesImported, ImportFailed, ImportedFrom, LinkedFile, MovieRemoved, TorrentAdded,
+    },
 };
 use yokoku_infra::db::Database;
 
@@ -642,6 +644,36 @@ async fn the_history_page_lists_every_event_linked_to_its_item() {
     let link = format!("href=\"/movies/{dune}\"");
     assert_eq!(page.matches(&link).count(), 2, "the torrent and the rename link to Dune: {page}");
     assert!(page.contains(">Arrival<") && !page.contains("Arrival</a>"), "{page}");
+}
+
+#[tokio::test]
+async fn an_import_shows_where_each_file_came_from_and_what_was_placed_beside_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (_, dune) = seed(&path).await;
+    let file = MediaFileId::generate();
+    let imported = FilesImported {
+        import: ImportId::generate(),
+        download: Some(DownloadId::generate()),
+        files: vec![LinkedFile {
+            file,
+            path: "/movies/Dune (2021)/Dune (2021).mkv".into(),
+            target: FileTarget::Movie(dune),
+        }],
+        sources: vec![ImportedFrom {
+            file,
+            source: "/downloads/Dune.2021.1080p/Dune.2021.1080p.mkv".into(),
+            sidecars: vec!["/movies/Dune (2021)/Dune (2021).RUS.Subs.ass".into()],
+        }],
+    };
+    let event = Correlated { correlation: CorrelationId::generate(), event: imported.into() };
+    EventLog::new(Database::open(&path).await.unwrap()).append(&[event]).await.unwrap();
+    let service = Service::start(dir.path());
+
+    let history = service.get("/api/history");
+
+    let line = r#"{"path":"Dune.2021.1080p.mkv"},{"text":" → "},{"path":"/movies/Dune (2021)/Dune (2021).mkv"},{"text":" and 1 file beside it: "},{"path":".RUS.Subs.ass"}"#;
+    assert!(history.contains(line), "{history}");
 }
 
 #[tokio::test]

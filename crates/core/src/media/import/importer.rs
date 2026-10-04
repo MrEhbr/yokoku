@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 use yokoku_domain::{
     Clock, FileTarget, ImportId, Live, MediaFileId,
-    events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed},
+    events::{DeleteReason, Event, FileDeleted, FilesImported, ImportFailed, ImportedFrom},
     naming::{Naming, sidecar_path},
 };
 
@@ -71,6 +71,8 @@ impl Destination {
 #[derive(Default)]
 struct Placed {
     added: Vec<MediaFile>,
+    /// Where each of `added` came from.
+    sources: Vec<ImportedFrom>,
     replaced: Vec<MediaFile>,
 }
 
@@ -159,6 +161,7 @@ impl Importer {
                     import: import.id,
                     download: import.download,
                     files: placed.added.iter().map(MediaFile::linked).collect(),
+                    sources: placed.sources.clone(),
                 }
                 .into(),
             );
@@ -232,17 +235,16 @@ impl Importer {
                 }
                 placed.replaced.push(old.clone());
             }
+            let mut placed_sidecars = Vec::new();
             for (sidecar, suffix) in sidecars.get(&row.path).into_iter().flatten() {
                 let extension = sidecar.extension().unwrap_or_default().to_string_lossy();
-                self.place(sidecar, &sidecar_path(&destination, suffix, &extension)).await?;
+                let to = sidecar_path(&destination, suffix, &extension);
+                self.place(sidecar, &to).await?;
+                placed_sidecars.push(to);
             }
-            placed.added.push(MediaFile {
-                id: MediaFileId::generate(),
-                path: destination,
-                size: row.size,
-                target,
-                added_at: now,
-            });
+            let id = MediaFileId::generate();
+            placed.sources.push(ImportedFrom { file: id, source: row.path.clone(), sidecars: placed_sidecars });
+            placed.added.push(MediaFile { id, path: destination, size: row.size, target, added_at: now });
         }
         Ok(())
     }

@@ -121,7 +121,7 @@ mod stored {
             file: MediaFileId(Uuid::from_u128(5)),
             path: "/movies/Dune.mkv".into(),
             target: FileTarget::Movie(MovieId(Uuid::from_u128(3))),
-        }] }.into(),
+        }] , sources: Vec::new() }.into(),
         json!({ "type": "FilesImported", "import": "00000000-0000-0000-0000-000000000009", "download": "00000000-0000-0000-0000-000000000004", "files": [{
             "file": "00000000-0000-0000-0000-000000000005",
             "path": "/movies/Dune.mkv",
@@ -302,6 +302,16 @@ mod stored {
         })
     }
 
+    fn any_imported_from() -> impl Strategy<Value = ImportedFrom> {
+        (any_id(), any::<String>(), prop::collection::vec(any::<String>(), 0..3)).prop_map(
+            |(file, source, sidecars)| ImportedFrom {
+                file: MediaFileId(file),
+                source: source.into(),
+                sidecars: sidecars.into_iter().map(Into::into).collect(),
+            },
+        )
+    }
+
     fn any_event() -> impl Strategy<Value = Event> {
         prop_oneof![
             (any::<u128>(), any::<String>()).prop_map(|(id, title)| SeriesAdded {
@@ -321,14 +331,19 @@ mod stored {
                 MovieRemoved { movie: MovieId(Uuid::from_u128(id)), title, delete_files }.into()
             }),
             prop::collection::vec(any_linked_file(), 0..3).prop_map(|files| FilesFound { files }.into()),
-            (any_id(), prop::option::of(any_id()), prop::collection::vec(any_linked_file(), 0..3)).prop_map(
-                |(import, download, files)| FilesImported {
+            (
+                any_id(),
+                prop::option::of(any_id()),
+                prop::collection::vec(any_linked_file(), 0..3),
+                prop::collection::vec(any_imported_from(), 0..3)
+            )
+                .prop_map(|(import, download, files, sources)| FilesImported {
                     import: ImportId(import),
                     download: download.map(DownloadId),
                     files,
+                    sources,
                 }
-                .into(),
-            ),
+                .into(),),
             (any_linked_file(), any_reason()).prop_map(|(linked, reason)| FileDeleted {
                 file: linked.file,
                 path: linked.path,

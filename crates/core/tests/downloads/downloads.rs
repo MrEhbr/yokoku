@@ -283,7 +283,7 @@ async fn concurrent_syncs_complete_a_download_once() {
 }
 
 fn imported(download: Option<DownloadId>) -> FilesImported {
-    FilesImported { import: ImportId::generate(), download, files: Vec::new() }
+    FilesImported { import: ImportId::generate(), download, files: Vec::new(), sources: Vec::new() }
 }
 
 #[tokio::test]

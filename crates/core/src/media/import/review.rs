@@ -285,6 +285,7 @@ impl Reviewer {
             import: id,
             download: import.download,
             files: files.iter().map(MediaFile::linked).collect(),
+            sources: Vec::new(),
         };
         let changes = Changes { added_files: files.clone(), imports: vec![import], ..Changes::default() };
         self.repo.save(&changes).await?;
