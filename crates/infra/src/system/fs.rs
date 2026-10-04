@@ -14,6 +14,7 @@ use yokoku_core::media::{
     detect::ListedFile,
     ports::{FileStat, FileSystem, FsError},
 };
+use yokoku_domain::DiskSpace;
 
 #[derive(Debug, Clone, Default)]
 pub struct LocalFileSystem;
@@ -59,6 +60,15 @@ impl FileSystem for LocalFileSystem {
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
             Err(source) => Err(FsError::new(path, source)),
         }
+    }
+
+    async fn space(&self, path: &Path) -> Result<DiskSpace, FsError> {
+        let path = path.to_owned();
+        blocking(move || {
+            let stats = rustix::fs::statvfs(&path).map_err(|error| FsError::new(&path, error.into()))?;
+            Ok(DiskSpace { free: stats.f_bavail * stats.f_frsize, total: Some(stats.f_blocks * stats.f_frsize) })
+        })
+        .await
     }
 
     async fn same_contents(&self, a: &Path, b: &Path) -> Result<bool, FsError> {

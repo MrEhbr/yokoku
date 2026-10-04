@@ -14,7 +14,7 @@ use yokoku_core::{
     events::{EventLog, Handler, QueueChanges},
 };
 use yokoku_domain::{
-    Clock, DownloadId, ImportId, ItemId, Live, MovieId, SeriesId,
+    Clock, DiskSpace, DownloadId, ImportId, ItemId, Live, MovieId, SeriesId,
     events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
 };
 use yokoku_infra::db::Database;
@@ -88,6 +88,11 @@ impl DownloadClient for ScriptedClient {
         self.torrents.lock().unwrap().remove(hash);
         self.removed.lock().unwrap().push((hash.to_owned(), delete_data));
         Ok(())
+    }
+
+    async fn space(&self) -> Result<DiskSpace, ClientError> {
+        self.check()?;
+        Ok(DiskSpace { free: 1_000, total: Some(4_000) })
     }
 }
 

@@ -2,10 +2,10 @@
 
 use dioxus::{fullstack::ServerEvents, prelude::*};
 use serde::{Deserialize, Serialize};
-use yokoku_domain::{DownloadId, ImportId, ItemId};
+use yokoku_domain::{DiskSpace, DownloadId, ImportId, ItemId};
 
 #[cfg(feature = "server")]
-use crate::api::{CancellationToken, Dep, Downloads, Importer, Library, QueueChanges, Reviewer};
+use crate::api::{CancellationToken, Dep, Downloads, Importer, Library, QueueChanges, Reviewer, RootFolders};
 
 /// A series or movie in the library.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -119,6 +119,22 @@ pub async fn add_torrent(torrent: NewTorrent, item: Option<ItemId>, season: Opti
     server::add(&downloads, torrent, item, season).await
 }
 
+/// Space left where a torrent lands.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FreeSpace {
+    /// Where the download client downloads new torrents; `None` when it cannot be read.
+    pub download: Option<DiskSpace>,
+    /// Names of root folders on one disk, and its space; empty when none can be read.
+    pub library: Vec<(String, DiskSpace)>,
+}
+
+/// The space left in the download folder, and in the root folder of `item`, or of every disk
+/// holding a root folder without one.
+#[get("/api/downloads/space?item", downloads: Dep<Downloads>, roots: Dep<RootFolders>)]
+pub async fn free_space(item: Option<ItemId>) -> Result<FreeSpace, ServerFnError> {
+    Ok(server::free_space(&downloads, &roots, item).await)
+}
+
 /// Queues a failed import again; the import job carries it out.
 #[post("/api/imports/{id}/retry", importer: Dep<Importer>)]
 pub async fn retry_import(id: ImportId) -> Result<(), ServerFnError> {
@@ -129,20 +145,24 @@ pub async fn retry_import(id: ImportId) -> Result<(), ServerFnError> {
 mod server {
     use std::{collections::HashMap, sync::Arc, time::Duration};
 
-    use dioxus::{fullstack::ServerEvents, logger::tracing::error, prelude::*};
+    use dioxus::{
+        fullstack::ServerEvents,
+        logger::tracing::{error, warn},
+        prelude::*,
+    };
     use yokoku_core::{
         downloads::{
             Download, DownloadError,
             ports::{ClientError, TorrentSource},
         },
         library::{LibraryFilter, LibrarySort},
-        media::{Import, ImportStatus, MediaError},
+        media::{Import, ImportStatus, MediaError, RootFolder},
     };
-    use yokoku_domain::{DownloadId, ImportId, ItemId};
+    use yokoku_domain::{DiskSpace, DownloadId, ImportId, ItemId};
 
     use super::{
-        CancellationToken, DownloadEntry, DownloadState, Downloads, ImportEntry, ImportState, Importer, ItemLink,
-        Library, NewTorrent, QueueChanges, Reviewer,
+        CancellationToken, DownloadEntry, DownloadState, Downloads, FreeSpace, ImportEntry, ImportState, Importer,
+        ItemLink, Library, NewTorrent, QueueChanges, Reviewer, RootFolders,
     };
 
     /// How long a burst of saves settles before the downloads are read again.
@@ -247,6 +267,26 @@ mod server {
                 ServerFnError::new("The torrent could not be added; the server log has the cause")
             },
         })
+    }
+
+    pub(super) async fn free_space(downloads: &Downloads, roots: &RootFolders, item: Option<ItemId>) -> FreeSpace {
+        let download = downloads.space().await.inspect_err(|error| warn!(%error, "reading the download space failed"));
+        let library = match item {
+            Some(item) => item_space(roots, item).await,
+            None => roots.spaces().await.map(|disks| {
+                let named =
+                    |roots: Vec<RootFolder>| roots.into_iter().map(|root| root.name).collect::<Vec<_>>().join(", ");
+                disks.into_iter().map(|(roots, space)| (named(roots), space)).collect()
+            }),
+        };
+        let library = library.inspect_err(|error| warn!(%error, "reading the root folder space failed"));
+        FreeSpace { download: download.ok(), library: library.unwrap_or_default() }
+    }
+
+    async fn item_space(roots: &RootFolders, item: ItemId) -> Result<Vec<(String, DiskSpace)>, MediaError> {
+        let Some(root) = roots.of(item).await? else { return Ok(Vec::new()) };
+        let space = roots.space(&root).await?;
+        Ok(vec![(root.name, space)])
     }
 
     pub(super) async fn retry(importer: &Importer, id: ImportId) -> Result<(), ServerFnError> {

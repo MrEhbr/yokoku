@@ -1,6 +1,7 @@
 //! Values as every page writes them.
 
 use jiff::civil::Date;
+use yokoku_domain::DiskSpace;
 
 /// `2023`, or `—` when unknown.
 pub fn year(year: Option<i16>) -> String {
@@ -47,12 +48,21 @@ pub fn runtime(minutes: u64) -> String {
     }
 }
 
-/// `1.4 GB`, `700 MB` under a gigabyte, or `350 KB` under a megabyte.
+/// `1.4 GB`, `2.1 TB` from a terabyte, `700 MB` under a gigabyte, or `350 KB` under a megabyte.
 pub fn size(bytes: u64) -> String {
     match bytes {
         0..1_000_000 => format!("{} KB", bytes / 1_000),
         1_000_000..1_000_000_000 => format!("{} MB", bytes / 1_000_000),
-        _ => format!("{:.1} GB", bytes as f64 / 1e9),
+        1_000_000_000..1_000_000_000_000 => format!("{:.1} GB", bytes as f64 / 1e9),
+        _ => format!("{:.1} TB", bytes as f64 / 1e12),
+    }
+}
+
+/// `1.2 TB free of 4.0 TB`, or `1.2 TB free` when the total is unknown.
+pub fn space(space: DiskSpace) -> String {
+    match space.total {
+        Some(total) => format!("{} free of {}", size(space.free), size(total)),
+        None => format!("{} free", size(space.free)),
     }
 }
 
@@ -76,8 +86,9 @@ pub fn resolution(width: u32, height: u32) -> String {
 mod tests {
     use jiff::civil::date;
     use rstest::rstest;
+    use yokoku_domain::DiskSpace;
 
-    use super::{plural, relative, resolution, runtime, size};
+    use super::{plural, relative, resolution, runtime, size, space};
 
     #[rstest]
     #[case(date(2026, 3, 10), "today")]
@@ -114,8 +125,16 @@ mod tests {
     #[case(350_000, "350 KB")]
     #[case(700_000_000, "700 MB")]
     #[case(1_430_000_000, "1.4 GB")]
+    #[case(2_140_000_000_000, "2.1 TB")]
     fn writes_a_size(#[case] bytes: u64, #[case] expected: &str) {
         assert_eq!(size(bytes), expected);
+    }
+
+    #[rstest]
+    #[case(Some(4_000_000_000_000), "1.2 TB free of 4.0 TB")]
+    #[case(None, "1.2 TB free")]
+    fn writes_the_space_left(#[case] total: Option<u64>, #[case] expected: &str) {
+        assert_eq!(space(DiskSpace { free: 1_200_000_000_000, total }), expected);
     }
 
     #[rstest]

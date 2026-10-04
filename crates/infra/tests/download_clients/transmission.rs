@@ -8,7 +8,7 @@ use yokoku_core::downloads::{
     DownloadState,
     ports::{ClientError, DownloadClient, TorrentSource},
 };
-use yokoku_domain::{Live, Secret};
+use yokoku_domain::{DiskSpace, Live, Secret};
 use yokoku_infra::download_clients::{TransmissionClient, TransmissionSettings};
 use yokoku_test_support::transmission::{RPC, SESSION, answer, server, success};
 
@@ -252,4 +252,19 @@ async fn removes_a_torrent_by_hash(#[case] delete_data: bool) {
     .await;
 
     client(&server).remove(HASH, delete_data).await.unwrap();
+}
+
+#[tokio::test]
+async fn reads_the_space_left_in_the_download_folder() {
+    let server = server().await;
+    answer(&server, "session-get", success(json!({ "download-dir": "/downloads" }))).await;
+    Mock::given(body_partial_json(json!({ "method": "free-space", "arguments": { "path": "/downloads" } })))
+        .and(header("X-Transmission-Session-Id", SESSION))
+        .respond_with(success(json!({ "path": "/downloads", "size-bytes": 1_000, "total_size": 4_000 })))
+        .mount(&server)
+        .await;
+
+    let space = client(&server).space().await.unwrap();
+
+    assert_eq!(space, DiskSpace { free: 1_000, total: Some(4_000) });
 }

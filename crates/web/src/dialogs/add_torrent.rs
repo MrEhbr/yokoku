@@ -13,6 +13,7 @@ use crate::{
         combobox::{Combobox, ComboboxEmpty, ComboboxOption},
         dialog::DialogFooter,
         field::{Field, FieldError, FieldHint},
+        free_space::FreeSpace,
         input::Input,
         label::Label,
         skeleton::Skeleton,
@@ -163,6 +164,7 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
         if let Some(series) = series {
             SeasonField { key: "{series}", series, season }
         }
+        FreeSpace { item: chosen().flatten() }
         if let Some(message) = error() {
             p { role: "alert", class: "text-danger", "{message}" }
         }

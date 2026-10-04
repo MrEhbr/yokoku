@@ -1,5 +1,6 @@
 //! Shared value types, domain rules and the event contract.
 
+mod disk;
 pub mod events;
 mod id;
 mod item;
@@ -12,6 +13,7 @@ mod secret;
 mod series;
 mod string_enum;
 
+pub use disk::DiskSpace;
 pub use id::{CorrelationId, DownloadId, EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
 pub use item::{
     Artwork, ArtworkKind, Description, ExternalId, FileStatus, InvalidFolderName, ItemFolder, ItemId, ItemName,

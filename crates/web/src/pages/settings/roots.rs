@@ -14,7 +14,7 @@ use crate::{
         select::{Select, SelectOption},
         skeleton::Skeleton,
     },
-    format::plural,
+    format::{plural, space},
     route::SettingsPart,
 };
 
@@ -82,6 +82,9 @@ pub(super) fn RootFolders(scrolled_to: bool) -> Element {
                                     }
                                 }
                                 span { class: "text-caption text-muted", {plural(folder.items, "item", "items")} }
+                                if let Some(left) = folder.space {
+                                    span { class: "text-caption text-muted", {space(left)} }
+                                }
                                 if folder.configured {
                                     span {
                                         class: "text-caption text-muted",

@@ -432,7 +432,9 @@ async fn root_folders_can_be_added_and_removed() {
 
     assert!(added.starts_with("HTTP/1.1 200"), "{added}");
     assert!(
-        listed.contains(&format!(r#"{{"kind":"series","path":"{path}","name":"Shows","configured":false,"items":0}}"#)),
+        listed.contains(&format!(
+            r#"{{"kind":"series","path":"{path}","name":"Shows","configured":false,"items":0,"space":{{"free":"#
+        )),
         "{listed}"
     );
     assert!(removed.starts_with("HTTP/1.1 200"), "{removed}");

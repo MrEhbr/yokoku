@@ -6,7 +6,7 @@ use std::{
 
 use async_trait::async_trait;
 use yokoku_domain::{
-    DownloadId, FileTarget, ImportId, ItemId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError,
+    DiskSpace, DownloadId, FileTarget, ImportId, ItemId, MediaFileId, Movie, MovieId, Series, SeriesId, StorageError,
 };
 
 use crate::media::{Import, ImportStatus, MediaFile, MediaInfo, RootFolder, detect::ListedFile};
@@ -34,6 +34,9 @@ pub trait FileSystem: Send + Sync {
 
     /// `None` when nothing is at `path`.
     async fn stat(&self, path: &Path) -> Result<Option<FileStat>, FsError>;
+
+    /// The space left on the file system holding `path`.
+    async fn space(&self, path: &Path) -> Result<DiskSpace, FsError>;
 
     /// Both files hold the same bytes.
     async fn same_contents(&self, a: &Path, b: &Path) -> Result<bool, FsError>;

@@ -16,7 +16,7 @@ pub use model::{Download, DownloadState, TorrentStatus};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
 use yokoku_domain::{
-    Clock, DownloadId, ItemId, Live, StorageError,
+    Clock, DiskSpace, DownloadId, ItemId, Live, StorageError,
     events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
 };
 
@@ -81,6 +81,11 @@ impl Downloads {
     /// Newest first.
     pub async fn list(&self) -> Result<Vec<Download>, DownloadError> {
         Ok(self.repo.list().await?)
+    }
+
+    /// The space left in the folder new torrents download to.
+    pub async fn space(&self) -> Result<DiskSpace, DownloadError> {
+        Ok(self.client.space().await?)
     }
 
     /// Adds a torrent for `item`, or for detection to work out when `None`; for a series,

@@ -13,7 +13,7 @@ use yokoku_core::downloads::{
     DownloadState, TorrentStatus,
     ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
 };
-use yokoku_domain::{Live, Secret};
+use yokoku_domain::{DiskSpace, Live, Secret};
 
 use crate::download_clients::transmission_wire as wire;
 
@@ -138,6 +138,12 @@ impl DownloadClient for TransmissionClient {
     async fn remove(&self, hash: &str, delete_data: bool) -> Result<(), ClientError> {
         let arguments = json!({ "ids": [hash], "delete-local-data": delete_data });
         self.call::<Value>("torrent-remove", arguments).await.map(drop)
+    }
+
+    async fn space(&self) -> Result<DiskSpace, ClientError> {
+        let session: wire::DownloadDir = self.call("session-get", json!({ "fields": ["download-dir"] })).await?;
+        let space: wire::FreeSpace = self.call("free-space", json!({ "path": session.download_dir })).await?;
+        Ok(DiskSpace { free: space.size_bytes, total: space.total_size })
     }
 }
 

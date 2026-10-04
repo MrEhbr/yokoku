@@ -8,6 +8,20 @@ pub(crate) struct Response<T> {
 }
 
 #[derive(Deserialize)]
+pub(crate) struct DownloadDir {
+    #[serde(rename = "download-dir")]
+    pub download_dir: String,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct FreeSpace {
+    #[serde(rename = "size-bytes")]
+    pub size_bytes: u64,
+    /// Missing before Transmission 4.
+    pub total_size: Option<u64>,
+}
+
+#[derive(Deserialize)]
 pub(crate) struct Session {
     pub version: String,
 }

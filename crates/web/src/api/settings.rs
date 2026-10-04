@@ -3,6 +3,7 @@
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use yokoku_domain::DiskSpace;
 
 use super::library::Kind;
 #[cfg(feature = "server")]
@@ -100,6 +101,8 @@ pub struct Root {
     pub configured: bool,
     /// Library items in it.
     pub items: usize,
+    /// `None` when it cannot be read.
+    pub space: Option<DiskSpace>,
 }
 
 #[get("/api/settings", access: Dep<dyn SettingsAccess>)]
@@ -164,7 +167,10 @@ pub async fn scan_library() -> Result<Scanned, ServerFnError> {
 mod server {
     use std::path::Path;
 
-    use dioxus::{logger::tracing::error, prelude::*};
+    use dioxus::{
+        logger::tracing::{error, warn},
+        prelude::*,
+    };
     use serde_json::Value;
     use yokoku_core::media::MediaError;
 
@@ -217,12 +223,18 @@ mod server {
         let mut listed = Vec::new();
         for root in roots.list().await.map_err(root_listing_failed)? {
             let items = roots.item_folders(&root).await.map_err(root_listing_failed)?.len();
+            let space = roots
+                .space(&root)
+                .await
+                .inspect_err(|error| warn!(%error, root = %root.path.display(), "reading the root folder space failed"))
+                .ok();
             listed.push(Root {
                 kind: root.kind.into(),
                 path: root.path.display().to_string(),
                 name: root.name.clone(),
                 configured: root.configured,
                 items,
+                space,
             });
         }
         Ok(listed)

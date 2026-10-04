@@ -71,6 +71,7 @@ more. Under **Library → Root folders**, enter the absolute path of an existing
 folder, choose **Series** or **Movies**, optionally give it a name, and click
 **Add**. The name shows instead of the path, in the Library and the add dialog;
 without one, the folder's name is used. Root folders can't overlap.
+Each one shows how much space is left on its disk.
 
 **Remove** only works on a root folder no item belongs to anymore. Root folders
 marked **Config file** come from the

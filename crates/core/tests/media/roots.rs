@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use common::App;
 use rstest::rstest;
 use yokoku_core::media::{MediaError, RootFolder, RootKind};
+use yokoku_domain::ItemId;
 
 use crate::common;
 
@@ -222,4 +223,35 @@ async fn a_root_folder_without_a_name_is_named_by_its_folder() {
     let root = RootFolder::new(RootKind::Series, "/media/library/Anime".into(), None, false);
 
     assert_eq!(root.name, "Anime");
+}
+
+#[tokio::test]
+async fn an_items_root_folder_is_the_one_holding_its_folder() {
+    let app = App::new().await;
+
+    let series = app.roots.of(ItemId::Series(app.frieren.id)).await.unwrap().unwrap();
+    let movie = app.roots.of(ItemId::Movie(app.dune.id)).await.unwrap().unwrap();
+
+    assert_eq!((series.path, movie.path), (app.path("tv"), app.path("movies")));
+}
+
+#[tokio::test]
+async fn a_root_folders_space_is_read_from_its_disk() {
+    let app = App::new().await;
+    let root = RootFolder::new(RootKind::Series, app.path("tv"), None, false);
+
+    let space = app.roots.space(&root).await.unwrap();
+
+    assert!(space.total.is_some_and(|total| total >= space.free && total > 0), "{space:?}");
+}
+
+#[tokio::test]
+async fn root_folders_on_one_disk_share_its_space() {
+    let app = App::new().await;
+
+    let disks = app.roots.spaces().await.unwrap();
+
+    let [(roots, _)] = disks.as_slice() else { panic!("{disks:?}") };
+    let paths: Vec<_> = roots.iter().map(|root| root.path.clone()).collect();
+    assert_eq!(paths, [app.path("movies"), app.path("tv")]);
 }

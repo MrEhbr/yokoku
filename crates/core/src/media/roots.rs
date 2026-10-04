@@ -3,9 +3,12 @@ use std::{
     sync::Arc,
 };
 
+use tracing::warn;
+use yokoku_domain::{DiskSpace, ItemId};
+
 use crate::media::{
     MediaError, RootFolder, RootKind,
-    ports::{Catalog, FileSystem, MediaRepo},
+    ports::{Catalog, FileSystem, FsError, MediaRepo},
 };
 
 /// Root folder settings: the ones in the config file and the stored ones.
@@ -103,6 +106,44 @@ impl RootFolders {
         let series = self.catalog.all_series().await?.into_iter().map(|series| series.folder);
         let movies = self.catalog.all_movies().await?.into_iter().map(|movie| movie.folder);
         Ok(series.chain(movies).filter(|folder| folder.root == root.path).map(|folder| folder.name).collect())
+    }
+
+    /// The listed root folder `item` lives in.
+    pub async fn of(&self, item: ItemId) -> Result<Option<RootFolder>, MediaError> {
+        let root = match item {
+            ItemId::Series(id) => self.catalog.series(id).await?.map(|series| series.folder.root),
+            ItemId::Movie(id) => self.catalog.movie(id).await?.map(|movie| movie.folder.root),
+        };
+        let Some(root) = root else { return Ok(None) };
+        Ok(self.list().await?.into_iter().find(|listed| listed.path == root))
+    }
+
+    /// The space left on the file system holding `root`.
+    pub async fn space(&self, root: &RootFolder) -> Result<DiskSpace, MediaError> {
+        Ok(self.fs.space(&root.path).await?)
+    }
+
+    /// The root folders grouped by the file system holding them, with its space; ones that cannot
+    /// be read are left out.
+    pub async fn spaces(&self) -> Result<Vec<(Vec<RootFolder>, DiskSpace)>, MediaError> {
+        let mut disks: Vec<(u64, Vec<RootFolder>, DiskSpace)> = Vec::new();
+        for root in self.list().await? {
+            match self.disk(&root).await {
+                Ok(Some((device, space))) => match disks.iter_mut().find(|(known, ..)| *known == device) {
+                    Some((_, roots, _)) => roots.push(root),
+                    None => disks.push((device, vec![root], space)),
+                },
+                Ok(None) => {},
+                Err(error) => warn!(%error, "reading a root folder's space failed"),
+            }
+        }
+        Ok(disks.into_iter().map(|(_, roots, space)| (roots, space)).collect())
+    }
+
+    /// The device holding `root` and its space; `None` when the folder is gone.
+    async fn disk(&self, root: &RootFolder) -> Result<Option<(u64, DiskSpace)>, FsError> {
+        let Some(stat) = self.fs.stat(&root.path).await? else { return Ok(None) };
+        Ok(Some((stat.device, self.fs.space(&root.path).await?)))
     }
 
     /// Refused for a configured root folder, and while series or movies belong to the folder.

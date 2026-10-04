@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use yokoku_domain::{DownloadId, StorageError};
+use yokoku_domain::{DiskSpace, DownloadId, StorageError};
 
 use crate::downloads::{Download, TorrentStatus};
 
@@ -24,6 +24,9 @@ pub trait DownloadClient: Send + Sync {
 
     /// Removes a torrent, and its downloaded files with `delete_data`; an unknown hash is no error.
     async fn remove(&self, hash: &str, delete_data: bool) -> Result<(), ClientError>;
+
+    /// The space left in the folder new torrents download to.
+    async fn space(&self) -> Result<DiskSpace, ClientError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

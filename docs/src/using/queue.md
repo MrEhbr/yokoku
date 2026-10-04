@@ -39,6 +39,10 @@ it waits for review. A download without any video fails.
 :   For a series, the season of files named without one, like
     `Show - 05.mkv`. *From the file names* when the names include it.
 
+Below, the dialog shows the space left in Transmission's download folder, and in
+the chosen item's root folder, or on each disk holding a root folder while none
+is chosen. The Queue page shows the download folder's space too.
+
 ## Download States
 
 | State | Meaning |
