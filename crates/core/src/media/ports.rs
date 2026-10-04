@@ -76,6 +76,33 @@ pub enum ProbeError {
     Failed { path: PathBuf, reason: String },
 }
 
+/// Writes a video and its external tracks into one file.
+#[async_trait]
+pub trait Merger: Send + Sync {
+    /// Writes `video`'s streams and those of `tracks` into a new Matroska file at `to`, creating missing
+    /// folders and copying the streams as they are; a track's language and title fill in only what its
+    /// streams lack.
+    async fn merge(&self, video: &Path, tracks: &[Track], to: &Path) -> Result<(), MergeError>;
+}
+
+/// An external subtitle or audio file to merge into a video.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Track {
+    pub path: PathBuf,
+    /// ISO 639-3, like `rus`.
+    pub language: Option<String>,
+    pub title: Option<String>,
+    pub forced: bool,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum MergeError {
+    #[error("the merger is not installed")]
+    Missing,
+    #[error("cannot merge into {}: {reason}", path.display())]
+    Failed { path: PathBuf, reason: String },
+}
+
 /// Exclusive right to change library files, shared by every process using the library.
 #[async_trait]
 pub trait LibraryLock: Send + Sync {

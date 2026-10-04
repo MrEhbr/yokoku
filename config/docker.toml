@@ -101,6 +101,9 @@ scan_library = "0 0 5 * * *"
 # How finished downloads reach the library: hardlink, copy or move.
 [import]
 mode = "hardlink"
+# Writes a Matroska video's external audio and subtitles into it, for players that cannot read
+# them beside it; ffmpeg does it, copying the streams.
+merge = true
 
 # Rescans after library changes; api_key is a secret, like the TMDB token.
 [jellyfin]
@@ -123,6 +126,8 @@ episode_file = "{title}[ ({year})] - {episodes}[ - {episode_title}]"
 # File details are read with ffprobe: its name on the PATH, or a path to it.
 [files]
 ffprobe = "ffprobe"
+# Merges external tracks into videos: its name on the PATH, or a path to it.
+ffmpeg = "ffmpeg"
 
 # Root folders that hold series and movies, next to the ones added in the web UI or with
 # `yokoku root add`. Read when the service starts; the web UI and CLI cannot remove them.

@@ -113,6 +113,13 @@ impl Config {
             ),
             Field::new(
                 Section::Import,
+                "import.merge",
+                "Merge into the video",
+                "Writes a Matroska video's external audio and subtitles into it, for players that cannot read them beside it.",
+                Control::Switch,
+            ),
+            Field::new(
+                Section::Import,
                 "downloads.remove_after_seeding",
                 "Remove torrents after seeding",
                 "Removes imported torrents with their data once Transmission finished seeding them.",
@@ -143,6 +150,13 @@ impl Config {
                 "ffprobe",
                 "Reads file details: its name on the PATH, or a path to it.",
                 Control::text("ffprobe"),
+            ),
+            Field::new(
+                Section::Files,
+                "files.ffmpeg",
+                "ffmpeg",
+                "Merges external tracks into videos: its name on the PATH, or a path to it.",
+                Control::text("ffmpeg"),
             ),
             Field::new(Section::Schedules, "serve.sync_downloads", "Sync downloads", "", Control::text("")),
             Field::new(

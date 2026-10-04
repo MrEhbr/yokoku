@@ -11,7 +11,11 @@ use tempfile::TempDir;
 use yokoku_core::{
     events::{EventLog, Publisher, QueueChanges},
     library::ports::{MovieRepo, SeriesRepo},
-    media::{ImportPlanner, Renamer, Reviewer, RootFolder, RootFolders, RootKind, Scanner},
+    media::{
+        ImportMode, ImportPlanner, ImportSettings, Importer, Renamer, Reviewer, RootFolder, RootFolders, RootKind,
+        Scanner,
+        ports::{MergeError, Merger, Track},
+    },
 };
 use yokoku_domain::{
     Clock, EpisodeSpan, FileTarget, ItemFolder, Live, MonitorPreset, Movie, MovieMetadata, Releases, Series,
@@ -143,16 +147,23 @@ impl App {
         self.db_files().await
     }
 
-    pub fn importer(&self, mode: yokoku_core::media::ImportMode) -> yokoku_core::media::Importer {
+    /// An importer that places external tracks beside their video.
+    pub fn importer(&self, mode: ImportMode) -> Importer {
+        self.merging_importer(mode, false, Arc::new(FakeMerger::default()))
+    }
+
+    /// An importer that merges external tracks into their video with `merger` when `merge` is set.
+    pub fn merging_importer(&self, mode: ImportMode, merge: bool, merger: Arc<FakeMerger>) -> Importer {
         let repo = Arc::new(self.db.clone());
-        yokoku_core::media::Importer::new(
+        Importer::new(
             repo.clone(),
             repo,
             Arc::new(LocalFileSystem),
             self.lock(),
             Arc::new(TestClock::default()),
             Live::fixed(Naming::default()),
-            Live::fixed(mode),
+            Live::fixed(ImportSettings { mode, merge }),
+            merger,
             self.publisher(),
             self.changes.clone(),
         )
@@ -192,4 +203,30 @@ fn dune_metadata() -> MovieMetadata {
 
 pub fn relative<'a>(app: &App, paths: impl IntoIterator<Item = &'a Path>) -> Vec<String> {
     paths.into_iter().map(|path| path.strip_prefix(app.dir.path()).unwrap().display().to_string()).collect()
+}
+
+/// Writes the video and the tracks, concatenated, to where it merges, and records the tracks; with
+/// `fails`, it writes part of the file and fails instead.
+#[derive(Default)]
+pub struct FakeMerger {
+    pub fails: bool,
+    pub merged: std::sync::Mutex<Vec<Vec<Track>>>,
+}
+
+#[async_trait::async_trait]
+impl Merger for FakeMerger {
+    async fn merge(&self, video: &Path, tracks: &[Track], to: &Path) -> Result<(), MergeError> {
+        fs::create_dir_all(to.parent().unwrap()).unwrap();
+        let mut bytes = fs::read(video).unwrap();
+        if self.fails {
+            fs::write(to, &bytes[..bytes.len() / 2]).unwrap();
+            return Err(MergeError::Failed { path: to.to_owned(), reason: "broken track".into() });
+        }
+        for track in tracks {
+            bytes.extend(fs::read(&track.path).unwrap());
+        }
+        fs::write(to, bytes).unwrap();
+        self.merged.lock().unwrap().push(tracks.to_vec());
+        Ok(())
+    }
 }

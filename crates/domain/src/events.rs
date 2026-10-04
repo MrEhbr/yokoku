@@ -280,14 +280,16 @@ pub struct LinkedFile {
     pub target: FileTarget,
 }
 
-/// The download file a library file was placed from, and the library paths of the subtitles and
-/// audio tracks placed beside it.
+/// The download file a library file was placed from, the library paths of the subtitles and audio
+/// tracks placed beside it, and the download files written into it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportedFrom {
     pub file: MediaFileId,
     pub source: PathBuf,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sidecars: Vec<PathBuf>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub merged: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

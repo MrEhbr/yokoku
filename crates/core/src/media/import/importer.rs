@@ -17,8 +17,8 @@ use crate::{
     events::{Publisher, QueueChanges},
     media::{
         Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
-        detect::{Classified, ListedFile},
-        ports::{Catalog, Changes, FileSystem, FsError, LibraryLock, MediaRepo},
+        detect::{Classified, ListedFile, Sidecar},
+        ports::{Catalog, Changes, FileSystem, FsError, LibraryLock, MediaRepo, Merger, Track},
     },
 };
 
@@ -34,9 +34,18 @@ pub enum ImportMode {
     Move,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(default)]
 pub struct ImportSettings {
     pub mode: ImportMode,
+    /// Writes a video's external subtitles and audio tracks into it instead of beside it.
+    pub merge: bool,
+}
+
+impl Default for ImportSettings {
+    fn default() -> Self {
+        Self { mode: ImportMode::default(), merge: true }
+    }
 }
 
 /// Places the files of approved imports in the library.
@@ -47,7 +56,8 @@ pub struct Importer {
     lock: Arc<dyn LibraryLock>,
     clock: Arc<dyn Clock>,
     naming: Live<Naming>,
-    mode: Live<ImportMode>,
+    settings: Live<ImportSettings>,
+    merger: Arc<dyn Merger>,
     events: Publisher,
     changes: QueueChanges,
 }
@@ -85,11 +95,12 @@ impl Importer {
         lock: Arc<dyn LibraryLock>,
         clock: Arc<dyn Clock>,
         naming: Live<Naming>,
-        mode: Live<ImportMode>,
+        settings: Live<ImportSettings>,
+        merger: Arc<dyn Merger>,
         events: Publisher,
         changes: QueueChanges,
     ) -> Self {
-        Self { repo, catalog, fs, lock, clock, naming, mode, events, changes }
+        Self { repo, catalog, fs, lock, clock, naming, settings, merger, events, changes }
     }
 
     /// Imports that are approved, running or failed, oldest first.
@@ -204,8 +215,15 @@ impl Importer {
         {
             let target = row.target().ok_or(MediaError::RowUnmatched(number))?;
             let destination = destination.ok_or(MediaError::RowUnmatched(number))?.path();
+            let row_sidecars = sidecars.get(&row.path).map(Vec::as_slice).unwrap_or_default();
+            let merging = self.settings.current().merge && !row_sidecars.is_empty() && is_matroska(&row.path);
             let linked = library.iter().any(|file| file.path == destination && file.target == target);
-            if linked && self.already_placed(&row.path, &destination).await? {
+            let done = if merging {
+                self.fs.stat(&destination).await?.is_some()
+            } else {
+                self.already_placed(&row.path, &destination).await?
+            };
+            if linked && done {
                 debug!(path = %destination.display(), "already in the library");
                 continue;
             }
@@ -221,12 +239,21 @@ impl Importer {
             } else {
                 None
             };
-            if let Err(error) = self.place(&row.path, &destination).await {
-                if let Some(aside) = &aside {
-                    self.fs.rename(aside, &destination).await?;
-                }
-                return Err(error);
-            }
+            let merged = if merging { self.merge(&row.path, row_sidecars, &destination).await } else { Ok(false) };
+            let placed_video = match merged {
+                Ok(true) => Ok(true),
+                Ok(false) => self.place(&row.path, &destination).await.map(|()| false),
+                Err(error) => Err(error),
+            };
+            let merged = match placed_video {
+                Ok(merged) => merged,
+                Err(error) => {
+                    if let Some(aside) = &aside {
+                        self.fs.rename(aside, &destination).await?;
+                    }
+                    return Err(error);
+                },
+            };
             for old in olds {
                 let path = if old.path == destination { aside.as_ref() } else { Some(&old.path) };
                 if let Some(path) = path {
@@ -235,15 +262,24 @@ impl Importer {
                 }
                 placed.replaced.push(old.clone());
             }
-            let mut placed_sidecars = Vec::new();
-            for (sidecar, suffix) in sidecars.get(&row.path).into_iter().flatten() {
-                let extension = sidecar.extension().unwrap_or_default().to_string_lossy();
-                let to = sidecar_path(&destination, suffix, &extension);
-                self.place(sidecar, &to).await?;
+            let (mut placed_sidecars, mut merged_sidecars) = (Vec::new(), Vec::new());
+            for sidecar in row_sidecars {
+                if merged {
+                    merged_sidecars.push(sidecar.path.clone());
+                    continue;
+                }
+                let extension = sidecar.path.extension().unwrap_or_default().to_string_lossy();
+                let to = sidecar_path(&destination, &sidecar.suffix, &extension);
+                self.place(&sidecar.path, &to).await?;
                 placed_sidecars.push(to);
             }
             let id = MediaFileId::generate();
-            placed.sources.push(ImportedFrom { file: id, source: row.path.clone(), sidecars: placed_sidecars });
+            placed.sources.push(ImportedFrom {
+                file: id,
+                source: row.path.clone(),
+                sidecars: placed_sidecars,
+                merged: merged_sidecars,
+            });
             placed.added.push(MediaFile { id, path: destination, size: row.size, target, added_at: now });
         }
         Ok(())
@@ -316,20 +352,45 @@ impl Importer {
         }
     }
 
-    /// The subtitles and audio tracks of each video in the download, with their suffixes.
-    async fn sidecars(&self, source: &Path) -> Result<HashMap<PathBuf, Vec<(PathBuf, String)>>, FsError> {
+    /// The subtitles and audio tracks of each video in the download.
+    async fn sidecars(&self, source: &Path) -> Result<HashMap<PathBuf, Vec<Sidecar>>, FsError> {
         let files: Vec<ListedFile> = if self.fs.is_dir(source).await? {
             self.fs.files(source).await?
         } else {
             self.fs.files_in(source.parent().unwrap_or(source)).await?
         };
-        Ok(Classified::from_files(&files)
-            .videos
-            .into_iter()
-            .map(|video| {
-                (video.path, video.sidecars.into_iter().map(|sidecar| (sidecar.path, sidecar.suffix)).collect())
-            })
-            .collect())
+        Ok(Classified::from_files(&files).videos.into_iter().map(|video| (video.path, video.sidecars)).collect())
+    }
+
+    /// Writes `video` with `sidecars` into a new file at `to`, through a hidden file beside it; with
+    /// the move import mode, the merged files are deleted afterwards. False when merging failed, so
+    /// the files go beside each other instead.
+    async fn merge(&self, video: &Path, sidecars: &[Sidecar], to: &Path) -> Result<bool, MediaError> {
+        if self.fs.stat(to).await?.is_some() {
+            return Err(MediaError::AlreadyExists(to.to_owned()));
+        }
+        let partial = to.with_file_name(format!(".{}.merging", to.file_name().unwrap_or_default().to_string_lossy()));
+        let tracks: Vec<Track> = sidecars.iter().map(track).collect();
+        let merged = match self.merger.merge(video, &tracks, &partial).await {
+            Ok(()) => self.fs.rename(&partial, to).await.map_err(|error| error.to_string()),
+            Err(error) => Err(error.to_string()),
+        };
+        if let Err(reason) = merged {
+            warn!(%reason, path = %to.display(), "could not merge; placing the files beside each other");
+            if let Err(error) = self.fs.remove_file(&partial).await {
+                debug!(%error, path = %partial.display(), "no partial merge to remove");
+            }
+            return Ok(false);
+        }
+        if self.settings.current().mode == ImportMode::Move {
+            for source in std::iter::once(video).chain(sidecars.iter().map(|sidecar| sidecar.path.as_path())) {
+                if let Err(error) = self.fs.remove_file(source).await {
+                    warn!(%error, path = %source.display(), "could not delete a merged file");
+                }
+            }
+        }
+        debug!(to = %to.display(), tracks = tracks.len(), "merged");
+        Ok(true)
     }
 
     /// Moves the file at `path` to a hidden `.<name>.replaced` beside it and returns that path.
@@ -347,7 +408,7 @@ impl Importer {
             (Some(from), Some(to)) => {
                 from.same_file(&to) || (from.size == to.size && self.fs.same_contents(source, destination).await?)
             },
-            (None, Some(_)) => self.mode.current() == ImportMode::Move,
+            (None, Some(_)) => self.settings.current().mode == ImportMode::Move,
             (_, None) => false,
         })
     }
@@ -364,7 +425,7 @@ impl Importer {
             (Some(_), None) => {},
         }
 
-        let mode = self.mode.current();
+        let mode = self.settings.current().mode;
         let result = match mode {
             ImportMode::HardLink => match self.fs.hard_link(source, destination).await {
                 Err(error) if error.source.kind() == io::ErrorKind::CrossesDevices => {
@@ -393,4 +454,20 @@ fn numbered(name: &Path, number: u32) -> PathBuf {
         None => format!("{stem} ({number})"),
     };
     name.with_file_name(file)
+}
+
+/// The file is Matroska, the container merging writes.
+fn is_matroska(path: &Path) -> bool {
+    path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("mkv"))
+}
+
+/// What a merge writes for `sidecar`: its language in ISO 639-3, the words of its suffix as its
+/// title, and whether it is forced.
+fn track(sidecar: &Sidecar) -> Track {
+    let language = sidecar.tags.language.as_deref().and_then(|language| {
+        let code = language.split('-').next().unwrap_or(language);
+        isolang::Language::from_639_1(code).map(|language| language.to_639_3().to_owned())
+    });
+    let title = Some(sidecar.suffix.replace('.', " ")).filter(|title| !title.is_empty());
+    Track { path: sidecar.path.clone(), language, title, forced: sidecar.tags.forced }
 }

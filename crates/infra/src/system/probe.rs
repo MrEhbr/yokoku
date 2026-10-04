@@ -5,7 +5,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::{process::Command, time::timeout};
 use tracing::debug;
 use yokoku_core::media::{
@@ -15,18 +15,6 @@ use yokoku_core::media::{
 use yokoku_domain::Live;
 
 const TIME_LIMIT: Duration = Duration::from_secs(60);
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-pub struct ProbeSettings {
-    /// `ffprobe` on the `PATH`, or a path to it.
-    pub ffprobe: PathBuf,
-}
-
-impl Default for ProbeSettings {
-    fn default() -> Self {
-        Self { ffprobe: PathBuf::from("ffprobe") }
-    }
-}
 
 /// Runs `ffprobe` on a file and reads its JSON report.
 #[derive(Debug, Clone)]

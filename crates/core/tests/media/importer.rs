@@ -1,10 +1,13 @@
-use std::{fs, os::unix::fs::MetadataExt, path::Path};
+use std::{fs, os::unix::fs::MetadataExt, path::Path, sync::Arc};
 
-use common::{App, relative};
+use common::{App, FakeMerger, relative};
 use rstest::rstest;
 use yokoku_core::{
     library::ports::SeriesRepo,
-    media::{Approval, ImportMode, ImportStatus, MediaError, MediaFile, ports::MediaRepo},
+    media::{
+        Approval, ImportMode, ImportStatus, MediaError, MediaFile,
+        ports::{MediaRepo, Track},
+    },
 };
 use yokoku_domain::{
     DownloadId, ImportId, ItemId,
@@ -55,6 +58,7 @@ async fn hard_links_the_video_and_its_subtitles_into_the_library() {
         file: files[0].id,
         source: app.path(SOURCE),
         sidecars: vec![app.path("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1.eng.srt")],
+        merged: Vec::new(),
     }];
     assert_eq!(app.events().await.last(), Some(&FilesImported { import: id, download, files: linked, sources }.into()));
 }
@@ -407,4 +411,95 @@ async fn running_and_retrying_imports_is_announced() {
 
     assert!(after_run);
     assert!(watch.has_changed().unwrap());
+}
+
+/// A finished download of Frieren S01E01 with a dub and a subtitle in folders, planned and approved.
+async fn approved_with_tracks(app: &App) -> (ImportId, [&'static str; 2]) {
+    let download = "downloads/Frieren.S01E01.1080p";
+    let tracks = [
+        "downloads/Frieren.S01E01.1080p/RUS Sound/Studio/Frieren.S01E01.1080p.mka",
+        "downloads/Frieren.S01E01.1080p/RUS Subs/Group/Frieren.S01E01.1080p.forced.ass",
+    ];
+    app.write(SOURCE, 10);
+    app.write(tracks[0], 3);
+    app.write(tracks[1], 2);
+    let import = app
+        .planner
+        .plan(DownloadId::generate(), &app.path(download), Some(ItemId::Series(app.frieren.id)), None)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(import.status, ImportStatus::Approved);
+    (import.id, tracks)
+}
+
+#[tokio::test]
+async fn merges_external_tracks_into_the_video_with_their_language_and_title() {
+    let app = App::new().await;
+    let (_, tracks) = approved_with_tracks(&app).await;
+    let merger = Arc::new(FakeMerger::default());
+
+    let finished = app.merging_importer(ImportMode::HardLink, true, merger.clone()).run_pending().await.unwrap();
+
+    assert_eq!(finished[0].status, ImportStatus::Done);
+    assert_eq!(fs::metadata(app.path(E01)).unwrap().len(), 15);
+    assert_ne!(inode(&app.path(E01)), inode(&app.path(SOURCE)));
+    let season = fs::read_dir(app.path("tv/Frieren (2023)/Season 01")).unwrap().count();
+    assert_eq!(season, 1, "nothing but the merged video");
+    assert_eq!(
+        *merger.merged.lock().unwrap(),
+        [vec![
+            Track {
+                path: app.path(tracks[0]),
+                language: Some("rus".into()),
+                title: Some("RUS Sound Studio".into()),
+                forced: false,
+            },
+            Track {
+                path: app.path(tracks[1]),
+                language: Some("rus".into()),
+                title: Some("RUS Subs Group forced".into()),
+                forced: true,
+            },
+        ]]
+    );
+    assert!(tracks.iter().all(|track| app.path(track).exists()), "the download keeps seeding");
+    let Some(Event::FilesImported(imported)) = app.events().await.last().cloned() else { panic!("no import event") };
+    assert_eq!(imported.sources[0].merged, tracks.map(|track| app.path(track)));
+    assert!(imported.sources[0].sidecars.is_empty());
+}
+
+#[tokio::test]
+async fn a_failed_merge_places_the_tracks_beside_the_video() {
+    let app = App::new().await;
+    approved_with_tracks(&app).await;
+    let merger = Arc::new(FakeMerger { fails: true, ..FakeMerger::default() });
+
+    let finished = app.merging_importer(ImportMode::HardLink, true, merger).run_pending().await.unwrap();
+
+    assert_eq!(finished[0].status, ImportStatus::Done);
+    assert_eq!(inode(&app.path(E01)), inode(&app.path(SOURCE)));
+    let episode = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1";
+    assert!(app.path(&format!("{episode}.RUS.Sound.Studio.mka")).exists());
+    assert!(app.path(&format!("{episode}.RUS.Subs.Group.forced.ass")).exists());
+    let leftovers: Vec<_> = fs::read_dir(app.path("tv/Frieren (2023)/Season 01"))
+        .unwrap()
+        .filter_map(|entry| entry.unwrap().file_name().into_string().ok())
+        .filter(|name| name.starts_with('.'))
+        .collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+}
+
+#[tokio::test]
+async fn moving_deletes_the_merged_download_files() {
+    let app = App::new().await;
+    let (_, tracks) = approved_with_tracks(&app).await;
+
+    let finished =
+        app.merging_importer(ImportMode::Move, true, Arc::new(FakeMerger::default())).run_pending().await.unwrap();
+
+    assert_eq!(finished[0].status, ImportStatus::Done);
+    assert!(app.path(E01).exists());
+    assert!(!app.path(SOURCE).exists());
+    assert!(tracks.iter().all(|track| !app.path(track).exists()));
 }

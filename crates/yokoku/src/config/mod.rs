@@ -19,7 +19,7 @@ use yokoku_infra::{
     download_clients::TransmissionSettings,
     media_servers::JellyfinSettings,
     metadata::MetadataSettings,
-    system::{ClockSettings, ProbeSettings},
+    system::{ClockSettings, MediaTools},
 };
 
 pub use crate::config::{
@@ -49,7 +49,7 @@ pub struct Config {
     pub events: EventsConfig,
     pub import: ImportSettings,
     pub jellyfin: JellyfinSettings,
-    pub files: ProbeSettings,
+    pub files: MediaTools,
     pub naming: Naming,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub roots: Vec<RootConfig>,

@@ -303,13 +303,13 @@ mod stored {
     }
 
     fn any_imported_from() -> impl Strategy<Value = ImportedFrom> {
-        (any_id(), any::<String>(), prop::collection::vec(any::<String>(), 0..3)).prop_map(
-            |(file, source, sidecars)| ImportedFrom {
-                file: MediaFileId(file),
-                source: source.into(),
-                sidecars: sidecars.into_iter().map(Into::into).collect(),
-            },
-        )
+        let paths = || prop::collection::vec(any::<String>(), 0..3);
+        (any_id(), any::<String>(), paths(), paths()).prop_map(|(file, source, sidecars, merged)| ImportedFrom {
+            file: MediaFileId(file),
+            source: source.into(),
+            sidecars: sidecars.into_iter().map(Into::into).collect(),
+            merged: merged.into_iter().map(Into::into).collect(),
+        })
     }
 
     fn any_event() -> impl Strategy<Value = Event> {

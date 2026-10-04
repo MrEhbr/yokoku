@@ -66,7 +66,8 @@ next to them, set the TMDB token, and start it:
 ```
 
 Install [ffmpeg](https://ffmpeg.org) as well: Yokoku runs `ffprobe` to read
-the codecs, resolution and length of library files.
+the codecs, resolution and length of library files, and `ffmpeg` to merge
+external audio and subtitles into videos.
 
 > [!NOTE]
 > `config/app.toml` listens on `127.0.0.1` and keeps the database in

@@ -4,6 +4,7 @@ FROM gcr.io/distroless/cc-debian12:latest
 
 ARG TARGETPLATFORM
 COPY --from=mwader/static-ffmpeg:9.0.2 /ffprobe /usr/local/bin/ffprobe
+COPY --from=mwader/static-ffmpeg:9.0.2 /ffmpeg /usr/local/bin/ffmpeg
 COPY ${TARGETPLATFORM}/yokoku /app/yokoku
 COPY target/web/public /app/public
 COPY config/docker.toml /config/app.toml

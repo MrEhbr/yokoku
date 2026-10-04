@@ -20,7 +20,7 @@ use yokoku_infra::{
     download_clients::TransmissionClient,
     media_servers::JellyfinClient,
     metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient},
-    system::{ArtworkFiles, FfProbe, LocalFileSystem, LockFile, SystemClock},
+    system::{ArtworkFiles, FfMpeg, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
 
 use crate::config::{Config, Settings};
@@ -151,7 +151,11 @@ impl App {
                 lock,
                 clock.clone(),
                 naming,
-                settings.live(|config| config.import.mode),
+                settings.live(|config| config.import.clone()),
+                Arc::new(FfMpeg::new(
+                    settings.live(|config| config.files.ffmpeg.clone()),
+                    settings.live(|config| config.files.ffprobe.clone()),
+                )),
                 events.clone(),
                 queue_changes.clone(),
             )),

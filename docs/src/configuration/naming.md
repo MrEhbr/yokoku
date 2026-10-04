@@ -62,6 +62,20 @@ folders it sat in and the rest of its own name:
 Jellyfin reads the language and flags like `forced` from these names and
 shows the other words as the track's title. Renaming an item keeps them.
 
+### Merging
+
+Some players, like Infuse through Jellyfin, don't play external audio tracks.
+With [`import.merge`](./imports.md#importmerge) on, the default, a Matroska
+(`.mkv`) video and its external audio and subtitles are written into one file
+instead, with ffmpeg copying the streams as they are. A track keeps the
+language and title it carries; where it has none, it gets the language read
+from its name and folders, like `RUS`, and the rest of the words as its title.
+
+The merged file is a new copy: the download keeps seeding from its own files,
+but the episode takes its space twice until the torrent is removed. When ffmpeg
+fails or isn't installed, the files are placed beside each other as above. Other
+videos, like `.mp4`, always keep their tracks beside them.
+
 ## Changing Patterns
 
 New patterns apply to new imports and new items. Existing files keep their

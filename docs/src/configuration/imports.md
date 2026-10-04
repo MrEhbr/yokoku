@@ -3,6 +3,7 @@
 ```toml
 [import]
 mode = "hardlink"            # hardlink, copy or move
+merge = true                 # write external audio and subtitles into the video
 
 [downloads]
 remove_after_seeding = false
@@ -14,6 +15,7 @@ monitor = "all"              # all, future, latest-season or none
 
 [files]
 ffprobe = "ffprobe"
+ffmpeg = "ffmpeg"
 ```
 
 ## `import.mode`
@@ -46,9 +48,20 @@ What a new series monitors at first: `all`, `future`, `latest-season` or
 `none`. A new movie is monitored unless this is `none`. The add dialog starts
 at this choice. See [The Add Dialog](../using/adding.md#the-add-dialog).
 
+## `import.merge`
+
+On by default: a Matroska video's external audio tracks and subtitles are
+written into it with ffmpeg, for players that can't play them beside it. Off,
+they are placed beside the video. See [Merging](./naming.md#merging).
+
 ## `files.ffprobe`
 
 The `ffprobe` that reads a file's codecs, resolution, length and subtitles:
 its name on the `PATH`, or a path to it. The Docker image and the Nix package
 include it. Without it, file details show *Not read yet*; read them later
 with [`yokoku files probe`](../cli/files.md).
+
+## `files.ffmpeg`
+
+The `ffmpeg` that merges external tracks into videos: its name on the `PATH`,
+or a path to it. The Docker image and the Nix package include it.

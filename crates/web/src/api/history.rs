@@ -281,7 +281,8 @@ mod server {
     }
 
     /// The parts showing `file`: its path, after the name of the download file it came from, then what
-    /// follows its own name in the names of the files placed beside it.
+    /// follows its own name in the names of the files placed beside it, and the download files merged
+    /// into it.
     fn file_parts(file: &LinkedFile, from: Option<&ImportedFrom>) -> Vec<Part> {
         let Some(from) = from else { return vec![path(&file.path)] };
         let source = from.source.file_name().map_or(from.source.as_path(), Path::new);
@@ -296,9 +297,22 @@ mod server {
                     name.strip_prefix(stem.as_ref()).unwrap_or(&name).to_owned()
                 })
                 .collect();
-            let count = if names.len() == 1 { "1 file".to_owned() } else { format!("{} files", names.len()) };
-            line.extend([text(format!(" and {count} beside it: ")), Part::Path(names.join(", "))]);
+            line.extend([text(format!(" and {} beside it: ", files_count(names.len()))), Part::Path(names.join(", "))]);
+        }
+        if !from.merged.is_empty() {
+            let folder = from.source.parent().unwrap_or(Path::new(""));
+            let names: Vec<String> = from
+                .merged
+                .iter()
+                .map(|merged| merged.strip_prefix(folder).unwrap_or(merged).display().to_string())
+                .collect();
+            let count = files_count(names.len());
+            line.extend([text(format!(" with {count} merged in: ")), Part::Path(names.join(", "))]);
         }
         line
+    }
+
+    fn files_count(count: usize) -> String {
+        if count == 1 { "1 file".to_owned() } else { format!("{count} files") }
     }
 }
