@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.4.0](https://github.com/MrEhbr/yokoku/compare/v0.3.0..v0.4.0) - 2026-10-04
+
+### Features
+
+- **(cli)** run any scheduled job once with yokoku job - ([34bb48c](https://github.com/MrEhbr/yokoku/commit/34bb48c9818f4d537d451c40f080010efeec770a)) `+86 / -5 across 9 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 1 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 1 commit(s) parsed as conventional.
+- Diff totals: +86 / -5 across 9 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 1 day(s) since the previous release.
+
 ## [0.3.0](https://github.com/MrEhbr/yokoku/compare/v0.2.0..v0.3.0) - 2026-10-03
 
 ### Bug Fixes

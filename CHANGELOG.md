@@ -3,6 +3,31 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.4.0](https://github.com/MrEhbr/yokoku/compare/v0.3.0..v0.4.0) - 2026-10-04
+
+### Documentation
+
+- use placeholder titles in examples - ([3fccb4a](https://github.com/MrEhbr/yokoku/commit/3fccb4a7c252035a3814b3d52db59eae0392b185)) `+10 / -10 across 6 file(s)` - Aleksei Burmistrov
+
+### Features
+
+- **(cli)** run any scheduled job once with yokoku job - ([34bb48c](https://github.com/MrEhbr/yokoku/commit/34bb48c9818f4d537d451c40f080010efeec770a)) `+86 / -5 across 9 file(s)` - Aleksei Burmistrov
+- **(import)** import external audio and name sidecars after their folders - ([787d9f5](https://github.com/MrEhbr/yokoku/commit/787d9f5ea5601d0351a349e71dc98877f0b49573)) `+330 / -175 across 24 file(s)` - Aleksei Burmistrov
+- **(web)** show the title on item pages with a copy button - ([67c2a12](https://github.com/MrEhbr/yokoku/commit/67c2a12a10dcb4a706ce346d9240a5975235662d)) `+71 / -12 across 5 file(s)` - Aleksei Burmistrov
+
+### Refactoring
+
+- **(web)** toggle the theme with web-sys - ([7f247e2](https://github.com/MrEhbr/yokoku/commit/7f247e2f57f25745fa098f6963c76705e63e0eee)) `+57 / -36 across 5 file(s)` - Aleksei Burmistrov
+- **(web)** detect mobile width with a media query - ([1da0c6c](https://github.com/MrEhbr/yokoku/commit/1da0c6ccce278f7223b3b4c7d8020155ef14c285)) `+46 / -44 across 3 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 6 commit(s) contributed to the release.
+- 1 day(s) between first and last commit.
+- 6 commit(s) parsed as conventional.
+- Diff totals: +600 / -282 across 52 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 1 day(s) since the previous release.
+
 ## [0.3.0](https://github.com/MrEhbr/yokoku/compare/v0.2.1..v0.3.0) - 2026-10-03
 
 ### Bug Fixes
