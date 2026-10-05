@@ -254,7 +254,12 @@ mod server {
             NewTorrent::Magnet(_) => return Err(ServerFnError::new("Paste a link that starts with magnet:")),
             NewTorrent::File(bytes) => TorrentSource::File(bytes),
         };
-        downloads.add(&torrent, item, season).await.map(drop).map_err(|error| match error {
+        downloads.add(&torrent, item, season).await.map(drop).map_err(add_failure)
+    }
+
+    /// Why a torrent was not added, as a message for the user; unexpected errors go to the log.
+    pub(crate) fn add_failure(error: DownloadError) -> ServerFnError {
+        match error {
             DownloadError::AlreadyAdded(name) => ServerFnError::new(format!("{name} was already added")),
             DownloadError::Client(ClientError::Unavailable(_)) => {
                 ServerFnError::new("Transmission could not be reached; check that it runs and its address")
@@ -266,7 +271,7 @@ mod server {
                 error!(%error, "adding the torrent failed");
                 ServerFnError::new("The torrent could not be added; the server log has the cause")
             },
-        })
+        }
     }
 
     pub(super) async fn free_space(downloads: &Downloads, roots: &RootFolders, item: Option<ItemId>) -> FreeSpace {
