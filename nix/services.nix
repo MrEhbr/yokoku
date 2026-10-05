@@ -1,4 +1,4 @@
-# Jellyfin and Transmission for development and the integration tests: `nix run .#services` (or
+# Jellyfin, Transmission and Jackett for development and the integration tests: `nix run .#services` (or
 # `just services`) from the repository root; state under data/services.
 { inputs, ... }:
 {
@@ -12,6 +12,7 @@
       ports = {
         jellyfin = 18096;
         transmission = 19091;
+        jackett = 19117;
       };
 
       # Jellyfin without its setup wizard: the first start seeds the database, an API key and
@@ -105,6 +106,30 @@
             -T -M -O -Y -P 51419 --log-level=error
         '';
       };
+
+      # Jackett on localhost with the dev API key, seeded on the first start; indexers are added in its UI.
+      jackett-dev = pkgs.writeShellApplication {
+        name = "jackett-dev";
+        runtimeInputs = with pkgs; [
+          jackett
+          coreutils
+        ];
+        text = ''
+          state=${dir}/jackett
+          if [ ! -f "$state/ServerConfig.json" ]; then
+            mkdir -p "$state"
+            cat > "$state/ServerConfig.json" <<EOF
+          {
+            "Port": ${toString ports.jackett},
+            "AllowExternal": false,
+            "APIKey": "${apiKey}",
+            "UpdateDisabled": true
+          }
+          EOF
+          fi
+          exec jackett --NoUpdates --DataFolder "$(realpath "$state")" --Port ${toString ports.jackett}
+        '';
+      };
     in
     {
       process-compose.services = {
@@ -135,6 +160,20 @@
               failure_threshold = 60;
             };
           };
+          jackett = {
+            command = "${jackett-dev}/bin/jackett-dev";
+            availability.restart = "on_failure";
+            readiness_probe = {
+              http_get = {
+                host = "127.0.0.1";
+                port = ports.jackett;
+                path = "/health";
+              };
+              initial_delay_seconds = 5;
+              period_seconds = 2;
+              failure_threshold = 30;
+            };
+          };
           jellyfin-setup = {
             command = "${jellyfin-setup}/bin/jellyfin-setup";
             depends_on.jellyfin.condition = "process_healthy";
@@ -151,6 +190,8 @@
           export YOKOKU_TEST_JELLYFIN_URL=http://127.0.0.1:${toString ports.jellyfin}
           export YOKOKU_TEST_JELLYFIN_API_KEY=${apiKey}
           export YOKOKU_TEST_TRANSMISSION_URL=http://127.0.0.1:${toString ports.transmission}/transmission/rpc
+          export YOKOKU_TEST_JACKETT_URL=http://127.0.0.1:${toString ports.jackett}
+          export YOKOKU_TEST_JACKETT_API_KEY=${apiKey}
         '';
       };
     };
