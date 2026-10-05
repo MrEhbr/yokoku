@@ -53,6 +53,24 @@ pub(crate) struct Attr {
     pub value: String,
 }
 
+/// An indexers answer, or an `<error>` root.
+#[derive(Deserialize)]
+pub(crate) struct Indexers {
+    #[serde(rename = "@description")]
+    pub error: Option<String>,
+    #[serde(default, rename = "indexer")]
+    pub indexers: Vec<Indexer>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct Indexer {
+    #[serde(rename = "@id")]
+    pub id: String,
+    #[serde(rename = "@configured")]
+    pub configured: bool,
+    pub title: String,
+}
+
 /// A caps answer, or an `<error>` root.
 #[derive(Deserialize)]
 pub(crate) struct Caps {

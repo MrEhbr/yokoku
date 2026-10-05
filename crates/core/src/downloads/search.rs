@@ -5,7 +5,7 @@ use yokoku_domain::ItemId;
 
 use crate::downloads::{
     Download, DownloadError, Downloads,
-    ports::{Indexer, Release, ReleaseQuery},
+    ports::{Indexer, Release, ReleaseQuery, Tracker},
 };
 
 /// Finds releases on the indexer and adds the chosen one as a download.
@@ -19,8 +19,13 @@ impl ReleaseSearch {
         Self { indexer, downloads }
     }
 
+    /// The trackers a search can be narrowed to.
+    pub async fn trackers(&self) -> Result<Vec<Tracker>, DownloadError> {
+        Ok(self.indexer.trackers().await?)
+    }
+
     /// Most seeded first.
-    #[instrument(skip_all, fields(text = %query.text, kind = ?query.kind, season = ?query.season, episode = ?query.episode))]
+    #[instrument(skip_all, fields(text = %query.text, kind = ?query.kind, season = ?query.season, episode = ?query.episode, trackers = ?query.trackers))]
     pub async fn search(&self, query: &ReleaseQuery) -> Result<Vec<Release>, DownloadError> {
         let mut releases = self.indexer.search(query).await?;
         releases.sort_by_key(|release| Reverse(release.seeders));

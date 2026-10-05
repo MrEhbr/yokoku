@@ -1,5 +1,6 @@
 pub mod add_torrent;
 pub mod import_review;
+pub mod item_actions;
 mod pickers;
 pub mod remove;
 pub mod rename;

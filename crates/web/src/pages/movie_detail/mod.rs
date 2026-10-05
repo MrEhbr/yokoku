@@ -19,14 +19,10 @@ use crate::{
         item_status::{FileState, FileWatched, Lifecycle},
         load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
-        refresh_button::RefreshButton,
         skeleton::{Loaded, Skeleton},
         unrecognised_files::UnrecognisedFiles,
     },
-    dialogs::{
-        add_torrent::AddTorrentButton, import_review::ReviewButton, remove::RemoveButton, rename::RenameButton,
-        search_releases::SearchReleasesButton,
-    },
+    dialogs::{import_review::ReviewButton, item_actions::ItemActions},
     format::{date, relative, size, year},
     layout::BackButton,
     route::Route,
@@ -122,26 +118,12 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     labelled: true,
                     on_change: reload,
                 }
-                div { class: "flex flex-wrap items-center gap-2",
-                    AddTorrentButton {
-                        item: ItemLink {
-                            id: ItemId::Movie(id),
-                            title: movie.title.clone(),
-                        },
-                    }
-                    SearchReleasesButton {
-                        item: ItemLink {
-                            id: ItemId::Movie(id),
-                            title: movie.title.clone(),
-                        },
-                    }
-                    RefreshButton { item: ItemId::Movie(id), on_change: reload }
-                    RenameButton { item: ItemId::Movie(id), on_change: reload }
-                    RemoveButton {
-                        item: ItemId::Movie(id),
+                ItemActions {
+                    item: ItemLink {
+                        id: ItemId::Movie(id),
                         title: movie.title.clone(),
-                        on_change: reload,
-                    }
+                    },
+                    on_change: reload,
                 }
             }
             ItemDescription { description: movie.description.clone() }

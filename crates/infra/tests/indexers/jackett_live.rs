@@ -1,5 +1,5 @@
 use yokoku_core::downloads::ports::{Indexer, IndexerError, ReleaseQuery};
-use yokoku_domain::{Live, Secret};
+use yokoku_domain::{Live, Secret, Trackers};
 use yokoku_infra::indexers::{JackettClient, JackettSettings};
 use yokoku_test_support::services;
 
@@ -16,7 +16,8 @@ async fn jackett_answers_its_caps_and_searches() {
     let client = client(&services::jackett_api_key());
 
     assert_eq!(client.version().await.unwrap(), "Jackett");
-    let query = ReleaseQuery { text: "Dune".into(), kind: None, season: None, episode: None };
+    client.trackers().await.unwrap();
+    let query = ReleaseQuery { text: "Dune".into(), kind: None, season: None, episode: None, trackers: Trackers::All };
     client.search(&query).await.unwrap();
 }
 

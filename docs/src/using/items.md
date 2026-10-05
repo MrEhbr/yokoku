@@ -3,7 +3,7 @@
 Each series and movie has a page with its details, files and history. The
 actions sit under the title: **Monitored**, **Numbering** (series only),
 **Add torrent**, **Search releases**, **Refresh**, **Rename files…** and
-**Remove…**.
+**Remove…**. On a phone, the last three are in the **⋯** menu.
 
 ## Series
 

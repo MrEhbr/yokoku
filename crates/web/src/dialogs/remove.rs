@@ -21,14 +21,12 @@ use crate::{
     route::Route,
 };
 
-/// A "Remove…" button: deletes the chosen files of the item, or removes it from the library after
+/// While `open`, deletes the chosen files of the item, or removes it from the library after
 /// deleting the chosen ones, its other files staying on disk. `on_change` runs
 /// after files of an item that stays are deleted; the Library opens once the item is removed.
 #[component]
-pub fn RemoveButton(item: ItemId, title: String, on_change: Callback) -> Element {
-    let mut open = use_signal(|| false);
+pub fn RemoveDialog(item: ItemId, title: String, mut open: Signal<bool>, on_change: Callback) -> Element {
     rsx! {
-        Button { variant: ButtonVariant::Danger, onclick: move |_| open.set(true), "Remove…" }
         ClosableDialog { title: "Remove or delete files", open, wide: true,
             if open() {
                 Files {

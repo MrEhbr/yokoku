@@ -32,6 +32,12 @@ something else, like the original title. For a series, **Season** narrows it
 to one season. Every category is searched, since trackers often file
 releases under the wrong one.
 
+With more than one tracker in Jackett, **Trackers** picks where to search,
+every tracker at first. A search waits for its slowest tracker, like an
+anime tracker that takes seconds to answer; leave it out to get the others'
+results sooner. The picked trackers are searched at once, and one that fails
+leaves the others' results.
+
 Results come most seeded first, with their size, seeders, leechers, age and
 tracker. **Downloads**, how often a release was downloaded, shows when a
 tracker in the results counts it; Rutor doesn't. Click a column heading to

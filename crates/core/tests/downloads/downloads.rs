@@ -11,13 +11,13 @@ use yokoku_core::{
         Download, DownloadError, DownloadOptions, DownloadState, Downloads, ReleaseSearch, TorrentStatus,
         ports::{
             AddedTorrent, ClientError, DownloadClient, Indexer, IndexerError, LABEL, Release, ReleaseQuery, Torrent,
-            TorrentSource,
+            TorrentSource, Tracker,
         },
     },
     events::{EventLog, Handler, QueueChanges},
 };
 use yokoku_domain::{
-    Clock, DiskSpace, DownloadId, ImportId, ItemId, Live, MediaKind, MovieId, SeriesId,
+    Clock, DiskSpace, DownloadId, ImportId, ItemId, Live, MediaKind, MovieId, SeriesId, Trackers,
     events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
 };
 use yokoku_infra::db::Database;
@@ -528,6 +528,10 @@ impl Indexer for ScriptedIndexer {
         Ok("Jackett".into())
     }
 
+    async fn trackers(&self) -> Result<Vec<Tracker>, IndexerError> {
+        Ok(vec![Tracker { id: "rutor".parse().unwrap(), name: "RuTor".into() }])
+    }
+
     async fn search(&self, _query: &ReleaseQuery) -> Result<Vec<Release>, IndexerError> {
         Ok(self.releases.clone())
     }
@@ -552,7 +556,13 @@ fn release(title: &str, seeders: Option<u32>) -> Release {
 }
 
 fn query() -> ReleaseQuery {
-    ReleaseQuery { text: "Dune".into(), kind: Some(MediaKind::Movie), season: None, episode: None }
+    ReleaseQuery {
+        text: "Dune".into(),
+        kind: Some(MediaKind::Movie),
+        season: None,
+        episode: None,
+        trackers: Trackers::All,
+    }
 }
 
 #[tokio::test]

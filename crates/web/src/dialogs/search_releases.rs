@@ -3,20 +3,20 @@ use std::cmp::Ordering;
 use dioxus::prelude::*;
 use frizbee::{Config, Matcher};
 use jiff::civil::Date;
-use yokoku_domain::{ItemId, SeriesId};
+use yokoku_domain::{ItemId, SeriesId, TrackerId, TrackerSet, Trackers};
 
 use crate::{
     api::{
         downloads::ItemLink,
         failure,
-        releases::{Found, ReleaseEntry, grab_release, search_releases},
+        releases::{Found, ReleaseEntry, TrackerEntry, grab_release, release_trackers, search_releases},
     },
     components::{
         button::{Button, ButtonSize, ButtonVariant},
-        field::{Field, FieldHint},
+        field::{Field, FieldError, FieldHint},
         input::Input,
         label::Label,
-        select::{Select, SelectOption},
+        select::{Select, SelectMulti, SelectOption},
         skeleton::Skeleton,
         spinner::Spinner,
         table::{SortDirection, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead},
@@ -48,12 +48,23 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
     let season = use_signal(|| None::<u16>);
     let mut searching = use_signal(|| false);
     let mut found = use_signal(|| None::<Result<Found, String>>);
+    let listed = use_resource(release_trackers);
+    let picked = use_signal(|| None::<Vec<TrackerId>>);
+    let trackers = use_memo(move || {
+        let listed = listed.read();
+        let every = listed.as_ref().and_then(|listed| listed.as_ref().ok()).map_or(0, Vec::len);
+        match picked() {
+            Some(ids) if ids.len() < every => TrackerSet::new(ids).map(Trackers::Only),
+            _ => Some(Trackers::All),
+        }
+    });
     let id = item.id;
     let search = move |event: FormEvent| async move {
         event.prevent_default();
+        let Some(trackers) = trackers() else { return };
         searching.set(true);
         found.set(None);
-        let result = search_releases(text(), Some(id), season()).await;
+        let result = search_releases(text(), Some(id), season(), trackers).await;
         found.set(Some(result.map_err(|error| failure(&error))));
         searching.set(false);
     };
@@ -72,7 +83,7 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
                     Button {
                         r#type: "submit",
                         variant: ButtonVariant::Primary,
-                        disabled: searching(),
+                        disabled: searching() || trackers().is_none(),
                         aria_busy: searching(),
                         "Search"
                     }
@@ -81,11 +92,16 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
             if let Some(series) = id.series() {
                 SeasonField { series, season }
             }
+            if let Some(Ok(trackers)) = &*listed.read()
+                && trackers.len() > 1
+            {
+                TrackerField { trackers: trackers.clone(), picked }
+            }
         }
         div { aria_live: "polite",
             match found() {
                 None if searching() => rsx! {
-                    Searching {}
+                    Searching { every: trackers() == Some(Trackers::All) }
                 },
                 None => rsx! {},
                 Some(Err(message)) => rsx! {
@@ -102,9 +118,46 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
 /// Seconds after which the wait for slow trackers is explained.
 const SLOW_SEARCH: u32 = 10;
 
-/// How long the search has taken so far, over placeholder rows shaped like the results.
+/// Which of `trackers` to search; `picked` stays `None`, every tracker, until changed.
 #[component]
-fn Searching() -> Element {
+fn TrackerField(trackers: Vec<TrackerEntry>, mut picked: Signal<Option<Vec<TrackerId>>>) -> Element {
+    let every: Vec<TrackerId> = trackers.iter().map(|tracker| tracker.id.clone()).collect();
+    let values = use_memo(move || Some(picked().unwrap_or_else(|| every.clone())));
+    let none = values().is_some_and(|values| values.is_empty());
+    rsx! {
+        Field {
+            Label { html_for: "release-trackers", "Trackers" }
+            SelectMulti::<TrackerId> {
+                id: "release-trackers",
+                aria_describedby: "release-trackers-hint",
+                values,
+                placeholder: "No tracker",
+                on_values_change: move |next: Vec<TrackerId>| picked.set(Some(next)),
+                for (index, tracker) in trackers.into_iter().enumerate() {
+                    SelectOption::<TrackerId> {
+                        key: "{tracker.id}",
+                        index,
+                        value: tracker.id,
+                        text_value: tracker.name.clone(),
+                        "{tracker.name}"
+                    }
+                }
+            }
+            if none {
+                FieldError { id: "release-trackers-hint", "Pick a tracker to search." }
+            } else {
+                FieldHint { id: "release-trackers-hint",
+                    "A search waits for its slowest tracker; leave a slow one out to get the others' results sooner."
+                }
+            }
+        }
+    }
+}
+
+/// How long the search has taken so far, over placeholder rows shaped like the results; `every`
+/// when it searches every tracker.
+#[component]
+fn Searching(every: bool) -> Element {
     let seconds = use_signal(|| 0u32);
     #[cfg(target_arch = "wasm32")]
     use_future(move || {
@@ -119,7 +172,11 @@ fn Searching() -> Element {
     rsx! {
         p { class: "flex items-center gap-2 text-muted",
             Spinner { label: "Searching" }
-            "Searching every tracker in Jackett…"
+            if every {
+                "Searching every tracker in Jackett…"
+            } else {
+                "Searching the tracker…"
+            }
             if seconds() > 0 {
                 span { class: "tabular-nums", "{seconds} s" }
             }
@@ -133,11 +190,12 @@ fn Searching() -> Element {
                     div { class: "flex flex-1 flex-col gap-2",
                         Skeleton { class: "h-4 w-full max-w-xl" }
                         Skeleton { class: "h-3 w-40 sm:hidden" }
+                        Skeleton { class: "h-8 w-24 sm:hidden" }
                     }
                     Skeleton { class: "hidden h-4 w-16 sm:block" }
                     Skeleton { class: "hidden h-4 w-10 sm:block" }
                     Skeleton { class: "hidden h-4 w-20 sm:block" }
-                    Skeleton { class: "h-8 w-24" }
+                    Skeleton { class: "hidden h-8 w-24 sm:block" }
                 }
             }
         }
@@ -332,7 +390,7 @@ fn Releases(found: Found, item: ItemId, season: Option<u16>, on_close: Callback)
     let picked = use_memo(move || Some(sort()));
     rsx! {
         div { class: "flex flex-wrap items-start gap-2",
-            p { class: "mr-auto text-caption text-muted sm:py-2.5",
+            p { class: "mr-auto text-caption text-muted max-sm:order-last sm:self-end",
                 if count == total {
                     {plural(total, "release", "releases")}
                 } else {
@@ -378,7 +436,7 @@ fn Releases(found: Found, item: ItemId, season: Option<u16>, on_close: Callback)
         Table {
             class: if counted { "table-fixed sm:min-w-[56rem]" } else { "table-fixed sm:min-w-[50rem]" },
             aria_label: "Releases",
-            TableHeader {
+            TableHeader { class: "max-sm:hidden",
                 TableRow {
                     {head("Title", Column::Title, "")}
                     {head("Size", Column::Size, "hidden w-24 sm:table-cell")}
@@ -389,7 +447,7 @@ fn Releases(found: Found, item: ItemId, season: Option<u16>, on_close: Callback)
                     }
                     {head("Age", Column::Age, "hidden w-28 sm:table-cell")}
                     TableHead { class: "hidden w-32 sm:table-cell", "Tracker" }
-                    TableHead { class: "w-28",
+                    TableHead { class: "hidden w-28 sm:table-cell",
                         span { class: "sr-only", "Download" }
                     }
                 }
@@ -417,7 +475,8 @@ fn Releases(found: Found, item: ItemId, season: Option<u16>, on_close: Callback)
 }
 
 /// One release, with what it is, how well seeded and how old; `busy` holds the link being
-/// downloaded. `counted` shows its downloads, for results where a tracker counts them.
+/// downloaded. `counted` shows its downloads, for results where a tracker counts them. Below `sm`
+/// its download button sits under the facts instead of in its own column.
 #[component]
 fn Release(
     release: ReleaseEntry,
@@ -429,23 +488,14 @@ fn Release(
     error: Signal<Option<String>>,
     on_close: Callback,
 ) -> Element {
-    let link = release.link.clone();
-    let downloading = busy().as_ref() == Some(&release.link);
-    let download = move |_| {
-        let link = link.clone();
-        async move {
-            busy.set(Some(link.clone()));
-            error.set(None);
-            match grab_release(link, Some(item), season).await {
-                Ok(()) => {
-                    on_close(());
-                    navigator().push(Route::Downloads {});
-                },
-                Err(failed) => {
-                    error.set(Some(failure(&failed)));
-                    busy.set(None);
-                },
-            }
+    let button = rsx! {
+        DownloadButton {
+            link: release.link.clone(),
+            item,
+            season,
+            busy,
+            error,
+            on_close,
         }
     };
     let age = release.published.map(|published| relative(published, today));
@@ -482,6 +532,7 @@ fn Release(
                         span { "{release.tracker}" }
                     }
                 }
+                div { class: "mt-2 sm:hidden", {button.clone()} }
             }
             TableCell { class: "hidden tabular-nums whitespace-nowrap sm:table-cell", "{size(release.size)}" }
             TableCell { class: "hidden tabular-nums sm:table-cell", "{count(release.seeders)}" }
@@ -491,15 +542,47 @@ fn Release(
             }
             TableCell { class: "hidden whitespace-nowrap sm:table-cell", {age.unwrap_or_else(|| "—".to_owned())} }
             TableCell { class: "hidden truncate sm:table-cell", title: "{release.tracker}", "{release.tracker}" }
-            TableCell {
-                Button {
-                    size: ButtonSize::Sm,
-                    disabled: busy().is_some(),
-                    aria_busy: downloading,
-                    onclick: download,
-                    "Download"
-                }
+            TableCell { class: "hidden sm:table-cell", {button} }
+        }
+    }
+}
+
+/// Adds the release at `link` for `item`, then opens the Downloads page; `busy` holds the link
+/// being downloaded, which disables every download button.
+#[component]
+fn DownloadButton(
+    link: String,
+    item: ItemId,
+    season: Option<u16>,
+    busy: Signal<Option<String>>,
+    error: Signal<Option<String>>,
+    on_close: Callback,
+) -> Element {
+    let downloading = busy().as_ref() == Some(&link);
+    let download = move |_| {
+        let link = link.clone();
+        async move {
+            busy.set(Some(link.clone()));
+            error.set(None);
+            match grab_release(link, Some(item), season).await {
+                Ok(()) => {
+                    on_close(());
+                    navigator().push(Route::Downloads {});
+                },
+                Err(failed) => {
+                    error.set(Some(failure(&failed)));
+                    busy.set(None);
+                },
             }
+        }
+    };
+    rsx! {
+        Button {
+            size: ButtonSize::Sm,
+            disabled: busy().is_some(),
+            aria_busy: downloading,
+            onclick: download,
+            "Download"
         }
     }
 }

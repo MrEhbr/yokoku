@@ -1,18 +1,20 @@
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+use futures_util::future::join_all;
 use reqwest::{StatusCode, Url, header::LOCATION, redirect};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use tracing::debug;
-use yokoku_core::downloads::ports::{Indexer, IndexerError, Release, ReleaseQuery, TorrentSource};
-use yokoku_domain::{Live, MediaKind, Secret};
+use tracing::{debug, warn};
+use yokoku_core::downloads::ports::{Indexer, IndexerError, Release, ReleaseQuery, TorrentSource, Tracker};
+use yokoku_domain::{Live, MediaKind, Secret, TrackerId, Trackers};
 
 use crate::indexers::torznab_wire as wire;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// Jackett answers once every tracker it searches has answered or timed out.
 const TIMEOUT: Duration = Duration::from_secs(60);
-const TORZNAB: &str = "/api/v2.0/indexers/all/results/torznab/api";
+/// The Torznab feed that searches every configured tracker.
+const ALL: &str = "all";
 /// The query parameter of a Jackett download link that carries the API key.
 const LINK_KEY: &str = "jackett_apikey";
 const MAX_REDIRECTS: usize = 5;
@@ -26,7 +28,8 @@ pub struct JackettSettings {
     pub api_key: Option<Secret>,
 }
 
-/// Searches every tracker configured in Jackett through its aggregate Torznab feed.
+/// Searches the trackers configured in Jackett: all through its aggregate Torznab feed, or chosen
+/// ones through their own feeds at once.
 pub struct JackettClient {
     http: reqwest::Client,
     settings: Live<JackettSettings>,
@@ -64,32 +67,60 @@ impl JackettClient {
         Ok((url, settings.api_key.as_ref().map_or("", Secret::expose).to_owned()))
     }
 
-    /// A Torznab call with `params`, as `T`; an `<error>` answer is `Refused`.
-    async fn torznab<T: DeserializeOwned>(&self, params: &[(&str, String)]) -> Result<T, IndexerError> {
+    /// A call to the Torznab feed of `tracker`, or of every tracker without one, with `params`, as `T`.
+    async fn torznab<T: DeserializeOwned>(
+        &self,
+        tracker: Option<&TrackerId>,
+        params: &[(&str, String)],
+    ) -> Result<T, IndexerError> {
         let (url, api_key) = self.server()?;
+        let feed = tracker.map_or(ALL, TrackerId::as_str);
         let started = Instant::now();
         let response = self
             .http
-            .get(format!("{url}{TORZNAB}"))
+            .get(format!("{url}/api/v2.0/indexers/{feed}/results/torznab/api"))
             .query(&[("apikey", api_key)])
             .query(params)
             .send()
             .await
             .map_err(|error| IndexerError::Unavailable(error.into()))?;
         let status = response.status();
-        debug!(status = status.as_u16(), elapsed_ms = started.elapsed().as_millis(), "Jackett search");
+        debug!(feed, status = status.as_u16(), elapsed_ms = started.elapsed().as_millis(), "Jackett search");
         if !status.is_success() {
             return Err(IndexerError::Unavailable(format!("HTTP {status}").into()));
         }
         let body = response.text().await.map_err(|error| IndexerError::Unavailable(error.into()))?;
         quick_xml::de::from_str(&body).map_err(|error| IndexerError::Unavailable(error.into()))
     }
+
+    /// The releases `tracker`, or every tracker without one, finds with `params`; `searches` names
+    /// the search in an error.
+    async fn releases(
+        &self,
+        tracker: Option<&TrackerId>,
+        params: &[(&str, String)],
+        searches: &str,
+    ) -> Result<Vec<Release>, IndexerError> {
+        let feed: wire::Feed = self.torznab(tracker, params).await?;
+        match (feed.code, feed.error, tracker) {
+            (Some(UNSUPPORTED), _, None) => {
+                return Err(IndexerError::Refused(format!("no tracker added in Jackett supports {searches}")));
+            },
+            (Some(UNSUPPORTED), _, Some(tracker)) => {
+                return Err(IndexerError::Refused(format!("{tracker} doesn't support {searches}")));
+            },
+            (_, Some(error), _) => return Err(IndexerError::Refused(error)),
+            _ => {},
+        }
+        let items = feed.channel.map(|channel| channel.items).unwrap_or_default();
+        Ok(items.into_iter().filter_map(|item| Release::try_from(item).ok()).collect())
+    }
 }
 
 #[async_trait]
 impl Indexer for JackettClient {
     async fn version(&self) -> Result<String, IndexerError> {
-        let caps: wire::Caps = self.torznab(&[("t", "caps".to_owned())]).await?;
+        let caps: wire::Caps = self.torznab(None, &[("t", "caps".to_owned())]).await?;
         if let Some(error) = caps.error {
             return Err(IndexerError::Refused(error));
         }
@@ -110,16 +141,49 @@ impl Indexer for JackettClient {
             params.extend(query.season.map(|season| ("season", season.to_string())));
             params.extend(query.season.and(query.episode).map(|episode| ("ep", episode.to_string())));
         }
-        let feed: wire::Feed = self.torznab(&params).await?;
-        match (feed.code, feed.error) {
-            (Some(UNSUPPORTED), _) => {
-                return Err(IndexerError::Refused(format!("no tracker added in Jackett supports {searches}")));
-            },
-            (_, Some(error)) => return Err(IndexerError::Refused(error)),
-            _ => {},
+        let chosen = match &query.trackers {
+            Trackers::All => return self.releases(None, &params, searches).await,
+            Trackers::Only(set) => set.ids(),
+        };
+        let searched = join_all(chosen.iter().map(|tracker| self.releases(Some(tracker), &params, searches))).await;
+        let mut releases = Vec::new();
+        let mut failed = 0;
+        let mut last_error = None;
+        for (tracker, result) in chosen.iter().zip(searched) {
+            match result {
+                Ok(found) => releases.extend(found),
+                Err(error) => {
+                    warn!(%tracker, %error, "a tracker search failed; the other trackers' releases are kept");
+                    failed += 1;
+                    last_error = Some(error);
+                },
+            }
         }
-        let items = feed.channel.map(|channel| channel.items).unwrap_or_default();
-        Ok(items.into_iter().filter_map(|item| Release::try_from(item).ok()).collect())
+        match last_error {
+            Some(error) if failed == chosen.len() => Err(error),
+            _ => Ok(releases),
+        }
+    }
+
+    /// The configured trackers; one whose id is not a [`TrackerId`] is left out.
+    async fn trackers(&self) -> Result<Vec<Tracker>, IndexerError> {
+        let params = [("t", "indexers".to_owned()), ("configured", "true".to_owned())];
+        let listed: wire::Indexers = self.torznab(None, &params).await?;
+        if let Some(error) = listed.error {
+            return Err(IndexerError::Refused(error));
+        }
+        Ok(listed
+            .indexers
+            .into_iter()
+            .filter(|indexer| indexer.configured)
+            .filter_map(|indexer| match TrackerId::try_from(indexer.id) {
+                Ok(id) => Some(Tracker { id, name: indexer.title }),
+                Err(error) => {
+                    warn!(%error, "a Jackett tracker is left out");
+                    None
+                },
+            })
+            .collect())
     }
 
     async fn fetch(&self, link: &str) -> Result<TorrentSource, IndexerError> {

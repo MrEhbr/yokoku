@@ -6363,6 +6363,7 @@ version = "0.6.1"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
+ "futures-util",
  "governor",
  "isolang",
  "jiff",

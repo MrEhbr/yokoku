@@ -22,14 +22,10 @@ use crate::{
         item_status::{Lifecycle, SeriesWatched},
         load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
-        refresh_button::RefreshButton,
         skeleton::{Loaded, Skeleton},
         unrecognised_files::UnrecognisedFiles,
     },
-    dialogs::{
-        add_torrent::AddTorrentButton, import_review::ReviewButton, remove::RemoveButton, rename::RenameButton,
-        search_releases::SearchReleasesButton,
-    },
+    dialogs::{import_review::ReviewButton, item_actions::ItemActions},
     format::{size, year},
     layout::BackButton,
     route::Route,
@@ -139,26 +135,12 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     numbering: series.numbering,
                     on_change: reload,
                 }
-                div { class: "flex flex-wrap items-center gap-2",
-                    AddTorrentButton {
-                        item: ItemLink {
-                            id: ItemId::Series(id),
-                            title: series.title.clone(),
-                        },
-                    }
-                    SearchReleasesButton {
-                        item: ItemLink {
-                            id: ItemId::Series(id),
-                            title: series.title.clone(),
-                        },
-                    }
-                    RefreshButton { item: ItemId::Series(id), on_change: reload }
-                    RenameButton { item: ItemId::Series(id), on_change: reload }
-                    RemoveButton {
-                        item: ItemId::Series(id),
+                ItemActions {
+                    item: ItemLink {
+                        id: ItemId::Series(id),
                         title: series.title.clone(),
-                        on_change: reload,
-                    }
+                    },
+                    on_change: reload,
                 }
             }
             div { class: "mt-2 grid gap-3 lg:grid-cols-2",

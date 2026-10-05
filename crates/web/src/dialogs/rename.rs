@@ -18,13 +18,10 @@ use crate::{
     dialogs::ClosableDialog,
 };
 
-/// A "Rename files…" button that previews and renames the item's files and calls
-/// `on_change` after a rename.
+/// Previews and renames the item's files while `open`, and calls `on_change` after a rename.
 #[component]
-pub fn RenameButton(item: ItemId, on_change: Callback) -> Element {
-    let mut open = use_signal(|| false);
+pub fn RenameDialog(item: ItemId, mut open: Signal<bool>, on_change: Callback) -> Element {
     rsx! {
-        Button { onclick: move |_| open.set(true), "Rename files…" }
         ClosableDialog { title: "Rename files", open,
             DialogDescription { "Files move to the names the naming patterns give them, inside the item's folder." }
             if open() {

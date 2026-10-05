@@ -2,7 +2,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 use jiff::Timestamp;
-use yokoku_domain::{DiskSpace, DownloadId, MediaKind, StorageError};
+use yokoku_domain::{DiskSpace, DownloadId, MediaKind, StorageError, TrackerId, Trackers};
 
 use crate::downloads::{Download, TorrentStatus};
 
@@ -71,6 +71,9 @@ pub trait Indexer: Send + Sync {
     /// The indexer's name and version; fails when it cannot be reached.
     async fn version(&self) -> Result<String, IndexerError>;
 
+    /// The trackers it searches.
+    async fn trackers(&self) -> Result<Vec<Tracker>, IndexerError>;
+
     async fn search(&self, query: &ReleaseQuery) -> Result<Vec<Release>, IndexerError>;
 
     /// The torrent a release's `link` leads to.
@@ -86,6 +89,13 @@ pub struct ReleaseQuery {
     pub season: Option<u16>,
     /// For a series, with `season`.
     pub episode: Option<u16>,
+    pub trackers: Trackers,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tracker {
+    pub id: TrackerId,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

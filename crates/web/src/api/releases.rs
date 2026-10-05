@@ -5,7 +5,7 @@ use jiff::civil::Date;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "server")]
 use yokoku_domain::Clock;
-use yokoku_domain::ItemId;
+use yokoku_domain::{ItemId, TrackerId, Trackers};
 
 #[cfg(feature = "server")]
 use crate::api::{Dep, ReleaseSearch};
@@ -34,11 +34,29 @@ pub struct ReleaseEntry {
     pub details: Option<String>,
 }
 
-/// Searches the indexer for `text`, in the categories of `item` when given; for a series,
+/// A tracker a search can be narrowed to.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TrackerEntry {
+    pub id: TrackerId,
+    pub name: String,
+}
+
+/// The trackers the indexer searches, by name.
+#[get("/api/releases/trackers", search: Dep<ReleaseSearch>)]
+pub async fn release_trackers() -> Result<Vec<TrackerEntry>, ServerFnError> {
+    server::trackers(&search).await
+}
+
+/// Searches `trackers` for `text`, the search kind following `item` when given; for a series,
 /// `season` narrows it.
 #[post("/api/releases/search", search: Dep<ReleaseSearch>, clock: Dep<dyn Clock>)]
-pub async fn search_releases(text: String, item: Option<ItemId>, season: Option<u16>) -> Result<Found, ServerFnError> {
-    server::search(&search, &*clock, text, item, season).await
+pub async fn search_releases(
+    text: String,
+    item: Option<ItemId>,
+    season: Option<u16>,
+    trackers: Trackers,
+) -> Result<Found, ServerFnError> {
+    server::search(&search, &*clock, text, item, season, trackers).await
 }
 
 /// Adds the release at `link` as `add_torrent` does.
@@ -54,10 +72,18 @@ mod server {
         DownloadError, ReleaseSearch,
         ports::{IndexerError, Release, ReleaseQuery},
     };
-    use yokoku_domain::{Clock, ItemId, MediaKind};
+    use yokoku_domain::{Clock, ItemId, MediaKind, Trackers};
 
-    use super::{Found, ReleaseEntry};
+    use super::{Found, ReleaseEntry, TrackerEntry};
     use crate::api::{downloads::add_failure, unexpected};
+
+    pub(super) async fn trackers(search: &ReleaseSearch) -> Result<Vec<TrackerEntry>, ServerFnError> {
+        let trackers = search.trackers().await.map_err(|error| failure(error, "listing trackers"))?;
+        let mut entries: Vec<TrackerEntry> =
+            trackers.into_iter().map(|tracker| TrackerEntry { id: tracker.id, name: tracker.name }).collect();
+        entries.sort_by_key(|entry| entry.name.to_lowercase());
+        Ok(entries)
+    }
 
     pub(super) async fn search(
         search: &ReleaseSearch,
@@ -65,6 +91,7 @@ mod server {
         text: String,
         item: Option<ItemId>,
         season: Option<u16>,
+        trackers: Trackers,
     ) -> Result<Found, ServerFnError> {
         let text = text.trim().to_owned();
         if text.is_empty() {
@@ -72,7 +99,7 @@ mod server {
         }
         let kind = item.map(ItemId::kind);
         let season = season.filter(|_| kind == Some(MediaKind::Series));
-        let query = ReleaseQuery { text, kind, season, episode: None };
+        let query = ReleaseQuery { text, kind, season, episode: None, trackers };
         let releases = search.search(&query).await.map_err(|error| failure(error, "searching releases"))?;
         let now = clock.now();
         let zone = now.time_zone().clone();

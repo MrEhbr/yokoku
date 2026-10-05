@@ -12,6 +12,7 @@ mod ports;
 mod secret;
 mod series;
 mod string_enum;
+mod tracker;
 
 pub use disk::DiskSpace;
 pub use id::{CorrelationId, DownloadId, EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
@@ -29,3 +30,4 @@ pub use series::{
     SourceStatus,
 };
 pub use string_enum::ParseEnumError;
+pub use tracker::{EmptyTrackerSet, InvalidTrackerId, TrackerId, TrackerSet, Trackers};

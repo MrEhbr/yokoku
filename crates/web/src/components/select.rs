@@ -23,6 +23,14 @@ pub(super) const CONTAIN_ESCAPE: &str = r#"if (!window.ykSelectEscape) {
   });
 }"#;
 
+const TRIGGER: &str = "flex min-h-9 w-full cursor-pointer items-center justify-between gap-2 border border-control \
+                       bg-surface py-1.5 pr-2 pl-2 text-left text-body text-ink transition-colors \
+                       group-data-[disabled=true]:cursor-not-allowed group-data-[disabled=true]:bg-subtle \
+                       group-data-[disabled=true]:text-muted";
+const LIST: &str = "absolute top-full left-0 z-50 mt-1 max-h-80 min-w-full overflow-auto border border-control \
+                    bg-surface py-1 text-ink shadow-popover \
+                    data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out";
+
 /// A single-choice picker over typed values: `on_value_change` receives the chosen `T`.
 ///
 /// Controlled with `value`, or uncontrolled with `default_value`. `placeholder` shows while
@@ -52,10 +60,7 @@ pub fn Select<T: Clone + PartialEq + 'static>(
             disabled,
             name,
             attributes: merged,
-            select::SelectTrigger { class: "flex min-h-9 w-full cursor-pointer items-center justify-between gap-2 border border-control \
-                        bg-surface py-1.5 pr-2 pl-2 text-left text-body text-ink transition-colors \
-                        group-data-[disabled=true]:cursor-not-allowed group-data-[disabled=true]:bg-subtle \
-                        group-data-[disabled=true]:text-muted",
+            select::SelectTrigger { class: TRIGGER,
                 select::SelectValue {
                     class: "truncate data-[placeholder=true]:text-muted",
                     placeholder,
@@ -65,11 +70,44 @@ pub fn Select<T: Clone + PartialEq + 'static>(
                     class: "shrink-0 text-muted transition-transform group-data-[state=open]:rotate-180",
                 }
             }
-            select::SelectList { class: "absolute top-full left-0 z-50 mt-1 max-h-80 min-w-full overflow-auto border border-control \
-                        bg-surface py-1 text-ink shadow-popover \
-                        data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out",
-                {children}
+            select::SelectList { class: LIST, {children} }
+        }
+    }
+}
+
+/// A picker of any number of typed values: `on_values_change` receives every chosen `T`, and the
+/// list stays open while choosing. The trigger shows the chosen options' text, or `placeholder`
+/// without any.
+#[component]
+pub fn SelectMulti<T: Clone + PartialEq + 'static>(
+    #[props(default)] values: ReadSignal<Option<Vec<T>>>,
+    #[props(default)] on_values_change: Callback<Vec<T>>,
+    #[props(default)] disabled: ReadSignal<bool>,
+    #[props(into, default = "Select…".to_owned())] placeholder: String,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let base = attributes!(div { class: "group relative block w-full" });
+    let merged = merge_attributes(vec![base, attributes]);
+    use_effect(|| _ = document::eval(CONTAIN_ESCAPE));
+
+    rsx! {
+        select::SelectMulti {
+            values,
+            on_values_change,
+            disabled,
+            attributes: merged,
+            select::SelectTrigger { class: TRIGGER,
+                select::SelectValue {
+                    class: "truncate data-[placeholder=true]:text-muted",
+                    placeholder,
+                }
+                ChevronDown {
+                    size: "1rem",
+                    class: "shrink-0 text-muted transition-transform group-data-[state=open]:rotate-180",
+                }
             }
+            select::SelectList { class: LIST, {children} }
         }
     }
 }
@@ -88,7 +126,7 @@ pub fn SelectGroupLabel(props: SelectGroupLabelProps) -> Element {
 pub fn SelectOption<T: Clone + PartialEq + 'static>(props: SelectOptionProps<T>) -> Element {
     let base = attributes!(div {
         class: "flex min-h-9 cursor-pointer items-center justify-between gap-2 px-3 py-2 text-body outline-none \
-                select-none aria-selected:bg-subtle aria-selected:font-medium \
+                select-none not-hover:not-focus:aria-selected:bg-subtle aria-selected:font-medium \
                 hover:bg-accent hover:text-accent-ink focus:bg-accent focus:text-accent-ink \
                 data-[disabled=true]:pointer-events-none data-[disabled=true]:text-muted",
     });
