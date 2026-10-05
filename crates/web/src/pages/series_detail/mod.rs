@@ -1,11 +1,10 @@
 mod episodes;
-mod numbering;
 mod summary;
 
 use dioxus::{core::Task, logger::tracing::warn, prelude::*};
 use yokoku_domain::{ItemId, SeriesId};
 
-use self::{episodes::SeasonItem, numbering::NumberingSelect, summary::EpisodeSummary};
+use self::{episodes::SeasonItem, summary::EpisodeSummary};
 use crate::{
     api::{
         downloads::ItemLink,
@@ -130,16 +129,12 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     labelled: true,
                     on_change: reload,
                 }
-                NumberingSelect {
-                    series: id,
-                    numbering: series.numbering,
-                    on_change: reload,
-                }
                 ItemActions {
                     item: ItemLink {
                         id: ItemId::Series(id),
                         title: series.title.clone(),
                     },
+                    numbering: series.numbering,
                     on_change: reload,
                 }
             }

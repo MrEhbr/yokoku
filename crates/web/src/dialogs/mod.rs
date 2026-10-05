@@ -1,6 +1,7 @@
 pub mod add_torrent;
 pub mod import_review;
 pub mod item_actions;
+pub mod numbering;
 mod pickers;
 pub mod remove;
 pub mod rename;

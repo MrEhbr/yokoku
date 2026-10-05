@@ -84,8 +84,8 @@ holds its hard link.
 ## Files Are Matched to the Wrong Episodes
 
 - Files named without a season, like `Show - 05.mkv`: set the series'
-  [Numbering](./using/items.md#numbering), or the **Season** when adding the
-  torrent.
+  [episode numbering](./using/items.md#episode-numbering), or the **Season**
+  when adding the torrent.
 - The source numbers episodes differently from the release: TVDB and TMDB
   orders can differ, especially for anime. Fix the matches in the review.
 

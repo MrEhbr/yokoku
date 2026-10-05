@@ -1,9 +1,10 @@
 # Series and Movie Pages
 
 Each series and movie has a page with its details, files and history. The
-actions sit under the title: **Monitored**, **Numbering** (series only),
-**Add torrent**, **Search releases**, **Refresh**, **Rename files…** and
-**Remove…**. On a phone, the last three are in the **⋯** menu.
+actions sit under the title: **Monitored**, **Add torrent**, **Search
+releases**, **Refresh**, **Episode numbering…** (series only), **Rename
+files…** and **Remove…**. On a phone, the actions after **Search releases**
+are in the **⋯** menu.
 
 ## Series
 
@@ -61,10 +62,10 @@ file names* when the names include the season.
 downloads the release you pick, the way **Add torrent** does. See
 [Jackett](../integrations/jackett.md).
 
-## Numbering
+## Episode Numbering
 
-**Numbering** tells Yokoku how to read file names that have an episode number
-but no season, like `Show - 05`:
+**Episode numbering…** sets how Yokoku reads file names that have an episode
+number but no season, like `Show - 05`, in imports from then on:
 
 **Standard · S01E02**
 :   The number is the episode within its season. With more than one season,
