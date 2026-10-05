@@ -23,7 +23,10 @@ use crate::{
         skeleton::{Loaded, Skeleton},
         unrecognised_files::UnrecognisedFiles,
     },
-    dialogs::{add_torrent::AddTorrentButton, import_review::ReviewButton, remove::RemoveButton, rename::RenameButton},
+    dialogs::{
+        add_torrent::AddTorrentButton, import_review::ReviewButton, remove::RemoveButton, rename::RenameButton,
+        search_releases::SearchReleasesButton,
+    },
     format::{date, relative, size, year},
     layout::BackButton,
     route::Route,
@@ -121,6 +124,12 @@ fn Page(movie: detail::MovieDetail) -> Element {
                 }
                 div { class: "flex flex-wrap items-center gap-2",
                     AddTorrentButton {
+                        item: ItemLink {
+                            id: ItemId::Movie(id),
+                            title: movie.title.clone(),
+                        },
+                    }
+                    SearchReleasesButton {
                         item: ItemLink {
                             id: ItemId::Movie(id),
                             title: movie.title.clone(),

@@ -142,6 +142,9 @@ pub async fn retry_import(id: ImportId) -> Result<(), ServerFnError> {
 }
 
 #[cfg(feature = "server")]
+pub(crate) use server::add_failure;
+
+#[cfg(feature = "server")]
 mod server {
     use std::{collections::HashMap, sync::Arc, time::Duration};
 

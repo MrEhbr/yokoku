@@ -8,13 +8,16 @@ use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_core::{
     downloads::{
-        Download, DownloadError, DownloadOptions, DownloadState, Downloads, TorrentStatus,
-        ports::{AddedTorrent, ClientError, DownloadClient, LABEL, Torrent, TorrentSource},
+        Download, DownloadError, DownloadOptions, DownloadState, Downloads, ReleaseSearch, TorrentStatus,
+        ports::{
+            AddedTorrent, ClientError, DownloadClient, Indexer, IndexerError, LABEL, Release, ReleaseQuery, Torrent,
+            TorrentSource,
+        },
     },
     events::{EventLog, Handler, QueueChanges},
 };
 use yokoku_domain::{
-    Clock, DiskSpace, DownloadId, ImportId, ItemId, Live, MovieId, SeriesId,
+    Clock, DiskSpace, DownloadId, ImportId, ItemId, Live, MediaKind, MovieId, SeriesId,
     events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
 };
 use yokoku_infra::db::Database;
@@ -29,6 +32,7 @@ struct ScriptedClient {
     unavailable: Mutex<bool>,
     /// `(hash, delete_data)` of each removal.
     removed: Mutex<Vec<(String, bool)>>,
+    added: Mutex<Vec<TorrentSource>>,
 }
 
 impl ScriptedClient {
@@ -65,8 +69,9 @@ impl DownloadClient for ScriptedClient {
         Ok("Transmission 4.1.3".into())
     }
 
-    async fn add(&self, _torrent: &TorrentSource) -> Result<AddedTorrent, ClientError> {
+    async fn add(&self, source: &TorrentSource) -> Result<AddedTorrent, ClientError> {
         self.check()?;
+        self.added.lock().unwrap().push(source.clone());
         let mut torrents = self.torrents.lock().unwrap();
         let torrent = torrents.entry(HASH.into()).or_insert_with(|| torrent(0, 0));
         Ok(AddedTorrent { hash: torrent.hash.clone(), name: torrent.name.clone() })
@@ -121,7 +126,7 @@ struct Setup {
     db: Database,
     client: Arc<ScriptedClient>,
     changes: QueueChanges,
-    downloads: Downloads,
+    downloads: Arc<Downloads>,
 }
 
 async fn setup() -> Setup {
@@ -133,14 +138,14 @@ async fn setup_with(options: DownloadOptions) -> Setup {
     let db = Database::open_in_memory().await.unwrap();
     let client = Arc::new(ScriptedClient::default());
     let changes = QueueChanges::new();
-    let downloads = Downloads::new(
+    let downloads = Arc::new(Downloads::new(
         Arc::new(db.clone()),
         client.clone(),
         Arc::new(TestClock::default()),
         Live::fixed(options),
         publisher(&db),
         changes.clone(),
-    );
+    ));
     Setup { _dir: dir, db, client, changes, downloads }
 }
 
@@ -508,4 +513,85 @@ async fn adding_and_syncing_are_announced() {
 
     assert!(after_add);
     assert!(watch.has_changed().unwrap());
+}
+
+/// Finds `releases` for any query; fetches the links in `torrents`.
+#[derive(Default)]
+struct ScriptedIndexer {
+    releases: Vec<Release>,
+    torrents: HashMap<String, TorrentSource>,
+}
+
+#[async_trait]
+impl Indexer for ScriptedIndexer {
+    async fn version(&self) -> Result<String, IndexerError> {
+        Ok("Jackett".into())
+    }
+
+    async fn search(&self, _query: &ReleaseQuery) -> Result<Vec<Release>, IndexerError> {
+        Ok(self.releases.clone())
+    }
+
+    async fn fetch(&self, link: &str) -> Result<TorrentSource, IndexerError> {
+        self.torrents.get(link).cloned().ok_or_else(|| IndexerError::Refused(format!("no torrent at {link}")))
+    }
+}
+
+fn release(title: &str, seeders: Option<u32>) -> Release {
+    Release {
+        title: title.into(),
+        tracker: "RuTracker.org".into(),
+        size: 1_000,
+        seeders,
+        leechers: None,
+        grabs: None,
+        published: None,
+        link: format!("http://jackett/dl/{title}"),
+        details: None,
+    }
+}
+
+fn query() -> ReleaseQuery {
+    ReleaseQuery { text: "Dune".into(), kind: Some(MediaKind::Movie), season: None, episode: None }
+}
+
+#[tokio::test]
+async fn releases_are_found_most_seeded_first() {
+    let setup = setup().await;
+    let releases = vec![release("few", Some(3)), release("unknown", None), release("many", Some(40))];
+    let search =
+        ReleaseSearch::new(Arc::new(ScriptedIndexer { releases, ..ScriptedIndexer::default() }), setup.downloads);
+
+    let found = search.search(&query()).await.unwrap();
+
+    let titles: Vec<&str> = found.iter().map(|release| release.title.as_str()).collect();
+    assert_eq!(titles, ["many", "few", "unknown"]);
+}
+
+#[tokio::test]
+async fn a_grabbed_release_is_added_with_its_item_and_season() {
+    let setup = setup().await;
+    let torrent = TorrentSource::File(b"d4:infod4:name4:Dunee".to_vec());
+    let indexer = ScriptedIndexer {
+        torrents: HashMap::from([("http://jackett/dl/dune".to_owned(), torrent.clone())]),
+        ..ScriptedIndexer::default()
+    };
+    let search = ReleaseSearch::new(Arc::new(indexer), setup.downloads.clone());
+    let item = Some(ItemId::Series(SeriesId::generate()));
+
+    let added = search.grab("http://jackett/dl/dune", item, Some(2)).await.unwrap();
+
+    assert_eq!((added.item, added.season), (item, Some(2)));
+    assert_eq!(*setup.client.added.lock().unwrap(), [torrent]);
+}
+
+#[tokio::test]
+async fn a_release_the_indexer_cannot_fetch_adds_nothing() {
+    let setup = setup().await;
+    let search = ReleaseSearch::new(Arc::new(ScriptedIndexer::default()), setup.downloads.clone());
+
+    let error = search.grab("http://jackett/dl/gone", None, None).await.unwrap_err();
+
+    assert!(matches!(error, DownloadError::Indexer(IndexerError::Refused(_))), "{error}");
+    assert!(setup.downloads.list().await.unwrap().is_empty());
 }

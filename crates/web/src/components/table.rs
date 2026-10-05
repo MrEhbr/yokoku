@@ -79,7 +79,7 @@ pub fn TableCaption(#[props(extends = GlobalAttributes)] attributes: Vec<Attribu
 }
 
 /// Where a sortable column stands; `None` while another column sorts the table.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SortDirection {
     Ascending,
     Descending,
@@ -87,14 +87,19 @@ pub enum SortDirection {
 
 /// A column header whose button sorts the table. It announces the direction with `aria-sort`.
 #[component]
-pub fn TableSortHead(label: String, direction: Option<SortDirection>, onclick: EventHandler<MouseEvent>) -> Element {
+pub fn TableSortHead(
+    label: String,
+    direction: Option<SortDirection>,
+    onclick: EventHandler<MouseEvent>,
+    #[props(default)] class: String,
+) -> Element {
     let (aria_sort, arrow) = match direction {
         Some(SortDirection::Ascending) => (Some("ascending"), "↑"),
         Some(SortDirection::Descending) => (Some("descending"), "↓"),
         None => (None, ""),
     };
     rsx! {
-        TableHead { aria_sort,
+        TableHead { class, aria_sort,
             button {
                 r#type: "button",
                 class: "inline-flex cursor-pointer items-center gap-1 hover:text-ink",

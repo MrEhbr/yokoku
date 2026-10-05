@@ -17,6 +17,7 @@ use crate::{
 #[serde(rename_all = "kebab-case")]
 pub enum Section {
     DownloadClient,
+    Indexer,
     MediaServer,
     Metadata,
     Library,
@@ -89,6 +90,7 @@ pub struct Setting {
 pub enum Connection {
     Transmission,
     Jellyfin,
+    Jackett,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

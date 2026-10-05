@@ -5,7 +5,7 @@ use tokio::{task::JoinSet, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 use yokoku_core::{
-    downloads::Downloads,
+    downloads::{Downloads, ReleaseSearch},
     events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges},
     integrations::{Rescans, WatchSync},
     library::{Artworks, Calendar, FileTracker, Library, MetadataService},
@@ -18,6 +18,7 @@ use yokoku_domain::Clock;
 use yokoku_infra::{
     db::Database,
     download_clients::TransmissionClient,
+    indexers::JackettClient,
     media_servers::JellyfinClient,
     metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient},
     system::{ArtworkFiles, FfMpeg, FfProbe, LocalFileSystem, LockFile, SystemClock},
@@ -37,6 +38,7 @@ pub struct App {
     pub reviewer: Arc<Reviewer>,
     pub renamer: Arc<Renamer>,
     pub downloads: Arc<Downloads>,
+    pub releases: Arc<ReleaseSearch>,
     pub importer: Arc<Importer>,
     pub history: Arc<History>,
     pub clock: Arc<dyn Clock>,
@@ -133,6 +135,10 @@ impl App {
                 clock.clone(),
                 events.clone(),
                 queue_changes.clone(),
+            )),
+            releases: Arc::new(ReleaseSearch::new(
+                Arc::new(JackettClient::new(settings.live(|config| config.jackett.clone()))),
+                downloads.clone(),
             )),
             downloads: downloads.clone(),
             renamer: Arc::new(Renamer::new(

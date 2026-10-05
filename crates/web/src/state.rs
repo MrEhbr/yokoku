@@ -7,7 +7,7 @@ use dioxus::server::axum::{
 };
 use tokio_util::sync::CancellationToken;
 use yokoku_core::{
-    downloads::Downloads,
+    downloads::{Downloads, ReleaseSearch},
     events::{History, QueueChanges},
     library::{Artworks, Calendar, Library, MetadataService},
     media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner},
@@ -24,6 +24,7 @@ pub struct AppState {
     pub history: Arc<History>,
     pub clock: Arc<dyn Clock>,
     pub downloads: Arc<Downloads>,
+    pub releases: Arc<ReleaseSearch>,
     pub reviewer: Arc<Reviewer>,
     pub importer: Arc<Importer>,
     pub queue_changes: Arc<QueueChanges>,
@@ -103,6 +104,7 @@ provides! {
     History => history,
     dyn Clock => clock,
     Downloads => downloads,
+    ReleaseSearch => releases,
     Reviewer => reviewer,
     Importer => importer,
     QueueChanges => queue_changes,

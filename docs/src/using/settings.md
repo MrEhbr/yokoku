@@ -27,6 +27,10 @@ value. Type a new value to replace one.
 **Download client**
 :   Transmission's RPC address, username and password.
 
+**Indexer**
+:   Jackett's address and API key, for **Search releases**. Leave the address
+    empty to not search.
+
 **Media server**
 :   Jellyfin's address, an API key and the user whose played items count as
     watched. Leave the address empty to not use Jellyfin.
@@ -60,7 +64,7 @@ value. Type a new value to replace one.
 
 ## Test a Connection
 
-**Download client** and **Media server** have **Test connection**. It tries
+**Download client**, **Indexer** and **Media server** have **Test connection**. It tries
 the values as typed, saved or not, and shows *Connected* with the server's
 version, or the error.
 

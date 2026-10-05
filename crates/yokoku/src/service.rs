@@ -22,6 +22,7 @@ pub async fn run(app: &App) -> Result<()> {
         history: app.history.clone(),
         clock: app.clock.clone(),
         downloads: app.downloads.clone(),
+        releases: app.releases.clone(),
         reviewer: app.reviewer.clone(),
         importer: app.importer.clone(),
         queue_changes: Arc::new(app.queue_changes.clone()),

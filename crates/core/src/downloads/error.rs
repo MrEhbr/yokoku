@@ -1,6 +1,6 @@
 use yokoku_domain::StorageError;
 
-use crate::downloads::ports::ClientError;
+use crate::downloads::ports::{ClientError, IndexerError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DownloadError {
@@ -8,6 +8,8 @@ pub enum DownloadError {
     AlreadyAdded(String),
     #[error(transparent)]
     Client(#[from] ClientError),
+    #[error(transparent)]
+    Indexer(#[from] IndexerError),
     #[error(transparent)]
     Storage(#[from] StorageError),
 }

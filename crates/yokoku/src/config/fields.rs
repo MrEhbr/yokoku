@@ -43,6 +43,20 @@ impl Config {
                 Control::text(""),
             ),
             Field::new(
+                Section::Indexer,
+                "jackett.url",
+                "Jackett address",
+                "Searches its trackers for releases; empty to not search.",
+                Control::text("http://localhost:9117"),
+            ),
+            Field::new(
+                Section::Indexer,
+                "jackett.api_key",
+                "API key",
+                "From the top of Jackett's dashboard.",
+                Control::Secret,
+            ),
+            Field::new(
                 Section::Metadata,
                 "metadata.tmdb.token",
                 "TMDB token",

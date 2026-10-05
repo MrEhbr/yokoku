@@ -1,5 +1,5 @@
-//! The Jellyfin and Transmission that `just services` runs for the integration tests, as the dev shell
-//! describes them.
+//! The Jellyfin, Transmission and Jackett that `just services` runs for the integration tests, as the
+//! dev shell describes them.
 
 use std::path::PathBuf;
 
@@ -33,4 +33,12 @@ pub fn transmission_url() -> String {
 /// Where Transmission saves torrents.
 pub fn transmission_downloads() -> PathBuf {
     dir().join("transmission/downloads")
+}
+
+pub fn jackett_url() -> String {
+    env("YOKOKU_TEST_JACKETT_URL")
+}
+
+pub fn jackett_api_key() -> String {
+    env("YOKOKU_TEST_JACKETT_API_KEY")
 }

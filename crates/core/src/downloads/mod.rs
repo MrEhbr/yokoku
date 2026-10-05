@@ -1,8 +1,9 @@
-//! Torrents, download client sync and seeding cleanup.
+//! Torrents, download client sync, seeding cleanup and release search.
 
 mod error;
 mod model;
 pub mod ports;
+mod search;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -13,6 +14,7 @@ use std::{
 use async_trait::async_trait;
 pub use error::DownloadError;
 pub use model::{Download, DownloadState, TorrentStatus};
+pub use search::ReleaseSearch;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
 use yokoku_domain::{

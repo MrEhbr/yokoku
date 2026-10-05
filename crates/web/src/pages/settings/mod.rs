@@ -89,6 +89,10 @@ fn Sections(settings: Vec<Setting>, part: SettingsPart) -> Element {
                     keys: keys(Section::DownloadClient),
                 }
             }
+            Group { title: "Indexer",
+                {fields(Section::Indexer)}
+                Test { connection: Connection::Jackett, keys: keys(Section::Indexer) }
+            }
             Group { title: "Media server",
                 {fields(Section::MediaServer)}
                 Test {
@@ -132,8 +136,18 @@ fn Sections(settings: Vec<Setting>, part: SettingsPart) -> Element {
 }
 
 /// The titles of the groups in `Sections`, in page order.
-const GROUPS: [&str; 9] =
-    ["Download client", "Media server", "Metadata", "Library", "Import", "Naming", "Files", "Schedules", "Server"];
+const GROUPS: [&str; 10] = [
+    "Download client",
+    "Indexer",
+    "Media server",
+    "Metadata",
+    "Library",
+    "Import",
+    "Naming",
+    "Files",
+    "Schedules",
+    "Server",
+];
 
 /// `Media server` → `media-server`.
 fn group_id(title: &str) -> String {

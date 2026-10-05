@@ -2,7 +2,8 @@
 
 Each series and movie has a page with its details, files and history. The
 actions sit under the title: **Monitored**, **Numbering** (series only),
-**Add torrent**, **Refresh**, **Rename files…** and **Remove…**.
+**Add torrent**, **Search releases**, **Refresh**, **Rename files…** and
+**Remove…**.
 
 ## Series
 
@@ -53,6 +54,12 @@ imported into this item, and the **Queue** opens.
 For a series, **Season** helps with files named without one, like
 `Show - 05.mkv`: pick the season they belong to. Leave it at *From the
 file names* when the names include the season.
+
+## Search Releases
+
+**Search releases** searches the trackers added in Jackett for this item and
+downloads the release you pick, the way **Add torrent** does. See
+[Jackett](../integrations/jackett.md).
 
 ## Numbering
 

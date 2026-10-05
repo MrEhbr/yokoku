@@ -8,6 +8,7 @@ pub(crate) mod artwork;
 pub mod downloads;
 pub mod history;
 pub mod library;
+pub mod releases;
 pub mod rename;
 pub mod review;
 pub mod settings;
@@ -17,7 +18,7 @@ use dioxus::prelude::ServerFnError;
 use {
     crate::state::{AddSettings, Dep},
     tokio_util::sync::CancellationToken,
-    yokoku_core::downloads::Downloads,
+    yokoku_core::downloads::{Downloads, ReleaseSearch},
     yokoku_core::events::{History, QueueChanges},
     yokoku_core::library::{Artworks, Calendar, Library, MetadataService},
     yokoku_core::media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner},

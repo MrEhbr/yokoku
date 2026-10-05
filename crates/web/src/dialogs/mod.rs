@@ -3,6 +3,7 @@ pub mod import_review;
 mod pickers;
 pub mod remove;
 pub mod rename;
+pub mod search_releases;
 
 use dioxus::prelude::*;
 use dioxus_icons::lucide::X;

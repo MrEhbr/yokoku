@@ -17,6 +17,7 @@ use yokoku_core::{downloads::DownloadOptions, media::ImportSettings};
 use yokoku_domain::{Secret, naming::Naming};
 use yokoku_infra::{
     download_clients::TransmissionSettings,
+    indexers::JackettSettings,
     media_servers::JellyfinSettings,
     metadata::MetadataSettings,
     system::{ClockSettings, MediaTools},
@@ -49,6 +50,7 @@ pub struct Config {
     pub events: EventsConfig,
     pub import: ImportSettings,
     pub jellyfin: JellyfinSettings,
+    pub jackett: JackettSettings,
     pub files: MediaTools,
     pub naming: Naming,
     #[serde(skip_serializing_if = "Vec::is_empty")]

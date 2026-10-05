@@ -3,11 +3,14 @@
 use async_trait::async_trait;
 use serde_json::Value;
 use yokoku_core::{
-    downloads::{DownloadError, ports::DownloadClient},
+    downloads::{
+        DownloadError,
+        ports::{DownloadClient, Indexer},
+    },
     integrations::ports::MediaServer,
 };
 use yokoku_domain::{Live, StorageError};
-use yokoku_infra::{download_clients::TransmissionClient, media_servers::JellyfinClient};
+use yokoku_infra::{download_clients::TransmissionClient, indexers::JackettClient, media_servers::JellyfinClient};
 use yokoku_web::{Connection, ConnectionTest, Field, SettingsAccess};
 
 use crate::config::{Config, Settings};
@@ -39,7 +42,7 @@ impl SettingsAccess for Settings {
     }
 }
 
-/// Reaches Transmission or Jellyfin with settings that are not stored yet.
+/// Reaches Transmission, Jellyfin or Jackett with settings that are not stored yet.
 #[async_trait]
 impl ConnectionTest for Settings {
     async fn test(&self, connection: Connection, changes: Vec<(String, Option<Value>)>) -> Result<String, String> {
@@ -51,6 +54,11 @@ impl ConnectionTest for Settings {
                 .map_err(|error| DownloadError::from(error).to_string()),
             Connection::Jellyfin if config.jellyfin.url.is_none() => Err("Set the Jellyfin address first".to_owned()),
             Connection::Jellyfin => JellyfinClient::new(Live::fixed(config.jellyfin.clone()))
+                .version()
+                .await
+                .map_err(|error| error.to_string()),
+            Connection::Jackett if config.jackett.url.is_none() => Err("Set the Jackett address first".to_owned()),
+            Connection::Jackett => JackettClient::new(Live::fixed(config.jackett.clone()))
                 .version()
                 .await
                 .map_err(|error| error.to_string()),

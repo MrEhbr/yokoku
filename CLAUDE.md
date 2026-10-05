@@ -30,9 +30,9 @@ just web add <component>...    # vendor a Dioxus component at the pinned dioxus-
 ```
 
 Integration tests are `#[ignore]`d and run against shared services from `just services` (Jellyfin on
-:18096, Transmission on :19091, state in `data/services`), plus real TMDB/TVDB and ffprobe. Export the
-`YOKOKU__JELLYFIN__*`, `YOKOKU__TRANSMISSION__URL` and `YOKOKU__METADATA__TMDB__TOKEN` variables listed in
-CONTRIBUTING.md, then `just test-integration [filter]`.
+:18096, Transmission on :19091, Jackett on :19117, state in `data/services`), plus real TMDB/TVDB and
+ffprobe. Export the `YOKOKU__JELLYFIN__*`, `YOKOKU__TRANSMISSION__URL`, `YOKOKU__JACKETT__*` and
+`YOKOKU__METADATA__TMDB__TOKEN` variables listed in CONTRIBUTING.md, then `just test-integration [filter]`.
 
 Pre-commit (prek) runs fmt, clippy and the full nextest suite; CI also runs `typos`, `cargo deny` and
 `cargo shear` (unused dependencies).
@@ -47,8 +47,8 @@ Six crates under `crates/`, layered strictly inward:
   (`library`, `downloads`, `media`, `integrations`, `events`). Each module declares its own `ports.rs`
   traits; use cases take `Arc<dyn Port>`.
 - `infra` — adapters implementing those ports: SQLite via sqlx (runtime queries, migrations in
-  `crates/infra/migrations`), TMDB/TVDB, Transmission, Jellyfin, filesystem/ffprobe/ffmpeg. The single
-  `Database` type implements most storage ports.
+  `crates/infra/migrations`), TMDB/TVDB, Transmission, Jackett (Torznab), Jellyfin,
+  filesystem/ffprobe/ffmpeg. The single `Database` type implements most storage ports.
 - `web` — Dioxus 0.7 fullstack UI. Feature `web` builds the wasm client; feature `server` adds server
   functions (`src/api/`) that call use cases through `AppState` (`src/state.rs`), pulled from an axum
   `Extension`. Components in `src/components/` are vendored Dioxus Components restyled to the "Paper"

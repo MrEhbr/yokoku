@@ -40,14 +40,16 @@ lives in `data/`, which git ignores.
 
 ## Integration Tests
 
-`just services` runs Jellyfin (http://127.0.0.1:18096, user `dev` without a password) and
-Transmission (http://127.0.0.1:19091) from the dev shell, with their state in `data/services`.
+`just services` runs Jellyfin (http://127.0.0.1:18096, user `dev` without a password),
+Transmission (http://127.0.0.1:19091) and Jackett (http://127.0.0.1:19117, no trackers added) from
+the dev shell, with their state in `data/services`.
 The ignored tests use them, ffprobe, and the real TMDB and TVDB:
 
 ```bash
 just services                     # Leave it running
 export YOKOKU__JELLYFIN__URL=http://127.0.0.1:18096 YOKOKU__JELLYFIN__API_KEY=yokoku-dev-key YOKOKU__JELLYFIN__USER=dev
 export YOKOKU__TRANSMISSION__URL=http://127.0.0.1:19091/transmission/rpc
+export YOKOKU__JACKETT__URL=http://127.0.0.1:19117 YOKOKU__JACKETT__API_KEY=yokoku-dev-key
 export YOKOKU__METADATA__TMDB__TOKEN=...
 just test-integration [filter]
 just services down                # From another terminal

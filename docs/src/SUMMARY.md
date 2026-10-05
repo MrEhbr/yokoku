@@ -21,6 +21,7 @@
 # Integrations
 
 - [Transmission](./integrations/transmission.md)
+- [Jackett](./integrations/jackett.md)
 - [Jellyfin](./integrations/jellyfin.md)
 - [TMDB and TVDB](./integrations/metadata.md)
 

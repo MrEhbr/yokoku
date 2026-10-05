@@ -1,7 +1,8 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use yokoku_domain::{DiskSpace, DownloadId, StorageError};
+use jiff::Timestamp;
+use yokoku_domain::{DiskSpace, DownloadId, MediaKind, StorageError};
 
 use crate::downloads::{Download, TorrentStatus};
 
@@ -62,6 +63,57 @@ pub enum ClientError {
     Unavailable(#[source] Box<dyn Error + Send + Sync>),
     #[error("download client refused the request: {0}")]
     Refused(String),
+}
+
+/// Searches torrent trackers for releases.
+#[async_trait]
+pub trait Indexer: Send + Sync {
+    /// The indexer's name and version; fails when it cannot be reached.
+    async fn version(&self) -> Result<String, IndexerError>;
+
+    async fn search(&self, query: &ReleaseQuery) -> Result<Vec<Release>, IndexerError>;
+
+    /// The torrent a release's `link` leads to.
+    async fn fetch(&self, link: &str) -> Result<TorrentSource, IndexerError>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleaseQuery {
+    pub text: String,
+    /// Searches every category when `None`.
+    pub kind: Option<MediaKind>,
+    /// For a series.
+    pub season: Option<u16>,
+    /// For a series, with `season`.
+    pub episode: Option<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Release {
+    pub title: String,
+    /// The tracker it was found on.
+    pub tracker: String,
+    /// Bytes.
+    pub size: u64,
+    pub seeders: Option<u32>,
+    pub leechers: Option<u32>,
+    /// Times it was downloaded, when the tracker counts them.
+    pub grabs: Option<u32>,
+    pub published: Option<Timestamp>,
+    /// A magnet link, or a link `Indexer::fetch` takes; without credentials.
+    pub link: String,
+    /// The release's page on the tracker.
+    pub details: Option<String>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum IndexerError {
+    #[error("indexer unavailable")]
+    Unavailable(#[source] Box<dyn Error + Send + Sync>),
+    #[error("indexer refused the request: {0}")]
+    Refused(String),
+    #[error("no indexer configured")]
+    NotConfigured,
 }
 
 /// A save inserts a download at revision 0 and otherwise updates it only when the stored revision
