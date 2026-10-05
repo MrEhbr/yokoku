@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.7.0](https://github.com/MrEhbr/yokoku/compare/v0.6.0..v0.7.0) - 2026-10-05
+
+### Features
+
+- choose trackers to search - ([e51c7f4](https://github.com/MrEhbr/yokoku/commit/e51c7f4eb961abf847ddd761e51b005ad45c3581)) `+746 / -172 across 24 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 1 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 1 commit(s) parsed as conventional.
+- Diff totals: +746 / -172 across 24 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 1 day(s) since the previous release.
+
 ## [0.6.0](https://github.com/MrEhbr/yokoku/compare/v0.5.0..v0.6.0) - 2026-10-04
 
 ### Features

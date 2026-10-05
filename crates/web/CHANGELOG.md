@@ -3,6 +3,30 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.7.0](https://github.com/MrEhbr/yokoku/compare/v0.6.1..v0.7.0) - 2026-10-05
+
+### Features
+
+- **(web)** move episode numbering into a dialog - ([38af97b](https://github.com/MrEhbr/yokoku/commit/38af97b43393b7301b34125f4fcd03badb5dddea)) `+157 / -91 across 7 file(s)` - Aleksei Burmistrov
+- search releases through Jackett - ([aac4ffc](https://github.com/MrEhbr/yokoku/commit/aac4ffc48e902beffbf56d9efa2fbc51eba202c3)) `+1731 / -41 across 41 file(s)` - Aleksei Burmistrov
+- choose trackers to search - ([e51c7f4](https://github.com/MrEhbr/yokoku/commit/e51c7f4eb961abf847ddd761e51b005ad45c3581)) `+746 / -172 across 24 file(s)` - Aleksei Burmistrov
+
+### Miscellaneous Chores
+
+- **(web)** serve the gallery on port 9090 - ([02d2b28](https://github.com/MrEhbr/yokoku/commit/02d2b28599a41dec81f08e65511a9703dac9d66b)) `+1 / -1 across 1 file(s)` - Aleksei Burmistrov
+
+### Refactoring
+
+- **(web)** share the add-torrent error messages - ([79ba903](https://github.com/MrEhbr/yokoku/commit/79ba9035614902779478b7d2295dfaaefabf7d28)) `+7 / -2 across 1 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 5 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 5 commit(s) parsed as conventional.
+- Diff totals: +2642 / -307 across 74 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 1 day(s) since the previous release.
+
 ## [0.6.1](https://github.com/MrEhbr/yokoku/compare/v0.6.0..v0.6.1) - 2026-10-04
 
 ### Bug Fixes
