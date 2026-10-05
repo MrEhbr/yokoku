@@ -12,7 +12,7 @@ serve:
 
 # Serve the component gallery at http://127.0.0.1:8080, rebuilding on changes
 gallery:
-    @dx serve --bin gallery --platform web --fullstack --port 8080 --open false
+    @dx serve --bin gallery --platform web --fullstack --port 9090 --open false
 
 # Format Rust and rsx! bodies
 fmt:
