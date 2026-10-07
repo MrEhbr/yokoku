@@ -34,6 +34,16 @@ pub struct DownloadEntry {
     pub imported: bool,
 }
 
+/// One torrent associated with a library item, including ones no longer in Transmission.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ItemDownload {
+    pub id: DownloadId,
+    pub name: String,
+    pub state: DownloadState,
+    pub percent: u8,
+    pub imported: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DownloadState {
@@ -44,6 +54,7 @@ pub enum DownloadState {
     /// Stopped after it completed.
     Finished,
     Paused,
+    Removed,
     /// The client reports an error.
     Error(String),
 }
@@ -72,6 +83,7 @@ impl DownloadState {
             Self::Seeding => "Seeding",
             Self::Finished => "Finished",
             Self::Paused => "Paused",
+            Self::Removed => "Removed",
             Self::Error(_) => "Error",
         }
     }
@@ -81,6 +93,12 @@ impl DownloadState {
 #[get("/api/downloads", downloads: Dep<Downloads>, reviewer: Dep<Reviewer>, importer: Dep<Importer>, library: Dep<Library>)]
 pub async fn downloads() -> Result<Vec<DownloadEntry>, ServerFnError> {
     server::downloads(&downloads, &reviewer, &importer, &library).await
+}
+
+/// All torrents associated with `item`, newest first, including those removed from Transmission.
+#[get("/api/items/downloads?item", downloads: Dep<Downloads>)]
+pub async fn item_downloads(item: ItemId) -> Result<Vec<ItemDownload>, ServerFnError> {
+    server::item_downloads(&downloads, item).await
 }
 
 /// The downloads at once, then again each time they or their imports change, until the service stops.
@@ -165,7 +183,7 @@ mod server {
 
     use super::{
         CancellationToken, DownloadEntry, DownloadState, Downloads, FreeSpace, ImportEntry, ImportState, Importer,
-        ItemLink, Library, NewTorrent, QueueChanges, Reviewer, RootFolders,
+        ItemDownload, ItemLink, Library, NewTorrent, QueueChanges, Reviewer, RootFolders,
     };
 
     /// How long a burst of saves settles before the downloads are read again.
@@ -244,6 +262,31 @@ mod server {
             .collect())
     }
 
+    pub(super) async fn item_downloads(
+        downloads: &Downloads,
+        item: ItemId,
+    ) -> Result<Vec<ItemDownload>, ServerFnError> {
+        let listed = downloads.list().await.map_err(|error| {
+            error!(%error, ?item, "loading the item's torrents failed");
+            ServerFnError::new("The item's torrents could not be loaded")
+        })?;
+        Ok(listed
+            .into_iter()
+            .filter(|download| download.item == Some(item))
+            .map(|download| {
+                let state = state(&download);
+                let percent = download.percent_done();
+                ItemDownload {
+                    id: download.id,
+                    name: download.name,
+                    state,
+                    percent,
+                    imported: download.imported_at.is_some(),
+                }
+            })
+            .collect())
+    }
+
     pub(super) async fn add(
         downloads: &Downloads,
         torrent: NewTorrent,
@@ -310,17 +353,8 @@ mod server {
     }
 
     fn entry(download: Download, item: Option<ItemLink>, import: Option<ImportEntry>) -> DownloadEntry {
-        use yokoku_core::downloads::DownloadState as Client;
+        let state = state(&download);
         let status = &download.status;
-        let state = match (&status.error, status.state) {
-            (Some(error), _) => DownloadState::Error(error.clone()),
-            (None, Client::Queued) => DownloadState::Queued,
-            (None, Client::Checking) => DownloadState::Checking,
-            (None, Client::Downloading) => DownloadState::Downloading,
-            (None, Client::Seeding) => DownloadState::Seeding,
-            (None, Client::Stopped | Client::Removed) if download.completed_at.is_some() => DownloadState::Finished,
-            (None, Client::Stopped | Client::Removed) => DownloadState::Paused,
-        };
         DownloadEntry {
             id: download.id,
             percent: download.percent_done(),
@@ -332,6 +366,21 @@ mod server {
             item,
             state,
             import,
+        }
+    }
+
+    fn state(download: &Download) -> DownloadState {
+        use yokoku_core::downloads::DownloadState as Client;
+        let status = &download.status;
+        match (&status.error, status.state) {
+            (_, Client::Removed) => DownloadState::Removed,
+            (Some(error), _) => DownloadState::Error(error.clone()),
+            (None, Client::Queued) => DownloadState::Queued,
+            (None, Client::Checking) => DownloadState::Checking,
+            (None, Client::Downloading) => DownloadState::Downloading,
+            (None, Client::Seeding) => DownloadState::Seeding,
+            (None, Client::Stopped) if download.completed_at.is_some() => DownloadState::Finished,
+            (None, Client::Stopped) => DownloadState::Paused,
         }
     }
 

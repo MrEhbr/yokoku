@@ -885,6 +885,58 @@ async fn the_downloads_page_shows_each_torrent_with_its_import() {
 }
 
 #[tokio::test]
+async fn a_movie_page_lists_all_its_torrents_and_their_statuses() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("yokoku.db");
+    let (frieren, dune) = seed(&path).await;
+    seed_downloads(&path, frieren, dune).await;
+    let db = Database::open(&path).await.unwrap();
+    let now = Timestamp::now();
+    let mut first = DownloadRepo::list(&db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|download| download.item == Some(ItemId::Movie(dune)))
+        .unwrap();
+    first.status.state = DownloadState::Seeding;
+    first.status.done = first.status.size;
+    first.completed_at = Some(now);
+    first.imported_at = Some(now);
+    DownloadRepo::save(&db, &mut first).await.unwrap();
+    let mut second = Download {
+        id: DownloadId::generate(),
+        hash: "a".repeat(40),
+        name: "Dune.2021.2160p".into(),
+        item: Some(ItemId::Movie(dune)),
+        season: None,
+        status: TorrentStatus {
+            state: DownloadState::Removed,
+            size: 1_000_000_000,
+            done: 1_000_000_000,
+            download_rate: 0,
+            eta: None,
+            download_dir: "/downloads".into(),
+            error: Some("previous client error".into()),
+        },
+        added_at: now,
+        completed_at: Some(now),
+        imported_at: None,
+        revision: 0,
+    };
+    DownloadRepo::save(&db, &mut second).await.unwrap();
+    drop(db);
+    let service = Service::start(dir.path());
+
+    let page = service.get(&format!("/movies/{dune}"));
+
+    assert!(page.starts_with("HTTP/1.1 200"), "{page}");
+    for text in ["Dune.2021.1080p", "Dune.2021.2160p", "Seeding", "Removed", "Imported", "Not imported"] {
+        assert!(page.contains(text), "{text}: {page}");
+    }
+    assert!(!page.contains("Frieren.S01E01.1080p"), "a different item's torrent appears: {page}");
+}
+
+#[tokio::test]
 async fn detail_pages_tell_how_many_files_a_scan_did_not_recognise() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("yokoku.db");

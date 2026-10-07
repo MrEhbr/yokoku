@@ -3,7 +3,7 @@ use yokoku_domain::{ItemId, MovieId};
 
 use crate::{
     api::{
-        downloads::ItemLink,
+        downloads::{DownloadState, ItemLink, item_downloads},
         library::{
             FileStatus,
             detail::{self, movie},
@@ -21,6 +21,7 @@ use crate::{
         load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
         skeleton::{Loaded, Skeleton},
+        status::{Status, Tone},
         unrecognised_files::UnrecognisedFiles,
     },
     dialogs::{import_review::ReviewButton, item_actions::ItemActions},
@@ -170,6 +171,7 @@ fn Page(movie: detail::MovieDetail) -> Element {
                 }
             }
         }
+        MovieTorrents { id: movie.id }
         section { class: "mt-12",
             h2 { class: "text-section font-medium", "History" }
             div { class: "mt-4",
@@ -177,6 +179,59 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     key: "{movie.id}",
                     scope: HistoryScope::Item(ItemId::Movie(movie.id)),
                     empty: "Nothing has happened to this movie yet.",
+                }
+            }
+        }
+    }
+}
+
+/// Every torrent linked to this movie, including those since removed from Transmission.
+#[component]
+fn MovieTorrents(id: MovieId) -> Element {
+    let listed = use_server_future(use_reactive!(|id| item_downloads(ItemId::Movie(id))))?;
+    rsx! {
+        section { class: "mt-12",
+            div { class: "flex items-baseline justify-between gap-4",
+                h2 { class: "text-section font-medium", "Torrents" }
+                Link { to: Route::Downloads {}, class: "text-caption text-muted hover:text-ink hover:underline", "Open queue" }
+            }
+            p { class: "mt-1 text-caption text-muted", "Last known status from Transmission." }
+            div { class: "mt-4",
+                match &*listed.read() {
+                    None => rsx! { Skeleton { class: "h-20 w-full" } },
+                    Some(Err(_)) => rsx! { LoadFailed { subject: "The movie's torrents" } },
+                    Some(Ok(downloads)) if downloads.is_empty() => rsx! {
+                        p { class: "text-muted", "No torrents linked to this movie yet." }
+                    },
+                    Some(Ok(downloads)) => rsx! {
+                        ul { class: "divide-y divide-line border-y border-line",
+                            for download in downloads.clone() {
+                                li { key: "{download.id}", class: "flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3",
+                                    span { class: "min-w-0 [overflow-wrap:anywhere]", "{download.name}" }
+                                    div { class: "flex flex-wrap items-center gap-x-4 gap-y-1",
+                                        Status {
+                                            tone: match &download.state {
+                                                DownloadState::Error(_) => Tone::Danger,
+                                                DownloadState::Removed | DownloadState::Paused => Tone::Muted,
+                                                DownloadState::Finished | DownloadState::Seeding => Tone::Success,
+                                                _ => Tone::Info,
+                                            },
+                                            label: if matches!(&download.state, DownloadState::Downloading | DownloadState::Checking | DownloadState::Paused) {
+                                                format!("{} · {}%", download.state.label(), download.percent)
+                                            } else {
+                                                download.state.label().to_owned()
+                                            },
+                                        }
+                                        if download.imported {
+                                            Status { tone: Tone::Success, label: "Imported".to_owned() }
+                                        } else if download.percent == 100 {
+                                            Status { tone: Tone::Warning, label: "Not imported".to_owned() }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
                 }
             }
         }
