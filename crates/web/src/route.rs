@@ -12,7 +12,8 @@ use crate::{
     layout::Shell,
     pages::{
         add::Add, downloads::Downloads, history::History, library::Library, missing::Missing,
-        movie_detail::MovieDetail, series_detail::SeriesDetail, settings::Settings, upcoming::Upcoming,
+        movie_detail::MovieDetail, releases::Releases, series_detail::SeriesDetail, settings::Settings,
+        upcoming::Upcoming,
     },
 };
 
@@ -23,6 +24,8 @@ pub(crate) enum Route {
     Library {},
     #[route("/wanted")]
     Missing {},
+    #[route("/releases")]
+    Releases {},
     #[route("/add?:query&:kind")]
     Add { query: SearchText, kind: Kind },
     #[route("/series/:id")]
@@ -55,6 +58,7 @@ impl Route {
                 Self::Library {}
             },
             Self::Missing {} => Self::Missing {},
+            Self::Releases {} => Self::Releases {},
             Self::Upcoming {} => Self::Upcoming {},
             Self::Downloads {} => Self::Downloads {},
             Self::History {} => Self::History {},

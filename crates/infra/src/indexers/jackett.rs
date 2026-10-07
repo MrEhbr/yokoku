@@ -5,7 +5,9 @@ use futures_util::future::join_all;
 use reqwest::{StatusCode, Url, header::LOCATION, redirect};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tracing::{debug, warn};
-use yokoku_core::downloads::ports::{Indexer, IndexerError, Release, ReleaseQuery, TorrentSource, Tracker};
+use yokoku_core::downloads::ports::{
+    Indexer, IndexerError, Release, ReleaseQuery, SearchResult, TorrentSource, Tracker,
+};
 use yokoku_domain::{Live, MediaKind, Secret, TrackerId, Trackers};
 
 use crate::indexers::torznab_wire as wire;
@@ -129,7 +131,7 @@ impl Indexer for JackettClient {
         Ok(server.version.map_or_else(|| title.clone(), |version| format!("{title} {version}")))
     }
 
-    async fn search(&self, query: &ReleaseQuery) -> Result<Vec<Release>, IndexerError> {
+    async fn search(&self, query: &ReleaseQuery) -> Result<SearchResult, IndexerError> {
         // Without `cat`: Jackett files some trackers' TV and movie releases, like Rutor's, under Other.
         let (function, searches) = match query.kind {
             Some(MediaKind::Series) => ("tvsearch", "TV searches"),
@@ -142,11 +144,17 @@ impl Indexer for JackettClient {
             params.extend(query.season.and(query.episode).map(|episode| ("ep", episode.to_string())));
         }
         let chosen = match &query.trackers {
-            Trackers::All => return self.releases(None, &params, searches).await,
+            Trackers::All => {
+                return self
+                    .releases(None, &params, searches)
+                    .await
+                    .map(|releases| SearchResult { releases, warnings: Vec::new() });
+            },
             Trackers::Only(set) => set.ids(),
         };
         let searched = join_all(chosen.iter().map(|tracker| self.releases(Some(tracker), &params, searches))).await;
         let mut releases = Vec::new();
+        let mut warnings = Vec::new();
         let mut failed = 0;
         let mut last_error = None;
         for (tracker, result) in chosen.iter().zip(searched) {
@@ -154,6 +162,7 @@ impl Indexer for JackettClient {
                 Ok(found) => releases.extend(found),
                 Err(error) => {
                     warn!(%tracker, %error, "a tracker search failed; the other trackers' releases are kept");
+                    warnings.push(format!("Jackett tracker {tracker} could not be searched"));
                     failed += 1;
                     last_error = Some(error);
                 },
@@ -161,7 +170,7 @@ impl Indexer for JackettClient {
         }
         match last_error {
             Some(error) if failed == chosen.len() => Err(error),
-            _ => Ok(releases),
+            _ => Ok(SearchResult { releases, warnings }),
         }
     }
 
@@ -225,7 +234,7 @@ impl TryFrom<wire::Item> for Release {
     type Error = NoLink;
 
     fn try_from(item: wire::Item) -> Result<Self, NoLink> {
-        let link = item.link.clone().or_else(|| item.attr("magneturl").map(str::to_owned)).ok_or(NoLink)?;
+        let link = item.download_link().ok_or(NoLink)?;
         let number = |name: &str| item.attr(name).and_then(|value| value.parse::<u32>().ok());
         let seeders = number("seeders");
         let size = item.size.or_else(|| item.attr("size").and_then(|size| size.parse().ok())).unwrap_or(0);

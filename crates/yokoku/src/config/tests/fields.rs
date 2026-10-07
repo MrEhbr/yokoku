@@ -26,6 +26,9 @@ fn every_setting_is_on_the_settings_page() {
     let shown: Vec<String> = Config::fields().into_iter().map(|field| field.key).collect();
 
     for key in keys() {
+        if key == "torznab.feeds" {
+            continue;
+        } // The repeatable feeds have their own Settings editor.
         assert!(shown.contains(&key), "{key} is not on the settings page");
     }
 }

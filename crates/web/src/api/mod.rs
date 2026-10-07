@@ -6,6 +6,7 @@ pub mod add;
 #[cfg(feature = "server")]
 pub(crate) mod artwork;
 pub mod downloads;
+pub mod feeds;
 pub mod history;
 pub mod library;
 pub mod releases;

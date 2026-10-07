@@ -128,6 +128,16 @@ merge = true
 # From the top of Jackett's dashboard.
 # api_key = { file = "/run/secrets/jackett_api_key" }
 
+# Direct Torznab feeds are also searchable. Each id must be unique across file and UI feeds.
+[torznab]
+# feeds = []
+## [[torznab.feeds]]
+## id = "example"
+## name = "Example"
+## url = "https://indexer.example/api"
+## api_key = { file = "/run/secrets/example_api_key" }
+## enabled = true
+
 # Path patterns for library files. Tokens: {title}, {year}, {season} (two digits), {episodes}
 # (S01E01 or S01E01-E02), {episode_title}; a [...] group is dropped when a token in it has no value.
 [naming]

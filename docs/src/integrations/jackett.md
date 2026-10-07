@@ -3,7 +3,7 @@
 With [Jackett](https://github.com/Jackett/Jackett) connected, **Search
 releases** on a series or movie page searches every tracker added in Jackett,
 like RuTracker, and downloads the release you pick. It's optional: without
-it, you add torrents yourself with **Add torrent**.
+it, you can search [direct Torznab feeds](./torznab.md) or add torrents yourself with **Add torrent**.
 
 Yokoku never picks a release on its own; it only searches when you ask.
 

@@ -18,14 +18,14 @@ use yokoku_domain::Clock;
 use yokoku_infra::{
     db::Database,
     download_clients::TransmissionClient,
-    indexers::JackettClient,
+    indexers::CombinedIndexer,
     media_servers::JellyfinClient,
     metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient},
     ratings::ImdbDataset,
     system::{ArtworkFiles, FfMpeg, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
 
-use crate::config::{Config, Settings};
+use crate::config::{Config, FeedManager, Settings};
 
 /// Use cases wired to their adapters, each reading the settings in effect when it runs.
 #[derive(Clone)]
@@ -40,6 +40,7 @@ pub struct App {
     pub renamer: Arc<Renamer>,
     pub downloads: Arc<Downloads>,
     pub releases: Arc<ReleaseSearch>,
+    pub feeds: Arc<FeedManager>,
     pub importer: Arc<Importer>,
     pub history: Arc<History>,
     pub clock: Arc<dyn Clock>,
@@ -69,6 +70,13 @@ impl App {
         let settings = Settings::open(config_path.map(Path::to_path_buf), db.clone())
             .await
             .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
+        let indexer = CombinedIndexer::new(
+            settings.live(|config| config.jackett.clone()),
+            settings.live(|config| config.torznab.clone()),
+            db.clone(),
+        );
+        indexer.feeds().await.context("Invalid Torznab feeds in configuration and database")?;
+        let feeds = Arc::new(FeedManager::new(settings.clone(), db.clone()));
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(settings.live(|config| config.clock.time_zone())));
         let log = EventLog::new(Database::clone(&db));
         let events = Publisher::new(log.clone());
@@ -143,10 +151,8 @@ impl App {
                 events.clone(),
                 queue_changes.clone(),
             )),
-            releases: Arc::new(ReleaseSearch::new(
-                Arc::new(JackettClient::new(settings.live(|config| config.jackett.clone()))),
-                downloads.clone(),
-            )),
+            releases: Arc::new(ReleaseSearch::new(Arc::new(indexer), downloads.clone())),
+            feeds,
             downloads: downloads.clone(),
             renamer: Arc::new(Renamer::new(
                 db.clone(),

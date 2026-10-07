@@ -16,7 +16,8 @@ mod state;
 pub use route::App;
 #[cfg(feature = "server")]
 pub use {
+    api::feeds::{FeedDraft, FeedEntry},
     api::settings::{Connection, Control, Field, Section},
     server::Server,
-    state::{AddSettings, AppState, ConnectionTest, SettingsAccess},
+    state::{AddSettings, AppState, ConnectionTest, FeedAccess, SettingsAccess},
 };

@@ -202,7 +202,7 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
 
 /// A choice of library item, or none for detection.
 #[component]
-fn ItemField(chosen: Signal<Option<Option<ItemId>>>) -> Element {
+pub(crate) fn ItemField(chosen: Signal<Option<Option<ItemId>>>) -> Element {
     let items = use_resource(|| library(None, None, None, None));
     rsx! {
         Field {
@@ -222,7 +222,7 @@ fn ItemField(chosen: Signal<Option<Option<ItemId>>>) -> Element {
                 if chosen().flatten().is_some() {
                     "Its files are imported into this item."
                 } else {
-                    "Its files are matched to library items by their names."
+                    "Matches files by name to existing library items. It won't create a new item."
                 }
             }
         }

@@ -14,7 +14,7 @@ TMDB / TVDB → Library → Transmission → Import → Library folders → Jell
 1. **Library**: you add series and movies by searching TMDB. Yokoku keeps
    their episodes, air dates and release dates up to date. Series come from
    TVDB instead once a TVDB key is set.
-2. **Downloads**: you search your trackers through Jackett and pick a
+2. **Downloads**: you search Jackett or direct Torznab feeds and pick a
    release, add a magnet link or a `.torrent` file to an item, or add a
    torrent in Transmission with a label or folder Yokoku watches. Yokoku
    follows it in Transmission.
@@ -26,7 +26,7 @@ TMDB / TVDB → Library → Transmission → Import → Library folders → Jell
 
 > [!NOTE]
 > Yokoku searches only when you ask, and you pick the release; it never
-> downloads one on its own. Searching needs [Jackett](./integrations/jackett.md).
+> downloads one on its own. Searching needs [Jackett](./integrations/jackett.md) or a [Torznab feed](./integrations/torznab.md).
 
 ## Features
 

@@ -10,8 +10,8 @@ use yokoku_core::{
     downloads::{
         Download, DownloadError, DownloadOptions, DownloadState, Downloads, ReleaseSearch, TorrentStatus,
         ports::{
-            AddedTorrent, ClientError, DownloadClient, Indexer, IndexerError, LABEL, Release, ReleaseQuery, Torrent,
-            TorrentSource, Tracker,
+            AddedTorrent, ClientError, DownloadClient, Indexer, IndexerError, LABEL, Release, ReleaseQuery,
+            SearchResult, Torrent, TorrentSource, Tracker,
         },
     },
     events::{EventLog, Handler, QueueChanges},
@@ -532,8 +532,8 @@ impl Indexer for ScriptedIndexer {
         Ok(vec![Tracker { id: "rutor".parse().unwrap(), name: "RuTor".into() }])
     }
 
-    async fn search(&self, _query: &ReleaseQuery) -> Result<Vec<Release>, IndexerError> {
-        Ok(self.releases.clone())
+    async fn search(&self, _query: &ReleaseQuery) -> Result<SearchResult, IndexerError> {
+        Ok(SearchResult { releases: self.releases.clone(), warnings: Vec::new() })
     }
 
     async fn fetch(&self, link: &str) -> Result<TorrentSource, IndexerError> {
@@ -574,8 +574,29 @@ async fn releases_are_found_most_seeded_first() {
 
     let found = search.search(&query()).await.unwrap();
 
-    let titles: Vec<&str> = found.iter().map(|release| release.title.as_str()).collect();
+    let titles: Vec<&str> = found.releases.iter().map(|release| release.title.as_str()).collect();
     assert_eq!(titles, ["many", "few", "unknown"]);
+}
+
+#[tokio::test]
+async fn search_keeps_download_urls_server_side_and_hides_credentialed_details() {
+    let setup = setup().await;
+    let mut credentialed = release("credentialed", Some(2));
+    credentialed.link = "https://indexer.example/download?passkey=secret".into();
+    credentialed.details = Some("https://indexer.example/details?apikey=secret".into());
+    let mut ordinary = release("ordinary", Some(1));
+    ordinary.details = Some("https://indexer.example/details/123".into());
+    let search = ReleaseSearch::new(
+        Arc::new(ScriptedIndexer { releases: vec![credentialed, ordinary], ..ScriptedIndexer::default() }),
+        setup.downloads,
+    );
+
+    let found = search.search(&query()).await.unwrap();
+
+    assert_eq!(found.releases[0].details, None);
+    assert_eq!(found.releases[1].details.as_deref(), Some("https://indexer.example/details/123"));
+    assert!(!found.releases[0].link.contains("secret"));
+    assert!(!found.releases[0].link.contains("http"));
 }
 
 #[tokio::test]
@@ -583,13 +604,14 @@ async fn a_grabbed_release_is_added_with_its_item_and_season() {
     let setup = setup().await;
     let torrent = TorrentSource::File(b"d4:infod4:name4:Dunee".to_vec());
     let indexer = ScriptedIndexer {
+        releases: vec![release("dune", Some(1))],
         torrents: HashMap::from([("http://jackett/dl/dune".to_owned(), torrent.clone())]),
-        ..ScriptedIndexer::default()
     };
     let search = ReleaseSearch::new(Arc::new(indexer), setup.downloads.clone());
     let item = Some(ItemId::Series(SeriesId::generate()));
 
-    let added = search.grab("http://jackett/dl/dune", item, Some(2)).await.unwrap();
+    let found = search.search(&query()).await.unwrap();
+    let added = search.grab(&found.releases[0].link, item, Some(2)).await.unwrap();
 
     assert_eq!((added.item, added.season), (item, Some(2)));
     assert_eq!(*setup.client.added.lock().unwrap(), [torrent]);
@@ -598,9 +620,24 @@ async fn a_grabbed_release_is_added_with_its_item_and_season() {
 #[tokio::test]
 async fn a_release_the_indexer_cannot_fetch_adds_nothing() {
     let setup = setup().await;
+    let search = ReleaseSearch::new(
+        Arc::new(ScriptedIndexer { releases: vec![release("gone", Some(1))], ..ScriptedIndexer::default() }),
+        setup.downloads.clone(),
+    );
+
+    let found = search.search(&query()).await.unwrap();
+    let error = search.grab(&found.releases[0].link, None, None).await.unwrap_err();
+
+    assert!(matches!(error, DownloadError::Indexer(IndexerError::Refused(_))), "{error}");
+    assert!(setup.downloads.list().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_link_that_was_not_returned_by_search_cannot_be_grabbed() {
+    let setup = setup().await;
     let search = ReleaseSearch::new(Arc::new(ScriptedIndexer::default()), setup.downloads.clone());
 
-    let error = search.grab("http://jackett/dl/gone", None, None).await.unwrap_err();
+    let error = search.grab("http://127.0.0.1/private", None, None).await.unwrap_err();
 
     assert!(matches!(error, DownloadError::Indexer(IndexerError::Refused(_))), "{error}");
     assert!(setup.downloads.list().await.unwrap().is_empty());

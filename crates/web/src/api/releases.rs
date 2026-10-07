@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use yokoku_domain::Clock;
 use yokoku_domain::{ItemId, TrackerId, Trackers};
 
+use super::library::Kind;
 #[cfg(feature = "server")]
 use crate::api::{Dep, ReleaseSearch};
 
@@ -14,6 +15,7 @@ use crate::api::{Dep, ReleaseSearch};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Found {
     pub releases: Vec<ReleaseEntry>,
+    pub warnings: Vec<String>,
     pub today: Date,
 }
 
@@ -28,7 +30,7 @@ pub struct ReleaseEntry {
     /// Times it was downloaded, when the tracker counts them.
     pub grabs: Option<u32>,
     pub published: Option<Date>,
-    /// What `grab_release` takes.
+    /// Short-lived result ID that `grab_release` takes; torrent URLs stay on the server.
     pub link: String,
     /// The release's page on the tracker.
     pub details: Option<String>,
@@ -55,8 +57,9 @@ pub async fn search_releases(
     item: Option<ItemId>,
     season: Option<u16>,
     trackers: Trackers,
+    kind: Option<Kind>,
 ) -> Result<Found, ServerFnError> {
-    server::search(&search, &*clock, text, item, season, trackers).await
+    server::search(&search, &*clock, text, item, season, trackers, kind).await
 }
 
 /// Adds the release at `link` as `add_torrent` does.
@@ -74,7 +77,7 @@ mod server {
     };
     use yokoku_domain::{Clock, ItemId, MediaKind, Trackers};
 
-    use super::{Found, ReleaseEntry, TrackerEntry};
+    use super::{Found, Kind, ReleaseEntry, TrackerEntry};
     use crate::api::{downloads::add_failure, unexpected};
 
     pub(super) async fn trackers(search: &ReleaseSearch) -> Result<Vec<TrackerEntry>, ServerFnError> {
@@ -92,12 +95,13 @@ mod server {
         item: Option<ItemId>,
         season: Option<u16>,
         trackers: Trackers,
+        selected_kind: Option<Kind>,
     ) -> Result<Found, ServerFnError> {
         let text = text.trim().to_owned();
         if text.is_empty() {
             return Err(ServerFnError::new("Type what to search for"));
         }
-        let kind = item.map(ItemId::kind);
+        let kind = item.map(ItemId::kind).or_else(|| selected_kind.map(Into::into));
         let season = season.filter(|_| kind == Some(MediaKind::Series));
         let query = ReleaseQuery { text, kind, season, episode: None, trackers };
         let releases = search.search(&query).await.map_err(|error| failure(error, "searching releases"))?;
@@ -114,7 +118,11 @@ mod server {
             link: release.link,
             details: release.details,
         };
-        Ok(Found { releases: releases.into_iter().map(entry).collect(), today: now.date() })
+        Ok(Found {
+            releases: releases.releases.into_iter().map(entry).collect(),
+            warnings: releases.warnings,
+            today: now.date(),
+        })
     }
 
     pub(super) async fn grab(
@@ -131,15 +139,13 @@ mod server {
 
     fn failure(error: DownloadError, doing: &str) -> ServerFnError {
         match error {
-            DownloadError::Indexer(IndexerError::NotConfigured) => {
-                ServerFnError::new("Set the Jackett address in Settings to search")
-            },
+            DownloadError::Indexer(IndexerError::NotConfigured) => ServerFnError::new(
+                "Connect Jackett, add a Torznab feed, or enable an existing feed in Settings to search",
+            ),
             DownloadError::Indexer(IndexerError::Unavailable(_)) => {
-                ServerFnError::new("Jackett could not be reached; check that it runs and its address")
+                ServerFnError::new("The indexers could not be reached; check their addresses")
             },
-            DownloadError::Indexer(IndexerError::Refused(reason)) => {
-                ServerFnError::new(format!("Jackett refused: {reason}"))
-            },
+            DownloadError::Indexer(IndexerError::Refused(reason)) => ServerFnError::new(reason),
             error => unexpected(&error, doing),
         }
     }

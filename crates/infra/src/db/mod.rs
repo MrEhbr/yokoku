@@ -13,6 +13,7 @@ mod ratings;
 mod rescans;
 mod series;
 mod settings;
+mod torznab;
 mod watched;
 
 pub use database::Database;

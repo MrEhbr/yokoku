@@ -59,9 +59,9 @@ file names* when the names include the season.
 
 ## Search Releases
 
-**Search releases** searches the trackers added in Jackett for this item and
+**Search releases** searches Jackett and direct Torznab feeds for this item and
 downloads the release you pick, the way **Add torrent** does. See
-[Jackett](../integrations/jackett.md).
+[Jackett](../integrations/jackett.md) and [Direct Torznab Feeds](../integrations/torznab.md).
 
 ## Episode Numbering
 
