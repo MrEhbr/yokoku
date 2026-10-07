@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.8.0](https://github.com/MrEhbr/yokoku/compare/v0.7.0..v0.8.0) - 2026-10-07
+
+### Features
+
+- show IMDb ratings on series and movie pages - ([6c8d881](https://github.com/MrEhbr/yokoku/commit/6c8d88126a7b80540739513bed590e47aa3d3c1d)) `+1257 / -86 across 67 file(s)` - Aleksei Burmistrov
+
+### Miscellaneous Chores
+
+- **(infra)** rebuild when a migration changes - ([a170e38](https://github.com/MrEhbr/yokoku/commit/a170e3889665140d6a4af3b3f8d110a008bee6df)) `+3 / -0 across 1 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 2 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 2 commit(s) parsed as conventional.
+- Diff totals: +1260 / -86 across 68 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 2 day(s) since the previous release.
+
 ## [0.7.0](https://github.com/MrEhbr/yokoku/compare/v0.6.0..v0.7.0) - 2026-10-05
 
 ### Features

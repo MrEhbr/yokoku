@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.8.0](https://github.com/MrEhbr/yokoku/compare/v0.7.0..v0.8.0) - 2026-10-07
+
+### Features
+
+- show IMDb ratings on series and movie pages - ([6c8d881](https://github.com/MrEhbr/yokoku/commit/6c8d88126a7b80540739513bed590e47aa3d3c1d)) `+1257 / -86 across 67 file(s)` - Aleksei Burmistrov
+- add a completions command and install completions in the Nix package - ([1234eb8](https://github.com/MrEhbr/yokoku/commit/1234eb8994a4238a1f9fdb3ee6a5205ad2c4720d)) `+70 / -1 across 11 file(s)` - Aleksei Burmistrov
+
+### Refactoring
+
+- derive the job list and names from clap - ([78f1d6d](https://github.com/MrEhbr/yokoku/commit/78f1d6df01c852efcee968b7e29891f098273a29)) `+7 / -34 across 1 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 3 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 3 commit(s) parsed as conventional.
+- Diff totals: +1334 / -121 across 79 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 2 day(s) since the previous release.
+
 ## [0.7.0](https://github.com/MrEhbr/yokoku/compare/v0.6.0..v0.7.0) - 2026-10-05
 
 ### Features
