@@ -48,6 +48,8 @@ pub struct ItemRating {
     pub source: String,
     /// On the source's scale, like `7.8` of 10.
     pub value: f32,
+    /// The scale's top, like `10`.
+    pub out_of: f32,
     pub votes: Option<u32>,
     /// The item's page at the source.
     pub url: Option<String>,
@@ -477,6 +479,7 @@ mod server {
                 RatingSource::Imdb => Self {
                     source: "IMDb".to_owned(),
                     value: rating.value,
+                    out_of: 10.0,
                     votes: rating.votes,
                     url: imdb_id.map(|id| format!("https://www.imdb.com/title/{id}/")),
                 },

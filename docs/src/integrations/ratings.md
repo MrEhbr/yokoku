@@ -1,7 +1,7 @@
 # IMDb Ratings
 
-Series and movie pages show the IMDb rating next to the genres and runtime,
-like *IMDb 7.8 (1.2M votes)*, linked to the title's IMDb page. Ratings come
+Series and movie pages show the IMDb rating under the title, like
+*IMDb 7.8 · 1.2M votes*, linked to the title's IMDb page. Ratings come
 from IMDb's [daily dataset](https://developer.imdb.com/non-commercial-datasets/),
 which IMDb provides for personal and non-commercial use. No account or key is
 needed.

@@ -1,13 +1,11 @@
 # Series and Movie Pages
 
-Each series and movie has a page with its details, files and history. The
-actions sit under the title: **Monitored**, **Add torrent**, **Search
+Each series and movie has a page with its details, files and history. Under
+the title are its [IMDb rating](../integrations/ratings.md), its status and
+the actions: **Monitored**, **Add torrent**, **Search
 releases**, **Refresh**, **Episode numbering…** (series only), **Rename
 files…** and **Remove…**. On a phone, the actions after **Search releases**
 are in the **⋯** menu.
-
-Below them are the genres, the runtime and the [IMDb rating](../integrations/ratings.md),
-then the overview.
 
 ## Series
 

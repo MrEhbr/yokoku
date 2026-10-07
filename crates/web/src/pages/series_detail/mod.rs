@@ -18,6 +18,7 @@ use crate::{
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
+        item_ratings::ItemRatings,
         item_status::{Lifecycle, SeriesWatched},
         load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
@@ -105,6 +106,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
             if series.original_title != series.title {
                 p { class: "text-muted", "Original title: {series.original_title}" }
             }
+            ItemRatings { ratings: series.ratings.clone() }
             div { class: "flex flex-wrap gap-x-4 gap-y-1",
                 Lifecycle { status: series.status }
                 if downloaded > 0 {
@@ -152,11 +154,7 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     today,
                 }
             }
-            ItemDescription {
-                description: series.description.clone(),
-                ratings: series.ratings.clone(),
-                per_episode: true,
-            }
+            ItemDescription { description: series.description.clone(), per_episode: true }
         }
         if let Some(unrecognised) = series.unrecognised {
             div { class: "mt-8",

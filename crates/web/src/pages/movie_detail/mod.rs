@@ -16,6 +16,7 @@ use crate::{
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
         item_hero::ItemHero,
+        item_ratings::ItemRatings,
         item_status::{FileState, FileWatched, Lifecycle},
         load_failed::LoadFailed,
         monitor_toggle::MonitorToggle,
@@ -100,6 +101,7 @@ fn Page(movie: detail::MovieDetail) -> Element {
             if movie.original_title != movie.title {
                 p { class: "text-muted", "Original title: {movie.original_title}" }
             }
+            ItemRatings { ratings: movie.ratings.clone() }
             div { class: "flex flex-wrap gap-x-4 gap-y-1",
                 Lifecycle { status: movie.status }
                 FileState { status: movie.file, monitored: movie.monitored }
@@ -126,10 +128,7 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     on_change: reload,
                 }
             }
-            ItemDescription {
-                description: movie.description.clone(),
-                ratings: movie.ratings.clone(),
-            }
+            ItemDescription { description: movie.description.clone() }
             div { class: "mt-2 grid gap-6 lg:grid-cols-2",
                 section {
                     h2 { class: "text-caption font-medium text-muted", "Releases" }
