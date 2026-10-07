@@ -17,6 +17,9 @@ impl App {
             Subscription::new("media.scan_added")
                 .on::<SeriesAdded>(self.scanner.clone())
                 .on::<MovieAdded>(self.scanner.clone()),
+            Subscription::new("integrations.ratings")
+                .on::<SeriesAdded>(self.ratings.clone())
+                .on::<MovieAdded>(self.ratings.clone()),
             Subscription::new("library.files")
                 .on::<FilesFound>(self.tracker.clone())
                 .on::<FilesImported>(self.tracker.clone())

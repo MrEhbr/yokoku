@@ -1,8 +1,8 @@
 use jiff::civil::Date;
 use serde_json::Value;
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, ExternalId, MovieMetadata, Releases, SeasonMetadata, SeriesMetadata,
-    SourceStatus,
+    Artwork, Description, EpisodeMetadata, ExternalId, ExternalIds, MovieMetadata, Releases, SeasonMetadata,
+    SeriesMetadata, SourceStatus,
 };
 
 /// A recorded TMDB or TVDB answer from `crates/infra/tests/metadata/fixtures`.
@@ -22,6 +22,7 @@ pub fn series_metadata(
     let mut next_source_id = source * 1000;
     SeriesMetadata {
         source: ExternalId::Tmdb(source),
+        external_ids: ExternalIds::default(),
         title: title.into(),
         original_title: title.into(),
         alternate_titles: Vec::new(),
@@ -56,6 +57,7 @@ pub fn series_metadata(
 pub fn movie_metadata(source: u64, title: &str, releases: Releases) -> MovieMetadata {
     MovieMetadata {
         source: ExternalId::Tmdb(source),
+        external_ids: ExternalIds::default(),
         title: title.into(),
         original_title: title.into(),
         alternate_titles: Vec::new(),

@@ -78,6 +78,8 @@ pub struct ScheduleSettings {
     pub rescan_media_server: Cron,
     /// Cron schedule with seconds for syncing watched files from Jellyfin.
     pub sync_watched: Cron,
+    /// Cron schedule with seconds for refreshing ratings.
+    pub refresh_ratings: Cron,
     /// Cron schedule with seconds for refreshing the items due for it.
     pub refresh_metadata: Cron,
     /// Cron schedule with seconds for scanning root folders for outside changes.
@@ -93,6 +95,7 @@ impl Default for ScheduleSettings {
             execute_imports: cron("*/5 * * * * *"),
             rescan_media_server: cron("*/10 * * * * *"),
             sync_watched: cron("0 */15 * * * *"),
+            refresh_ratings: cron("0 0 6 * * *"),
             refresh_metadata: cron("0 0 */12 * * *"),
             scan_library: cron("0 0 5 * * *"),
         }
@@ -129,10 +132,12 @@ pub enum Job {
     RescanMediaServer,
     /// Read the Jellyfin user's played items
     SyncWatched,
+    /// Refresh the ratings of every item
+    RefreshRatings,
 }
 
 impl Job {
-    const ALL: [Self; 7] = [
+    const ALL: [Self; 8] = [
         Self::SyncDownloads,
         Self::SyncActiveDownloads,
         Self::ExecuteImports,
@@ -140,6 +145,7 @@ impl Job {
         Self::RefreshMetadata,
         Self::RescanMediaServer,
         Self::SyncWatched,
+        Self::RefreshRatings,
     ];
 
     pub fn name(self) -> &'static str {
@@ -151,6 +157,7 @@ impl Job {
             Self::RefreshMetadata => "refresh-metadata",
             Self::RescanMediaServer => "rescan-media-server",
             Self::SyncWatched => "sync-watched",
+            Self::RefreshRatings => "refresh-ratings",
         }
     }
 
@@ -163,6 +170,7 @@ impl Job {
             Self::RefreshMetadata => &serve.refresh_metadata,
             Self::RescanMediaServer => &serve.rescan_media_server,
             Self::SyncWatched => &serve.sync_watched,
+            Self::RefreshRatings => &serve.refresh_ratings,
         }
     }
 
@@ -182,6 +190,7 @@ impl Job {
             },
             Self::RescanMediaServer => app.rescans.run_due(RESCAN_QUIET).await.map(drop)?,
             Self::SyncWatched => app.watched.sync().await?,
+            Self::RefreshRatings => app.ratings.refresh().await.map(drop)?,
         }
         Ok(())
     }

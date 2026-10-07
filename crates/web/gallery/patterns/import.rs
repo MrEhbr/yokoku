@@ -11,7 +11,7 @@ use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
 use jiff::Timestamp;
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ItemFolder, ItemName, MonitorPreset,
+    Artwork, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ExternalIds, ItemFolder, ItemName, MonitorPreset,
     SeasonMetadata, Series, SeriesMetadata, SourceStatus,
     naming::{Naming, NamingTemplates},
 };
@@ -163,6 +163,7 @@ fn to_series(info: &SeriesInfo) -> Series {
         .collect();
     let metadata = SeriesMetadata {
         source: ExternalId::Tmdb(info.id),
+        external_ids: ExternalIds::default(),
         title: info.title.clone(),
         original_title: info.title.clone(),
         alternate_titles: Vec::new(),

@@ -21,9 +21,9 @@ use yokoku_core::{
     },
 };
 use yokoku_domain::{
-    Artwork, Confidence, CorrelationId, Description, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget,
-    ImportId, ItemFolder, ItemId, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Releases, SeasonMetadata,
-    Series, SeriesId, SeriesMetadata, SourceStatus,
+    Artwork, Confidence, CorrelationId, Description, DownloadId, EpisodeMetadata, EpisodeSpan, ExternalId, ExternalIds,
+    FileTarget, ImportId, ItemFolder, ItemId, MediaFileId, MonitorPreset, Movie, MovieId, MovieMetadata, Releases,
+    SeasonMetadata, Series, SeriesId, SeriesMetadata, SourceStatus,
     events::{
         FileRenamed, FilesFound, FilesImported, ImportFailed, ImportedFrom, LinkedFile, MovieRemoved, TorrentAdded,
     },
@@ -130,6 +130,7 @@ async fn seed(path: &Path) -> (SeriesId, MovieId) {
     let now = Timestamp::now();
     let frieren = SeriesMetadata {
         source: ExternalId::Tmdb(1),
+        external_ids: ExternalIds::default(),
         title: "Frieren".into(),
         original_title: "Sousou no Frieren".into(),
         alternate_titles: Vec::new(),
@@ -154,6 +155,7 @@ async fn seed(path: &Path) -> (SeriesId, MovieId) {
     };
     let dune = MovieMetadata {
         source: ExternalId::Tmdb(10),
+        external_ids: ExternalIds::default(),
         title: "Dune".into(),
         original_title: "Dune".into(),
         alternate_titles: Vec::new(),
@@ -462,6 +464,7 @@ async fn seed_unscanned_movie(dir: &Path) {
     MediaRepo::add_root_folder(&db, &RootFolder::new(RootKind::Movies, movies, None, false)).await.unwrap();
     let dune = MovieMetadata {
         source: ExternalId::Tmdb(438631),
+        external_ids: ExternalIds::default(),
         title: "Dune".into(),
         original_title: "Dune".into(),
         alternate_titles: Vec::new(),

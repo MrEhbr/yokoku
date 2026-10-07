@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use rstest::rstest;
 use yokoku_core::library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_domain::{
-    Artwork, Description, ExternalId, Live, MediaKind, MovieMetadata, Releases, SeriesMetadata, SourceStatus,
+    Artwork, Description, ExternalId, ExternalIds, Live, MediaKind, MovieMetadata, Releases, SeriesMetadata,
+    SourceStatus,
 };
 use yokoku_infra::metadata::Sources;
 
@@ -26,6 +27,7 @@ impl MetadataProvider for Stub {
     async fn series(&self, source: ExternalId) -> Result<SeriesMetadata, MetadataError> {
         Ok(SeriesMetadata {
             source,
+            external_ids: ExternalIds::default(),
             title: String::new(),
             original_title: String::new(),
             alternate_titles: Vec::new(),
@@ -40,6 +42,7 @@ impl MetadataProvider for Stub {
     async fn movie(&self, source: ExternalId) -> Result<MovieMetadata, MetadataError> {
         Ok(MovieMetadata {
             source,
+            external_ids: ExternalIds::default(),
             title: String::new(),
             original_title: String::new(),
             alternate_titles: Vec::new(),

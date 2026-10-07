@@ -19,9 +19,9 @@ use yokoku_core::{
     },
 };
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileTarget, ImportId, ItemFolder,
-    ItemId, Live, MediaFileId, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesId,
-    SeriesMetadata, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ExternalIds, FileTarget, ImportId,
+    ItemFolder, ItemId, Live, MediaFileId, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series,
+    SeriesId, SeriesMetadata, SourceStatus,
 };
 use yokoku_infra::{
     db::Database,
@@ -108,6 +108,7 @@ fn series_metadata(number: usize) -> SeriesMetadata {
     let source = 1_000_000 + u64::try_from(number).unwrap() * 100;
     SeriesMetadata {
         source: ExternalId::Tmdb(source),
+        external_ids: ExternalIds::default(),
         title: format!("Series {number:04}"),
         original_title: format!("Series {number:04}"),
         alternate_titles: Vec::new(),
@@ -135,6 +136,7 @@ fn series_metadata(number: usize) -> SeriesMetadata {
 fn movie_metadata(number: usize) -> MovieMetadata {
     MovieMetadata {
         source: ExternalId::Tmdb(u64::try_from(number).unwrap() + 1),
+        external_ids: ExternalIds::default(),
         title: format!("Movie {number:04}"),
         original_title: format!("Movie {number:04}"),
         alternate_titles: Vec::new(),

@@ -2,8 +2,9 @@ use jiff::{Timestamp, civil::date};
 use proptest::prelude::*;
 use yokoku_core::media::detect::{ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{
-    Artwork, Confidence, Description, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MonitorPreset,
-    Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, naming::Naming,
+    Artwork, Confidence, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ExternalIds, FileTarget, ItemFolder,
+    MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    naming::Naming,
 };
 
 const TITLE: &str = "[A-Za-z][A-Za-z0-9 :'&.,!?-]{0,30}";
@@ -22,6 +23,7 @@ fn series(title: String, year: i16, episode_titles: Vec<String>) -> Series {
         .collect();
     let metadata = SeriesMetadata {
         source: ExternalId::Tmdb(1),
+        external_ids: ExternalIds::default(),
         title: title.clone(),
         original_title: title,
         alternate_titles: Vec::new(),
@@ -37,6 +39,7 @@ fn series(title: String, year: i16, episode_titles: Vec<String>) -> Series {
 fn movie(title: String, year: i16) -> Movie {
     let metadata = MovieMetadata {
         source: ExternalId::Tmdb(2),
+        external_ids: ExternalIds::default(),
         title: title.clone(),
         original_title: title,
         alternate_titles: Vec::new(),

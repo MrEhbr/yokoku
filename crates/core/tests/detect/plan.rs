@@ -7,8 +7,9 @@ use jiff::{
 use rstest::rstest;
 use yokoku_core::media::detect::{Conflict, ImportPlan, ListedFile, MatchScope};
 use yokoku_domain::{
-    Artwork, Confidence, Description, EpisodeMetadata, EpisodeSpan, ExternalId, FileTarget, ItemFolder, MediaFileId,
-    MonitorPreset, Movie, MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Confidence, Description, EpisodeMetadata, EpisodeSpan, ExternalId, ExternalIds, FileTarget, ItemFolder,
+    MediaFileId, MonitorPreset, Movie, MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata,
+    SourceStatus,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -26,6 +27,7 @@ fn series(spec: SeriesSpec<'_>) -> Series {
     let mut source_id = spec.source * 1000;
     let metadata = SeriesMetadata {
         source: ExternalId::Tmdb(spec.source),
+        external_ids: ExternalIds::default(),
         title: spec.title.into(),
         original_title: spec.original_title.into(),
         alternate_titles: Vec::new(),
@@ -65,6 +67,7 @@ fn numbered(count: usize) -> Vec<String> {
 fn movie(source: u64, title: &str, original_title: &str, year: i16) -> Movie {
     let metadata = MovieMetadata {
         source: ExternalId::Tmdb(source),
+        external_ids: ExternalIds::default(),
         title: title.into(),
         original_title: original_title.into(),
         alternate_titles: Vec::new(),

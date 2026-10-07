@@ -27,6 +27,7 @@ pub async fn run(app: &App) -> Result<()> {
         importer: app.importer.clone(),
         queue_changes: Arc::new(app.queue_changes.clone()),
         metadata: app.metadata.clone(),
+        ratings: app.ratings.clone(),
         roots: app.roots.clone(),
         deleter: app.deleter.clone(),
         renamer: app.renamer.clone(),

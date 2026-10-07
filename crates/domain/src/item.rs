@@ -113,6 +113,56 @@ impl FromStr for ExternalId {
     }
 }
 
+/// A title's IMDb id, like `tt0903747`; written as the id.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct ImdbId(String);
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("expected an IMDb id like tt0903747, got {0:?}")]
+pub struct ParseImdbIdError(String);
+
+impl fmt::Display for ImdbId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl TryFrom<String> for ImdbId {
+    type Error = ParseImdbIdError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<ImdbId> for String {
+    fn from(id: ImdbId) -> Self {
+        id.0
+    }
+}
+
+impl FromStr for ImdbId {
+    type Err = ParseImdbIdError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.strip_prefix("tt") {
+            Some(digits) if !digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit()) => {
+                Ok(Self(value.to_owned()))
+            },
+            _ => Err(ParseImdbIdError(value.to_owned())),
+        }
+    }
+}
+
+/// An item's ids at sites other than its metadata source, as the source knows them.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ExternalIds {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub imdb: Option<ImdbId>,
+}
+
 /// What an item is about, as its metadata source describes it in the metadata language.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]

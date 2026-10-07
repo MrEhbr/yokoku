@@ -152,7 +152,11 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     today,
                 }
             }
-            ItemDescription { description: series.description.clone(), per_episode: true }
+            ItemDescription {
+                description: series.description.clone(),
+                ratings: series.ratings.clone(),
+                per_episode: true,
+            }
         }
         if let Some(unrecognised) = series.unrecognised {
             div { class: "mt-8",

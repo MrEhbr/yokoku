@@ -33,6 +33,7 @@ and stored settings. Next to it are:
 | `yokoku.db-wal`, `yokoku.db-shm` | SQLite's write-ahead log; part of the database |
 | `yokoku.lock` | Lets one process at a time change library files |
 | `artwork/` | Cached posters, backdrops and logos; downloaded again when missing |
+| `ratings/` | The IMDb ratings dataset; downloaded again when missing |
 
 A relative `path` is relative to the working directory. The default is
 `yokoku.db`; `config/app.toml` uses `data/yokoku.db`, the Docker image
@@ -49,4 +50,4 @@ files, or back up a running one with SQLite:
 sqlite3 data/yokoku.db ".backup 'yokoku-backup.db'"
 ```
 
-The `artwork` folder doesn't need a backup.
+The `artwork` and `ratings` folders don't need a backup.

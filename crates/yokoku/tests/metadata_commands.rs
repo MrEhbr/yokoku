@@ -10,8 +10,8 @@ use wiremock::{
 };
 use yokoku_core::library::ports::{MovieRepo, SeriesRepo};
 use yokoku_domain::{
-    Artwork, Description, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases, SeasonMetadata,
-    Series, SeriesMetadata, SourceStatus,
+    Artwork, Description, ExternalId, ExternalIds, ItemFolder, MonitorPreset, Movie, MovieMetadata, Releases,
+    SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_infra::db::Database;
 use yokoku_test_support::metadata::fixture;
@@ -31,7 +31,7 @@ async fn respond(server: &MockServer, endpoint: &str, append: &str, body: &str) 
 /// TMDB server that serves their current metadata.
 async fn tmdb() -> Tmdb {
     let server = MockServer::start().await;
-    respond(&server, "/tv/209867", "alternative_titles,images", "tv_209867.json").await;
+    respond(&server, "/tv/209867", "alternative_titles,images,external_ids", "tv_209867.json").await;
     respond(&server, "/tv/209867", "season/0,season/1", "tv_209867_seasons.json").await;
     respond(&server, "/movie/438631", "release_dates,alternative_titles,images", "movie_438631.json").await;
 
@@ -42,6 +42,7 @@ async fn tmdb() -> Tmdb {
     let today = now.to_zoned(TimeZone::UTC).date();
     let frieren = SeriesMetadata {
         source: ExternalId::Tmdb(209867),
+        external_ids: ExternalIds::default(),
         title: "Frieren".into(),
         original_title: "Sousou no Frieren".into(),
         alternate_titles: Vec::new(),
@@ -53,6 +54,7 @@ async fn tmdb() -> Tmdb {
     };
     let dune = MovieMetadata {
         source: ExternalId::Tmdb(438631),
+        external_ids: ExternalIds::default(),
         title: "Dune".into(),
         original_title: "Dune".into(),
         alternate_titles: Vec::new(),

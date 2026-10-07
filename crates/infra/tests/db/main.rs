@@ -3,6 +3,7 @@ mod database;
 mod downloads;
 mod media;
 mod media_info;
+mod ratings_store;
 mod rescan_store;
 mod settings_store;
 mod stored_values;

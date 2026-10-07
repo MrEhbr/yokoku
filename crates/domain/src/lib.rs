@@ -9,6 +9,7 @@ mod matching;
 mod movie;
 pub mod naming;
 mod ports;
+mod rating;
 mod secret;
 mod series;
 mod string_enum;
@@ -17,13 +18,14 @@ mod tracker;
 pub use disk::DiskSpace;
 pub use id::{CorrelationId, DownloadId, EpisodeId, ImportId, MediaFileId, MovieId, SeriesId};
 pub use item::{
-    Artwork, ArtworkKind, Description, ExternalId, FileStatus, InvalidFolderName, ItemFolder, ItemId, ItemName,
-    MediaKind, ParseExternalIdError,
+    Artwork, ArtworkKind, Description, ExternalId, ExternalIds, FileStatus, ImdbId, InvalidFolderName, ItemFolder,
+    ItemId, ItemName, MediaKind, ParseExternalIdError, ParseImdbIdError,
 };
 pub use live::Live;
 pub use matching::{Confidence, EpisodeRef, EpisodeSpan, FileTarget, ParseEpisodeSpanError, SubtitleTags};
 pub use movie::{Movie, MovieMetadata, MovieStatus, ReleaseKind, Releases};
 pub use ports::{Clock, SettingsStore, StorageError};
+pub use rating::{Rating, RatingSource};
 pub use secret::Secret;
 pub use series::{
     Episode, EpisodeMetadata, MonitorPreset, Numbering, Season, SeasonMetadata, Series, SeriesMetadata, SeriesStatus,

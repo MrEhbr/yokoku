@@ -100,6 +100,13 @@ impl Config {
                 Control::text("https://api4.thetvdb.com/v4"),
             ),
             Field::new(
+                Section::Metadata,
+                "ratings.imdb_url",
+                "IMDb ratings address",
+                "IMDb's daily ratings dataset; change it only for a proxy or mirror.",
+                Control::text("https://datasets.imdbws.com/title.ratings.tsv.gz"),
+            ),
+            Field::new(
                 Section::Library,
                 "add.monitor",
                 "Monitor new series",
@@ -203,6 +210,13 @@ impl Config {
             ),
             Field::new(
                 Section::Schedules,
+                "serve.refresh_ratings",
+                "Refresh ratings",
+                "Refreshes every item's ratings.",
+                Control::text(""),
+            ),
+            Field::new(
+                Section::Schedules,
                 "serve.refresh_metadata",
                 "Refresh metadata",
                 "Refreshes only the items due for it.",
@@ -219,7 +233,7 @@ impl Config {
                 Section::Server,
                 "database.path",
                 "Database",
-                "The SQLite file; artwork is kept in an artwork folder next to it.",
+                "The SQLite file; artwork and ratings are kept in folders next to it.",
                 Control::ReadOnly,
             ),
             Field::new(

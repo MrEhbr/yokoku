@@ -4,14 +4,15 @@ use jiff::Timestamp;
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ItemFolder, MonitorPreset, Movie,
-    MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ExternalIds, ItemFolder, MonitorPreset,
+    Movie, MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus,
     naming::{Naming, NamingError, NamingTemplates, sanitize},
 };
 
 fn movie(title: &str, year: Option<i16>) -> Movie {
     let metadata = MovieMetadata {
         source: ExternalId::Tmdb(1),
+        external_ids: ExternalIds::default(),
         title: title.into(),
         original_title: title.into(),
         alternate_titles: Vec::new(),
@@ -28,6 +29,7 @@ fn series(title: &str, year: Option<i16>, seasons: &[(u16, &[&str])]) -> Series 
     let mut source_id = 0;
     let metadata = SeriesMetadata {
         source: ExternalId::Tmdb(1),
+        external_ids: ExternalIds::default(),
         title: title.into(),
         original_title: title.into(),
         alternate_titles: Vec::new(),

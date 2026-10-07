@@ -8,8 +8,8 @@ use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
 use yokoku_core::library::ports::SeriesRepo;
 use yokoku_domain::{
-    Artwork, Description, Episode, EpisodeId, ExternalId, ItemFolder, MediaFileId, Numbering, Season, Series, SeriesId,
-    SourceStatus, StorageError,
+    Artwork, Description, Episode, EpisodeId, ExternalId, ExternalIds, ItemFolder, MediaFileId, Numbering, Season,
+    Series, SeriesId, SourceStatus, StorageError,
 };
 
 use crate::db::{
@@ -23,6 +23,7 @@ struct SeriesRow {
     id: Text<SeriesId>,
     #[sqlx(flatten)]
     source: SourceColumns,
+    external_ids: Json<ExternalIds>,
     title: String,
     original_title: String,
     alternate_titles: Json<Vec<String>>,
@@ -125,7 +126,7 @@ impl Database {
     pub(crate) async fn load_series(&self, id: SeriesId) -> Result<Option<Series>, DbError> {
         let id = id.to_string();
         let Some(row) = sqlx::query_as::<_, SeriesRow>(
-            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
+            "SELECT id, source_kind, source_id, external_ids, title, original_title, alternate_titles, year, artwork,
                     description, source_status, numbering, root, folder, monitored, added_at, refreshed_at, revision
              FROM series WHERE id = ?",
         )
@@ -155,7 +156,7 @@ impl Database {
     /// Every series in three queries, ordered by id.
     pub(crate) async fn load_all_series(&self) -> Result<Vec<Series>, DbError> {
         let rows: Vec<SeriesRow> = sqlx::query_as(
-            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
+            "SELECT id, source_kind, source_id, external_ids, title, original_title, alternate_titles, year, artwork,
                     description, source_status, numbering, root, folder, monitored, added_at, refreshed_at, revision
              FROM series ORDER BY id",
         )
@@ -196,11 +197,12 @@ impl Database {
         let mut tx = self.pool().begin().await?;
 
         let returned = sqlx::query_scalar(
-            "INSERT INTO series (id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
-                                 description, source_status, numbering, root, folder, monitored, added_at,
-                                 refreshed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "INSERT INTO series (id, source_kind, source_id, external_ids, title, original_title, alternate_titles,
+                                 year, artwork, description, source_status, numbering, root, folder, monitored,
+                                 added_at, refreshed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
+                 external_ids = excluded.external_ids,
                  title = excluded.title, original_title = excluded.original_title,
                  alternate_titles = excluded.alternate_titles, year = excluded.year,
                  artwork = excluded.artwork, description = excluded.description,
@@ -214,6 +216,7 @@ impl Database {
         .bind(&id)
         .bind(source.source_kind)
         .bind(Int(source.source_id))
+        .bind(Json(&series.external_ids))
         .bind(&series.title)
         .bind(&series.original_title)
         .bind(Json(&series.alternate_titles))
@@ -322,6 +325,7 @@ impl SeriesRow {
         Ok(Series {
             id: self.id.0,
             source: self.source.try_into()?,
+            external_ids: self.external_ids.0,
             title: self.title,
             original_title: self.original_title,
             alternate_titles: self.alternate_titles.0,

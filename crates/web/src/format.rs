@@ -48,6 +48,15 @@ pub fn runtime(minutes: u64) -> String {
     }
 }
 
+/// `980`, `45k` from a thousand, or `1.2M` from a million.
+pub fn count(n: u32) -> String {
+    match n {
+        0..1_000 => n.to_string(),
+        1_000..1_000_000 => format!("{}k", n / 1_000),
+        _ => format!("{:.1}M", f64::from(n) / 1e6),
+    }
+}
+
 /// `1.4 GB`, `2.1 TB` from a terabyte, `700 MB` under a gigabyte, or `350 KB` under a megabyte.
 pub fn size(bytes: u64) -> String {
     match bytes {
@@ -88,7 +97,7 @@ mod tests {
     use rstest::rstest;
     use yokoku_domain::DiskSpace;
 
-    use super::{plural, relative, resolution, runtime, size, space};
+    use super::{count, plural, relative, resolution, runtime, size, space};
 
     #[rstest]
     #[case(date(2026, 3, 10), "today")]
@@ -119,6 +128,15 @@ mod tests {
     #[case(155, "2h 35m")]
     fn writes_a_runtime(#[case] minutes: u64, #[case] expected: &str) {
         assert_eq!(runtime(minutes), expected);
+    }
+
+    #[rstest]
+    #[case(980, "980")]
+    #[case(1_000, "1k")]
+    #[case(45_600, "45k")]
+    #[case(1_240_000, "1.2M")]
+    fn writes_a_large_count(#[case] n: u32, #[case] expected: &str) {
+        assert_eq!(count(n), expected);
     }
 
     #[rstest]

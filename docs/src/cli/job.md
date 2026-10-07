@@ -16,6 +16,7 @@ same way its schedule does.
 | `refresh-metadata` | Refresh the items that are [due](../integrations/metadata.md#refreshing) |
 | `rescan-media-server` | Ask Jellyfin to rescan once the library has been quiet for 30 s |
 | `sync-watched` | Read the Jellyfin user's played items |
+| `refresh-ratings` | Refresh every item's [IMDb rating](../integrations/ratings.md) |
 
 ```console
 $ yokoku job sync-watched

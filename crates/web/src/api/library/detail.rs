@@ -7,7 +7,7 @@ use yokoku_domain::{ImportId, MovieId, SeriesId};
 
 use super::{FileStatus, Status};
 #[cfg(feature = "server")]
-use crate::api::{Dep, Library, Prober, Reviewer};
+use crate::api::{Dep, Library, Prober, Ratings, Reviewer};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -39,6 +39,18 @@ pub struct Description {
     pub genres: Vec<String>,
     /// Minutes: a movie's length, or a series' usual episode length.
     pub runtime: Option<u16>,
+}
+
+/// An item's rating at one source.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ItemRating {
+    /// `IMDb`.
+    pub source: String,
+    /// On the source's scale, like `7.8` of 10.
+    pub value: f32,
+    pub votes: Option<u32>,
+    /// The item's page at the source.
+    pub url: Option<String>,
 }
 
 /// Files a scan found in the item's folder that wait to be matched; when several scans left
@@ -96,6 +108,7 @@ pub struct SeriesDetail {
     pub monitored: bool,
     pub images: Images,
     pub description: Description,
+    pub ratings: Vec<ItemRating>,
     pub next: Option<EpisodeRow>,
     pub last: Option<EpisodeRow>,
     pub seasons: Vec<SeasonDetail>,
@@ -149,6 +162,7 @@ pub struct MovieDetail {
     pub monitored: bool,
     pub images: Images,
     pub description: Description,
+    pub ratings: Vec<ItemRating>,
     /// Every release kind, in order, with its date when known.
     pub releases: Vec<(Release, Option<Date>)>,
     pub file: FileStatus,
@@ -209,15 +223,15 @@ impl SeasonDetail {
 }
 
 /// `None` when the library has no such series.
-#[get("/api/series/{id}", library: Dep<Library>, prober: Dep<Prober>, reviewer: Dep<Reviewer>)]
+#[get("/api/series/{id}", library: Dep<Library>, prober: Dep<Prober>, reviewer: Dep<Reviewer>, ratings: Dep<Ratings>)]
 pub async fn series(id: SeriesId) -> Result<Option<SeriesDetail>, ServerFnError> {
-    server::series(&library, &prober, &reviewer, id).await
+    server::series(&library, &prober, &reviewer, &ratings, id).await
 }
 
 /// `None` when the library has no such movie.
-#[get("/api/movies/{id}", library: Dep<Library>, prober: Dep<Prober>, reviewer: Dep<Reviewer>)]
+#[get("/api/movies/{id}", library: Dep<Library>, prober: Dep<Prober>, reviewer: Dep<Reviewer>, ratings: Dep<Ratings>)]
 pub async fn movie(id: MovieId) -> Result<Option<MovieDetail>, ServerFnError> {
-    server::movie(&library, &prober, &reviewer, id).await
+    server::movie(&library, &prober, &reviewer, &ratings, id).await
 }
 
 #[cfg(feature = "server")]
@@ -231,13 +245,13 @@ mod server {
         media::{FileDetails, MediaInfo},
     };
     use yokoku_domain::{
-        Artwork, ArtworkKind, Episode, EpisodeRef, ExternalId, ItemFolder, ItemId, MediaFileId, MediaKind, Movie,
-        MovieId, ReleaseKind, Series, SeriesId,
+        Artwork, ArtworkKind, Episode, EpisodeRef, ExternalId, ImdbId, ItemFolder, ItemId, MediaFileId, MediaKind,
+        Movie, MovieId, Rating, RatingSource, ReleaseKind, Series, SeriesId,
     };
 
     use super::{
-        Description, EpisodeRow, FileInfo, Images, Library, MovieDetail, Numbering, Prober, Release, Reviewer,
-        SeasonDetail, SeriesDetail, Streams, Unrecognised, Video, Watched,
+        Description, EpisodeRow, FileInfo, Images, ItemRating, Library, MovieDetail, Numbering, Prober, Ratings,
+        Release, Reviewer, SeasonDetail, SeriesDetail, Streams, Unrecognised, Video, Watched,
     };
     use crate::api::artwork;
 
@@ -248,6 +262,7 @@ mod server {
         library: &Library,
         prober: &Prober,
         reviewer: &Reviewer,
+        ratings: &Ratings,
         id: SeriesId,
     ) -> Result<Option<SeriesDetail>, ServerFnError> {
         let today = library.today();
@@ -262,13 +277,15 @@ mod server {
         let files = files(prober, ItemId::Series(id)).await;
         let watched = watched(library).await;
         let unrecognised = unrecognised(reviewer, &series.folder).await;
-        Ok(Some(SeriesDetail::new(&series, &files, &watched, unrecognised, today)))
+        let ratings = item_ratings(ratings, ItemId::Series(id), series.external_ids.imdb.as_ref()).await;
+        Ok(Some(SeriesDetail::new(&series, &files, &watched, ratings, unrecognised, today)))
     }
 
     pub(super) async fn movie(
         library: &Library,
         prober: &Prober,
         reviewer: &Reviewer,
+        ratings: &Ratings,
         id: MovieId,
     ) -> Result<Option<MovieDetail>, ServerFnError> {
         let today = library.today();
@@ -283,7 +300,8 @@ mod server {
         let files = files(prober, ItemId::Movie(id)).await;
         let watched = watched(library).await;
         let unrecognised = unrecognised(reviewer, &movie.folder).await;
-        Ok(Some(MovieDetail::new(&movie, &files, &watched, unrecognised, today)))
+        let ratings = item_ratings(ratings, ItemId::Movie(id), movie.external_ids.imdb.as_ref()).await;
+        Ok(Some(MovieDetail::new(&movie, &files, &watched, ratings, unrecognised, today)))
     }
 
     /// Files of scans of `folder` waiting for review; `None` when there are none or imports
@@ -311,6 +329,17 @@ mod server {
         }
     }
 
+    /// The item's stored ratings; empty when they cannot be read.
+    async fn item_ratings(ratings: &Ratings, item: ItemId, imdb_id: Option<&ImdbId>) -> Vec<ItemRating> {
+        match ratings.of(item).await {
+            Ok(stored) => stored.into_iter().map(|rating| ItemRating::new(rating, imdb_id)).collect(),
+            Err(error) => {
+                error!(%error, ?item, "reading the item's ratings failed");
+                Vec::new()
+            },
+        }
+    }
+
     /// Played library files; empty when they cannot be read.
     async fn watched(library: &Library) -> WatchedFiles {
         match library.watched_files().await {
@@ -329,6 +358,7 @@ mod server {
             series: &Series,
             files: &Files,
             watched: &WatchedFiles,
+            ratings: Vec<ItemRating>,
             unrecognised: Option<Unrecognised>,
             today: Date,
         ) -> Self {
@@ -346,6 +376,7 @@ mod server {
                 monitored: series.monitored,
                 images: Images::new(ItemId::Series(series.id), &series.artwork),
                 description: series.description.clone().into(),
+                ratings,
                 next: series.next_episode(today).map(row),
                 last: series.last_aired(today).map(row),
                 unrecognised,
@@ -389,6 +420,7 @@ mod server {
             movie: &Movie,
             files: &Files,
             watched: &WatchedFiles,
+            ratings: Vec<ItemRating>,
             unrecognised: Option<Unrecognised>,
             today: Date,
         ) -> Self {
@@ -405,6 +437,7 @@ mod server {
                 monitored: movie.monitored,
                 images: Images::new(ItemId::Movie(movie.id), &movie.artwork),
                 description: movie.description.clone().into(),
+                ratings,
                 releases: vec![
                     (Release::Cinema, releases.cinema),
                     (Release::Digital, releases.digital),
@@ -435,6 +468,19 @@ mod server {
             (ExternalId::Tmdb(id), MediaKind::Movie) => format!("https://www.themoviedb.org/movie/{id}"),
             (ExternalId::Tvdb(id), MediaKind::Series) => format!("https://thetvdb.com/dereferrer/series/{id}"),
             (ExternalId::Tvdb(id), MediaKind::Movie) => format!("https://thetvdb.com/dereferrer/movie/{id}"),
+        }
+    }
+
+    impl ItemRating {
+        fn new(rating: Rating, imdb_id: Option<&ImdbId>) -> Self {
+            match rating.source {
+                RatingSource::Imdb => Self {
+                    source: "IMDb".to_owned(),
+                    value: rating.value,
+                    votes: rating.votes,
+                    url: imdb_id.map(|id| format!("https://www.imdb.com/title/{id}/")),
+                },
+            }
         }
     }
 

@@ -22,7 +22,7 @@ output = "stderr"
 
 # Restart needed.
 [database]
-# The SQLite file; artwork is kept in an artwork folder next to it.
+# The SQLite file; artwork and ratings are kept in folders next to it.
 path = "/data/yokoku.db"
 
 # Restart needed.
@@ -62,6 +62,11 @@ url = "https://api.themoviedb.org/3"
 # The API's address; change it only for a proxy or mirror.
 url = "https://api4.thetvdb.com/v4"
 
+# Ratings come from IMDb's daily dataset, for personal and non-commercial use.
+[ratings]
+# The dataset's address; change it only for a proxy or mirror.
+imdb_url = "https://datasets.imdbws.com/title.ratings.tsv.gz"
+
 # The password is a secret, like the TMDB token.
 [transmission]
 # Its RPC address.
@@ -93,6 +98,8 @@ execute_imports = "*/5 * * * * *"
 rescan_media_server = "*/10 * * * * *"
 # Mirrors the Jellyfin user's played items onto library files.
 sync_watched = "0 */15 * * * *"
+# Refreshes every item's ratings.
+refresh_ratings = "0 0 6 * * *"
 # Refreshes only the items due for it.
 refresh_metadata = "0 0 */12 * * *"
 # Looks for files changed outside Yokoku in the root folders.

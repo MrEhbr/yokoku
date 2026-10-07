@@ -126,7 +126,10 @@ fn Page(movie: detail::MovieDetail) -> Element {
                     on_change: reload,
                 }
             }
-            ItemDescription { description: movie.description.clone() }
+            ItemDescription {
+                description: movie.description.clone(),
+                ratings: movie.ratings.clone(),
+            }
             div { class: "mt-2 grid gap-6 lg:grid-cols-2",
                 section {
                     h2 { class: "text-caption font-medium text-muted", "Releases" }

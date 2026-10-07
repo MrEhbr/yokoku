@@ -6,6 +6,9 @@ releases**, **Refresh**, **Episode numbering…** (series only), **Rename
 files…** and **Remove…**. On a phone, the actions after **Search releases**
 are in the **⋯** menu.
 
+Below them are the genres, the runtime and the [IMDb rating](../integrations/ratings.md),
+then the overview.
+
 ## Series
 
 The page shows the next episode and the last one aired, then every season,

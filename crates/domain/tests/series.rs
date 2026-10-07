@@ -7,8 +7,9 @@ use jiff::{
 use proptest::prelude::*;
 use rstest::rstest;
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId,
-    MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus, events::RenumberedFile,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, EpisodeSpan, ExternalId, ExternalIds, FileStatus, ItemFolder,
+    MediaFileId, MonitorPreset, SeasonMetadata, Series, SeriesMetadata, SeriesStatus, SourceStatus,
+    events::RenumberedFile,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -44,6 +45,7 @@ fn metadata(status: SourceStatus, seasons: &[(u16, &[Option<Date>])]) -> SeriesM
         .collect();
     SeriesMetadata {
         source: ExternalId::Tmdb(1),
+        external_ids: ExternalIds::default(),
         title: "Frieren".into(),
         original_title: "Sousou no Frieren".into(),
         alternate_titles: Vec::new(),

@@ -13,8 +13,8 @@ use yokoku_core::{
     media::ports::Catalog,
 };
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, ExternalId, ItemFolder, MediaFileId, MonitorPreset, Movie, MovieId,
-    MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
+    Artwork, Description, EpisodeMetadata, ExternalId, ExternalIds, ItemFolder, MediaFileId, MonitorPreset, Movie,
+    MovieId, MovieMetadata, Numbering, Releases, SeasonMetadata, Series, SeriesMetadata, SourceStatus, StorageError,
 };
 use yokoku_infra::db::Database;
 
@@ -31,6 +31,7 @@ fn series_metadata(source: u64, seasons: &[(u16, &[Option<Date>])]) -> SeriesMet
     let mut next_source_id = 1000;
     SeriesMetadata {
         source: ExternalId::Tmdb(source),
+        external_ids: ExternalIds { imdb: Some("tt22248376".parse().unwrap()) },
         title: "Frieren".into(),
         original_title: "Sousou no Frieren".into(),
         alternate_titles: vec!["Frieren: Beyond Journey's End".into(), "葬送のフリーレン".into()],
@@ -72,6 +73,7 @@ fn series_metadata(source: u64, seasons: &[(u16, &[Option<Date>])]) -> SeriesMet
 fn movie_metadata(source: u64) -> MovieMetadata {
     MovieMetadata {
         source: ExternalId::Tmdb(source),
+        external_ids: ExternalIds { imdb: Some("tt1160419".parse().unwrap()) },
         title: "Dune".into(),
         original_title: "Dune".into(),
         alternate_titles: vec!["Dune: Part One".into()],
@@ -322,6 +324,7 @@ async fn the_catalog_reads_the_library(#[future(awt)] db: Database) {
     let mut series = Series::new(
         SeriesMetadata {
             source: ExternalId::Tmdb(1),
+            external_ids: ExternalIds::default(),
             title: "Frieren".into(),
             original_title: "Sousou no Frieren".into(),
             alternate_titles: Vec::new(),
@@ -339,6 +342,7 @@ async fn the_catalog_reads_the_library(#[future(awt)] db: Database) {
     let mut movie = Movie::new(
         MovieMetadata {
             source: ExternalId::Tmdb(2),
+            external_ids: ExternalIds::default(),
             title: "Dune".into(),
             original_title: "Dune".into(),
             alternate_titles: Vec::new(),

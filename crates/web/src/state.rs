@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 use yokoku_core::{
     downloads::{Downloads, ReleaseSearch},
     events::{History, QueueChanges},
+    integrations::Ratings,
     library::{Artworks, Calendar, Library, MetadataService},
     media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner},
 };
@@ -29,6 +30,7 @@ pub struct AppState {
     pub importer: Arc<Importer>,
     pub queue_changes: Arc<QueueChanges>,
     pub metadata: Arc<MetadataService>,
+    pub ratings: Arc<Ratings>,
     pub roots: Arc<RootFolders>,
     pub add: Arc<AddSettings>,
     pub deleter: Arc<Deleter>,
@@ -109,6 +111,7 @@ provides! {
     Importer => importer,
     QueueChanges => queue_changes,
     MetadataService => metadata,
+    Ratings => ratings,
     RootFolders => roots,
     Deleter => deleter,
     Renamer => renamer,

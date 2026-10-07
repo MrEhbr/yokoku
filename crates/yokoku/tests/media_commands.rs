@@ -9,8 +9,8 @@ use yokoku_core::{
     library::ports::{MovieRepo, SeriesRepo},
 };
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, EpisodeRef, ExternalId, ItemFolder, MonitorPreset, Movie, MovieMetadata,
-    Releases, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
+    Artwork, Description, EpisodeMetadata, EpisodeRef, ExternalId, ExternalIds, ItemFolder, MonitorPreset, Movie,
+    MovieMetadata, Releases, SeasonMetadata, Series, SeriesMetadata, SettingsStore, SourceStatus,
 };
 use yokoku_infra::db::Database;
 use yokoku_test_support::{
@@ -42,6 +42,7 @@ impl Setup {
         let folder = ItemFolder::new(tv, "Frieren (2023)".into()).unwrap();
         let frieren = SeriesMetadata {
             source: ExternalId::Tmdb(1),
+            external_ids: ExternalIds::default(),
             title: "Frieren".into(),
             original_title: "Sousou no Frieren".into(),
             alternate_titles: Vec::new(),

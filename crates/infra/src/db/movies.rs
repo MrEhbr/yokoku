@@ -5,7 +5,7 @@ use jiff::{Timestamp, civil::Date};
 use sqlx::types::Json;
 use yokoku_core::library::ports::MovieRepo;
 use yokoku_domain::{
-    Artwork, Description, ExternalId, ItemFolder, MediaFileId, Movie, MovieId, Releases, StorageError,
+    Artwork, Description, ExternalId, ExternalIds, ItemFolder, MediaFileId, Movie, MovieId, Releases, StorageError,
 };
 
 use crate::db::{
@@ -19,6 +19,7 @@ struct MovieRow {
     id: Text<MovieId>,
     #[sqlx(flatten)]
     source: SourceColumns,
+    external_ids: Json<ExternalIds>,
     title: String,
     original_title: String,
     alternate_titles: Json<Vec<String>>,
@@ -99,11 +100,12 @@ impl Database {
         let mut tx = self.pool().begin().await?;
 
         let returned = sqlx::query_scalar(
-            "INSERT INTO movies (id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
-                                 description, cinema_date, digital_date, physical_date, root, folder, monitored,
-                                 file_id, added_at, refreshed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "INSERT INTO movies (id, source_kind, source_id, external_ids, title, original_title, alternate_titles,
+                                 year, artwork, description, cinema_date, digital_date, physical_date, root,
+                                 folder, monitored, file_id, added_at, refreshed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (id) DO UPDATE SET
+                 external_ids = excluded.external_ids,
                  title = excluded.title, original_title = excluded.original_title,
                  alternate_titles = excluded.alternate_titles, year = excluded.year,
                  artwork = excluded.artwork, description = excluded.description,
@@ -118,6 +120,7 @@ impl Database {
         .bind(movie.id.to_string())
         .bind(source.source_kind)
         .bind(Int(source.source_id))
+        .bind(Json(&movie.external_ids))
         .bind(&movie.title)
         .bind(&movie.original_title)
         .bind(Json(&movie.alternate_titles))
@@ -145,7 +148,7 @@ impl Database {
 
     pub(crate) async fn load_movie(&self, id: MovieId) -> Result<Option<Movie>, DbError> {
         let row: Option<MovieRow> = sqlx::query_as(
-            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
+            "SELECT id, source_kind, source_id, external_ids, title, original_title, alternate_titles, year, artwork,
                     description, cinema_date, digital_date, physical_date, root, folder, monitored, file_id,
                     added_at, refreshed_at, revision
              FROM movies WHERE id = ?",
@@ -160,7 +163,7 @@ impl Database {
     /// Every movie in one query, ordered by id.
     pub(crate) async fn load_all_movies(&self) -> Result<Vec<Movie>, DbError> {
         let rows: Vec<MovieRow> = sqlx::query_as(
-            "SELECT id, source_kind, source_id, title, original_title, alternate_titles, year, artwork,
+            "SELECT id, source_kind, source_id, external_ids, title, original_title, alternate_titles, year, artwork,
                     description, cinema_date, digital_date, physical_date, root, folder, monitored, file_id,
                     added_at, refreshed_at, revision
              FROM movies ORDER BY id",
@@ -184,6 +187,7 @@ impl TryFrom<MovieRow> for Movie {
         Ok(Movie {
             id: row.id.0,
             source: row.source.try_into()?,
+            external_ids: row.external_ids.0,
             title: row.title,
             original_title: row.original_title,
             alternate_titles: row.alternate_titles.0,

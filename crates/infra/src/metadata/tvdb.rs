@@ -6,7 +6,8 @@ use tokio::sync::Mutex;
 use tracing::debug;
 use yokoku_core::library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
+    Artwork, Description, EpisodeMetadata, ExternalId, ExternalIds, Live, MediaKind, MovieMetadata, SeasonMetadata,
+    SeriesMetadata,
 };
 
 use crate::metadata::{
@@ -178,6 +179,7 @@ impl MetadataProvider for TvdbClient {
             genres: details.genres.iter().map(|genre| genre.name.clone()).collect(),
             runtime: details.average_runtime.filter(|&minutes| minutes > 0),
         };
+        let external_ids = ExternalIds { imdb: details.imdb_id() };
         let title = details.translated_name(language).unwrap_or(&details.name).to_owned();
         let mut alternate_titles: Vec<String> = Vec::new();
         for alias in details.aliases {
@@ -188,6 +190,7 @@ impl MetadataProvider for TvdbClient {
 
         Ok(SeriesMetadata {
             source,
+            external_ids,
             year: details.year,
             status: tvdb_wire::source_status(details.status.and_then(|status| status.name).as_deref()),
             title,

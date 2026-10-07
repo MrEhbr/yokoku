@@ -20,6 +20,7 @@ use yokoku_infra::{
     indexers::JackettSettings,
     media_servers::JellyfinSettings,
     metadata::MetadataSettings,
+    ratings::RatingsSettings,
     system::{ClockSettings, MediaTools},
 };
 
@@ -43,6 +44,7 @@ pub struct Config {
     pub web: WebConfig,
     pub clock: ClockSettings,
     pub metadata: MetadataSettings,
+    pub ratings: RatingsSettings,
     pub transmission: TransmissionSettings,
     pub downloads: DownloadOptions,
     pub add: AddConfig,

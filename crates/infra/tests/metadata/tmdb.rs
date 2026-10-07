@@ -26,7 +26,7 @@ async fn mount_series(server: &MockServer, id: u64, append: &str) {
     let endpoint = format!("/tv/{id}");
     Mock::given(method("GET"))
         .and(path(&endpoint))
-        .and(query_param("append_to_response", "alternative_titles,images"))
+        .and(query_param("append_to_response", "alternative_titles,images,external_ids"))
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture(&format!("tv_{id}.json"))))
         .mount(server)
         .await;
@@ -165,7 +165,7 @@ async fn series_without_a_usual_runtime_take_their_most_common_episode_length() 
         }
     }
     Mock::given(path("/tv/209867"))
-        .and(query_param("append_to_response", "alternative_titles,images"))
+        .and(query_param("append_to_response", "alternative_titles,images,external_ids"))
         .respond_with(ResponseTemplate::new(200).set_body_json(details))
         .mount(&server)
         .await;
@@ -195,6 +195,46 @@ async fn movies_take_their_description() {
     assert_eq!(dune.description.runtime, Some(155));
 }
 
+#[rstest]
+#[case::known(json!("tt1160419"), Some("tt1160419"))]
+#[case::empty(json!(""), None)]
+#[case::missing(Value::Null, None)]
+#[tokio::test]
+async fn movies_take_their_imdb_id(#[case] imdb_id: Value, #[case] expected: Option<&str>) {
+    let server = server().await;
+    let mut movie = fixture("movie_438631.json");
+    movie["imdb_id"] = imdb_id;
+    Mock::given(path("/movie/438631"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(movie))
+        .mount(&server)
+        .await;
+
+    let dune = client(&server, "US").movie(ExternalId::Tmdb(438631)).await.unwrap();
+
+    assert_eq!(dune.external_ids.imdb, expected.map(|id| id.parse().unwrap()));
+}
+
+#[tokio::test]
+async fn series_take_their_imdb_id_from_their_external_ids() {
+    let server = server().await;
+    let mut details = fixture("tv_209867.json");
+    details["external_ids"] = json!({ "imdb_id": "tt22248376", "tvdb_id": 424536 });
+    Mock::given(path("/tv/209867"))
+        .and(query_param("append_to_response", "alternative_titles,images,external_ids"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(details))
+        .mount(&server)
+        .await;
+    Mock::given(path("/tv/209867"))
+        .and(query_param("append_to_response", "season/0,season/1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(fixture("tv_209867_seasons.json")))
+        .mount(&server)
+        .await;
+
+    let frieren = client(&server, "US").series(ExternalId::Tmdb(209867)).await.unwrap();
+
+    assert_eq!(frieren.external_ids.imdb, Some("tt22248376".parse().unwrap()));
+}
+
 #[tokio::test]
 async fn long_series_load_seasons_twenty_at_a_time() {
     let server = server().await;
@@ -218,7 +258,7 @@ async fn long_series_load_seasons_twenty_at_a_time() {
     };
     let append = |chunk: &[u16]| chunk.iter().map(|n| format!("season/{n}")).collect::<Vec<_>>().join(",");
     Mock::given(path("/tv/1"))
-        .and(query_param("append_to_response", "alternative_titles,images"))
+        .and(query_param("append_to_response", "alternative_titles,images,external_ids"))
         .respond_with(ResponseTemplate::new(200).set_body_json(details.clone()))
         .mount(&server)
         .await;

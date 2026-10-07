@@ -4,8 +4,8 @@ use jiff::{
 };
 use rstest::rstest;
 use yokoku_domain::{
-    Artwork, Description, ExternalId, FileStatus, ItemFolder, MediaFileId, Movie, MovieMetadata, MovieStatus,
-    ReleaseKind, Releases,
+    Artwork, Description, ExternalId, ExternalIds, FileStatus, ItemFolder, MediaFileId, Movie, MovieMetadata,
+    MovieStatus, ReleaseKind, Releases,
 };
 
 const TODAY: Date = date(2026, 9, 26);
@@ -14,6 +14,7 @@ fn movie(cinema: Option<i64>, digital: Option<i64>, physical: Option<i64>) -> Mo
     let from_today = |days: Option<i64>| days.map(|days| TODAY + days.days());
     let metadata = MovieMetadata {
         source: ExternalId::Tmdb(438631),
+        external_ids: ExternalIds::default(),
         title: "Dune".into(),
         original_title: "Dune".into(),
         alternate_titles: Vec::new(),
@@ -66,6 +67,7 @@ fn refresh_updates_metadata_and_keeps_identity() {
     movie.refresh(
         MovieMetadata {
             source: movie.source,
+            external_ids: ExternalIds::default(),
             title: "Dune: Part One".into(),
             original_title: "Dune".into(),
             alternate_titles: Vec::new(),

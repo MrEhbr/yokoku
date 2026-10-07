@@ -20,6 +20,7 @@ use {
     tokio_util::sync::CancellationToken,
     yokoku_core::downloads::{Downloads, ReleaseSearch},
     yokoku_core::events::{History, QueueChanges},
+    yokoku_core::integrations::Ratings,
     yokoku_core::library::{Artworks, Calendar, Library, MetadataService},
     yokoku_core::media::{Deleter, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner},
     yokoku_domain::Clock,

@@ -7,7 +7,7 @@ use tracing::warn;
 use yokoku_core::{
     downloads::{Downloads, ReleaseSearch},
     events::{Delivery, DeliveryConfig, EventLog, History, Publisher, QueueChanges},
-    integrations::{Rescans, WatchSync},
+    integrations::{Ratings, Rescans, WatchSync},
     library::{Artworks, Calendar, FileTracker, Library, MetadataService},
     media::{
         Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
@@ -21,6 +21,7 @@ use yokoku_infra::{
     indexers::JackettClient,
     media_servers::JellyfinClient,
     metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient},
+    ratings::ImdbDataset,
     system::{ArtworkFiles, FfMpeg, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
 
@@ -48,6 +49,7 @@ pub struct App {
     pub prober: Arc<Prober>,
     pub rescans: Arc<Rescans>,
     pub watched: Arc<WatchSync>,
+    pub ratings: Arc<Ratings>,
     pub metadata: Arc<MetadataService>,
     pub events: Publisher,
     /// Handlers that only events reach.
@@ -100,6 +102,11 @@ impl App {
         let jellyfin = Arc::new(JellyfinClient::new(settings.live(|config| config.jellyfin.clone())));
         let rescans = Arc::new(Rescans::new(db.clone(), jellyfin.clone(), clock.clone()));
         let watched = Arc::new(WatchSync::new(jellyfin, db.clone(), db.clone(), db.clone()));
+        let ratings = Arc::new(Ratings::new(
+            Arc::new(ImdbDataset::new(settings.live(|config| config.ratings.clone()), path.with_file_name("ratings"))),
+            db.clone(),
+            db.clone(),
+        ));
         let downloads = Arc::new(Downloads::new(
             db.clone(),
             Arc::new(TransmissionClient::new(settings.live(|config| config.transmission.clone()))),
@@ -184,6 +191,7 @@ impl App {
             prober,
             rescans,
             watched,
+            ratings,
             metadata,
             artworks,
         })

@@ -24,6 +24,7 @@
 - [Jackett](./integrations/jackett.md)
 - [Jellyfin](./integrations/jellyfin.md)
 - [TMDB and TVDB](./integrations/metadata.md)
+- [IMDb Ratings](./integrations/ratings.md)
 
 # Configuration
 

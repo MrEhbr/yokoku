@@ -1,6 +1,6 @@
 use jiff::{SignedDuration, Timestamp, ToSpan, civil::Date};
 
-use crate::{Artwork, Description, ExternalId, FileStatus, ItemFolder, MediaFileId, MovieId};
+use crate::{Artwork, Description, ExternalId, ExternalIds, FileStatus, ItemFolder, MediaFileId, MovieId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Releases {
@@ -52,6 +52,7 @@ crate::string_enum!(MovieStatus, "movie status" {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MovieMetadata {
     pub source: ExternalId,
+    pub external_ids: ExternalIds,
     pub title: String,
     pub original_title: String,
     /// Other names the item is known by, such as romanisations.
@@ -66,6 +67,7 @@ pub struct MovieMetadata {
 pub struct Movie {
     pub id: MovieId,
     pub source: ExternalId,
+    pub external_ids: ExternalIds,
     pub title: String,
     pub original_title: String,
     /// Other names the item is known by, such as romanisations.
@@ -89,6 +91,7 @@ impl Movie {
         Self {
             id: MovieId::generate(),
             source: metadata.source,
+            external_ids: metadata.external_ids,
             title: metadata.title,
             original_title: metadata.original_title,
             alternate_titles: metadata.alternate_titles,
@@ -106,6 +109,7 @@ impl Movie {
     }
 
     pub fn refresh(&mut self, metadata: MovieMetadata, now: Timestamp) {
+        self.external_ids = metadata.external_ids;
         self.title = metadata.title;
         self.original_title = metadata.original_title;
         self.alternate_titles = metadata.alternate_titles;

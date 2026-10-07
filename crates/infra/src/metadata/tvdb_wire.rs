@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use jiff::civil::Date;
 use serde::{Deserialize, Serialize};
-use yokoku_domain::SourceStatus;
+use yokoku_domain::{ImdbId, SourceStatus};
 
 #[derive(Debug, Serialize)]
 pub(crate) struct Login<'a> {
@@ -65,7 +65,23 @@ pub(crate) struct SeriesDetails {
     #[serde(default)]
     pub aliases: Vec<Alias>,
     #[serde(default)]
+    pub remote_ids: Vec<RemoteId>,
+    #[serde(default)]
     pub translations: Translations,
+}
+
+impl SeriesDetails {
+    pub(crate) fn imdb_id(&self) -> Option<ImdbId> {
+        self.remote_ids.iter().find(|remote| remote.source_name == "IMDB")?.id.parse().ok()
+    }
+}
+
+/// The series' id at another site.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RemoteId {
+    pub id: String,
+    pub source_name: String,
 }
 
 #[derive(Debug, Deserialize)]

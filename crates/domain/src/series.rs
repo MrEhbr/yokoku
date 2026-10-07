@@ -4,8 +4,8 @@ use jiff::{SignedDuration, Timestamp, ToSpan, civil::Date};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Artwork, Description, EpisodeId, EpisodeRef, EpisodeSpan, ExternalId, FileStatus, ItemFolder, MediaFileId,
-    SeriesId, events::RenumberedFile,
+    Artwork, Description, EpisodeId, EpisodeRef, EpisodeSpan, ExternalId, ExternalIds, FileStatus, ItemFolder,
+    MediaFileId, SeriesId, events::RenumberedFile,
 };
 
 const SPECIALS: u16 = 0;
@@ -71,6 +71,7 @@ pub enum MonitorPreset {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeriesMetadata {
     pub source: ExternalId,
+    pub external_ids: ExternalIds,
     pub title: String,
     pub original_title: String,
     /// Other names the item is known by, such as romanisations.
@@ -103,6 +104,7 @@ pub struct EpisodeMetadata {
 pub struct Series {
     pub id: SeriesId,
     pub source: ExternalId,
+    pub external_ids: ExternalIds,
     pub title: String,
     pub original_title: String,
     /// Other names the item is known by, such as romanisations.
@@ -179,6 +181,7 @@ impl Series {
         let mut series = Self {
             id: SeriesId::generate(),
             source: metadata.source,
+            external_ids: metadata.external_ids,
             title: metadata.title,
             original_title: metadata.original_title,
             alternate_titles: metadata.alternate_titles,
@@ -237,6 +240,7 @@ impl Series {
             })
             .collect();
 
+        self.external_ids = metadata.external_ids;
         self.title = metadata.title;
         self.original_title = metadata.original_title;
         self.alternate_titles = metadata.alternate_titles;

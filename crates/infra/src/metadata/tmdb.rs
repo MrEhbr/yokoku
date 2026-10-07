@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use yokoku_core::library::ports::{MetadataError, MetadataProvider, SearchResult};
 use yokoku_domain::{
-    Artwork, Description, EpisodeMetadata, ExternalId, Live, MediaKind, MovieMetadata, SeasonMetadata, SeriesMetadata,
+    Artwork, Description, EpisodeMetadata, ExternalId, ExternalIds, Live, MediaKind, MovieMetadata, SeasonMetadata,
+    SeriesMetadata,
 };
 
 use crate::metadata::{
@@ -76,7 +77,10 @@ impl MetadataProvider for TmdbClient {
         let id = tmdb_id(source)?;
         let endpoint = format!("tv/{id}");
         let images = images_query(&self.settings.current());
-        let query = [("append_to_response", "alternative_titles,images"), ("include_image_language", images.as_str())];
+        let query = [
+            ("append_to_response", "alternative_titles,images,external_ids"),
+            ("include_image_language", images.as_str()),
+        ];
         let details: TvDetails = self.get(&endpoint, &query, Some(source)).await?;
         let numbers: Vec<u16> = details.seasons.iter().map(|season| season.season_number).collect();
 
@@ -109,6 +113,7 @@ impl MetadataProvider for TmdbClient {
 
         Ok(SeriesMetadata {
             source,
+            external_ids: ExternalIds { imdb: details.external_ids.imdb_id.as_deref().and_then(|id| id.parse().ok()) },
             alternate_titles: details.alternative_titles.into_distinct(&details.name, &details.original_name),
             year: details.first_air_date.map(|date| date.year()),
             status: tmdb_wire::source_status(details.status.as_deref()),
@@ -139,6 +144,7 @@ impl MetadataProvider for TmdbClient {
 
         Ok(MovieMetadata {
             source,
+            external_ids: ExternalIds { imdb: details.imdb_id.as_deref().and_then(|id| id.parse().ok()) },
             year: details.release_date.map(|date| date.year()),
             releases: details.releases(&self.settings.current().region),
             alternate_titles: details.alternative_titles.into_distinct(&details.title, &details.original_title),

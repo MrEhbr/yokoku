@@ -66,6 +66,10 @@ async fn mount_frieren(server: &MockServer) {
                 { "language": "eng", "name": "Frieren" },
                 { "language": "eng", "name": "Frieren: Beyond Journey's End" },
             ],
+            "remoteIds": [
+                { "id": "https://frieren-anime.jp/", "type": 4, "sourceName": "Official Website" },
+                { "id": "tt22248376", "type": 2, "sourceName": "IMDB" },
+            ],
             "translations": { "nameTranslations": [
                 { "language": "jpn", "name": "葬送のフリーレン", "isPrimary": true, "isAlias": null },
                 { "language": "eng", "name": "Frieren of the Funeral", "isPrimary": null, "isAlias": true },
@@ -209,6 +213,16 @@ async fn series_take_their_description_in_the_language(#[future(awt)] server: Mo
     assert_eq!(frieren.description.runtime, Some(25));
     assert_eq!(frieren.seasons[1].episodes[0].overview, "The party returns to the capital.");
     assert_eq!(frieren.seasons[1].episodes[1].overview, "");
+}
+
+#[rstest]
+#[tokio::test]
+async fn series_take_their_imdb_id_from_their_remote_ids(#[future(awt)] server: MockServer) {
+    mount_frieren(&server).await;
+
+    let frieren = client(&server).series(ExternalId::Tvdb(424536)).await.unwrap();
+
+    assert_eq!(frieren.external_ids.imdb, Some("tt22248376".parse().unwrap()));
 }
 
 #[rstest]

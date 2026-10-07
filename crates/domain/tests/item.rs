@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use proptest::prelude::*;
 use rstest::rstest;
-use yokoku_domain::{ExternalId, InvalidFolderName, ItemFolder};
+use yokoku_domain::{ExternalId, ImdbId, InvalidFolderName, ItemFolder};
 
 #[rstest]
 #[case::tmdb("tmdb:1396", ExternalId::Tmdb(1396))]
@@ -20,6 +20,24 @@ fn parses_source_ids(#[case] text: &str, #[case] expected: ExternalId) {
 #[case::empty("")]
 fn rejects_malformed_source_ids(#[case] text: &str) {
     assert!(text.parse::<ExternalId>().is_err());
+}
+
+#[rstest]
+#[case::seven_digits("tt0903747")]
+#[case::eight_digits("tt22248376")]
+fn parses_imdb_ids(#[case] text: &str) {
+    assert_eq!(text.parse::<ImdbId>().unwrap().to_string(), text);
+}
+
+#[rstest]
+#[case::empty("")]
+#[case::prefix_only("tt")]
+#[case::no_prefix("0903747")]
+#[case::not_a_number("tt09o3747")]
+#[case::uppercase("TT0903747")]
+#[case::person("nm0000123")]
+fn rejects_malformed_imdb_ids(#[case] text: &str) {
+    assert!(text.parse::<ImdbId>().is_err());
 }
 
 fn any_external_id() -> impl Strategy<Value = ExternalId> {

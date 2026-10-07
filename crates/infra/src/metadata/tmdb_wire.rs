@@ -64,6 +64,8 @@ pub(crate) struct TvDetails {
     pub status: Option<String>,
     pub seasons: Vec<SeasonSummary>,
     #[serde(default)]
+    pub external_ids: ExternalIds,
+    #[serde(default)]
     pub alternative_titles: AlternativeTitles,
     /// Appended `season/N` objects, among other fields.
     #[serde(flatten)]
@@ -114,6 +116,7 @@ pub(crate) struct MovieDetails {
     pub backdrop_path: Option<String>,
     #[serde(default)]
     pub images: Images,
+    pub imdb_id: Option<String>,
     pub release_dates: Option<ReleaseDatesByCountry>,
     #[serde(default)]
     pub alternative_titles: AlternativeTitles,
@@ -135,6 +138,12 @@ impl MovieDetails {
 
         Releases { cinema: earliest(&[2, 3]).or(self.release_date), digital: earliest(&[4]), physical: earliest(&[5]) }
     }
+}
+
+/// Appended `external_ids`.
+#[derive(Debug, Default, Deserialize)]
+pub(crate) struct ExternalIds {
+    pub imdb_id: Option<String>,
 }
 
 /// `results` for series, `titles` for movies.

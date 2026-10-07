@@ -2,7 +2,7 @@ use std::{error::Error, path::PathBuf};
 
 use async_trait::async_trait;
 use jiff::Timestamp;
-use yokoku_domain::{EpisodeSpan, ExternalId, MediaFileId, StorageError};
+use yokoku_domain::{EpisodeSpan, ExternalId, ExternalIds, ItemId, MediaFileId, Movie, Rating, Series, StorageError};
 
 #[async_trait]
 pub trait MediaServer: Send + Sync {
@@ -66,4 +66,45 @@ pub trait WatchedStore: Send + Sync {
     async fn watched(&self) -> Result<Vec<Watched>, StorageError>;
     /// Replaces every watched file; a file no longer stored is skipped.
     async fn replace_watched(&self, watched: &[Watched]) -> Result<(), StorageError>;
+}
+
+/// The ids a ratings provider may look an item up by.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RatedItem {
+    pub item: ItemId,
+    pub source: ExternalId,
+    pub external_ids: ExternalIds,
+}
+
+#[async_trait]
+pub trait RatingsProvider: Send + Sync {
+    /// The ratings it has for `items`; an item it does not know is left out.
+    async fn ratings(&self, items: &[RatedItem]) -> Result<Vec<(ItemId, Rating)>, RatingsError>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RatingsError {
+    #[error("ratings unavailable")]
+    Unavailable(#[source] Box<dyn Error + Send + Sync>),
+    #[error("ratings are malformed")]
+    Invalid(#[source] Box<dyn Error + Send + Sync>),
+}
+
+#[async_trait]
+pub trait RatingsStore: Send + Sync {
+    async fn ratings(&self, item: ItemId) -> Result<Vec<Rating>, StorageError>;
+    /// Saves each rating over the item's stored one from the same source; skips an item no longer stored.
+    async fn save_ratings(&self, ratings: &[(ItemId, Rating)]) -> Result<(), StorageError>;
+}
+
+impl From<&Series> for RatedItem {
+    fn from(series: &Series) -> Self {
+        Self { item: ItemId::Series(series.id), source: series.source, external_ids: series.external_ids.clone() }
+    }
+}
+
+impl From<&Movie> for RatedItem {
+    fn from(movie: &Movie) -> Self {
+        Self { item: ItemId::Movie(movie.id), source: movie.source, external_ids: movie.external_ids.clone() }
+    }
 }

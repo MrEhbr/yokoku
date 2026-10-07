@@ -9,6 +9,7 @@ mod events;
 mod media;
 mod media_info;
 mod movies;
+mod ratings;
 mod rescans;
 mod series;
 mod settings;

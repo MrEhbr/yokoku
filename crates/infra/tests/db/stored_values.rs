@@ -8,8 +8,8 @@ use yokoku_core::{
     library::ports::SeriesRepo,
 };
 use yokoku_domain::{
-    Artwork, Description, DownloadId, EpisodeMetadata, ExternalId, ItemFolder, MonitorPreset, SeasonMetadata, Series,
-    SeriesMetadata, SourceStatus,
+    Artwork, Description, DownloadId, EpisodeMetadata, ExternalId, ExternalIds, ItemFolder, MonitorPreset,
+    SeasonMetadata, Series, SeriesMetadata, SourceStatus,
 };
 use yokoku_infra::db::Database;
 
@@ -20,6 +20,7 @@ fn now() -> Timestamp {
 fn series(episode_source_id: u64) -> Series {
     let metadata = SeriesMetadata {
         source: ExternalId::Tmdb(1),
+        external_ids: ExternalIds::default(),
         title: "Frieren".into(),
         original_title: "Sousou no Frieren".into(),
         alternate_titles: vec![],
