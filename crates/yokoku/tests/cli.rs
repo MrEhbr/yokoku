@@ -45,6 +45,17 @@ fn test_global_flags_accepted_either_side() {
 }
 
 #[test]
+fn test_completions_print_without_a_config_file() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
+    cmd.current_dir(&dir).args(["completions", "fish"]);
+
+    cmd.assert().success().stdout(predicate::str::contains("complete -c yokoku"));
+    assert!(std::fs::read_dir(&dir).unwrap().next().is_none(), "completions wrote files");
+}
+
+#[test]
 fn test_invalid_command() {
     let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"));
     cmd.arg("nonexistent");

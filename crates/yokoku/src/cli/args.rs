@@ -53,6 +53,8 @@ pub enum Command {
     Job(commands::job::Args),
     /// Store settings in the database, over the config file
     Settings(commands::settings::Args),
+    /// Print the completion script for a shell
+    Completions(commands::completions::Args),
 }
 
 impl Args {
@@ -105,6 +107,7 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
         Jellyfin(cmd_args) => commands::jellyfin::run(&app, cmd_args).await,
         Job(cmd_args) => commands::job::run(&app, cmd_args).await,
         Settings(_) => unreachable!("settings run before the app opens"),
+        Completions(_) => unreachable!("completions print before the config loads"),
     };
     result.and(app.events.flush().await.context(EVENTS_LOST))
 }

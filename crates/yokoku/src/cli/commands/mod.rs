@@ -1,3 +1,4 @@
+pub mod completions;
 pub mod files;
 pub mod jellyfin;
 pub mod job;

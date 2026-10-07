@@ -74,6 +74,10 @@ nix:
       mkdir -p $out/bin $out/share/yokoku
       cp -v ./yokoku $out/bin/yokoku
       cp -vr ./public $out/share/yokoku/public
+      installShellCompletion --cmd yokoku \
+        --bash <(./yokoku completions bash) \
+        --fish <(./yokoku completions fish) \
+        --zsh <(./yokoku completions zsh)
       wrapProgram $out/bin/yokoku \
         --prefix PATH : ${lib.makeBinPath [ ffmpeg-headless ]} \
         --set-default DIOXUS_PUBLIC_PATH $out/share/yokoku/public

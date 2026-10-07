@@ -16,7 +16,7 @@ use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
 use owo_colors::{OwoColorize, Stream, Style};
 
-use crate::cli::args::{self, Args};
+use crate::cli::args::{self, Args, Command};
 
 #[cfg(target_env = "musl")]
 #[global_allocator]
@@ -26,6 +26,10 @@ async fn run() -> Result<()> {
     let matches = Args::command().get_matches();
     let command = matches.subcommand_name().unwrap_or("service").to_owned();
     let args = Args::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
+    if let Some(Command::Completions(completions)) = &args.command {
+        cli::commands::completions::run(completions);
+        return Ok(());
+    }
     args::route(args, &command).await
 }
 

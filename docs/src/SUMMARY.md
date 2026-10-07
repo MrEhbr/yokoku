@@ -44,6 +44,7 @@
 - [jellyfin](./cli/jellyfin.md)
 - [job](./cli/job.md)
 - [settings](./cli/settings.md)
+- [completions](./cli/completions.md)
 
 # Reference
 

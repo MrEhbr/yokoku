@@ -17,6 +17,7 @@ run while the service does, against the same config and database.
 | [`jellyfin`](./jellyfin.md) | Test the Jellyfin connection or ask it to rescan |
 | [`job`](./job.md) | Run a scheduled job once, now |
 | [`settings`](./settings.md) | Store settings in the database, over the config file |
+| [`completions`](./completions.md) | Print the completion script for a shell |
 
 ## Global Options
 
