@@ -6,6 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use clap::ValueEnum;
 use jiff::{SignedDuration, Zoned, tz::TimeZone};
 use jiff_cron::Schedule;
 use serde::{Deserialize, Serialize};
@@ -112,7 +113,7 @@ pub struct InvalidSchedule {
 /// Starts each job on its schedule, one tick at a time; each stops when `shutdown` is cancelled,
 /// after the tick it is running.
 pub fn spawn(app: &App, shutdown: &CancellationToken) -> JoinSet<()> {
-    Job::ALL.into_iter().map(|job| job.every(app.clone(), shutdown.clone())).collect()
+    Job::value_variants().iter().map(|job| job.every(app.clone(), shutdown.clone())).collect()
 }
 
 /// A scheduled job; `[serve]` holds its schedule under the same name.
@@ -137,28 +138,8 @@ pub enum Job {
 }
 
 impl Job {
-    const ALL: [Self; 8] = [
-        Self::SyncDownloads,
-        Self::SyncActiveDownloads,
-        Self::ExecuteImports,
-        Self::ScanLibrary,
-        Self::RefreshMetadata,
-        Self::RescanMediaServer,
-        Self::SyncWatched,
-        Self::RefreshRatings,
-    ];
-
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::SyncDownloads => "sync-downloads",
-            Self::SyncActiveDownloads => "sync-active-downloads",
-            Self::ExecuteImports => "execute-imports",
-            Self::ScanLibrary => "scan-library",
-            Self::RefreshMetadata => "refresh-metadata",
-            Self::RescanMediaServer => "rescan-media-server",
-            Self::SyncWatched => "sync-watched",
-            Self::RefreshRatings => "refresh-ratings",
-        }
+    pub fn name(self) -> String {
+        self.to_possible_value().expect("every job is named on the command line").get_name().to_owned()
     }
 
     fn schedule(self, serve: &ScheduleSettings) -> &Cron {
@@ -211,14 +192,14 @@ impl Job {
                 () = sleep(wait) => {}
             }
             if next.is_some_and(|tick| Zoned::now() >= tick) {
-                _ = run(self.name(), self.run(&app)).await;
+                _ = run(&self.name(), self.run(&app)).await;
             }
         }
     }
 }
 
 /// Runs one tick in a root `job` span under a new correlation id, logging its duration and any failure.
-async fn run(name: &'static str, job: impl Future<Output = Result<(), BoxError>>) -> Result<(), BoxError> {
+async fn run(name: &str, job: impl Future<Output = Result<(), BoxError>>) -> Result<(), BoxError> {
     let correlation = CorrelationId::generate();
     let work = async {
         let started = Instant::now();
@@ -241,11 +222,10 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use clap::ValueEnum;
     use jiff::tz::TimeZone;
     use tracing::{Instrument, info_span};
 
-    use super::{Cron, Job, ScheduleSettings, run};
+    use super::{Cron, ScheduleSettings, run};
 
     /// Fails because of `source`.
     #[derive(Debug)]
@@ -291,13 +271,6 @@ mod tests {
         let logs = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
         assert!(logs.contains("ERROR job{name=\"sync-downloads\" correlation="), "{logs}");
         assert!(logs.contains("error=download client unavailable error.sources=[connection refused]"), "{logs}");
-    }
-
-    #[test]
-    fn every_job_is_named_on_the_command_line_as_in_the_log() {
-        for job in Job::ALL {
-            assert_eq!(job.to_possible_value().unwrap().get_name(), job.name());
-        }
     }
 
     #[test]
