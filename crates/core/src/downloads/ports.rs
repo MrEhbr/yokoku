@@ -110,8 +110,8 @@ pub struct Release {
     /// Times it was downloaded, when the tracker counts them.
     pub grabs: Option<u32>,
     pub published: Option<Timestamp>,
-    /// A magnet link or a link `Indexer::fetch` takes. It may contain a passkey;
-    /// `ReleaseSearch` replaces it with an opaque ID before returning results to clients.
+    /// A magnet link or a link `Indexer::fetch` takes. `ReleaseSearch` replaces it
+    /// with an opaque ID before returning results to clients.
     pub link: String,
     /// The release's page on the tracker.
     pub details: Option<String>,

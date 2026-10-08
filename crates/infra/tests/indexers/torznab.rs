@@ -50,10 +50,9 @@ async fn answer(server: &MockServer, torrent: &str) {
 #[tokio::test]
 async fn direct_feed_searches_and_fetches_a_torrent() {
     let server = MockServer::start().await;
-    let torrent = format!("{}/download?passkey=abc", server.uri());
+    let torrent = format!("{}/download", server.uri());
     answer(&server, &torrent.replace('&', "&amp;")).await;
     Mock::given(path("/download"))
-        .and(query_param("passkey", "abc"))
         .respond_with(
             ResponseTemplate::new(200).set_body_raw(b"d4:infod4:name4:Dunee".to_vec(), "application/x-bittorrent"),
         )

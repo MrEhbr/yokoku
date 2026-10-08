@@ -45,14 +45,6 @@ impl ReleaseSearch {
             let id = uuid::Uuid::now_v7().to_string();
             links.insert(id.clone(), (std::mem::take(&mut release.link), now));
             release.link = id;
-            // Tracker detail URLs can contain passkeys; only expose plain page links.
-            if release.details.as_ref().is_some_and(|url| {
-                let address = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"));
-                address.is_none_or(|address| address.split('/').next().is_some_and(|host| host.contains('@')))
-                    || url.contains('?')
-            }) {
-                release.details = None;
-            }
         }
         while links.len() > MAX_LINKS {
             let oldest = links.iter().min_by_key(|(_, (_, created))| created).map(|(id, _)| id.clone());

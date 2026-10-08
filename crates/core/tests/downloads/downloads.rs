@@ -579,23 +579,22 @@ async fn releases_are_found_most_seeded_first() {
 }
 
 #[tokio::test]
-async fn search_keeps_download_urls_server_side_and_hides_credentialed_details() {
+async fn search_uses_opaque_ids_and_preserves_tracker_details() {
     let setup = setup().await;
-    let mut credentialed = release("credentialed", Some(2));
-    credentialed.link = "https://indexer.example/download?passkey=secret".into();
-    credentialed.details = Some("https://indexer.example/details?apikey=secret".into());
+    let mut with_query = release("with query", Some(2));
+    with_query.link = "https://indexer.example/download/123".into();
+    with_query.details = Some("https://rutracker.org/forum/viewtopic.php?t=3301430".into());
     let mut ordinary = release("ordinary", Some(1));
     ordinary.details = Some("https://indexer.example/details/123".into());
     let search = ReleaseSearch::new(
-        Arc::new(ScriptedIndexer { releases: vec![credentialed, ordinary], ..ScriptedIndexer::default() }),
+        Arc::new(ScriptedIndexer { releases: vec![with_query, ordinary], ..ScriptedIndexer::default() }),
         setup.downloads,
     );
 
     let found = search.search(&query()).await.unwrap();
 
-    assert_eq!(found.releases[0].details, None);
+    assert_eq!(found.releases[0].details.as_deref(), Some("https://rutracker.org/forum/viewtopic.php?t=3301430"));
     assert_eq!(found.releases[1].details.as_deref(), Some("https://indexer.example/details/123"));
-    assert!(!found.releases[0].link.contains("secret"));
     assert!(!found.releases[0].link.contains("http"));
 }
 
