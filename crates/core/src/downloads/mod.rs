@@ -23,11 +23,15 @@ use yokoku_domain::{
 };
 
 use self::ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource};
-use crate::events::{Handler, HandlerError, Publisher, QueueChanges};
+use crate::{
+    events::{Handler, HandlerError, Publisher, QueueChanges},
+    media::ports::Catalog,
+};
 
 /// Torrents Yokoku tracks and their state in the download client.
 pub struct Downloads {
     repo: Arc<dyn DownloadRepo>,
+    catalog: Arc<dyn Catalog>,
     client: Arc<dyn DownloadClient>,
     clock: Arc<dyn Clock>,
     options: Live<DownloadOptions>,
@@ -71,13 +75,14 @@ pub struct SyncReport {
 impl Downloads {
     pub fn new(
         repo: Arc<dyn DownloadRepo>,
+        catalog: Arc<dyn Catalog>,
         client: Arc<dyn DownloadClient>,
         clock: Arc<dyn Clock>,
         options: Live<DownloadOptions>,
         events: Publisher,
         changes: QueueChanges,
     ) -> Self {
-        Self { repo, client, clock, options, events, changes }
+        Self { repo, catalog, client, clock, options, events, changes }
     }
 
     /// Newest first.
@@ -99,6 +104,18 @@ impl Downloads {
         item: Option<ItemId>,
         season: Option<u16>,
     ) -> Result<Download, DownloadError> {
+        if let Some(ItemId::Movie(id)) = item {
+            if self.catalog.movie(id).await?.is_some_and(|movie| movie.file.is_some())
+                || self
+                    .repo
+                    .list()
+                    .await?
+                    .iter()
+                    .any(|download| download.item == item && download.status.state != DownloadState::Removed)
+            {
+                return Err(DownloadError::MovieAlreadyHasDownload);
+            }
+        }
         let added = self.client.add(torrent).await?;
         if self.repo.find_by_hash(&added.hash).await?.is_some() {
             return Err(DownloadError::AlreadyAdded(added.name));

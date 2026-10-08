@@ -53,8 +53,9 @@ series, except specials, which start unmonitored.
 **Add torrent** takes a magnet link or a `.torrent` file. Its files are
 imported into this item, and the **Queue** opens.
 
-The movie page lists every torrent linked to it, including ones removed from
-Transmission, with its last known status and whether it was imported.
+A movie accepts a torrent only while it has no library file and no active
+linked torrent. To retry a failed download, remove its torrent from
+Transmission and let Yokoku sync before adding another.
 
 For a series, **Season** helps with files named without one, like
 `Show - 05.mkv`: pick the season they belong to. Leave it at *From the

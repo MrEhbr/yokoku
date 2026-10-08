@@ -6,6 +6,8 @@ use crate::downloads::ports::{ClientError, IndexerError};
 pub enum DownloadError {
     #[error("{0} was already added")]
     AlreadyAdded(String),
+    #[error("the movie already has a file or an active torrent")]
+    MovieAlreadyHasDownload,
     #[error(transparent)]
     Client(#[from] ClientError),
     #[error(transparent)]

@@ -117,6 +117,7 @@ impl App {
         ));
         let downloads = Arc::new(Downloads::new(
             db.clone(),
+            db.clone(),
             Arc::new(TransmissionClient::new(settings.live(|config| config.transmission.clone()))),
             clock.clone(),
             settings.live(|config| config.downloads.clone()),

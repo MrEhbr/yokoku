@@ -885,58 +885,6 @@ async fn the_downloads_page_shows_each_torrent_with_its_import() {
 }
 
 #[tokio::test]
-async fn a_movie_page_lists_all_its_torrents_and_their_statuses() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("yokoku.db");
-    let (frieren, dune) = seed(&path).await;
-    seed_downloads(&path, frieren, dune).await;
-    let db = Database::open(&path).await.unwrap();
-    let now = Timestamp::now();
-    let mut first = DownloadRepo::list(&db)
-        .await
-        .unwrap()
-        .into_iter()
-        .find(|download| download.item == Some(ItemId::Movie(dune)))
-        .unwrap();
-    first.status.state = DownloadState::Seeding;
-    first.status.done = first.status.size;
-    first.completed_at = Some(now);
-    first.imported_at = Some(now);
-    DownloadRepo::save(&db, &mut first).await.unwrap();
-    let mut second = Download {
-        id: DownloadId::generate(),
-        hash: "a".repeat(40),
-        name: "Dune.2021.2160p".into(),
-        item: Some(ItemId::Movie(dune)),
-        season: None,
-        status: TorrentStatus {
-            state: DownloadState::Removed,
-            size: 1_000_000_000,
-            done: 1_000_000_000,
-            download_rate: 0,
-            eta: None,
-            download_dir: "/downloads".into(),
-            error: Some("previous client error".into()),
-        },
-        added_at: now,
-        completed_at: Some(now),
-        imported_at: None,
-        revision: 0,
-    };
-    DownloadRepo::save(&db, &mut second).await.unwrap();
-    drop(db);
-    let service = Service::start(dir.path());
-
-    let page = service.get(&format!("/movies/{dune}"));
-
-    assert!(page.starts_with("HTTP/1.1 200"), "{page}");
-    for text in ["Dune.2021.1080p", "Dune.2021.2160p", "Seeding", "Removed", "Imported", "Not imported"] {
-        assert!(page.contains(text), "{text}: {page}");
-    }
-    assert!(!page.contains("Frieren.S01E01.1080p"), "a different item's torrent appears: {page}");
-}
-
-#[tokio::test]
 async fn detail_pages_tell_how_many_files_a_scan_did_not_recognise() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("yokoku.db");
@@ -991,7 +939,15 @@ async fn transmission() -> wiremock::MockServer {
 async fn a_torrent_can_be_added_for_an_item() {
     let transmission = transmission().await;
     let dir = tempfile::tempdir().unwrap();
-    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let db = Database::open(&dir.path().join("yokoku.db")).await.unwrap();
+    let mut movie = Movie::new(
+        yokoku_test_support::metadata::movie_metadata(10, "Dune", Releases::default()),
+        ItemFolder::default(),
+        true,
+        Timestamp::now(),
+    );
+    MovieRepo::save(&db, &mut movie).await.unwrap();
+    let dune = movie.id;
     let url = format!("{}/transmission/rpc", transmission.uri());
     let service = Service::start_with(dir.path(), &[("YOKOKU__TRANSMISSION__URL", &url)]);
     let magnet = |link: &str| format!(r#"{{"torrent":{{"magnet":"{link}"}},"item":{{"Movie":"{dune}"}}}}"#);
@@ -1005,8 +961,22 @@ async fn a_torrent_can_be_added_for_an_item() {
 
     assert!(not_a_magnet.contains("starts with magnet:"), "{not_a_magnet}");
     assert!(added.starts_with("HTTP/1.1 200"), "{added}");
-    assert!(again.contains("was already added"), "{again}");
+    assert!(again.contains("This movie already has a file or an active torrent"), "{again}");
     assert!(downloads.contains("Dune.2021.1080p") && downloads.contains(&dune.to_string()), "{downloads}");
+}
+
+#[tokio::test]
+async fn a_movie_with_a_file_refuses_a_torrent_before_contacting_transmission() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+    let body = format!(
+        r#"{{"torrent":{{"magnet":"magnet:?xt=urn:btih:0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6"}},"item":{{"Movie":"{dune}"}}}}"#
+    );
+
+    let response = service.post_json("/api/downloads", &body);
+
+    assert!(response.contains("This movie already has a file or an active torrent"), "{response}");
 }
 
 #[tokio::test]

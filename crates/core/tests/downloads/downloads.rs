@@ -15,13 +15,15 @@ use yokoku_core::{
         },
     },
     events::{EventLog, Handler, QueueChanges},
+    library::ports::MovieRepo,
 };
 use yokoku_domain::{
-    Clock, DiskSpace, DownloadId, ImportId, ItemId, Live, MediaKind, MovieId, SeriesId, Trackers,
+    Clock, DiskSpace, DownloadId, ImportId, ItemFolder, ItemId, Live, MediaFileId, MediaKind, Movie, MovieId, Releases,
+    SeriesId, Trackers,
     events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
 };
 use yokoku_infra::db::Database;
-use yokoku_test_support::{clock::TestClock, events::publisher};
+use yokoku_test_support::{clock::TestClock, events::publisher, metadata::movie_metadata};
 
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
 
@@ -140,6 +142,7 @@ async fn setup_with(options: DownloadOptions) -> Setup {
     let changes = QueueChanges::new();
     let downloads = Arc::new(Downloads::new(
         Arc::new(db.clone()),
+        Arc::new(db.clone()),
         client.clone(),
         Arc::new(TestClock::default()),
         Live::fixed(options),
@@ -200,6 +203,57 @@ async fn a_torrent_is_added_only_once() {
 
     assert!(matches!(error, DownloadError::AlreadyAdded(_)), "{error}");
     assert_eq!(setup.downloads.list().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_movie_cannot_have_a_second_active_torrent() {
+    let setup = setup().await;
+    let item = Some(ItemId::Movie(MovieId::generate()));
+    setup.downloads.add(&magnet(), item, None).await.unwrap();
+
+    let error = setup.downloads.add(&magnet(), item, None).await.unwrap_err();
+
+    assert!(matches!(error, DownloadError::MovieAlreadyHasDownload), "{error}");
+    assert_eq!(setup.client.added.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_movie_with_a_library_file_cannot_start_a_torrent() {
+    let setup = setup().await;
+    let now = TestClock::default().now().timestamp();
+    let mut movie = Movie::new(movie_metadata(10, "Dune", Releases::default()), ItemFolder::default(), true, now);
+    MovieRepo::save(&setup.db, &mut movie).await.unwrap();
+    movie.file = Some(MediaFileId::generate());
+    MovieRepo::save(&setup.db, &mut movie).await.unwrap();
+
+    let error = setup.downloads.add(&magnet(), Some(ItemId::Movie(movie.id)), None).await.unwrap_err();
+
+    assert!(matches!(error, DownloadError::MovieAlreadyHasDownload), "{error}");
+    assert!(setup.client.added.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_removed_movie_torrent_that_was_not_imported_can_be_retried() {
+    let setup = setup().await;
+    let item = Some(ItemId::Movie(MovieId::generate()));
+    let mut previous = Download {
+        id: DownloadId::generate(),
+        hash: "a".repeat(40),
+        name: "Dune.2021.720p".into(),
+        item,
+        season: None,
+        status: TorrentStatus { state: DownloadState::Removed, ..TorrentStatus::unknown() },
+        added_at: TestClock::default().now().timestamp(),
+        completed_at: None,
+        imported_at: None,
+        revision: 0,
+    };
+    yokoku_core::downloads::ports::DownloadRepo::save(&setup.db, &mut previous).await.unwrap();
+
+    let added = setup.downloads.add(&magnet(), item, None).await.unwrap();
+
+    assert_ne!(added.id, previous.id);
+    assert_eq!(setup.client.added.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
