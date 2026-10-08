@@ -234,7 +234,7 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
                 aria_describedby: Some("release-season-hint"),
             }
             FieldHint { id: "release-season-hint",
-                "Choose a season for a single-season torrent; files without a season use it. Any season blocks other downloads for this series until it finishes."
+                "Choose a season when you know which one the release contains. Files without a season in their names use your choice."
             }
         }
     }

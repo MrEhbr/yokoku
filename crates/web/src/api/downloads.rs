@@ -267,8 +267,8 @@ mod server {
             DownloadError::MovieAlreadyHasDownload => {
                 ServerFnError::new("This movie already has a file or an active torrent")
             },
-            DownloadError::SeriesSeasonAlreadyDownloading => {
-                ServerFnError::new("This series already has an unfinished torrent for this season or all seasons")
+            DownloadError::SeriesSeasonAlreadyDownloaded => {
+                ServerFnError::new("Every known episode of this season already has a file in the library")
             },
             DownloadError::Client(ClientError::Unavailable(_)) => {
                 ServerFnError::new("Transmission could not be reached; check that it runs and its address")

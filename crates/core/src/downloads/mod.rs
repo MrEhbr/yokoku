@@ -98,8 +98,8 @@ impl Downloads {
     }
 
     /// Adds a torrent for `item`, or for detection to work out when `None`. For a series,
-    /// `season` scopes a single-season torrent and places files whose names give none.
-    /// Without one, the unfinished torrent is treated as covering the whole series.
+    /// `season` places files whose names give none. A season whose known episodes all
+    /// have library files cannot receive another torrent.
     #[instrument(skip_all, fields(item = ?item, season = ?season))]
     pub async fn add(
         &self,
@@ -119,15 +119,14 @@ impl Downloads {
         {
             return Err(DownloadError::MovieAlreadyHasDownload);
         }
-        if let Some(ItemId::Series(id)) = item
-            && self.repo.list().await?.iter().any(|download| {
-                download.item == Some(ItemId::Series(id))
-                    && download.completed_at.is_none()
-                    && download.status.state != DownloadState::Removed
-                    && (season.is_none() || download.season.is_none() || download.season == season)
+        if let (Some(ItemId::Series(id)), Some(season)) = (item, season)
+            && self.catalog.series(id).await?.is_some_and(|series| {
+                series.seasons.iter().find(|known| known.number == season).is_some_and(|known| {
+                    !known.episodes.is_empty() && known.episodes.iter().all(|episode| episode.file.is_some())
+                })
             })
         {
-            return Err(DownloadError::SeriesSeasonAlreadyDownloading);
+            return Err(DownloadError::SeriesSeasonAlreadyDownloaded);
         }
         let added = self.client.add(torrent).await?;
         if self.repo.find_by_hash(&added.hash).await?.is_some() {

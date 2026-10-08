@@ -181,7 +181,7 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
     }
 }
 
-/// The season this torrent covers, also used for files whose names give none.
+/// The chosen season for files whose names give none.
 #[component]
 fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
     rsx! {
@@ -194,7 +194,7 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
                 aria_describedby: Some("torrent-season-hint"),
             }
             FieldHint { id: "torrent-season-hint",
-                "Choose a season for a single-season torrent; files without a season use it. All / unknown seasons blocks other downloads for this series until it finishes."
+                "Choose a season when you know which one the torrent contains. Files without a season in their names use your choice."
             }
         }
     }

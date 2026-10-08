@@ -37,9 +37,10 @@ it waits for review. A download without any video fails.
     match them against the whole library by their names.
 
 **Season**
-:   Choose the season for a single-season torrent. Files named without one,
-    like `Show - 05.mkv`, use it. *All / unknown seasons* blocks other
-    downloads for the series until this torrent finishes.
+:   Choose a season when you know which one the torrent contains. Files named
+    without one, like `Show - 05.mkv`, use it. Leave *All / unknown seasons*
+    when its scope is uncertain. A selected season whose known episodes all
+    have library files cannot receive another torrent.
 
 Below, the dialog shows the space left in Transmission's download folder, and in
 the chosen item's root folder, or on each disk holding a root folder while none

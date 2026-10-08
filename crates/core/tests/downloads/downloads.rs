@@ -4,6 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+use jiff::civil::date;
 use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_core::{
@@ -15,15 +16,19 @@ use yokoku_core::{
         },
     },
     events::{EventLog, Handler, QueueChanges},
-    library::ports::MovieRepo,
+    library::ports::{MovieRepo, SeriesRepo},
 };
 use yokoku_domain::{
-    Clock, DiskSpace, DownloadId, ImportId, ItemFolder, ItemId, Live, MediaFileId, MediaKind, Movie, MovieId, Releases,
-    SeriesId, Trackers,
+    Clock, DiskSpace, DownloadId, ImportId, ItemFolder, ItemId, Live, MediaFileId, MediaKind, MonitorPreset, Movie,
+    MovieId, Releases, Series, SeriesId, SourceStatus, Trackers,
     events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
 };
 use yokoku_infra::db::Database;
-use yokoku_test_support::{clock::TestClock, events::publisher, metadata::movie_metadata};
+use yokoku_test_support::{
+    clock::TestClock,
+    events::publisher,
+    metadata::{movie_metadata, series_metadata},
+};
 
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
 
@@ -256,42 +261,41 @@ async fn a_removed_movie_torrent_that_was_not_imported_can_be_retried() {
     assert_eq!(setup.client.added.lock().unwrap().len(), 1);
 }
 
+async fn series_with_files(setup: &Setup, file_count: usize) -> Series {
+    let now = TestClock::default().now().timestamp();
+    let mut series = Series::new(
+        series_metadata(1, "Series", SourceStatus::Ended, &[(1, &[None, None]), (2, &[])]),
+        ItemFolder::default(),
+        MonitorPreset::All,
+        date(2026, 10, 8),
+        now,
+    );
+    SeriesRepo::save(&setup.db, &mut series).await.unwrap();
+    for episode in series.seasons[0].episodes.iter_mut().take(file_count) {
+        episode.file = Some(MediaFileId::generate());
+    }
+    SeriesRepo::save(&setup.db, &mut series).await.unwrap();
+    series
+}
+
 #[rstest]
-#[case::same_season(Some(2), Some(2), DownloadState::Downloading, false, true)]
-#[case::unscoped_existing(None, Some(2), DownloadState::Downloading, false, true)]
-#[case::unscoped_new(Some(2), None, DownloadState::Downloading, false, true)]
-#[case::different_seasons(Some(1), Some(2), DownloadState::Downloading, false, false)]
-#[case::finished_season(Some(2), Some(2), DownloadState::Seeding, true, false)]
-#[case::removed_season(Some(2), Some(2), DownloadState::Removed, false, false)]
+#[case::complete_season(2, Some(1), true)]
+#[case::partial_season(1, Some(1), false)]
+#[case::empty_season(2, Some(2), false)]
+#[case::no_season_selected(2, None, false)]
 #[tokio::test]
-async fn a_series_rejects_only_overlapping_unfinished_torrents(
-    #[case] previous_season: Option<u16>,
-    #[case] new_season: Option<u16>,
-    #[case] state: DownloadState,
-    #[case] completed: bool,
+async fn a_series_rejects_only_a_selected_season_with_all_known_episodes_downloaded(
+    #[case] file_count: usize,
+    #[case] season: Option<u16>,
     #[case] blocked: bool,
 ) {
     let setup = setup().await;
-    let item = Some(ItemId::Series(SeriesId::generate()));
-    let now = TestClock::default().now().timestamp();
-    let mut previous = Download {
-        id: DownloadId::generate(),
-        hash: "a".repeat(40),
-        name: "Series.S02".into(),
-        item,
-        season: previous_season,
-        status: TorrentStatus { state, ..TorrentStatus::unknown() },
-        added_at: now,
-        completed_at: completed.then_some(now),
-        imported_at: None,
-        revision: 0,
-    };
-    yokoku_core::downloads::ports::DownloadRepo::save(&setup.db, &mut previous).await.unwrap();
+    let series = series_with_files(&setup, file_count).await;
 
-    let result = setup.downloads.add(&magnet(), item, new_season).await;
+    let result = setup.downloads.add(&magnet(), Some(ItemId::Series(series.id)), season).await;
 
     if blocked {
-        assert!(matches!(result, Err(DownloadError::SeriesSeasonAlreadyDownloading)), "{result:?}");
+        assert!(matches!(result, Err(DownloadError::SeriesSeasonAlreadyDownloaded)), "{result:?}");
         assert!(setup.client.added.lock().unwrap().is_empty());
     } else {
         assert!(result.is_ok(), "{result:?}");
@@ -300,19 +304,27 @@ async fn a_series_rejects_only_overlapping_unfinished_torrents(
 }
 
 #[tokio::test]
-async fn concurrent_torrents_for_one_series_season_are_not_both_added() {
+async fn a_series_can_add_another_torrent_for_a_partially_downloaded_season() {
     let setup = setup().await;
-    let item = Some(ItemId::Series(SeriesId::generate()));
-    let torrent = magnet();
+    let series = series_with_files(&setup, 1).await;
+    let item = Some(ItemId::Series(series.id));
+    let mut previous = Download {
+        id: DownloadId::generate(),
+        hash: "a".repeat(40),
+        name: "Series.S01E01".into(),
+        item,
+        season: Some(1),
+        status: TorrentStatus { state: DownloadState::Downloading, ..TorrentStatus::unknown() },
+        added_at: TestClock::default().now().timestamp(),
+        completed_at: None,
+        imported_at: None,
+        revision: 0,
+    };
+    yokoku_core::downloads::ports::DownloadRepo::save(&setup.db, &mut previous).await.unwrap();
 
-    let (first, second) =
-        tokio::join!(setup.downloads.add(&torrent, item, Some(2)), setup.downloads.add(&torrent, item, Some(2)),);
+    let result = setup.downloads.add(&magnet(), item, Some(1)).await;
 
-    assert_eq!(first.is_ok() as u8 + second.is_ok() as u8, 1);
-    assert!(matches!(
-        first.as_ref().err().or(second.as_ref().err()),
-        Some(DownloadError::SeriesSeasonAlreadyDownloading)
-    ));
+    assert!(result.is_ok(), "{result:?}");
     assert_eq!(setup.client.added.lock().unwrap().len(), 1);
 }
 
