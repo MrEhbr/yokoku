@@ -104,15 +104,13 @@ pub(crate) fn EpisodePicker(
     }
 }
 
-/// The seasons of `series`, specials last, with `none` as a first choice when given. `initial`
-/// is selected only when the series has that season.
+/// The seasons of `series`, specials last, with `none` as a first choice when given.
 #[component]
 pub(crate) fn SeasonPicker(
     id: &'static str,
     series: SeriesId,
     season: Signal<Option<u16>>,
     none: Option<&'static str>,
-    #[props(default)] initial: Option<u16>,
     #[props(default)] aria_describedby: Option<&'static str>,
 ) -> Element {
     let seasons = use_resource(move || async move {
@@ -123,8 +121,8 @@ pub(crate) fn SeasonPicker(
         numbers
     });
     use_effect(move || {
-        let available = seasons.read();
-        season.set(initial.filter(|number| available.as_ref().is_some_and(|seasons| seasons.contains(number))));
+        let _ = seasons.read();
+        season.set(None);
     });
     let choice = use_memo(move || Some(season()));
     let label = move |number: Option<u16>| match number {
