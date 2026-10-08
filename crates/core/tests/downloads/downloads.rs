@@ -256,6 +256,66 @@ async fn a_removed_movie_torrent_that_was_not_imported_can_be_retried() {
     assert_eq!(setup.client.added.lock().unwrap().len(), 1);
 }
 
+#[rstest]
+#[case::same_season(Some(2), Some(2), DownloadState::Downloading, false, true)]
+#[case::unscoped_existing(None, Some(2), DownloadState::Downloading, false, true)]
+#[case::unscoped_new(Some(2), None, DownloadState::Downloading, false, true)]
+#[case::different_seasons(Some(1), Some(2), DownloadState::Downloading, false, false)]
+#[case::finished_season(Some(2), Some(2), DownloadState::Seeding, true, false)]
+#[case::removed_season(Some(2), Some(2), DownloadState::Removed, false, false)]
+#[tokio::test]
+async fn a_series_rejects_only_overlapping_unfinished_torrents(
+    #[case] previous_season: Option<u16>,
+    #[case] new_season: Option<u16>,
+    #[case] state: DownloadState,
+    #[case] completed: bool,
+    #[case] blocked: bool,
+) {
+    let setup = setup().await;
+    let item = Some(ItemId::Series(SeriesId::generate()));
+    let now = TestClock::default().now().timestamp();
+    let mut previous = Download {
+        id: DownloadId::generate(),
+        hash: "a".repeat(40),
+        name: "Series.S02".into(),
+        item,
+        season: previous_season,
+        status: TorrentStatus { state, ..TorrentStatus::unknown() },
+        added_at: now,
+        completed_at: completed.then_some(now),
+        imported_at: None,
+        revision: 0,
+    };
+    yokoku_core::downloads::ports::DownloadRepo::save(&setup.db, &mut previous).await.unwrap();
+
+    let result = setup.downloads.add(&magnet(), item, new_season).await;
+
+    if blocked {
+        assert!(matches!(result, Err(DownloadError::SeriesSeasonAlreadyDownloading)), "{result:?}");
+        assert!(setup.client.added.lock().unwrap().is_empty());
+    } else {
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(setup.client.added.lock().unwrap().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn concurrent_torrents_for_one_series_season_are_not_both_added() {
+    let setup = setup().await;
+    let item = Some(ItemId::Series(SeriesId::generate()));
+    let torrent = magnet();
+
+    let (first, second) =
+        tokio::join!(setup.downloads.add(&torrent, item, Some(2)), setup.downloads.add(&torrent, item, Some(2)),);
+
+    assert_eq!(first.is_ok() as u8 + second.is_ok() as u8, 1);
+    assert!(matches!(
+        first.as_ref().err().or(second.as_ref().err()),
+        Some(DownloadError::SeriesSeasonAlreadyDownloading)
+    ));
+    assert_eq!(setup.client.added.lock().unwrap().len(), 1);
+}
+
 #[tokio::test]
 async fn a_download_completes_once_however_often_it_syncs() {
     let setup = setup().await;

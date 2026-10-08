@@ -11,7 +11,8 @@ pub struct Download {
     pub hash: String,
     pub name: String,
     pub item: Option<ItemId>,
-    /// For a series: the season of its files whose names give none.
+    /// For a series: the torrent's season and the fallback for files whose names give none.
+    /// `None` means all or unknown seasons while the torrent is unfinished.
     pub season: Option<u16>,
     pub status: TorrentStatus,
     pub added_at: Timestamp,

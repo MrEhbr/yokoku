@@ -11,7 +11,8 @@ added → downloading → finished → matched → imported → Jellyfin rescan
                                       ↘ needs review
 ```
 
-1. **Added.** With **Add torrent** on an item's page or on the Queue, or
+1. **Added.** With **Search releases** on an item's page, **Add torrent**
+   there or on the Queue, or
    [picked up](#pick-up-torrents-added-in-transmission) from Transmission.
    Torrents Yokoku adds get the label `yokoku`.
 2. **Downloading.** Yokoku checks Transmission every 30 seconds, and every 5
@@ -36,8 +37,9 @@ it waits for review. A download without any video fails.
     match them against the whole library by their names.
 
 **Season**
-:   For a series, the season of files named without one, like
-    `Show - 05.mkv`. *From the file names* when the names include it.
+:   Choose the season for a single-season torrent. Files named without one,
+    like `Show - 05.mkv`, use it. *All / unknown seasons* blocks other
+    downloads for the series until this torrent finishes.
 
 Below, the dialog shows the space left in Transmission's download folder, and in
 the chosen item's root folder, or on each disk holding a root folder while none

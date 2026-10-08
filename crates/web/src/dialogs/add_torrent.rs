@@ -181,7 +181,7 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
     }
 }
 
-/// The season of the series' files whose names give none, or none to leave it to their names.
+/// The season this torrent covers, also used for files whose names give none.
 #[component]
 fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
     rsx! {
@@ -190,11 +190,11 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
                 id: "torrent-season",
                 series,
                 season,
-                none: Some("From the file names"),
+                none: Some("All / unknown seasons"),
                 aria_describedby: Some("torrent-season-hint"),
             }
             FieldHint { id: "torrent-season-hint",
-                "For files named without a season, like “Frieren - 05.mkv”; names with one keep it."
+                "Choose a season for a single-season torrent; files without a season use it. All / unknown seasons blocks other downloads for this series until it finishes."
             }
         }
     }

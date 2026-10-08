@@ -8,6 +8,8 @@ pub enum DownloadError {
     AlreadyAdded(String),
     #[error("the movie already has a file or an active torrent")]
     MovieAlreadyHasDownload,
+    #[error("the series already has an unfinished torrent for this season")]
+    SeriesSeasonAlreadyDownloading,
     #[error(transparent)]
     Client(#[from] ClientError),
     #[error(transparent)]
