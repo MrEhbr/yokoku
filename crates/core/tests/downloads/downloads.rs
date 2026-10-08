@@ -258,13 +258,14 @@ async fn a_removed_movie_torrent_that_was_not_imported_can_be_retried() {
 
 #[rstest]
 #[case::same_season(Some(2), Some(2), DownloadState::Downloading, false, true)]
-#[case::unscoped_existing(None, Some(2), DownloadState::Downloading, false, true)]
-#[case::unscoped_new(Some(2), None, DownloadState::Downloading, false, true)]
+#[case::unscoped_existing(None, Some(2), DownloadState::Downloading, false, false)]
+#[case::unscoped_new(Some(2), None, DownloadState::Downloading, false, false)]
+#[case::both_unscoped(None, None, DownloadState::Downloading, false, false)]
 #[case::different_seasons(Some(1), Some(2), DownloadState::Downloading, false, false)]
 #[case::finished_season(Some(2), Some(2), DownloadState::Seeding, true, false)]
 #[case::removed_season(Some(2), Some(2), DownloadState::Removed, false, false)]
 #[tokio::test]
-async fn a_series_rejects_only_overlapping_unfinished_torrents(
+async fn a_series_rejects_only_duplicate_explicit_unfinished_seasons(
     #[case] previous_season: Option<u16>,
     #[case] new_season: Option<u16>,
     #[case] state: DownloadState,

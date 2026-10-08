@@ -98,8 +98,8 @@ impl Downloads {
     }
 
     /// Adds a torrent for `item`, or for detection to work out when `None`. For a series,
-    /// `season` scopes a single-season torrent and places files whose names give none.
-    /// Without one, the unfinished torrent is treated as covering the whole series.
+    /// `season` places files whose names give none and prevents a second unfinished torrent
+    /// explicitly assigned to that season. Without one, overlap cannot be checked.
     #[instrument(skip_all, fields(item = ?item, season = ?season))]
     pub async fn add(
         &self,
@@ -119,12 +119,12 @@ impl Downloads {
         {
             return Err(DownloadError::MovieAlreadyHasDownload);
         }
-        if let Some(ItemId::Series(id)) = item
+        if let (Some(ItemId::Series(id)), Some(season)) = (item, season)
             && self.repo.list().await?.iter().any(|download| {
                 download.item == Some(ItemId::Series(id))
                     && download.completed_at.is_none()
                     && download.status.state != DownloadState::Removed
-                    && (season.is_none() || download.season.is_none() || download.season == season)
+                    && download.season == Some(season)
             })
         {
             return Err(DownloadError::SeriesSeasonAlreadyDownloading);

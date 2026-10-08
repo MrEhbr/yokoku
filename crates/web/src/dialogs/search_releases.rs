@@ -233,8 +233,14 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
                 none: Some("Any season"),
                 aria_describedby: Some("release-season-hint"),
             }
-            FieldHint { id: "release-season-hint",
-                "Choose a season for a single-season torrent; files without a season use it. Any season blocks other downloads for this series until it finishes."
+            if season().is_none() {
+                p { id: "release-season-hint", role: "status", class: "text-caption text-warning",
+                    "Season not specified. Yokoku cannot check whether this torrent overlaps another download for this series."
+                }
+            } else {
+                FieldHint { id: "release-season-hint",
+                    "Files without a season use this choice. Downloads without a selected season may still overlap."
+                }
             }
         }
     }
