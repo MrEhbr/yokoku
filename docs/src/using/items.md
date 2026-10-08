@@ -57,11 +57,11 @@ A movie accepts a torrent only while it has no library file and no active
 linked torrent. To retry a failed download, remove its torrent from
 Transmission and let Yokoku sync before adding another.
 
-For a series, choose **Season** when the torrent belongs to one season. Files
-named without a season, like `Show - 05.mkv`, use that choice. Yokoku refuses
-a second unfinished torrent assigned to the same season. If no season is
-selected, it warns that it cannot check for overlap and allows the download.
-An existing torrent without a selected season may also overlap a new one.
+For a series, choose **Season** when the torrent covers one season. Files
+named without a season, like `Show - 05.mkv`, use that choice. Only one
+unfinished torrent can cover each selected season. Leave **All / unknown
+seasons** for a multi-season torrent or when its scope is uncertain; it
+blocks new downloads for the whole series until it finishes or is removed.
 
 ## Search Releases
 

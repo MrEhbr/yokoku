@@ -181,7 +181,7 @@ fn Form(item: Option<ItemLink>, on_close: Callback) -> Element {
     }
 }
 
-/// The chosen season for duplicate checks and files whose names give none.
+/// The season this torrent covers, also used for files whose names give none.
 #[component]
 fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
     rsx! {
@@ -190,17 +190,11 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
                 id: "torrent-season",
                 series,
                 season,
-                none: Some("Season not specified"),
+                none: Some("All / unknown seasons"),
                 aria_describedby: Some("torrent-season-hint"),
             }
-            if season().is_none() {
-                p { id: "torrent-season-hint", role: "status", class: "text-caption text-warning",
-                    "Season not specified. Yokoku cannot check whether this torrent overlaps another download for this series."
-                }
-            } else {
-                FieldHint { id: "torrent-season-hint",
-                    "Files without a season use this choice. Downloads without a selected season may still overlap."
-                }
+            FieldHint { id: "torrent-season-hint",
+                "Choose a season for a single-season torrent; files without a season use it. All / unknown seasons blocks other downloads for this series until it finishes."
             }
         }
     }
