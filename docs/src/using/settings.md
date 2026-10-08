@@ -28,7 +28,7 @@ value. Type a new value to replace one.
 :   Transmission's RPC address, username and password.
 
 **Indexer**
-:   Jackett's address and API key, plus direct Torznab feeds for **Search releases**. Leave Jackett's address empty if you use only direct feeds.
+:   Jackett and Prowlarr addresses and API keys for **Search releases**. Configure either or both.
 
 **Media server**
 :   Jellyfin's address, an API key and the user whose played items count as

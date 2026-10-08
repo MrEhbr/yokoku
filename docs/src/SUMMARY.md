@@ -22,7 +22,7 @@
 
 - [Transmission](./integrations/transmission.md)
 - [Jackett](./integrations/jackett.md)
-- [Direct Torznab Feeds](./integrations/torznab.md)
+- [Prowlarr](./integrations/prowlarr.md)
 - [Jellyfin](./integrations/jellyfin.md)
 - [TMDB and TVDB](./integrations/metadata.md)
 - [IMDb Ratings](./integrations/ratings.md)
