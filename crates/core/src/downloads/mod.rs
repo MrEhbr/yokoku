@@ -16,6 +16,7 @@ pub use error::DownloadError;
 pub use model::{Download, DownloadState, TorrentStatus};
 pub use search::ReleaseSearch;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex;
 use tracing::{debug, info, instrument};
 use yokoku_domain::{
     Clock, DiskSpace, DownloadId, ItemId, Live, StorageError,
@@ -23,11 +24,16 @@ use yokoku_domain::{
 };
 
 use self::ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource};
-use crate::events::{Handler, HandlerError, Publisher, QueueChanges};
+use crate::{
+    events::{Handler, HandlerError, Publisher, QueueChanges},
+    media::ports::Catalog,
+};
 
 /// Torrents Yokoku tracks and their state in the download client.
 pub struct Downloads {
+    add_lock: Mutex<()>,
     repo: Arc<dyn DownloadRepo>,
+    catalog: Arc<dyn Catalog>,
     client: Arc<dyn DownloadClient>,
     clock: Arc<dyn Clock>,
     options: Live<DownloadOptions>,
@@ -71,13 +77,14 @@ pub struct SyncReport {
 impl Downloads {
     pub fn new(
         repo: Arc<dyn DownloadRepo>,
+        catalog: Arc<dyn Catalog>,
         client: Arc<dyn DownloadClient>,
         clock: Arc<dyn Clock>,
         options: Live<DownloadOptions>,
         events: Publisher,
         changes: QueueChanges,
     ) -> Self {
-        Self { repo, client, clock, options, events, changes }
+        Self { add_lock: Mutex::new(()), repo, catalog, client, clock, options, events, changes }
     }
 
     /// Newest first.
@@ -90,8 +97,9 @@ impl Downloads {
         Ok(self.client.space().await?)
     }
 
-    /// Adds a torrent for `item`, or for detection to work out when `None`; for a series,
-    /// `season` places its files whose names give none.
+    /// Adds a torrent for `item`, or for detection to work out when `None`. For a series,
+    /// `season` places files whose names give none. A season whose known episodes all
+    /// have library files cannot receive another torrent.
     #[instrument(skip_all, fields(item = ?item, season = ?season))]
     pub async fn add(
         &self,
@@ -99,6 +107,27 @@ impl Downloads {
         item: Option<ItemId>,
         season: Option<u16>,
     ) -> Result<Download, DownloadError> {
+        let add_guard = self.add_lock.lock().await;
+        if let Some(ItemId::Movie(id)) = item
+            && (self.catalog.movie(id).await?.is_some_and(|movie| movie.file.is_some())
+                || self
+                    .repo
+                    .list()
+                    .await?
+                    .iter()
+                    .any(|download| download.item == item && download.status.state != DownloadState::Removed))
+        {
+            return Err(DownloadError::MovieAlreadyHasDownload);
+        }
+        if let (Some(ItemId::Series(id)), Some(season)) = (item, season)
+            && self.catalog.series(id).await?.is_some_and(|series| {
+                series.seasons.iter().find(|known| known.number == season).is_some_and(|known| {
+                    !known.episodes.is_empty() && known.episodes.iter().all(|episode| episode.file.is_some())
+                })
+            })
+        {
+            return Err(DownloadError::SeriesSeasonAlreadyDownloaded);
+        }
         let added = self.client.add(torrent).await?;
         if self.repo.find_by_hash(&added.hash).await?.is_some() {
             return Err(DownloadError::AlreadyAdded(added.name));
@@ -107,6 +136,7 @@ impl Downloads {
         let torrent = self.client.torrents(std::slice::from_ref(&added.hash)).await?.pop();
         let (mut download, events) = self.take_on(added.hash, added.name, item, season, torrent);
         self.repo.save(&mut download).await?;
+        drop(add_guard);
         self.changes.notify();
         info!(download = %download.id, name = %download.name, "torrent added");
         self.events.publish_all(events).await;

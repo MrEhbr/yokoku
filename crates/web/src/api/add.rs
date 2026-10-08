@@ -181,7 +181,7 @@ mod server {
         if settings.tmdb_token_set.current() {
             Ok(())
         } else {
-            Err(ServerFnError::new("Set a TMDB token in YOKOKU__METADATA__TMDB__TOKEN to search and add items"))
+            Err(ServerFnError::new("Set a TMDB token in Settings → Metadata to search and add items"))
         }
     }
 

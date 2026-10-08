@@ -104,8 +104,7 @@ pub(crate) fn EpisodePicker(
     }
 }
 
-/// The seasons of `series`, specials last, with `none` as a first choice when given; cleared
-/// when mounted for another series.
+/// The seasons of `series`, specials last, with `none` as a first choice when given.
 #[component]
 pub(crate) fn SeasonPicker(
     id: &'static str,
@@ -121,7 +120,10 @@ pub(crate) fn SeasonPicker(
         numbers.sort_by_key(|&number| (number == 0, number));
         numbers
     });
-    use_effect(move || season.set(None));
+    use_effect(move || {
+        let _ = seasons.read();
+        season.set(None);
+    });
     let choice = use_memo(move || Some(season()));
     let label = move |number: Option<u16>| match number {
         None => none.unwrap_or("Choose…").to_owned(),

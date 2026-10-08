@@ -128,6 +128,9 @@ merge = true
 # From the top of Jackett's dashboard.
 # api_key = { file = "/run/secrets/jackett_api_key" }
 
+[torznab]
+# feeds = []
+
 # Path patterns for library files. Tokens: {title}, {year}, {season} (two digits), {episodes}
 # (S01E01 or S01E01-E02), {episode_title}; a [...] group is dropped when a token in it has no value.
 [naming]

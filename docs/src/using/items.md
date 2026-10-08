@@ -53,15 +53,22 @@ series, except specials, which start unmonitored.
 **Add torrent** takes a magnet link or a `.torrent` file. Its files are
 imported into this item, and the **Queue** opens.
 
-For a series, **Season** helps with files named without one, like
-`Show - 05.mkv`: pick the season they belong to. Leave it at *From the
-file names* when the names include the season.
+A movie accepts a torrent only while it has no library file and no active
+linked torrent. To retry a failed download, remove its torrent from
+Transmission and let Yokoku sync before adding another.
+
+For a series, choose **Season** when you know which season the torrent contains.
+Files named without a season, like `Show - 05.mkv`, use that choice. Leave
+**All / unknown seasons** when its scope is uncertain. Yokoku refuses a torrent
+for a selected season only when every known episode of that season already has
+a file in the library. If some episodes have files, duplicates are checked
+during import review.
 
 ## Search Releases
 
-**Search releases** searches the trackers added in Jackett for this item and
+**Search releases** searches Jackett and direct Torznab feeds for this item and
 downloads the release you pick, the way **Add torrent** does. See
-[Jackett](../integrations/jackett.md).
+[Jackett](../integrations/jackett.md) and [Direct Torznab Feeds](../integrations/torznab.md).
 
 ## Episode Numbering
 

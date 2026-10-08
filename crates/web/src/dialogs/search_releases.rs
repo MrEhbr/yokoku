@@ -34,20 +34,29 @@ pub fn SearchReleasesButton(item: ItemLink) -> Element {
         Button { onclick: move |_| open.set(true), "Search releases" }
         ClosableDialog { title: "Search releases", open, wide: true,
             if open() {
-                SearchReleases { item, on_close: move |()| open.set(false) }
+                SearchReleases { item, on_close: Callback::new(move |()| open.set(false)) }
             }
         }
     }
 }
 
-/// Searches the indexer for releases of `item`, its title to start with; downloading one adds it
+/// The inputs that produced a displayed search result.
+#[derive(Clone, PartialEq)]
+struct SearchQuery {
+    text: String,
+    season: Option<u16>,
+    trackers: Trackers,
+}
+
+/// Searches configured indexers for releases of `item`, its title to start with; downloading one adds it
 /// for `item` and opens the Downloads page.
 #[component]
 fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
     let mut text = use_signal(|| item.title.clone());
     let season = use_signal(|| None::<u16>);
-    let mut searching = use_signal(|| false);
-    let mut found = use_signal(|| None::<Result<Found, String>>);
+    let mut searching = use_signal(|| None::<SearchQuery>);
+    let mut request = use_signal(|| 0u64);
+    let mut found = use_signal(|| None::<(SearchQuery, Result<Found, String>)>);
     let listed = use_resource(release_trackers);
     let picked = use_signal(|| None::<Vec<TrackerId>>);
     let trackers = use_memo(move || {
@@ -62,12 +71,20 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
     let search = move |event: FormEvent| async move {
         event.prevent_default();
         let Some(trackers) = trackers() else { return };
-        searching.set(true);
+        let query = SearchQuery { text: text(), season: season(), trackers };
+        let generation = request() + 1;
+        request.set(generation);
+        searching.set(Some(query.clone()));
         found.set(None);
-        let result = search_releases(text(), Some(id), season(), trackers).await;
-        found.set(Some(result.map_err(|error| failure(&error))));
-        searching.set(false);
+        let result = search_releases(query.text.clone(), id, query.season, query.trackers.clone()).await;
+        if request() == generation {
+            found.set(Some((query, result.map_err(|error| failure(&error)))));
+            searching.set(None);
+        }
     };
+    let current = trackers().map(|trackers| SearchQuery { text: text(), season: season(), trackers });
+    let busy = current.as_ref().is_some_and(|query| searching().as_ref() == Some(query));
+    let visible = found().filter(|(query, _)| current.as_ref() == Some(query));
     rsx! {
         form { role: "search", class: "flex flex-col gap-4", onsubmit: search,
             Field {
@@ -83,8 +100,8 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
                     Button {
                         r#type: "submit",
                         variant: ButtonVariant::Primary,
-                        disabled: searching() || trackers().is_none(),
-                        aria_busy: searching(),
+                        disabled: busy || trackers().is_none(),
+                        aria_busy: busy,
                         "Search"
                     }
                 }
@@ -97,28 +114,31 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
             {
                 TrackerField { trackers: trackers.clone(), picked }
             }
+            if let Some(Err(error)) = &*listed.read() {
+                p { role: "alert", class: "text-warning", {failure(error)} }
+            }
         }
         div { aria_live: "polite",
-            match found() {
-                None if searching() => rsx! {
+            match visible {
+                None if busy => rsx! {
                     Searching { every: trackers() == Some(Trackers::All) }
                 },
                 None => rsx! {},
-                Some(Err(message)) => rsx! {
+                Some((_, Err(message))) => rsx! {
                     p { role: "alert", class: "text-danger", "{message}" }
                 },
-                Some(Ok(found)) => rsx! {
-                    Releases { found, item: id, season: season(), on_close }
+                Some((query, Ok(found))) => rsx! {
+                    Releases { found, item: id, season: query.season, on_close }
                 },
             }
         }
     }
 }
 
-/// Seconds after which the wait for slow trackers is explained.
+/// Seconds after which the wait for slow indexers is explained.
 const SLOW_SEARCH: u32 = 10;
 
-/// Which of `trackers` to search; `picked` stays `None`, every tracker, until changed.
+/// Which of `trackers` to search; `picked` stays `None`, every source, until changed.
 #[component]
 fn TrackerField(trackers: Vec<TrackerEntry>, mut picked: Signal<Option<Vec<TrackerId>>>) -> Element {
     let every: Vec<TrackerId> = trackers.iter().map(|tracker| tracker.id.clone()).collect();
@@ -126,12 +146,12 @@ fn TrackerField(trackers: Vec<TrackerEntry>, mut picked: Signal<Option<Vec<Track
     let none = values().is_some_and(|values| values.is_empty());
     rsx! {
         Field {
-            Label { html_for: "release-trackers", "Trackers" }
+            Label { html_for: "release-trackers", "Indexers" }
             SelectMulti::<TrackerId> {
                 id: "release-trackers",
                 aria_describedby: "release-trackers-hint",
                 values,
-                placeholder: "No tracker",
+                placeholder: "No indexer",
                 on_values_change: move |next: Vec<TrackerId>| picked.set(Some(next)),
                 for (index, tracker) in trackers.into_iter().enumerate() {
                     SelectOption::<TrackerId> {
@@ -144,10 +164,10 @@ fn TrackerField(trackers: Vec<TrackerEntry>, mut picked: Signal<Option<Vec<Track
                 }
             }
             if none {
-                FieldError { id: "release-trackers-hint", "Pick a tracker to search." }
+                FieldError { id: "release-trackers-hint", "Pick an indexer to search." }
             } else {
                 FieldHint { id: "release-trackers-hint",
-                    "A search waits for its slowest tracker; leave a slow one out to get the others' results sooner."
+                    "Leave a slow source out to get the others' results sooner."
                 }
             }
         }
@@ -155,7 +175,7 @@ fn TrackerField(trackers: Vec<TrackerEntry>, mut picked: Signal<Option<Vec<Track
 }
 
 /// How long the search has taken so far, over placeholder rows shaped like the results; `every`
-/// when it searches every tracker.
+/// when it searches every indexer.
 #[component]
 fn Searching(every: bool) -> Element {
     let seconds = use_signal(|| 0u32);
@@ -173,16 +193,16 @@ fn Searching(every: bool) -> Element {
         p { class: "flex items-center gap-2 text-muted",
             Spinner { label: "Searching" }
             if every {
-                "Searching every tracker in Jackett…"
+                "Searching every indexer…"
             } else {
-                "Searching the tracker…"
+                "Searching selected indexers…"
             }
             if seconds() > 0 {
                 span { class: "tabular-nums", "{seconds} s" }
             }
         }
         if seconds() >= SLOW_SEARCH {
-            p { class: "text-caption text-muted", "Slow trackers can take up to a minute." }
+            p { class: "text-caption text-muted", "Slow indexers may take up to a minute." }
         }
         div { aria_hidden: "true", class: "divide-y divide-line border-y border-line",
             for index in 0..6 {
@@ -214,7 +234,7 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
                 aria_describedby: Some("release-season-hint"),
             }
             FieldHint { id: "release-season-hint",
-                "Narrows the search; a release downloaded from it places files named without a season there."
+                "Choose a season when you know which one the release contains. Files without a season in their names use your choice."
             }
         }
     }
@@ -370,6 +390,9 @@ fn Releases(found: Found, item: ItemId, season: Option<u16>, on_close: Callback)
     let mut sort = use_signal(Sort::default);
     if found.releases.is_empty() {
         return rsx! {
+            for warning in &found.warnings {
+                p { role: "alert", class: "text-warning", "{warning}" }
+            }
             p { class: "text-muted", "No releases found. Try fewer words, or the original title." }
         };
     }
@@ -389,6 +412,9 @@ fn Releases(found: Found, item: ItemId, season: Option<u16>, on_close: Callback)
     };
     let picked = use_memo(move || Some(sort()));
     rsx! {
+        for warning in &found.warnings {
+            p { role: "alert", class: "text-warning", "{warning}" }
+        }
         div { class: "flex flex-wrap items-start gap-2",
             p { class: "mr-auto text-caption text-muted max-sm:order-last sm:self-end",
                 if count == total {
@@ -564,7 +590,7 @@ fn DownloadButton(
         async move {
             busy.set(Some(link.clone()));
             error.set(None);
-            match grab_release(link, Some(item), season).await {
+            match grab_release(link, item, season).await {
                 Ok(()) => {
                     on_close(());
                     navigator().push(Route::Downloads {});

@@ -82,7 +82,7 @@ async fn a_release_comes_with_its_tracker_numbers_and_a_link_without_the_api_key
     let releases = client(&server).search(&series("The Walking Dead", None, None)).await.unwrap();
 
     assert_eq!(
-        releases,
+        releases.releases,
         [Release {
             title: "The Walking Dead / S1E1-6 of 6 [2010, WEB-DL 1080p] MVO + Original + Sub".into(),
             tracker: "RuTracker.org".into(),
@@ -135,7 +135,7 @@ async fn the_query_picks_the_torznab_search(
 
     let releases = client(&server).search(&query).await.unwrap();
 
-    assert!(releases.is_empty());
+    assert!(releases.releases.is_empty());
 }
 
 #[tokio::test]
@@ -150,8 +150,11 @@ async fn a_magnet_only_release_keeps_its_magnet_and_one_without_a_link_is_left_o
 
     let releases = client(&server).search(&series("Dune", None, None)).await.unwrap();
 
-    let found: Vec<(&str, &str, Option<u32>)> =
-        releases.iter().map(|release| (release.title.as_str(), release.link.as_str(), release.seeders)).collect();
+    let found: Vec<(&str, &str, Option<u32>)> = releases
+        .releases
+        .iter()
+        .map(|release| (release.title.as_str(), release.link.as_str(), release.seeders))
+        .collect();
     assert_eq!(found, [("Dune 2021 1080p", MAGNET, None)]);
 }
 
@@ -320,7 +323,7 @@ async fn chosen_trackers_are_searched_on_their_own_feeds_and_merged() {
 
     let releases = client(&server).search(&only(&["rutor", "anilibria"])).await.unwrap();
 
-    let titles: Vec<&str> = releases.iter().map(|release| release.title.as_str()).collect();
+    let titles: Vec<&str> = releases.releases.iter().map(|release| release.title.as_str()).collect();
     assert_eq!(titles, ["Frieren S01 RuTor", "Frieren S01 Anilibria"]);
 }
 
@@ -332,7 +335,8 @@ async fn a_chosen_tracker_that_fails_leaves_the_others_releases() {
 
     let releases = client(&server).search(&only(&["rutor", "anilibria"])).await.unwrap();
 
-    assert_eq!(releases.len(), 1);
+    assert_eq!(releases.releases.len(), 1);
+    assert_eq!(releases.warnings.len(), 1);
 }
 
 #[tokio::test]

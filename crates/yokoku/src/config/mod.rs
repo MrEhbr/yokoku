@@ -1,6 +1,7 @@
 //! The configuration: every crate's settings, layered from defaults, the config file, stored
 //! settings and the environment.
 
+mod feeds;
 mod fields;
 mod log;
 mod sections;
@@ -17,7 +18,7 @@ use yokoku_core::{downloads::DownloadOptions, media::ImportSettings};
 use yokoku_domain::{Secret, naming::Naming};
 use yokoku_infra::{
     download_clients::TransmissionSettings,
-    indexers::JackettSettings,
+    indexers::{JackettSettings, TorznabSettings},
     media_servers::JellyfinSettings,
     metadata::MetadataSettings,
     ratings::RatingsSettings,
@@ -25,6 +26,7 @@ use yokoku_infra::{
 };
 
 pub use crate::config::{
+    feeds::FeedManager,
     log::{LogConfig, LogFormat, LogOutput},
     sections::{AddConfig, DatabaseConfig, EventsConfig, RootConfig, WebConfig},
     settings::Settings,
@@ -53,6 +55,7 @@ pub struct Config {
     pub import: ImportSettings,
     pub jellyfin: JellyfinSettings,
     pub jackett: JackettSettings,
+    pub torznab: TorznabSettings,
     pub files: MediaTools,
     pub naming: Naming,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -87,6 +90,13 @@ impl Config {
     /// Fails on a setting that would only fail later, when used.
     pub fn validate(&self) -> Result<()> {
         self.metadata.tvdb_language()?;
+        let mut ids = std::collections::HashSet::new();
+        for feed in &self.torznab.feeds {
+            feed.validate().map_err(anyhow::Error::msg)?;
+            if !ids.insert(feed.id.clone()) {
+                bail!("duplicate Torznab feed id: {}", feed.id);
+            }
+        }
         Ok(())
     }
 

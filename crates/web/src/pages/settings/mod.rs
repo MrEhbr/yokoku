@@ -1,3 +1,4 @@
+mod feeds;
 mod fields;
 mod roots;
 
@@ -7,6 +8,7 @@ use dioxus::prelude::*;
 use serde_json::Value;
 
 use self::{
+    feeds::Feeds,
     fields::{SettingField, Unsaved},
     roots::RootFolders,
 };
@@ -92,6 +94,7 @@ fn Sections(settings: Vec<Setting>, part: SettingsPart) -> Element {
             Group { title: "Indexer",
                 {fields(Section::Indexer)}
                 Test { connection: Connection::Jackett, keys: keys(Section::Indexer) }
+                Feeds {}
             }
             Group { title: "Media server",
                 {fields(Section::MediaServer)}

@@ -4,24 +4,31 @@ use std::{
 };
 
 use async_trait::async_trait;
+use jiff::civil::date;
 use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_core::{
     downloads::{
         Download, DownloadError, DownloadOptions, DownloadState, Downloads, ReleaseSearch, TorrentStatus,
         ports::{
-            AddedTorrent, ClientError, DownloadClient, Indexer, IndexerError, LABEL, Release, ReleaseQuery, Torrent,
-            TorrentSource, Tracker,
+            AddedTorrent, ClientError, DownloadClient, Indexer, IndexerError, LABEL, Release, ReleaseQuery,
+            SearchResult, Torrent, TorrentSource, Tracker,
         },
     },
     events::{EventLog, Handler, QueueChanges},
+    library::ports::{MovieRepo, SeriesRepo},
 };
 use yokoku_domain::{
-    Clock, DiskSpace, DownloadId, ImportId, ItemId, Live, MediaKind, MovieId, SeriesId, Trackers,
+    Clock, DiskSpace, DownloadId, ImportId, ItemFolder, ItemId, Live, MediaFileId, MediaKind, MonitorPreset, Movie,
+    MovieId, Releases, Series, SeriesId, SourceStatus, Trackers,
     events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
 };
 use yokoku_infra::db::Database;
-use yokoku_test_support::{clock::TestClock, events::publisher};
+use yokoku_test_support::{
+    clock::TestClock,
+    events::publisher,
+    metadata::{movie_metadata, series_metadata},
+};
 
 const HASH: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
 
@@ -140,6 +147,7 @@ async fn setup_with(options: DownloadOptions) -> Setup {
     let changes = QueueChanges::new();
     let downloads = Arc::new(Downloads::new(
         Arc::new(db.clone()),
+        Arc::new(db.clone()),
         client.clone(),
         Arc::new(TestClock::default()),
         Live::fixed(options),
@@ -200,6 +208,124 @@ async fn a_torrent_is_added_only_once() {
 
     assert!(matches!(error, DownloadError::AlreadyAdded(_)), "{error}");
     assert_eq!(setup.downloads.list().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_movie_cannot_have_a_second_active_torrent() {
+    let setup = setup().await;
+    let item = Some(ItemId::Movie(MovieId::generate()));
+    setup.downloads.add(&magnet(), item, None).await.unwrap();
+
+    let error = setup.downloads.add(&magnet(), item, None).await.unwrap_err();
+
+    assert!(matches!(error, DownloadError::MovieAlreadyHasDownload), "{error}");
+    assert_eq!(setup.client.added.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_movie_with_a_library_file_cannot_start_a_torrent() {
+    let setup = setup().await;
+    let now = TestClock::default().now().timestamp();
+    let mut movie = Movie::new(movie_metadata(10, "Dune", Releases::default()), ItemFolder::default(), true, now);
+    MovieRepo::save(&setup.db, &mut movie).await.unwrap();
+    movie.file = Some(MediaFileId::generate());
+    MovieRepo::save(&setup.db, &mut movie).await.unwrap();
+
+    let error = setup.downloads.add(&magnet(), Some(ItemId::Movie(movie.id)), None).await.unwrap_err();
+
+    assert!(matches!(error, DownloadError::MovieAlreadyHasDownload), "{error}");
+    assert!(setup.client.added.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_removed_movie_torrent_that_was_not_imported_can_be_retried() {
+    let setup = setup().await;
+    let item = Some(ItemId::Movie(MovieId::generate()));
+    let mut previous = Download {
+        id: DownloadId::generate(),
+        hash: "a".repeat(40),
+        name: "Dune.2021.720p".into(),
+        item,
+        season: None,
+        status: TorrentStatus { state: DownloadState::Removed, ..TorrentStatus::unknown() },
+        added_at: TestClock::default().now().timestamp(),
+        completed_at: None,
+        imported_at: None,
+        revision: 0,
+    };
+    yokoku_core::downloads::ports::DownloadRepo::save(&setup.db, &mut previous).await.unwrap();
+
+    let added = setup.downloads.add(&magnet(), item, None).await.unwrap();
+
+    assert_ne!(added.id, previous.id);
+    assert_eq!(setup.client.added.lock().unwrap().len(), 1);
+}
+
+async fn series_with_files(setup: &Setup, file_count: usize) -> Series {
+    let now = TestClock::default().now().timestamp();
+    let mut series = Series::new(
+        series_metadata(1, "Series", SourceStatus::Ended, &[(1, &[None, None]), (2, &[])]),
+        ItemFolder::default(),
+        MonitorPreset::All,
+        date(2026, 10, 8),
+        now,
+    );
+    SeriesRepo::save(&setup.db, &mut series).await.unwrap();
+    for episode in series.seasons[0].episodes.iter_mut().take(file_count) {
+        episode.file = Some(MediaFileId::generate());
+    }
+    SeriesRepo::save(&setup.db, &mut series).await.unwrap();
+    series
+}
+
+#[rstest]
+#[case::complete_season(2, Some(1), true)]
+#[case::partial_season(1, Some(1), false)]
+#[case::empty_season(2, Some(2), false)]
+#[case::no_season_selected(2, None, false)]
+#[tokio::test]
+async fn a_series_rejects_only_a_selected_season_with_all_known_episodes_downloaded(
+    #[case] file_count: usize,
+    #[case] season: Option<u16>,
+    #[case] blocked: bool,
+) {
+    let setup = setup().await;
+    let series = series_with_files(&setup, file_count).await;
+
+    let result = setup.downloads.add(&magnet(), Some(ItemId::Series(series.id)), season).await;
+
+    if blocked {
+        assert!(matches!(result, Err(DownloadError::SeriesSeasonAlreadyDownloaded)), "{result:?}");
+        assert!(setup.client.added.lock().unwrap().is_empty());
+    } else {
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(setup.client.added.lock().unwrap().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn a_series_can_add_another_torrent_for_a_partially_downloaded_season() {
+    let setup = setup().await;
+    let series = series_with_files(&setup, 1).await;
+    let item = Some(ItemId::Series(series.id));
+    let mut previous = Download {
+        id: DownloadId::generate(),
+        hash: "a".repeat(40),
+        name: "Series.S01E01".into(),
+        item,
+        season: Some(1),
+        status: TorrentStatus { state: DownloadState::Downloading, ..TorrentStatus::unknown() },
+        added_at: TestClock::default().now().timestamp(),
+        completed_at: None,
+        imported_at: None,
+        revision: 0,
+    };
+    yokoku_core::downloads::ports::DownloadRepo::save(&setup.db, &mut previous).await.unwrap();
+
+    let result = setup.downloads.add(&magnet(), item, Some(1)).await;
+
+    assert!(result.is_ok(), "{result:?}");
+    assert_eq!(setup.client.added.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -532,8 +658,8 @@ impl Indexer for ScriptedIndexer {
         Ok(vec![Tracker { id: "rutor".parse().unwrap(), name: "RuTor".into() }])
     }
 
-    async fn search(&self, _query: &ReleaseQuery) -> Result<Vec<Release>, IndexerError> {
-        Ok(self.releases.clone())
+    async fn search(&self, _query: &ReleaseQuery) -> Result<SearchResult, IndexerError> {
+        Ok(SearchResult { releases: self.releases.clone(), warnings: Vec::new() })
     }
 
     async fn fetch(&self, link: &str) -> Result<TorrentSource, IndexerError> {
@@ -574,8 +700,28 @@ async fn releases_are_found_most_seeded_first() {
 
     let found = search.search(&query()).await.unwrap();
 
-    let titles: Vec<&str> = found.iter().map(|release| release.title.as_str()).collect();
+    let titles: Vec<&str> = found.releases.iter().map(|release| release.title.as_str()).collect();
     assert_eq!(titles, ["many", "few", "unknown"]);
+}
+
+#[tokio::test]
+async fn search_uses_opaque_ids_and_preserves_tracker_details() {
+    let setup = setup().await;
+    let mut with_query = release("with query", Some(2));
+    with_query.link = "https://indexer.example/download/123".into();
+    with_query.details = Some("https://rutracker.org/forum/viewtopic.php?t=3301430".into());
+    let mut ordinary = release("ordinary", Some(1));
+    ordinary.details = Some("https://indexer.example/details/123".into());
+    let search = ReleaseSearch::new(
+        Arc::new(ScriptedIndexer { releases: vec![with_query, ordinary], ..ScriptedIndexer::default() }),
+        setup.downloads,
+    );
+
+    let found = search.search(&query()).await.unwrap();
+
+    assert_eq!(found.releases[0].details.as_deref(), Some("https://rutracker.org/forum/viewtopic.php?t=3301430"));
+    assert_eq!(found.releases[1].details.as_deref(), Some("https://indexer.example/details/123"));
+    assert!(!found.releases[0].link.contains("http"));
 }
 
 #[tokio::test]
@@ -583,13 +729,14 @@ async fn a_grabbed_release_is_added_with_its_item_and_season() {
     let setup = setup().await;
     let torrent = TorrentSource::File(b"d4:infod4:name4:Dunee".to_vec());
     let indexer = ScriptedIndexer {
+        releases: vec![release("dune", Some(1))],
         torrents: HashMap::from([("http://jackett/dl/dune".to_owned(), torrent.clone())]),
-        ..ScriptedIndexer::default()
     };
     let search = ReleaseSearch::new(Arc::new(indexer), setup.downloads.clone());
     let item = Some(ItemId::Series(SeriesId::generate()));
 
-    let added = search.grab("http://jackett/dl/dune", item, Some(2)).await.unwrap();
+    let found = search.search(&query()).await.unwrap();
+    let added = search.grab(&found.releases[0].link, item, Some(2)).await.unwrap();
 
     assert_eq!((added.item, added.season), (item, Some(2)));
     assert_eq!(*setup.client.added.lock().unwrap(), [torrent]);
@@ -598,9 +745,24 @@ async fn a_grabbed_release_is_added_with_its_item_and_season() {
 #[tokio::test]
 async fn a_release_the_indexer_cannot_fetch_adds_nothing() {
     let setup = setup().await;
+    let search = ReleaseSearch::new(
+        Arc::new(ScriptedIndexer { releases: vec![release("gone", Some(1))], ..ScriptedIndexer::default() }),
+        setup.downloads.clone(),
+    );
+
+    let found = search.search(&query()).await.unwrap();
+    let error = search.grab(&found.releases[0].link, None, None).await.unwrap_err();
+
+    assert!(matches!(error, DownloadError::Indexer(IndexerError::Refused(_))), "{error}");
+    assert!(setup.downloads.list().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_link_that_was_not_returned_by_search_cannot_be_grabbed() {
+    let setup = setup().await;
     let search = ReleaseSearch::new(Arc::new(ScriptedIndexer::default()), setup.downloads.clone());
 
-    let error = search.grab("http://jackett/dl/gone", None, None).await.unwrap_err();
+    let error = search.grab("http://127.0.0.1/private", None, None).await.unwrap_err();
 
     assert!(matches!(error, DownloadError::Indexer(IndexerError::Refused(_))), "{error}");
     assert!(setup.downloads.list().await.unwrap().is_empty());

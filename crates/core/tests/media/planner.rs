@@ -105,6 +105,19 @@ async fn a_download_of_an_episode_that_has_a_file_goes_to_review() {
 }
 
 #[tokio::test]
+async fn another_download_of_a_movie_with_a_file_goes_to_review() {
+    let app = App::new().await;
+    app.write("movies/Dune (2021)/Dune (2021).mkv", 10);
+    app.scanner.scan().await.unwrap();
+    let file = app.write("downloads/Dune.2021.2160p.mkv", 20);
+
+    let import =
+        app.planner.plan(DownloadId::generate(), &file, Some(ItemId::Movie(app.dune.id)), None).await.unwrap().unwrap();
+
+    assert_eq!((import.status, import.rows[0].target()), (ImportStatus::NeedsReview, Some(app.movie())));
+}
+
+#[tokio::test]
 async fn a_download_without_videos_fails_visibly() {
     let app = App::new().await;
     app.write("downloads/Soundtrack/01.flac", 10);

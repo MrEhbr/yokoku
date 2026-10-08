@@ -939,7 +939,15 @@ async fn transmission() -> wiremock::MockServer {
 async fn a_torrent_can_be_added_for_an_item() {
     let transmission = transmission().await;
     let dir = tempfile::tempdir().unwrap();
-    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let db = Database::open(&dir.path().join("yokoku.db")).await.unwrap();
+    let mut movie = Movie::new(
+        yokoku_test_support::metadata::movie_metadata(10, "Dune", Releases::default()),
+        ItemFolder::default(),
+        true,
+        Timestamp::now(),
+    );
+    MovieRepo::save(&db, &mut movie).await.unwrap();
+    let dune = movie.id;
     let url = format!("{}/transmission/rpc", transmission.uri());
     let service = Service::start_with(dir.path(), &[("YOKOKU__TRANSMISSION__URL", &url)]);
     let magnet = |link: &str| format!(r#"{{"torrent":{{"magnet":"{link}"}},"item":{{"Movie":"{dune}"}}}}"#);
@@ -953,8 +961,22 @@ async fn a_torrent_can_be_added_for_an_item() {
 
     assert!(not_a_magnet.contains("starts with magnet:"), "{not_a_magnet}");
     assert!(added.starts_with("HTTP/1.1 200"), "{added}");
-    assert!(again.contains("was already added"), "{again}");
+    assert!(again.contains("This movie already has a file or an active torrent"), "{again}");
     assert!(downloads.contains("Dune.2021.1080p") && downloads.contains(&dune.to_string()), "{downloads}");
+}
+
+#[tokio::test]
+async fn a_movie_with_a_file_refuses_a_torrent_before_contacting_transmission() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_, dune) = seed(&dir.path().join("yokoku.db")).await;
+    let service = Service::start(dir.path());
+    let body = format!(
+        r#"{{"torrent":{{"magnet":"magnet:?xt=urn:btih:0638ffbb73b3f3ef1ba1fbbfa05a7e1db69610f6"}},"item":{{"Movie":"{dune}"}}}}"#
+    );
+
+    let response = service.post_json("/api/downloads", &body);
+
+    assert!(response.contains("This movie already has a file or an active torrent"), "{response}");
 }
 
 #[tokio::test]

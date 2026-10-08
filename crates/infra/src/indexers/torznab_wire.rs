@@ -20,6 +20,8 @@ pub(crate) struct Channel {
 pub(crate) struct Item {
     pub title: String,
     pub link: Option<String>,
+    #[serde(default, rename = "enclosure")]
+    pub enclosures: Vec<Enclosure>,
     /// The release's page.
     pub comments: Option<String>,
     /// RFC 2822.
@@ -37,6 +39,25 @@ impl Item {
     pub fn attr(&self, name: &str) -> Option<&str> {
         self.attrs.iter().find(|attr| attr.name == name).map(|attr| attr.value.as_str())
     }
+
+    pub fn download_link(&self) -> Option<String> {
+        self.enclosures
+            .iter()
+            .find(|enclosure| {
+                enclosure.kind.as_deref().is_some_and(|kind| kind.starts_with("application/x-bittorrent"))
+            })
+            .map(|enclosure| enclosure.url.clone())
+            .or_else(|| self.attr("magneturl").map(str::to_owned))
+            .or_else(|| self.link.clone())
+    }
+}
+
+#[derive(Deserialize)]
+pub(crate) struct Enclosure {
+    #[serde(rename = "@url")]
+    pub url: String,
+    #[serde(rename = "@type")]
+    pub kind: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -77,6 +98,30 @@ pub(crate) struct Caps {
     #[serde(rename = "@description")]
     pub error: Option<String>,
     pub server: Option<Server>,
+    pub searching: Option<Searching>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct Searching {
+    pub search: Option<SearchMode>,
+    #[serde(rename = "tv-search")]
+    pub tv: Option<SearchMode>,
+    #[serde(rename = "movie-search")]
+    pub movie: Option<SearchMode>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct SearchMode {
+    #[serde(rename = "@available")]
+    pub available: String,
+    #[serde(rename = "@supportedParams", default)]
+    pub supported: String,
+}
+
+impl SearchMode {
+    pub fn supports(&self, parameter: &str) -> bool {
+        self.available == "yes" && self.supported.split(',').any(|part| part.trim() == parameter)
+    }
 }
 
 #[derive(Deserialize)]

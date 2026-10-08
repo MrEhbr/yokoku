@@ -74,7 +74,7 @@ pub trait Indexer: Send + Sync {
     /// The trackers it searches.
     async fn trackers(&self) -> Result<Vec<Tracker>, IndexerError>;
 
-    async fn search(&self, query: &ReleaseQuery) -> Result<Vec<Release>, IndexerError>;
+    async fn search(&self, query: &ReleaseQuery) -> Result<SearchResult, IndexerError>;
 
     /// The torrent a release's `link` leads to.
     async fn fetch(&self, link: &str) -> Result<TorrentSource, IndexerError>;
@@ -110,10 +110,18 @@ pub struct Release {
     /// Times it was downloaded, when the tracker counts them.
     pub grabs: Option<u32>,
     pub published: Option<Timestamp>,
-    /// A magnet link, or a link `Indexer::fetch` takes; without credentials.
+    /// A magnet link or a link `Indexer::fetch` takes. `ReleaseSearch` replaces it
+    /// with an opaque ID before returning results to clients.
     pub link: String,
     /// The release's page on the tracker.
     pub details: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SearchResult {
+    pub releases: Vec<Release>,
+    /// Sources that failed while other sources returned results.
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]

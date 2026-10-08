@@ -264,6 +264,12 @@ mod server {
     pub(crate) fn add_failure(error: DownloadError) -> ServerFnError {
         match error {
             DownloadError::AlreadyAdded(name) => ServerFnError::new(format!("{name} was already added")),
+            DownloadError::MovieAlreadyHasDownload => {
+                ServerFnError::new("This movie already has a file or an active torrent")
+            },
+            DownloadError::SeriesSeasonAlreadyDownloaded => {
+                ServerFnError::new("Every known episode of this season already has a file in the library")
+            },
             DownloadError::Client(ClientError::Unavailable(_)) => {
                 ServerFnError::new("Transmission could not be reached; check that it runs and its address")
             },

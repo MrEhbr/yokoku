@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_icons::lucide::X;
-use yokoku_domain::{ItemName, MonitorPreset};
+use yokoku_domain::{ItemId, ItemName, MonitorPreset};
 
 use crate::{
     api::{
@@ -24,9 +24,10 @@ use crate::{
 /// The options of the picked result; adding it opens its page. Closing it
 /// clears `picked`.
 #[component]
-pub(super) fn AddDialog(
+pub(crate) fn AddDialog(
     picked: Signal<Option<SearchHit>>,
     options: Resource<Result<AddOptions, ServerFnError>>,
+    #[props(default)] on_added: Option<Callback<ItemId>>,
 ) -> Element {
     let open = picked.read().is_some();
     rsx! {
@@ -52,6 +53,7 @@ pub(super) fn AddDialog(
                     hit,
                     options,
                     on_close: move |()| picked.set(None),
+                    on_added,
                 }
             }
         }
@@ -59,7 +61,12 @@ pub(super) fn AddDialog(
 }
 
 #[component]
-fn Options(hit: SearchHit, options: Resource<Result<AddOptions, ServerFnError>>, on_close: Callback) -> Element {
+fn Options(
+    hit: SearchHit,
+    options: Resource<Result<AddOptions, ServerFnError>>,
+    on_close: Callback,
+    on_added: Option<Callback<ItemId>>,
+) -> Element {
     rsx! {
         match &*options.read() {
             None => rsx! {
@@ -80,6 +87,7 @@ fn Options(hit: SearchHit, options: Resource<Result<AddOptions, ServerFnError>>,
                     hit,
                     monitor: options.monitor,
                     on_close,
+                    on_added,
                 }
             },
         }
@@ -88,7 +96,13 @@ fn Options(hit: SearchHit, options: Resource<Result<AddOptions, ServerFnError>>,
 
 /// `monitor` is the default preset.
 #[component]
-fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, on_close: Callback) -> Element {
+fn OptionsForm(
+    hit: SearchHit,
+    roots: Vec<RootChoice>,
+    monitor: MonitorPreset,
+    on_close: Callback,
+    on_added: Option<Callback<ItemId>>,
+) -> Element {
     let default_monitor = monitor;
     let root = use_signal(|| roots.first().map(|root| root.path.clone()));
     let monitor = use_signal(|| {
@@ -156,7 +170,12 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
             let item = NewItem { kind, source, root, monitor, folder: folder() };
             match add_item(item).await {
                 Ok(id) => {
-                    navigator().push(Route::item(id));
+                    if let Some(on_added) = on_added {
+                        on_added(id);
+                        on_close(());
+                    } else {
+                        navigator().push(Route::item(id));
+                    }
                 },
                 Err(failed) => {
                     error.set(Some(failure(&failed)));

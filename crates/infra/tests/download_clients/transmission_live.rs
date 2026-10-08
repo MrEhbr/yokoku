@@ -82,6 +82,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
     let db = Database::open_in_memory().await.unwrap();
     let use_case = Downloads::new(
         Arc::new(db.clone()),
+        Arc::new(db.clone()),
         client.clone(),
         Arc::new(SystemTime),
         Live::fixed(DownloadOptions::default()),

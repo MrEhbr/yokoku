@@ -1,4 +1,4 @@
-mod dialog;
+pub(crate) mod dialog;
 mod hit;
 
 use dioxus::prelude::*;

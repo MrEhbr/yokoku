@@ -38,6 +38,7 @@ pub struct AppState {
     pub scanner: Arc<Scanner>,
     pub settings: Arc<dyn SettingsAccess>,
     pub connections: Arc<dyn ConnectionTest>,
+    pub feeds: Arc<dyn FeedAccess>,
     /// Cancelled when the service stops; long-lived responses end with it.
     pub shutdown: Arc<CancellationToken>,
 }
@@ -83,6 +84,15 @@ pub trait ConnectionTest: Send + Sync {
     ) -> Result<String, String>;
 }
 
+/// Configured direct Torznab feeds, with secrets kept on the server.
+#[async_trait::async_trait]
+pub trait FeedAccess: Send + Sync {
+    async fn list(&self) -> Result<Vec<crate::api::feeds::FeedEntry>, String>;
+    async fn save(&self, draft: crate::api::feeds::FeedDraft) -> Result<(), String>;
+    async fn remove(&self, id: String) -> Result<(), String>;
+    async fn test(&self, draft: crate::api::feeds::FeedDraft) -> Result<String, String>;
+}
+
 /// `AppState` holds a `T`.
 pub trait Provides<T: ?Sized> {
     fn provide(&self) -> Arc<T>;
@@ -118,6 +128,7 @@ provides! {
     Scanner => scanner,
     dyn SettingsAccess => settings,
     dyn ConnectionTest => connections,
+    dyn FeedAccess => feeds,
     AddSettings => add,
     CancellationToken => shutdown,
 }

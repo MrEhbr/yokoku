@@ -19,6 +19,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
 tokio-util.workspace = true
 tracing.workspace = true
+uuid.workspace = true
 
 hunch = { version = "2.0.2", default-features = false }
 regex = "1.13"
