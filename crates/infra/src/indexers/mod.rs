@@ -1,12 +1,10 @@
-//! Indexer adapters: Jackett, through its Torznab API.
+//! Indexer adapters for Jackett and Prowlarr.
 
 mod combined;
-mod feeds;
 mod jackett;
-mod torznab;
+mod prowlarr;
 mod torznab_wire;
 
 pub use combined::CombinedIndexer;
-pub use feeds::{TorznabFeed, TorznabSettings};
 pub use jackett::{JackettClient, JackettSettings};
-pub use torznab::TorznabClient;
+pub use prowlarr::{ProwlarrClient, ProwlarrSettings};

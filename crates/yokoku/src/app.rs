@@ -25,7 +25,7 @@ use yokoku_infra::{
     system::{ArtworkFiles, FfMpeg, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
 
-use crate::config::{Config, FeedManager, Settings};
+use crate::config::{Config, Settings};
 
 /// Use cases wired to their adapters, each reading the settings in effect when it runs.
 #[derive(Clone)]
@@ -40,7 +40,6 @@ pub struct App {
     pub renamer: Arc<Renamer>,
     pub downloads: Arc<Downloads>,
     pub releases: Arc<ReleaseSearch>,
-    pub feeds: Arc<FeedManager>,
     pub importer: Arc<Importer>,
     pub history: Arc<History>,
     pub clock: Arc<dyn Clock>,
@@ -72,11 +71,8 @@ impl App {
             .context("Failed to load configuration with the stored settings; see `yokoku settings list`")?;
         let indexer = CombinedIndexer::new(
             settings.live(|config| config.jackett.clone()),
-            settings.live(|config| config.torznab.clone()),
-            db.clone(),
+            settings.live(|config| config.prowlarr.clone()),
         );
-        indexer.feeds().await.context("Invalid Torznab feeds in configuration and database")?;
-        let feeds = Arc::new(FeedManager::new(settings.clone(), db.clone()));
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::new(settings.live(|config| config.clock.time_zone())));
         let log = EventLog::new(Database::clone(&db));
         let events = Publisher::new(log.clone());
@@ -153,7 +149,6 @@ impl App {
                 queue_changes.clone(),
             )),
             releases: Arc::new(ReleaseSearch::new(Arc::new(indexer), downloads.clone())),
-            feeds,
             downloads: downloads.clone(),
             renamer: Arc::new(Renamer::new(
                 db.clone(),

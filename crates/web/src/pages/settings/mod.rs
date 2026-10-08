@@ -1,4 +1,3 @@
-mod feeds;
 mod fields;
 mod roots;
 
@@ -8,7 +7,6 @@ use dioxus::prelude::*;
 use serde_json::Value;
 
 use self::{
-    feeds::Feeds,
     fields::{SettingField, Unsaved},
     roots::RootFolders,
 };
@@ -92,9 +90,16 @@ fn Sections(settings: Vec<Setting>, part: SettingsPart) -> Element {
                 }
             }
             Group { title: "Indexer",
-                {fields(Section::Indexer)}
-                Test { connection: Connection::Jackett, keys: keys(Section::Indexer) }
-                Feeds {}
+                h3 { class: "font-medium", "Jackett" }
+                for setting in of(Section::Indexer).into_iter().filter(|setting| setting.field.key.starts_with("jackett.")) {
+                    SettingField { key: "{setting.field.key}", setting }
+                }
+                Test { connection: Connection::Jackett, keys: vec!["jackett.url".into(), "jackett.api_key".into()] }
+                h3 { class: "border-t border-line pt-5 font-medium", "Prowlarr" }
+                for setting in of(Section::Indexer).into_iter().filter(|setting| setting.field.key.starts_with("prowlarr.")) {
+                    SettingField { key: "{setting.field.key}", setting }
+                }
+                Test { connection: Connection::Prowlarr, keys: vec!["prowlarr.url".into(), "prowlarr.api_key".into()] }
             }
             Group { title: "Media server",
                 {fields(Section::MediaServer)}
@@ -181,6 +186,11 @@ fn Test(connection: Connection, keys: Vec<String>) -> Element {
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect()
     });
+    let label = match connection {
+        Connection::Jackett => "Test Jackett",
+        Connection::Prowlarr => "Test Prowlarr",
+        _ => "Test connection",
+    };
     rsx! {
         div { class: "flex flex-wrap items-center gap-3",
             Button {
@@ -199,7 +209,7 @@ fn Test(connection: Connection, keys: Vec<String>) -> Element {
                         );
                     busy.set(false);
                 },
-                "Test connection"
+                "{label}"
             }
             if outcome().is_none() && !changes().is_empty() {
                 span { class: "text-caption text-muted",

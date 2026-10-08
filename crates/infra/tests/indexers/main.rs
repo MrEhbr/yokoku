@@ -1,3 +1,3 @@
 mod jackett;
 mod jackett_live;
-mod torznab;
+mod prowlarr;

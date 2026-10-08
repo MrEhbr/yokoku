@@ -115,7 +115,14 @@ impl JackettClient {
             _ => {},
         }
         let items = feed.channel.map(|channel| channel.items).unwrap_or_default();
-        Ok(items.into_iter().filter_map(|item| Release::try_from(item).ok()).collect())
+        Ok(items
+            .into_iter()
+            .filter_map(|item| Release::try_from(item).ok())
+            .map(|mut release| {
+                release.link = without_key(&release.link);
+                release
+            })
+            .collect())
     }
 }
 
@@ -223,33 +230,6 @@ impl Indexer for JackettClient {
             },
             (status, _) => Err(IndexerError::Unavailable(format!("HTTP {status}").into())),
         }
-    }
-}
-
-/// A Torznab item without a link to its torrent.
-#[derive(Debug)]
-pub(crate) struct NoLink;
-
-impl TryFrom<wire::Item> for Release {
-    type Error = NoLink;
-
-    fn try_from(item: wire::Item) -> Result<Self, NoLink> {
-        let link = item.download_link().ok_or(NoLink)?;
-        let number = |name: &str| item.attr(name).and_then(|value| value.parse::<u32>().ok());
-        let seeders = number("seeders");
-        let size = item.size.or_else(|| item.attr("size").and_then(|size| size.parse().ok())).unwrap_or(0);
-        let published = item.pub_date.as_deref().and_then(|date| jiff::fmt::rfc2822::parse(date).ok());
-        Ok(Release {
-            tracker: item.jackettindexer.as_ref().map(|indexer| indexer.text.clone()).unwrap_or_default(),
-            leechers: number("peers").map(|peers| peers.saturating_sub(seeders.unwrap_or(0))),
-            grabs: item.grabs.or_else(|| number("grabs")),
-            seeders,
-            size,
-            published: published.map(|date| date.timestamp()),
-            link: without_key(&link),
-            details: item.comments,
-            title: item.title,
-        })
     }
 }
 

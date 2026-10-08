@@ -91,6 +91,7 @@ pub enum Connection {
     Transmission,
     Jellyfin,
     Jackett,
+    Prowlarr,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

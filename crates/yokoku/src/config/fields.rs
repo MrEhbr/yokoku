@@ -57,6 +57,20 @@ impl Config {
                 Control::Secret,
             ),
             Field::new(
+                Section::Indexer,
+                "prowlarr.url",
+                "Prowlarr address",
+                "Searches enabled torrent indexers in Prowlarr; empty to not search.",
+                Control::text("http://localhost:9696"),
+            ),
+            Field::new(
+                Section::Indexer,
+                "prowlarr.api_key",
+                "Prowlarr API key",
+                "From Settings → General in Prowlarr.",
+                Control::Secret,
+            ),
+            Field::new(
                 Section::Metadata,
                 "metadata.tmdb.token",
                 "TMDB token",

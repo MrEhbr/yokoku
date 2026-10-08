@@ -61,7 +61,12 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
     let picked = use_signal(|| None::<Vec<TrackerId>>);
     let trackers = use_memo(move || {
         let listed = listed.read();
-        let every = listed.as_ref().and_then(|listed| listed.as_ref().ok()).map_or(0, Vec::len);
+        let every = match listed.as_ref() {
+            Some(Ok(trackers)) if trackers.is_empty() => return None,
+            Some(Ok(trackers)) => trackers.len(),
+            Some(Err(_)) => return None,
+            None => 0,
+        };
         match picked() {
             Some(ids) if ids.len() < every => TrackerSet::new(ids).map(Trackers::Only),
             _ => Some(Trackers::All),
@@ -116,6 +121,11 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
             }
             if let Some(Err(error)) = &*listed.read() {
                 p { role: "alert", class: "text-warning", {failure(error)} }
+            }
+            if let Some(Ok(trackers)) = &*listed.read()
+                && trackers.is_empty()
+            {
+                p { role: "status", class: "text-warning", "No searchable torrent indexers. Add one in Jackett or Prowlarr." }
             }
         }
         div { aria_live: "polite",

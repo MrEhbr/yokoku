@@ -135,9 +135,9 @@ mod server {
 
     fn failure(error: DownloadError, doing: &str) -> ServerFnError {
         match error {
-            DownloadError::Indexer(IndexerError::NotConfigured) => ServerFnError::new(
-                "Connect Jackett, add a Torznab feed, or enable an existing feed in Settings to search",
-            ),
+            DownloadError::Indexer(IndexerError::NotConfigured) => {
+                ServerFnError::new("Connect Jackett or Prowlarr in Settings to search")
+            },
             DownloadError::Indexer(IndexerError::Unavailable(_)) => {
                 ServerFnError::new("The indexers could not be reached; check their addresses")
             },
