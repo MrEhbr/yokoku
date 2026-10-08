@@ -49,7 +49,6 @@ pub fn Shell() -> Element {
                                 md:order-none md:w-auto",
                         NavItem { to: Route::Library {}, label: "Library" }
                         NavItem { to: Route::Missing {}, label: "Wanted", WantedBadge {} }
-                        NavItem { to: Route::Releases {}, label: "Search" }
                         NavItem { to: Route::Upcoming {}, label: "Upcoming" }
                         NavItem { to: Route::Downloads {}, label: "Queue", QueueBadge {} }
                         NavItem { to: Route::History {}, label: "History" }

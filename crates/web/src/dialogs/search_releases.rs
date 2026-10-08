@@ -7,10 +7,8 @@ use yokoku_domain::{ItemId, SeriesId, TrackerId, TrackerSet, Trackers};
 
 use crate::{
     api::{
-        add::{SearchHit, add_options, search as metadata_search},
         downloads::ItemLink,
         failure,
-        library::Kind,
         releases::{Found, ReleaseEntry, TrackerEntry, grab_release, release_trackers, search_releases},
     },
     components::{
@@ -23,9 +21,8 @@ use crate::{
         spinner::Spinner,
         table::{SortDirection, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead},
     },
-    dialogs::{ClosableDialog, add_torrent::ItemField, pickers::SeasonPicker},
+    dialogs::{ClosableDialog, pickers::SeasonPicker},
     format::{plural, relative, size},
-    pages::add::dialog::AddDialog,
     route::Route,
 };
 
@@ -37,7 +34,7 @@ pub fn SearchReleasesButton(item: ItemLink) -> Element {
         Button { onclick: move |_| open.set(true), "Search releases" }
         ClosableDialog { title: "Search releases", open, wide: true,
             if open() {
-                SearchReleases { item: Some(item), on_close: Some(Callback::new(move |()| open.set(false))) }
+                SearchReleases { item, on_close: Callback::new(move |()| open.set(false)) }
             }
         }
     }
@@ -47,7 +44,6 @@ pub fn SearchReleasesButton(item: ItemLink) -> Element {
 #[derive(Clone, PartialEq)]
 struct SearchQuery {
     text: String,
-    kind: Option<Kind>,
     season: Option<u16>,
     trackers: Trackers,
 }
@@ -55,10 +51,9 @@ struct SearchQuery {
 /// Searches configured indexers for releases of `item`, its title to start with; downloading one adds it
 /// for `item` and opens the Downloads page.
 #[component]
-pub(crate) fn SearchReleases(item: Option<ItemLink>, on_close: Option<Callback>) -> Element {
-    let mut text = use_signal(|| item.as_ref().map_or(String::new(), |item| item.title.clone()));
-    let mut kind = use_signal(|| None::<Kind>);
-    let mut season = use_signal(|| None::<u16>);
+fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
+    let mut text = use_signal(|| item.title.clone());
+    let season = use_signal(|| None::<u16>);
     let mut searching = use_signal(|| None::<SearchQuery>);
     let mut request = use_signal(|| 0u64);
     let mut found = use_signal(|| None::<(SearchQuery, Result<Found, String>)>);
@@ -72,22 +67,22 @@ pub(crate) fn SearchReleases(item: Option<ItemLink>, on_close: Option<Callback>)
             _ => Some(Trackers::All),
         }
     });
-    let id = item.as_ref().map(|item| item.id);
+    let id = item.id;
     let search = move |event: FormEvent| async move {
         event.prevent_default();
         let Some(trackers) = trackers() else { return };
-        let query = SearchQuery { text: text(), kind: kind(), season: season(), trackers };
+        let query = SearchQuery { text: text(), season: season(), trackers };
         let generation = request() + 1;
         request.set(generation);
         searching.set(Some(query.clone()));
         found.set(None);
-        let result = search_releases(query.text.clone(), id, query.season, query.trackers.clone(), query.kind).await;
+        let result = search_releases(query.text.clone(), id, query.season, query.trackers.clone()).await;
         if request() == generation {
             found.set(Some((query, result.map_err(|error| failure(&error)))));
             searching.set(None);
         }
     };
-    let current = trackers().map(|trackers| SearchQuery { text: text(), kind: kind(), season: season(), trackers });
+    let current = trackers().map(|trackers| SearchQuery { text: text(), season: season(), trackers });
     let busy = current.as_ref().is_some_and(|query| searching().as_ref() == Some(query));
     let visible = found().filter(|(query, _)| current.as_ref() == Some(query));
     rsx! {
@@ -111,23 +106,8 @@ pub(crate) fn SearchReleases(item: Option<ItemLink>, on_close: Option<Callback>)
                     }
                 }
             }
-            if item.is_none() {
-                div { class: "flex flex-wrap gap-2", role: "group", aria_label: "Media type",
-                    for (label, value) in [("All", None), ("Movies", Some(Kind::Movie)), ("Series", Some(Kind::Series))] {
-                        Button { key: "{label}", r#type: "button", aria_pressed: kind() == value,
-                            onclick: move |_| { kind.set(value); season.set(None); }, "{label}" }
-                    }
-                }
-            }
-            if let Some(series) = id.and_then(ItemId::series) {
+            if let Some(series) = id.series() {
                 SeasonField { series, season }
-            } else if item.is_none() && kind() == Some(Kind::Series) {
-                Field {
-                    Label { html_for: "release-season-number", "Season (optional)" }
-                    Input { id: "release-season-number", r#type: "number", min: "0", max: "9999",
-                        value: "{season().map(|value| value.to_string()).unwrap_or_default()}",
-                        oninput: move |event: FormEvent| season.set(event.value().parse().ok()) }
-                }
             }
             if let Some(Ok(trackers)) = &*listed.read()
                 && trackers.len() > 1
@@ -243,7 +223,7 @@ fn Searching(every: bool) -> Element {
 }
 
 #[component]
-fn SeasonField(series: SeriesId, season: Signal<Option<u16>>, #[props(default)] initial: Option<u16>) -> Element {
+fn SeasonField(series: SeriesId, season: Signal<Option<u16>>) -> Element {
     rsx! {
         Field {
             SeasonPicker {
@@ -251,11 +231,10 @@ fn SeasonField(series: SeriesId, season: Signal<Option<u16>>, #[props(default)] 
                 series,
                 season,
                 none: Some("Any season"),
-                initial,
                 aria_describedby: Some("release-season-hint"),
             }
             FieldHint { id: "release-season-hint",
-                "Narrows the search. When linked to a series, this season places files named without one there."
+                "Choose a season for a single-season torrent; files without a season use it. Any season blocks other downloads for this series until it finishes."
             }
         }
     }
@@ -404,7 +383,7 @@ fn ordered<T: Ord>(a: Option<T>, b: Option<T>, direction: SortDirection) -> Orde
 }
 
 #[component]
-fn Releases(found: Found, item: Option<ItemId>, season: Option<u16>, on_close: Option<Callback>) -> Element {
+fn Releases(found: Found, item: ItemId, season: Option<u16>, on_close: Callback) -> Element {
     let error = use_signal(|| None::<String>);
     let busy = use_signal(|| None::<String>);
     let mut filter = use_signal(String::new);
@@ -529,11 +508,11 @@ fn Release(
     release: ReleaseEntry,
     today: Date,
     counted: bool,
-    item: Option<ItemId>,
+    item: ItemId,
     season: Option<u16>,
     busy: Signal<Option<String>>,
     error: Signal<Option<String>>,
-    on_close: Option<Callback>,
+    on_close: Callback,
 ) -> Element {
     let button = rsx! {
         DownloadButton {
@@ -599,23 +578,12 @@ fn Release(
 #[component]
 fn DownloadButton(
     link: String,
-    item: Option<ItemId>,
+    item: ItemId,
     season: Option<u16>,
     busy: Signal<Option<String>>,
     error: Signal<Option<String>>,
-    on_close: Option<Callback>,
+    on_close: Callback,
 ) -> Element {
-    let mut open = use_signal(|| false);
-    if item.is_none() {
-        return rsx! {
-            Button { size: ButtonSize::Sm, onclick: move |_| open.set(true), "Download" }
-            ClosableDialog { title: "Download release", open,
-                if open() {
-                    GlobalGrab { link, searched_season: season, on_close: move |()| open.set(false) }
-                }
-            }
-        };
-    }
     let downloading = busy().as_ref() == Some(&link);
     let download = move |_| {
         let link = link.clone();
@@ -624,9 +592,7 @@ fn DownloadButton(
             error.set(None);
             match grab_release(link, item, season).await {
                 Ok(()) => {
-                    if let Some(on_close) = on_close {
-                        on_close(());
-                    }
+                    on_close(());
                     navigator().push(Route::Downloads {});
                 },
                 Err(failed) => {
@@ -643,143 +609,6 @@ fn DownloadButton(
             aria_busy: downloading,
             onclick: download,
             "Download"
-        }
-    }
-}
-
-/// Pick a library item, add one through metadata, or let import detection decide after download.
-#[component]
-fn GlobalGrab(link: String, searched_season: Option<u16>, on_close: Callback) -> Element {
-    let chosen = use_signal(|| Some(None::<ItemId>));
-    let refresh = use_signal(|| 0u32);
-    let season = use_signal(|| None::<u16>);
-    let mut busy = use_signal(|| false);
-    let mut error = use_signal(|| None::<String>);
-    let series = chosen().flatten().and_then(ItemId::series);
-    let add = move |_| {
-        let link = link.clone();
-        async move {
-            busy.set(true);
-            error.set(None);
-            match grab_release(link, chosen().flatten(), season().filter(|_| series.is_some())).await {
-                Ok(()) => {
-                    on_close(());
-                    navigator().push(Route::Downloads {});
-                },
-                Err(failed) => {
-                    error.set(Some(failure(&failed)));
-                    busy.set(false);
-                },
-            }
-        }
-    };
-    rsx! {
-        div { class: "grid gap-4",
-            ItemField { key: "{refresh}", chosen }
-            AddLibraryItem { chosen, refresh }
-            if let Some(series) = series {
-                SeasonField { key: "{series}", series, season, initial: searched_season }
-            }
-            crate::components::free_space::FreeSpace { item: chosen().flatten() }
-            if let Some(message) = error() { p { role: "alert", class: "text-danger", "{message}" } }
-            crate::components::dialog::DialogFooter {
-                Button { onclick: move |_| on_close(()), "Cancel" }
-                Button { variant: ButtonVariant::Primary, disabled: busy(), aria_busy: busy(), onclick: add, "Send to Transmission" }
-            }
-        }
-    }
-}
-
-/// Search metadata and reuse the library's Add dialog without losing the chosen release.
-#[component]
-fn AddLibraryItem(chosen: Signal<Option<Option<ItemId>>>, refresh: Signal<u32>) -> Element {
-    let mut show = use_signal(|| false);
-    let mut kind = use_signal(|| Kind::Movie);
-    let mut text = use_signal(String::new);
-    let mut searching = use_signal(|| None::<(String, Kind)>);
-    let mut request = use_signal(|| 0u64);
-    let mut found = use_signal(|| None::<((String, Kind), Result<Vec<SearchHit>, String>)>);
-    let picked = use_signal(|| None::<SearchHit>);
-    let options = use_resource(add_options);
-    let current = (text(), kind());
-    let busy = searching() == Some(current.clone());
-    let visible = found().filter(|(query, _)| query == &current);
-    rsx! {
-        if !show() {
-            Button { variant: ButtonVariant::Quiet, class: "w-fit", onclick: move |_| show.set(true), "Add a movie or series to the library…" }
-        } else {
-            div { class: "grid gap-3 rounded border border-line p-3",
-                div { class: "flex gap-2",
-                    for (label, value) in [("Movies", Kind::Movie), ("Series", Kind::Series)] {
-                        Button { key: "{label}", aria_pressed: kind() == value,
-                            onclick: move |_| { kind.set(value); found.set(None); }, "{label}" }
-                    }
-                }
-                form { class: "flex gap-2", onsubmit: move |event: FormEvent| async move {
-                        event.prevent_default();
-                        let query = (text(), kind());
-                        let generation = request() + 1;
-                        request.set(generation);
-                        searching.set(Some(query.clone()));
-                        found.set(None);
-                        let result = metadata_search(query.0.clone(), query.1).await.map_err(|error| failure(&error));
-                        if request() == generation {
-                            found.set(Some((query, result)));
-                            searching.set(None);
-                        }
-                    },
-                    Input { class: "min-w-0 flex-1", r#type: "search", placeholder: "Movie or series title",
-                        value: "{text}", oninput: move |event: FormEvent| text.set(event.value()) }
-                    Button { r#type: "submit", disabled: busy || text.read().trim().is_empty(), aria_busy: busy, "Search" }
-                }
-                match visible {
-                    Some((_, Ok(hits))) if hits.is_empty() => rsx! { p { class: "text-muted", "No matching media found." } },
-                    Some((_, Ok(hits))) => rsx! { ul { class: "max-h-48 overflow-y-auto",
-                        for hit in hits {
-                            MetadataHit { key: "{hit.source}", hit, picked, chosen, refresh, show }
-                        }
-                    } },
-                    Some((_, Err(message))) => rsx! { p { role: "alert", class: "text-danger", "{message}" } },
-                    None if busy => rsx! { p { role: "status", class: "text-muted", "Searching…" } },
-                    None => rsx! {},
-                }
-            }
-        }
-        AddDialog { picked, options,
-            on_added: Some(Callback::new(move |id| {
-                chosen.set(Some(Some(id)));
-                refresh.set(refresh() + 1);
-                found.set(None);
-                show.set(false);
-            })) }
-    }
-}
-
-#[component]
-fn MetadataHit(
-    hit: SearchHit,
-    mut picked: Signal<Option<SearchHit>>,
-    mut chosen: Signal<Option<Option<ItemId>>>,
-    mut refresh: Signal<u32>,
-    mut show: Signal<bool>,
-) -> Element {
-    let title = hit.title.clone();
-    let year = hit.year;
-    let existing = hit.in_library;
-    rsx! {
-        li {
-            Button { variant: ButtonVariant::Quiet, onclick: move |_| {
-                    if let Some(id) = existing {
-                        chosen.set(Some(Some(id)));
-                        refresh.set(refresh() + 1);
-                        show.set(false);
-                    } else {
-                        picked.set(Some(hit.clone()));
-                    }
-                },
-                "{title}" if let Some(year) = year { " ({year})" }
-                if existing.is_some() { " · In library" }
-            }
         }
     }
 }

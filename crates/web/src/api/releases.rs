@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use yokoku_domain::Clock;
 use yokoku_domain::{ItemId, TrackerId, Trackers};
 
-use super::library::Kind;
 #[cfg(feature = "server")]
 use crate::api::{Dep, ReleaseSearch};
 
@@ -49,22 +48,20 @@ pub async fn release_trackers() -> Result<Vec<TrackerEntry>, ServerFnError> {
     server::trackers(&search).await
 }
 
-/// Searches `trackers` for `text`, the search kind following `item` when given; for a series,
-/// `season` narrows it.
+/// Searches `trackers` for `text` and `item`; for a series, `season` narrows it.
 #[post("/api/releases/search", search: Dep<ReleaseSearch>, clock: Dep<dyn Clock>)]
 pub async fn search_releases(
     text: String,
-    item: Option<ItemId>,
+    item: ItemId,
     season: Option<u16>,
     trackers: Trackers,
-    kind: Option<Kind>,
 ) -> Result<Found, ServerFnError> {
-    server::search(&search, &*clock, text, item, season, trackers, kind).await
+    server::search(&search, &*clock, text, item, season, trackers).await
 }
 
 /// Adds the release at `link` as `add_torrent` does.
 #[post("/api/releases/grab", search: Dep<ReleaseSearch>)]
-pub async fn grab_release(link: String, item: Option<ItemId>, season: Option<u16>) -> Result<(), ServerFnError> {
+pub async fn grab_release(link: String, item: ItemId, season: Option<u16>) -> Result<(), ServerFnError> {
     server::grab(&search, &link, item, season).await
 }
 
@@ -77,7 +74,7 @@ mod server {
     };
     use yokoku_domain::{Clock, ItemId, MediaKind, Trackers};
 
-    use super::{Found, Kind, ReleaseEntry, TrackerEntry};
+    use super::{Found, ReleaseEntry, TrackerEntry};
     use crate::api::{downloads::add_failure, unexpected};
 
     pub(super) async fn trackers(search: &ReleaseSearch) -> Result<Vec<TrackerEntry>, ServerFnError> {
@@ -92,18 +89,17 @@ mod server {
         search: &ReleaseSearch,
         clock: &dyn Clock,
         text: String,
-        item: Option<ItemId>,
+        item: ItemId,
         season: Option<u16>,
         trackers: Trackers,
-        selected_kind: Option<Kind>,
     ) -> Result<Found, ServerFnError> {
         let text = text.trim().to_owned();
         if text.is_empty() {
             return Err(ServerFnError::new("Type what to search for"));
         }
-        let kind = item.map(ItemId::kind).or_else(|| selected_kind.map(Into::into));
-        let season = season.filter(|_| kind == Some(MediaKind::Series));
-        let query = ReleaseQuery { text, kind, season, episode: None, trackers };
+        let kind = item.kind();
+        let season = season.filter(|_| kind == MediaKind::Series);
+        let query = ReleaseQuery { text, kind: Some(kind), season, episode: None, trackers };
         let releases = search.search(&query).await.map_err(|error| failure(error, "searching releases"))?;
         let now = clock.now();
         let zone = now.time_zone().clone();
@@ -128,10 +124,10 @@ mod server {
     pub(super) async fn grab(
         search: &ReleaseSearch,
         link: &str,
-        item: Option<ItemId>,
+        item: ItemId,
         season: Option<u16>,
     ) -> Result<(), ServerFnError> {
-        search.grab(link, item, season).await.map(drop).map_err(|error| match error {
+        search.grab(link, Some(item), season).await.map(drop).map_err(|error| match error {
             DownloadError::Indexer(_) => failure(error, "fetching a release"),
             error => add_failure(error),
         })

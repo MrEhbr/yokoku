@@ -21,6 +21,6 @@ The ID must be unique across file and Settings feeds; use ASCII letters, digits,
 
 ## Search and Download
 
-Use **Search releases** on a movie or series page, or **Search** in the main navigation for a search outside the library. Choose indexers to search, filter and sort results, then press **Download**. From global search you can link the torrent to an existing library item, add a movie or series through the metadata search, or let Yokoku identify the item from downloaded files. If you searched a season and link the download to a series that has it, that season is preselected for files whose names omit it; you can change it before sending the torrent.
+Add a movie or series to the library, then use **Search releases** on its page. Choose indexers to search, filter and sort results, then press **Download**. For a series, you can select a season to narrow the search and place files whose names omit the season.
 
 Search results expire after 30 minutes. If a download says the search expired, run it again and choose the release.
