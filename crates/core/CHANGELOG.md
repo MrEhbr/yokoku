@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.9.0](https://github.com/MrEhbr/yokoku/compare/v0.8.0..v0.9.0) - 2026-10-11
+
+### Bug Fixes
+
+- **(imports)** never mark a download imported by an import that placed nothing - ([3c536cb](https://github.com/MrEhbr/yokoku/commit/3c536cba497f001cf94d90020cd8644c8df3ca1e)) `+45 / -6 across 6 file(s)` - Aleksei Burmistrov
+- **(imports)** wait for the download client to finish moving files before planning - ([a485f9b](https://github.com/MrEhbr/yokoku/commit/a485f9b80b5b93a5d81cde2c8a45b3132a4c3654)) `+42 / -7 across 4 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 2 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 2 commit(s) parsed as conventional.
+- Diff totals: +87 / -13 across 10 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 4 day(s) since the previous release.
+
 ## [0.8.0](https://github.com/MrEhbr/yokoku/compare/v0.7.0..v0.8.0) - 2026-10-07
 
 ### Features
