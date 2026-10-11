@@ -123,11 +123,6 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     }
                 }
             }
-            p {
-                class: "yk-code break-all text-caption text-muted",
-                title: "The series' folder",
-                "{series.folder}"
-            }
             div { class: "flex flex-wrap items-center gap-x-6 gap-y-2",
                 MonitorToggle {
                     target: MonitorTarget::Series { id },
@@ -160,6 +155,15 @@ fn Page(series: detail::SeriesDetail) -> Element {
                 }
             }
             ItemDescription { description: series.description.clone(), per_episode: true }
+            dl { class: "grid gap-x-6 gap-y-1 text-caption sm:grid-cols-[auto_1fr]",
+                dt { class: "text-muted", "Folder" }
+                dd {
+                    span { class: "yk-code break-all", "{series.folder}" }
+                    if series.folder_exists == Some(false) {
+                        span { class: "text-muted", " · Not created yet; the first import creates it" }
+                    }
+                }
+            }
         }
         if let Some(unrecognised) = series.unrecognised {
             div { class: "mt-8",

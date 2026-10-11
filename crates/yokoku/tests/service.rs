@@ -229,6 +229,7 @@ async fn detail_pages_show_descriptions_episodes_releases_and_files() {
         "Fantasy · 25 min per episode",
         "The party returns to the capital.",
         "/shows/Frieren",
+        "Not created yet",
     ] {
         assert!(series.contains(text), "{text}: {series}");
     }

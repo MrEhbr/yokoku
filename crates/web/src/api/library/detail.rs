@@ -7,7 +7,7 @@ use yokoku_domain::{ImportId, MovieId, SeriesId};
 
 use super::{FileStatus, Status};
 #[cfg(feature = "server")]
-use crate::api::{Dep, Library, Prober, Ratings, Reviewer};
+use crate::api::{Dep, Library, Prober, Ratings, Reviewer, RootFolders};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -105,6 +105,8 @@ pub struct SeriesDetail {
     pub source_url: String,
     /// The series' folder in its root folder, where its files belong.
     pub folder: String,
+    /// Whether `folder` is on disk; `None` when it could not be checked.
+    pub folder_exists: Option<bool>,
     /// Today in the server's time zone.
     pub today: Date,
     pub status: Status,
@@ -227,9 +229,9 @@ impl SeasonDetail {
 }
 
 /// `None` when the library has no such series.
-#[get("/api/series/{id}", library: Dep<Library>, prober: Dep<Prober>, reviewer: Dep<Reviewer>, ratings: Dep<Ratings>)]
+#[get("/api/series/{id}", library: Dep<Library>, prober: Dep<Prober>, reviewer: Dep<Reviewer>, ratings: Dep<Ratings>, roots: Dep<RootFolders>)]
 pub async fn series(id: SeriesId) -> Result<Option<SeriesDetail>, ServerFnError> {
-    server::series(&library, &prober, &reviewer, &ratings, id).await
+    server::series(&library, &prober, &reviewer, &ratings, &roots, id).await
 }
 
 /// `None` when the library has no such movie.
@@ -255,7 +257,7 @@ mod server {
 
     use super::{
         Description, EpisodeRow, FileInfo, Images, ItemRating, Library, MovieDetail, Numbering, Prober, Ratings,
-        Release, Reviewer, SeasonDetail, SeriesDetail, Streams, Unrecognised, Video, Watched,
+        Release, Reviewer, RootFolders, SeasonDetail, SeriesDetail, Streams, Unrecognised, Video, Watched,
     };
     use crate::api::artwork;
 
@@ -267,6 +269,7 @@ mod server {
         prober: &Prober,
         reviewer: &Reviewer,
         ratings: &Ratings,
+        roots: &RootFolders,
         id: SeriesId,
     ) -> Result<Option<SeriesDetail>, ServerFnError> {
         let today = library.today();
@@ -282,7 +285,15 @@ mod server {
         let watched = watched(library).await;
         let unrecognised = unrecognised(reviewer, &series.folder).await;
         let ratings = item_ratings(ratings, ItemId::Series(id), series.external_ids.imdb.as_ref()).await;
-        Ok(Some(SeriesDetail::new(&series, &files, &watched, ratings, unrecognised, today)))
+        let folder_exists = roots
+            .exists(&series.folder)
+            .await
+            .inspect_err(|error| error!(%error, series = %id, "checking the series folder failed"))
+            .ok();
+        Ok(Some(SeriesDetail {
+            folder_exists,
+            ..SeriesDetail::new(&series, &files, &watched, ratings, unrecognised, today)
+        }))
     }
 
     pub(super) async fn movie(
@@ -375,6 +386,7 @@ mod server {
                 source: series.source.to_string(),
                 source_url: source_url(series.source, MediaKind::Series),
                 folder: series.folder.path().display().to_string(),
+                folder_exists: None,
                 today,
                 status: LibraryStatus::Series(series.status(today)).into(),
                 numbering: series.numbering.into(),

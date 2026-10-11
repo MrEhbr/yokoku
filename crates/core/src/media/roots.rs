@@ -4,7 +4,7 @@ use std::{
 };
 
 use tracing::warn;
-use yokoku_domain::{DiskSpace, ItemId};
+use yokoku_domain::{DiskSpace, ItemFolder, ItemId};
 
 use crate::media::{
     MediaError, RootFolder, RootKind,
@@ -99,6 +99,11 @@ impl RootFolders {
     /// Names of the folders in `root`, such as ones an added item can take over.
     pub async fn folders(&self, root: &RootFolder) -> Result<Vec<String>, MediaError> {
         Ok(self.fs.folders(&root.path).await?)
+    }
+
+    /// Whether an item's folder is on disk; the first import creates it.
+    pub async fn exists(&self, folder: &ItemFolder) -> Result<bool, MediaError> {
+        Ok(self.fs.is_dir(&folder.path()).await?)
     }
 
     /// Names of the folders of the series and movies in `root`, whether they exist yet or not.

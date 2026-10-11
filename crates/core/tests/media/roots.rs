@@ -35,6 +35,17 @@ async fn a_root_folders_folders_are_listed_by_name() {
 }
 
 #[tokio::test]
+async fn an_item_folder_exists_once_it_is_on_disk() {
+    let app = App::new().await;
+
+    let before = app.roots.exists(&app.frieren.folder).await.unwrap();
+    std::fs::create_dir_all(app.frieren.folder.path()).unwrap();
+    let after = app.roots.exists(&app.frieren.folder).await.unwrap();
+
+    assert_eq!((before, after), (false, true));
+}
+
+#[tokio::test]
 async fn a_root_folders_item_folders_are_listed_whether_they_exist_or_not() {
     let app = App::new().await;
     let tv = RootFolder::new(RootKind::Series, app.path("tv"), None, false);
