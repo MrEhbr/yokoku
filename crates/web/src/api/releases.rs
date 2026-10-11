@@ -136,10 +136,10 @@ mod server {
     fn failure(error: DownloadError, doing: &str) -> ServerFnError {
         match error {
             DownloadError::Indexer(IndexerError::NotConfigured) => {
-                ServerFnError::new("Connect Jackett or Prowlarr in Settings to search")
+                ServerFnError::new("Connect the selected indexer in Settings to search")
             },
             DownloadError::Indexer(IndexerError::Unavailable(_)) => {
-                ServerFnError::new("The indexers could not be reached; check their addresses")
+                ServerFnError::new("The selected indexer could not be reached; check its address")
             },
             DownloadError::Indexer(IndexerError::Refused(reason)) => ServerFnError::new(reason),
             error => unexpected(&error, doing),

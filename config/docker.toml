@@ -121,9 +121,13 @@ merge = true
 # Whose played items count as watched; watched sync is off while unset.
 # user = "admin"
 
-# Searches torrent trackers for releases; api_key is a secret, like the TMDB token.
+# Search through one proxy. Without this setting, the only configured proxy is
+# selected; Jackett is selected if both are configured.
+[indexer]
+# provider = "jackett" # or "prowlarr"
+
+# Jackett connection; api_key is a secret, like the TMDB token.
 [jackett]
-# Search is off while unset.
 # url = "http://localhost:9117"
 # From the top of Jackett's dashboard.
 # api_key = { file = "/run/secrets/jackett_api_key" }

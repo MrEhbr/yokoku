@@ -28,7 +28,7 @@ value. Type a new value to replace one.
 :   Transmission's RPC address, username and password.
 
 **Indexer**
-:   Jackett and Prowlarr addresses and API keys for **Search releases**. Configure either or both.
+:   Choose Jackett or Prowlarr for **Search releases**, then set its address and API key. Both connections can be saved; only the selected one is searched.
 
 **Media server**
 :   Jellyfin's address, an API key and the user whose played items count as

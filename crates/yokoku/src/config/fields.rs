@@ -44,9 +44,16 @@ impl Config {
             ),
             Field::new(
                 Section::Indexer,
+                "indexer.provider",
+                "Search with",
+                "Only the selected proxy is used for release searches.",
+                Control::choice(&[("jackett", "Jackett"), ("prowlarr", "Prowlarr")]),
+            ),
+            Field::new(
+                Section::Indexer,
                 "jackett.url",
                 "Jackett address",
-                "Searches its trackers for releases; empty to not search.",
+                "Address of your Jackett server.",
                 Control::text("http://localhost:9117"),
             ),
             Field::new(
@@ -60,7 +67,7 @@ impl Config {
                 Section::Indexer,
                 "prowlarr.url",
                 "Prowlarr address",
-                "Searches enabled torrent indexers in Prowlarr; empty to not search.",
+                "Address of your Prowlarr server.",
                 Control::text("http://localhost:9696"),
             ),
             Field::new(

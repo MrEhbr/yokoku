@@ -11,14 +11,15 @@ Yokoku never picks a release on its own; it only searches when you ask.
 
 | Setting | |
 |---|---|
+| `indexer.provider` | `jackett` |
 | `jackett.url` | Its address, like `http://localhost:9117`; empty to not search |
 | `jackett.api_key` | The API key, shown at the top of Jackett's dashboard |
 
-Add your trackers in Jackett's own page, with their logins. Yokoku searches
+Select Jackett under **Settings → Indexer → Search with**. Add your trackers in Jackett's own page, with their logins. Yokoku searches
 them all through Jackett's aggregate Torznab feed and never sees the
 trackers' passwords.
 
-**Test connection** in Settings shows *Jackett*, or why it failed:
+**Test Jackett** in Settings shows *Jackett*, or why it failed:
 
 | Message | Cause |
 |---|---|
@@ -32,7 +33,7 @@ something else, like the original title. For a series, **Season** narrows it
 to one season. Every category is searched, since trackers often file
 releases under the wrong one.
 
-With more than one tracker in Jackett, **Trackers** picks where to search,
+With more than one tracker in Jackett, **Indexers** picks where to search,
 every tracker at first. A search waits for its slowest tracker, like an
 anime tracker that takes seconds to answer; leave it out to get the others'
 results sooner. The picked trackers are searched at once, and one that fails

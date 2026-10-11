@@ -66,7 +66,7 @@ during import review.
 
 ## Search Releases
 
-**Search releases** searches Jackett and Prowlarr for this item and
+**Search releases** searches the Jackett or Prowlarr proxy selected in Settings for this item and
 downloads the release you pick, the way **Add torrent** does. See
 [Jackett](../integrations/jackett.md) and [Prowlarr](../integrations/prowlarr.md).
 

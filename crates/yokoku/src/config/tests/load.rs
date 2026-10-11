@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use serde_json::json;
 use tracing::Level;
 use yokoku_core::media::RootKind;
+use yokoku_infra::indexers::IndexerProvider;
 
 use super::keys;
 use crate::config::{Config, LogFormat, LogOutput, RootConfig};
@@ -53,6 +54,30 @@ fn the_sample_config_files_load_and_list_every_setting() {
 #[test]
 fn the_log_level_is_shown_in_lowercase() {
     assert_eq!(Config::default().setting("log.level").unwrap(), "\"info\"");
+}
+
+#[test]
+fn the_only_configured_indexer_is_selected_until_a_provider_is_set() {
+    let mut config = Config::default();
+    config.prowlarr.url = Some("http://localhost:9696".into());
+    assert_eq!(config.active_indexer(), IndexerProvider::Prowlarr);
+    assert_eq!(config.setting("indexer.provider").unwrap(), "\"prowlarr\"");
+
+    config.jackett.url = Some("http://localhost:9117".into());
+    assert_eq!(config.active_indexer(), IndexerProvider::Jackett);
+
+    config.indexer.provider = Some(IndexerProvider::Prowlarr);
+    assert_eq!(config.active_indexer(), IndexerProvider::Prowlarr);
+}
+
+#[test]
+fn selected_indexer_loads_from_stored_settings() {
+    let legacy = Config::load(None, &[("prowlarr.url".into(), json!("http://localhost:9696"))]).unwrap();
+    assert_eq!(legacy.active_indexer(), IndexerProvider::Prowlarr);
+
+    let config = Config::load(None, &[("indexer.provider".into(), json!("prowlarr"))]).unwrap();
+    assert_eq!(config.active_indexer(), IndexerProvider::Prowlarr);
+    assert!(Config::load(None, &[("indexer.provider".into(), json!("other"))]).is_err());
 }
 
 #[test]

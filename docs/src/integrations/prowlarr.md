@@ -1,11 +1,12 @@
 # Prowlarr
 
-Connect [Prowlarr](https://github.com/Prowlarr/Prowlarr) to search the torrent indexers you configured there from a movie or series page. Yokoku also supports Jackett; both can be enabled at once. Searches start only when you press **Search**. You choose which result to download, and Yokoku adds it to Transmission for that library item.
+Connect [Prowlarr](https://github.com/Prowlarr/Prowlarr) to search the torrent indexers you configured there from a movie or series page. Select Prowlarr under **Settings → Indexer → Search with**. Searches start only when you press **Search**. You choose which result to download, and Yokoku adds it to Transmission for that library item.
 
 ## Connect
 
 | Setting | Value |
 |---|---|
+| `indexer.provider` | `prowlarr` |
 | `prowlarr.url` | Prowlarr's address, for example `http://localhost:9696` |
 | `prowlarr.api_key` | The API key in Prowlarr's **Settings → General** |
 

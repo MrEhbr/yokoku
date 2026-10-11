@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 use yokoku_core::media::ImportMode;
 use yokoku_domain::{SettingsStore, StorageError};
+use yokoku_infra::indexers::IndexerProvider;
 
 use crate::config::Settings;
 
@@ -60,6 +61,19 @@ async fn a_live_value_follows_a_reload() {
     settings.reload().await.unwrap();
 
     assert_eq!((before, mode.current()), (ImportMode::HardLink, ImportMode::Move));
+}
+
+#[tokio::test]
+async fn changing_the_indexer_provider_applies_to_live_searches() {
+    let store = Arc::new(MemoryStore::default());
+    let settings = open(&store).await;
+    let provider = settings.live(|config| config.active_indexer());
+
+    assert_eq!(provider.current(), IndexerProvider::Jackett);
+    settings.set("indexer.provider", json!("prowlarr")).await.unwrap();
+    assert_eq!(provider.current(), IndexerProvider::Prowlarr);
+    settings.unset("indexer.provider").await.unwrap();
+    assert_eq!(provider.current(), IndexerProvider::Jackett);
 }
 
 #[tokio::test]

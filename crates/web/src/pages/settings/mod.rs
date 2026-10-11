@@ -90,6 +90,9 @@ fn Sections(settings: Vec<Setting>, part: SettingsPart) -> Element {
                 }
             }
             Group { title: "Indexer",
+                for setting in of(Section::Indexer).into_iter().filter(|setting| setting.field.key.starts_with("indexer.")) {
+                    SettingField { key: "{setting.field.key}", setting }
+                }
                 h3 { class: "font-medium", "Jackett" }
                 for setting in of(Section::Indexer).into_iter().filter(|setting| setting.field.key.starts_with("jackett.")) {
                     SettingField { key: "{setting.field.key}", setting }

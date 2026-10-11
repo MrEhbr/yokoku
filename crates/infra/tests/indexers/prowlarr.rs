@@ -4,7 +4,7 @@ use wiremock::{
 };
 use yokoku_core::downloads::ports::{Indexer, ReleaseQuery, TorrentSource};
 use yokoku_domain::{Live, MediaKind, Secret, TrackerSet, Trackers};
-use yokoku_infra::indexers::{CombinedIndexer, JackettSettings, ProwlarrClient, ProwlarrSettings};
+use yokoku_infra::indexers::{IndexerProvider, JackettSettings, ProwlarrClient, ProwlarrSettings, SelectedIndexer};
 
 const KEY: &str = "prowlarr-key";
 
@@ -86,26 +86,29 @@ async fn searches_enabled_torrent_indexers_and_fetches_via_prowlarr() {
 }
 
 #[tokio::test]
-async fn combined_indexer_keeps_prowlarr_results_when_jackett_fails() {
+async fn selected_indexer_searches_only_prowlarr_when_both_are_configured() {
     let server = MockServer::start().await;
     indexers(&server).await;
     search_answer(&server, &format!("{}/api/v1/indexer/1/download?link=test&file=Dune", server.uri())).await;
-    let indexer = CombinedIndexer::new(
+    let indexer = SelectedIndexer::new(
         Live::fixed(JackettSettings { url: Some(server.uri()), api_key: Some(Secret::new("jackett-key")) }),
         Live::fixed(ProwlarrSettings { url: Some(server.uri()), api_key: Some(Secret::new(KEY)) }),
+        Live::fixed(IndexerProvider::Prowlarr),
     );
 
     let trackers = indexer.trackers().await.unwrap();
     assert_eq!(trackers[0].id.as_str(), "prowlarr_1");
     let all = indexer.search(&query(Trackers::All)).await.unwrap();
     assert_eq!(all.releases.len(), 1);
-    assert_eq!(all.warnings, ["Jackett could not be searched"]);
+    assert!(all.warnings.is_empty());
     assert_eq!(all.releases[0].tracker, "Rutor · Prowlarr");
     let selected = Trackers::Only(TrackerSet::new(["prowlarr_1".parse().unwrap()]).unwrap());
     let found = indexer.search(&query(selected)).await.unwrap();
     assert_eq!(found.releases.len(), 1);
     assert!(found.warnings.is_empty());
     assert!(found.releases[0].link.starts_with("p:"));
+    let wrong = Trackers::Only(TrackerSet::new(["jackett_rutor".parse().unwrap()]).unwrap());
+    assert!(indexer.search(&query(wrong)).await.is_err());
 }
 
 #[tokio::test]

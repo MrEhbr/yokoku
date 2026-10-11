@@ -125,7 +125,7 @@ fn SearchReleases(item: ItemLink, on_close: Callback) -> Element {
             if let Some(Ok(trackers)) = &*listed.read()
                 && trackers.is_empty()
             {
-                p { role: "status", class: "text-warning", "No searchable torrent indexers. Add one in Jackett or Prowlarr." }
+                p { role: "status", class: "text-warning", "No searchable torrent indexers. Add one in the proxy selected in Settings." }
             }
         }
         div { aria_live: "polite",

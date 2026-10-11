@@ -17,7 +17,7 @@ use yokoku_core::{downloads::DownloadOptions, media::ImportSettings};
 use yokoku_domain::{Secret, naming::Naming};
 use yokoku_infra::{
     download_clients::TransmissionSettings,
-    indexers::{JackettSettings, ProwlarrSettings},
+    indexers::{IndexerProvider, JackettSettings, ProwlarrSettings},
     media_servers::JellyfinSettings,
     metadata::MetadataSettings,
     ratings::RatingsSettings,
@@ -52,6 +52,7 @@ pub struct Config {
     pub events: EventsConfig,
     pub import: ImportSettings,
     pub jellyfin: JellyfinSettings,
+    pub indexer: IndexerSelection,
     pub jackett: JackettSettings,
     pub prowlarr: ProwlarrSettings,
     pub files: MediaTools,
@@ -60,7 +61,24 @@ pub struct Config {
     pub roots: Vec<RootConfig>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[serde(default)]
+pub struct IndexerSelection {
+    /// Unset in older configurations; then the sole configured proxy is selected.
+    pub provider: Option<IndexerProvider>,
+}
+
 impl Config {
+    pub fn active_indexer(&self) -> IndexerProvider {
+        self.indexer.provider.unwrap_or_else(|| {
+            if self.jackett.url.is_none() && self.prowlarr.url.is_some() {
+                IndexerProvider::Prowlarr
+            } else {
+                IndexerProvider::Jackett
+            }
+        })
+    }
+
     /// Loads with precedence: env vars (YOKOKU__*) > stored settings > config file > defaults.
     /// `stored` holds values by dotted key, such as `import.mode`.
     pub fn load(config_path: Option<&Path>, stored: &[(String, Value)]) -> Result<Self> {
@@ -122,6 +140,7 @@ impl Config {
     /// The value of a known setting as JSON, a secret masked.
     pub fn value(&self, key: &str) -> Result<Value> {
         match Self::default().lookup(key)? {
+            Some(_) if key == "indexer.provider" => Ok(serde_json::to_value(self.active_indexer())?),
             Some(default) if !default.is_object() => Ok(self.lookup(key)?.unwrap_or(Value::Null)),
             _ => bail!("{key} is not a setting"),
         }
