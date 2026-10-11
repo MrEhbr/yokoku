@@ -1110,6 +1110,7 @@ async fn a_search_result_can_be_added_to_a_root_folder() {
     let after = service.get("/api/search?query=dune&kind=movie");
     let again = service.post_json("/api/items", &item);
     let id = added.split_once("\r\n\r\n").map(|(_, body)| body).unwrap_or_default();
+    std::fs::write(movies.join("Dune (2021)/Dune (2021).mkv"), b"video").unwrap();
     let refreshed = service.post_json("/api/items/refresh", &format!(r#"{{"item":{id}}}"#));
 
     assert!(
@@ -1133,6 +1134,7 @@ async fn a_search_result_can_be_added_to_a_root_folder() {
     assert!(service.get("/api/library?kind=movie").contains("Dune"));
     assert!(!again.starts_with("HTTP/1.1 200") && again.contains("It is already in the library"), "{again}");
     assert!(refreshed.starts_with("HTTP/1.1 200"), "{id}: {refreshed}");
+    assert!(scanned(dir.path()).await, "a file added by hand is found on refresh");
 }
 
 #[tokio::test]

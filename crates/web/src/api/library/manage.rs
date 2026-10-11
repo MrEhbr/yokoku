@@ -7,7 +7,7 @@ use yokoku_domain::{ItemId, MediaFileId, MovieId, SeriesId};
 
 use super::detail::{Numbering, Watched};
 #[cfg(feature = "server")]
-use crate::api::{Deleter, Dep, Library, MetadataService};
+use crate::api::{Deleter, Dep, Library, MetadataService, Scanner};
 
 /// What a monitoring change applies to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,10 +24,10 @@ pub async fn set_monitored(target: MonitorTarget, monitored: bool) -> Result<(),
     server::set_monitored(&library, target, monitored).await
 }
 
-/// Reads the item's metadata from its source again.
-#[post("/api/items/refresh", metadata: Dep<MetadataService>)]
+/// Reads the item's metadata from its source again, then scans its folder.
+#[post("/api/items/refresh", metadata: Dep<MetadataService>, scanner: Dep<Scanner>)]
 pub async fn refresh(item: ItemId) -> Result<(), ServerFnError> {
-    server::refresh(&metadata, item).await
+    server::refresh(&metadata, &scanner, item).await
 }
 
 /// Sets how the series' episode numbers are read from file names.
@@ -79,7 +79,7 @@ mod server {
     use yokoku_core::media::MediaError;
     use yokoku_domain::{EpisodeRef, FileTarget, ItemId, MediaFileId, SeriesId};
 
-    use super::{Deleter, ItemFile, Library, MetadataService, MonitorTarget, Numbering, Watched};
+    use super::{Deleter, ItemFile, Library, MetadataService, MonitorTarget, Numbering, Scanner, Watched};
     use crate::{api::library_failure, format::episode};
 
     /// When `delete` holds every file, the removal itself deletes them.
@@ -203,12 +203,20 @@ mod server {
         library.set_numbering(id, numbering.into()).await.map_err(|error| library_failure(error, "changing numbering"))
     }
 
-    pub(super) async fn refresh(metadata: &MetadataService, item: ItemId) -> Result<(), ServerFnError> {
+    pub(super) async fn refresh(
+        metadata: &MetadataService,
+        scanner: &Scanner,
+        item: ItemId,
+    ) -> Result<(), ServerFnError> {
         let refreshed = match item {
             ItemId::Series(id) => metadata.refresh_series(id).await.map(drop),
             ItemId::Movie(id) => metadata.refresh_movie(id).await.map(drop),
         };
-        refreshed.map_err(|error| library_failure(error, "refreshing the item"))
+        refreshed.map_err(|error| library_failure(error, "refreshing the item"))?;
+        scanner.scan_item(item).await.map(drop).map_err(|error| {
+            error!(%error, ?item, "scanning the item folder failed");
+            ServerFnError::new("The item's folder could not be scanned; the server log has the cause")
+        })
     }
 
     pub(super) async fn set_monitored(

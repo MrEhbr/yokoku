@@ -92,6 +92,9 @@ Episodes keep their monitoring and files. When the source renumbers episodes
 that have files, the files follow; a file whose episode was split goes to
 review.
 
+Then it scans the item's folder: files you put there yourself are linked, and
+linked files that are gone are forgotten, as the nightly scan does.
+
 ## Rename Files
 
 **Rename files…** moves files to the names your naming patterns give them,
