@@ -141,6 +141,22 @@ async fn a_blocked_destination_fails_the_import_until_retried() {
 }
 
 #[tokio::test]
+async fn a_retried_import_without_videos_fails_again_and_imports_nothing() {
+    let app = App::new().await;
+    app.write("downloads/Soundtrack/01.flac", 10);
+    let content = app.path("downloads/Soundtrack");
+    let import = app.planner.plan(DownloadId::generate(), &content, None, None).await.unwrap().unwrap();
+    let importer = app.importer(ImportMode::HardLink);
+
+    importer.retry(import.id).await.unwrap();
+    let retried = importer.run_pending().await.unwrap();
+
+    assert_eq!(retried[0].status, ImportStatus::Failed);
+    assert_eq!(retried[0].error.as_deref(), Some("the download holds no video files"));
+    assert!(!app.events().await.iter().any(|event| matches!(event, Event::FilesImported(_))));
+}
+
+#[tokio::test]
 async fn replacing_removes_the_old_library_file() {
     let app = App::new().await;
     let old = app.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.720p.mkv", 5);

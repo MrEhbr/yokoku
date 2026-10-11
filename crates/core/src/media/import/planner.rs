@@ -94,7 +94,7 @@ impl ImportPlanner {
             source: content.to_owned(),
             download: Some(download),
             status,
-            error: (status == ImportStatus::Failed).then(|| "the download holds no video files".to_owned()),
+            error: (status == ImportStatus::Failed).then(|| MediaError::NoVideos.to_string()),
             rows,
             created_at: self.clock.now().timestamp(),
         };

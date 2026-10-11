@@ -37,6 +37,8 @@ pub enum MediaError {
     ReplaceInPlace,
     #[error("import {0} has not failed")]
     NotFailed(ImportId),
+    #[error("the download holds no video files")]
+    NoVideos,
     #[error("no library file holds it")]
     NoFile,
     #[error("import has no row {0}")]

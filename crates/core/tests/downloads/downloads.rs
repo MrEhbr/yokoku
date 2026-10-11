@@ -17,8 +17,9 @@ use yokoku_core::{
     events::{EventLog, Handler, QueueChanges},
 };
 use yokoku_domain::{
-    Clock, DiskSpace, DownloadId, ImportId, ItemId, Live, MediaKind, MovieId, SeriesId, Trackers,
-    events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
+    Clock, DiskSpace, DownloadId, FileTarget, ImportId, ItemId, Live, MediaFileId, MediaKind, MovieId, SeriesId,
+    Trackers,
+    events::{DownloadCompleted, Event, FilesImported, LinkedFile, TorrentAdded, TorrentRemoved},
 };
 use yokoku_infra::db::Database;
 use yokoku_test_support::{clock::TestClock, events::publisher};
@@ -293,7 +294,22 @@ async fn concurrent_syncs_complete_a_download_once() {
 }
 
 fn imported(download: Option<DownloadId>) -> FilesImported {
-    FilesImported { import: ImportId::generate(), download, files: Vec::new(), sources: Vec::new() }
+    let file = LinkedFile {
+        file: MediaFileId::generate(),
+        path: "/media/movie.mkv".into(),
+        target: FileTarget::Movie(MovieId::generate()),
+    };
+    FilesImported { import: ImportId::generate(), download, files: vec![file], sources: Vec::new() }
+}
+
+#[tokio::test]
+async fn an_import_that_placed_no_files_leaves_its_download_unimported() {
+    let setup = setup().await;
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
+
+    setup.downloads.handle(&FilesImported { files: Vec::new(), ..imported(Some(added.id)) }).await.unwrap();
+
+    assert_eq!(setup.only_download().await.imported_at, None);
 }
 
 #[tokio::test]

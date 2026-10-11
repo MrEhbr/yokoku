@@ -166,7 +166,7 @@ impl Importer {
                 .into()
             })
             .collect();
-        if outcome.is_ok() || !placed.added.is_empty() {
+        if !placed.added.is_empty() {
             events.push(
                 FilesImported {
                     import: import.id,
@@ -205,6 +205,9 @@ impl Importer {
     /// Places every row that is not skipped, collecting each change in `placed` as it happens; the
     /// error says why the import stopped. A row already in the library as its target counts as done.
     async fn place_all(&self, import: &Import, placed: &mut Placed) -> Result<(), MediaError> {
+        if import.rows.is_empty() {
+            return Err(MediaError::NoVideos);
+        }
         let library = self.repo.files().await?;
         let sidecars = self.sidecars(&import.source).await?;
         let destinations = self.destinations(&import.rows).await?;

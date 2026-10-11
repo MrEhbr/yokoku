@@ -278,7 +278,9 @@ impl Downloads {
 #[async_trait]
 impl Handler<FilesImported> for Downloads {
     async fn handle(&self, event: &FilesImported) -> Result<(), HandlerError> {
-        if let Some(download) = event.download {
+        if let Some(download) = event.download
+            && !event.files.is_empty()
+        {
             self.mark_imported(download).await?;
         }
         Ok(())
