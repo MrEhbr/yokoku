@@ -7,7 +7,7 @@ use yokoku_domain::{ItemId, SeriesId};
 use self::{episodes::SeasonItem, summary::EpisodeSummary};
 use crate::{
     api::{
-        downloads::ItemLink,
+        downloads::{ItemLink, downloads},
         library::{
             detail::{self, series},
             manage::MonitorTarget,
@@ -17,6 +17,7 @@ use crate::{
         button::ButtonSize,
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
+        item_downloads::ItemDownloads,
         item_hero::ItemHero,
         item_ratings::ItemRatings,
         item_status::{Lifecycle, SeriesWatched},
@@ -27,7 +28,7 @@ use crate::{
     },
     dialogs::{import_review::ReviewButton, item_actions::ItemActions},
     format::{size, year},
-    layout::BackButton,
+    layout::{BackButton, LiveDownloads},
     route::Route,
 };
 
@@ -66,6 +67,8 @@ pub fn SeriesDetail(id: SeriesId) -> Element {
 #[component]
 fn Page(series: detail::SeriesDetail) -> Element {
     let id = series.id;
+    let first_downloads = use_server_future(downloads)?;
+    let LiveDownloads(latest) = use_context();
     let mut current = use_signal(|| series);
     let mut reading = use_signal(|| None::<Task>);
     let reload = use_callback(move |()| {
@@ -81,6 +84,15 @@ fn Page(series: detail::SeriesDetail) -> Element {
         })));
     });
     let series = current();
+    let all_downloads = latest().map(Ok).or_else(|| first_downloads.read().clone());
+    let item_downloads: Vec<_> = all_downloads
+        .as_ref()
+        .and_then(|result| result.as_ref().ok())
+        .into_iter()
+        .flatten()
+        .filter(|download| download.item.as_ref().is_some_and(|item| item.id == ItemId::Series(id)))
+        .cloned()
+        .collect();
     let usage = series.disk_usage();
     let (watched, downloaded) = series.watch_progress();
     let images = series.images.clone();
@@ -138,6 +150,14 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     },
                     numbering: series.numbering,
                     on_change: reload,
+                }
+            }
+            if !item_downloads.is_empty() {
+                ItemDownloads { downloads: item_downloads }
+            }
+            if matches!(all_downloads, Some(Err(_))) {
+                p { role: "alert", class: "text-caption text-danger",
+                    "Downloads could not be loaded; reload the page."
                 }
             }
             div { class: "mt-2 grid gap-3 lg:grid-cols-2",

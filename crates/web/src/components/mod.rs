@@ -18,6 +18,7 @@ pub mod history_list;
 pub mod hover_card;
 pub mod input;
 pub mod item_description;
+pub mod item_downloads;
 pub mod item_hero;
 pub mod item_ratings;
 pub mod item_status;

@@ -3,7 +3,7 @@ use yokoku_domain::{ItemId, MovieId};
 
 use crate::{
     api::{
-        downloads::ItemLink,
+        downloads::{ItemLink, downloads},
         library::{
             FileStatus,
             detail::{self, movie},
@@ -15,6 +15,7 @@ use crate::{
         file_info::FileDetails,
         history_list::{HistoryList, HistoryScope},
         item_description::ItemDescription,
+        item_downloads::ItemDownloads,
         item_hero::ItemHero,
         item_ratings::ItemRatings,
         item_status::{FileState, FileWatched, Lifecycle},
@@ -25,7 +26,7 @@ use crate::{
     },
     dialogs::{import_review::ReviewButton, item_actions::ItemActions},
     format::{date, relative, size, year},
-    layout::BackButton,
+    layout::{BackButton, LiveDownloads},
     route::Route,
 };
 
@@ -64,6 +65,8 @@ pub fn MovieDetail(id: MovieId) -> Element {
 #[component]
 fn Page(movie: detail::MovieDetail) -> Element {
     let id = movie.id;
+    let first_downloads = use_server_future(downloads)?;
+    let LiveDownloads(latest) = use_context();
     let mut current = use_signal(|| movie);
     let mut reading = use_signal(|| None::<Task>);
     let reload = use_callback(move |()| {
@@ -79,6 +82,17 @@ fn Page(movie: detail::MovieDetail) -> Element {
         })));
     });
     let movie = current();
+    let all_downloads = latest().map(Ok).or_else(|| first_downloads.read().clone());
+    let item_downloads: Vec<_> = all_downloads
+        .as_ref()
+        .and_then(|result| result.as_ref().ok())
+        .into_iter()
+        .flatten()
+        .filter(|download| download.item.as_ref().is_some_and(|item| item.id == ItemId::Movie(id)))
+        .cloned()
+        .collect();
+    let can_download =
+        movie.file != FileStatus::Downloaded && matches!(all_downloads, Some(Ok(_))) && item_downloads.is_empty();
     let images = movie.images.clone();
     let today = movie.today;
     rsx! {
@@ -125,7 +139,16 @@ fn Page(movie: detail::MovieDetail) -> Element {
                         id: ItemId::Movie(id),
                         title: movie.title.clone(),
                     },
+                    can_download,
                     on_change: reload,
+                }
+            }
+            if !item_downloads.is_empty() {
+                ItemDownloads { downloads: item_downloads }
+            }
+            if matches!(all_downloads, Some(Err(_))) {
+                p { role: "alert", class: "text-caption text-danger",
+                    "Downloads could not be loaded; reload the page."
                 }
             }
             ItemDescription { description: movie.description.clone() }

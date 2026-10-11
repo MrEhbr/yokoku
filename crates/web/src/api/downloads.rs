@@ -19,6 +19,7 @@ pub struct DownloadEntry {
     pub id: DownloadId,
     pub name: String,
     pub item: Option<ItemLink>,
+    pub season: Option<u16>,
     pub state: DownloadState,
     /// 0 to 100.
     pub percent: u8,
@@ -336,6 +337,7 @@ mod server {
             imported: download.imported_at.is_some(),
             name: download.name,
             item,
+            season: download.season,
             state,
             import,
         }

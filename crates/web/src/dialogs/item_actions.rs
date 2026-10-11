@@ -26,9 +26,15 @@ enum More {
 
 /// The actions under an item's title: Add torrent and Search releases, then Refresh, Episode
 /// numbering… for a series given its `numbering`, Rename files… and Remove…, which sit in a "More"
-/// menu below `sm`. `on_change` runs after the item changes.
+/// menu below `sm`. `can_download` hides the torrent actions for a movie that already has a file
+/// or torrent. `on_change` runs after the item changes.
 #[component]
-pub fn ItemActions(item: ItemLink, #[props(default)] numbering: Option<Numbering>, on_change: Callback) -> Element {
+pub fn ItemActions(
+    item: ItemLink,
+    #[props(default)] numbering: Option<Numbering>,
+    #[props(default = true)] can_download: bool,
+    on_change: Callback,
+) -> Element {
     let id = item.id;
     let numbered = match id {
         ItemId::Series(series) => numbering.map(|numbering| (series, numbering)),
@@ -41,15 +47,21 @@ pub fn ItemActions(item: ItemLink, #[props(default)] numbering: Option<Numbering
     let refreshing = (refresh.busy)();
     rsx! {
         div { class: "flex flex-wrap items-center gap-2",
-            AddTorrentButton { item: item.clone() }
-            SearchReleasesButton { item: item.clone() }
+            if can_download {
+                AddTorrentButton { item: item.clone() }
+                SearchReleasesButton { item: item.clone() }
+            }
             div { class: "flex flex-wrap items-center gap-2 max-sm:hidden",
                 RefreshButton { refresh }
                 if numbered.is_some() {
                     Button { onclick: move |_| numbering_open.set(true), "Episode numbering…" }
                 }
                 Button { onclick: move |_| renaming.set(true), "Rename files…" }
-                Button { variant: ButtonVariant::Danger, onclick: move |_| removing.set(true), "Remove…" }
+                Button {
+                    variant: ButtonVariant::Danger,
+                    onclick: move |_| removing.set(true),
+                    "Remove…"
+                }
             }
             DropdownMenu { class: "sm:hidden",
                 DropdownMenuTrigger {
