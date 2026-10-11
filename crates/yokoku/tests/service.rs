@@ -165,7 +165,8 @@ async fn seed(path: &Path) -> (SeriesId, MovieId) {
         releases: Releases::default(),
     };
     let today = now.to_zoned(jiff::tz::TimeZone::UTC).date();
-    let mut series = Series::new(frieren, ItemFolder::default(), MonitorPreset::All, today, now);
+    let folder = ItemFolder::new("/shows".into(), "Frieren".into()).unwrap();
+    let mut series = Series::new(frieren, folder, MonitorPreset::All, today, now);
     SeriesRepo::save(&db, &mut series).await.unwrap();
     let mut movie = Movie::new(dune, ItemFolder::default(), true, now);
     MovieRepo::save(&db, &mut movie).await.unwrap();
@@ -223,8 +224,12 @@ async fn detail_pages_show_descriptions_episodes_releases_and_files() {
     assert!(series.contains("Frieren") && series.contains("S01E01") && series.contains("Departure"), "{series}");
     assert!(movie.starts_with("HTTP/1.1 200"), "{movie}");
     assert!(movie.contains("Dune") && movie.contains("Releases"), "{movie}");
-    for text in ["An elf mage outlives her party.", "Fantasy · 25 min per episode", "The party returns to the capital."]
-    {
+    for text in [
+        "An elf mage outlives her party.",
+        "Fantasy · 25 min per episode",
+        "The party returns to the capital.",
+        "/shows/Frieren",
+    ] {
         assert!(series.contains(text), "{text}: {series}");
     }
     for text in
@@ -849,7 +854,7 @@ async fn seed_downloads(path: &Path, frieren: SeriesId, dune: MovieId) -> Seeded
     let imports = vec![
         import("/downloads/Frieren.S01E01.1080p", Some(review.id), ImportStatus::NeedsReview, None, 1),
         import("/downloads/Broken.Release", Some(failed.id), ImportStatus::Failed, Some("the disk is full"), 1),
-        import(&ItemFolder::default().path().display().to_string(), None, ImportStatus::NeedsReview, None, 2),
+        import("/shows/Frieren", None, ImportStatus::NeedsReview, None, 2),
     ];
     let seeded = SeededImports { review: imports[0].id, failed: imports[1].id };
     MediaRepo::save(&db, &Changes { imports, ..Changes::default() }).await.unwrap();

@@ -103,6 +103,8 @@ pub struct SeriesDetail {
     pub source: String,
     /// The item's page at its metadata source.
     pub source_url: String,
+    /// The series' folder in its root folder, where its files belong.
+    pub folder: String,
     /// Today in the server's time zone.
     pub today: Date,
     pub status: Status,
@@ -372,6 +374,7 @@ mod server {
                 year: series.year,
                 source: series.source.to_string(),
                 source_url: source_url(series.source, MediaKind::Series),
+                folder: series.folder.path().display().to_string(),
                 today,
                 status: LibraryStatus::Series(series.status(today)).into(),
                 numbering: series.numbering.into(),

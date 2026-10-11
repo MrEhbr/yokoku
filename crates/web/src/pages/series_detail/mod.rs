@@ -123,6 +123,11 @@ fn Page(series: detail::SeriesDetail) -> Element {
                     }
                 }
             }
+            p {
+                class: "yk-code break-all text-caption text-muted",
+                title: "The series' folder",
+                "{series.folder}"
+            }
             div { class: "flex flex-wrap items-center gap-x-6 gap-y-2",
                 MonitorToggle {
                     target: MonitorTarget::Series { id },
