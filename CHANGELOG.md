@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.10.0](https://github.com/MrEhbr/yokoku/compare/v0.9.0..v0.10.0) - 2026-10-11
+
+### Features
+
+- **(web)** show the series folder as a labelled row with whether it exists - ([e60fccf](https://github.com/MrEhbr/yokoku/commit/e60fccf2dc84f6d8ccef2b0c0320bd0da41579a1)) `+44 / -11 across 5 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 1 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 1 commit(s) parsed as conventional.
+- Diff totals: +44 / -11 across 5 file change(s) (sum across commits, may double-count files touched in multiple commits).
+
 ## [0.9.0](https://github.com/MrEhbr/yokoku/compare/v0.8.0..v0.9.0) - 2026-10-11
 
 ### Bug Fixes
