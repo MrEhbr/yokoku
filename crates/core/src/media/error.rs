@@ -39,6 +39,8 @@ pub enum MediaError {
     NotFailed(ImportId),
     #[error("the download holds no video files")]
     NoVideos,
+    #[error("the download client is still finishing {}", .0.display())]
+    ContentNotReady(PathBuf),
     #[error("no library file holds it")]
     NoFile,
     #[error("import has no row {0}")]

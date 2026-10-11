@@ -120,13 +120,20 @@ impl ImportPlanner {
         Ok(Some(import))
     }
 
-    /// The files of a folder download, or the single file of a one-file download.
+    /// The files of a folder download, or the single file of a one-file download; none yet, or a
+    /// `.part` file among them, is `ContentNotReady`.
     async fn content_files(&self, content: &Path) -> Result<Vec<ListedFile>, MediaError> {
-        if self.fs.is_dir(content).await? {
-            return Ok(self.fs.files(content).await?);
+        let files = if self.fs.is_dir(content).await? {
+            self.fs.files(content).await?
+        } else {
+            let folder = content.parent().unwrap_or(content);
+            self.fs.files_in(folder).await?.into_iter().filter(|file| file.path == content).collect()
+        };
+        let partial = files.iter().any(|file| file.path.extension().is_some_and(|extension| extension == "part"));
+        if files.is_empty() || partial {
+            return Err(MediaError::ContentNotReady(content.to_owned()));
         }
-        let folder = content.parent().unwrap_or(content);
-        Ok(self.fs.files_in(folder).await?.into_iter().filter(|file| file.path == content).collect())
+        Ok(files)
     }
 
     /// The linked item while it is in the library; the whole library otherwise.

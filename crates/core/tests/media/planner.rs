@@ -1,7 +1,8 @@
 use common::{App, relative};
+use rstest::rstest;
 use yokoku_core::{
     events::Handler,
-    media::{ImportStatus, ports::MediaRepo},
+    media::{ImportStatus, MediaError, ports::MediaRepo},
 };
 use yokoku_domain::{
     Confidence, DownloadId, ItemId,
@@ -37,6 +38,29 @@ async fn a_certain_download_for_a_linked_series_is_approved() {
         import.rows.iter().map(|row| row.target()).collect::<Vec<_>>(),
         [Some(app.episodes(1, 1, 1)), Some(app.episodes(1, 2, 2))]
     );
+    assert!(app.events().await.is_empty());
+}
+
+#[rstest]
+#[case::still_in_the_incomplete_folder(&[])]
+#[case::still_named_partial(&["downloads/Frieren.S01.1080p/Frieren.S01E01.1080p.mkv.part"])]
+#[tokio::test]
+async fn a_download_whose_files_are_not_in_place_yet_is_planned_once_they_are(#[case] partial: &[&str]) {
+    let app = App::new().await;
+    std::fs::create_dir_all(app.path("downloads")).unwrap();
+    let partial: Vec<_> = partial.iter().map(|path| app.write(path, 10)).collect();
+    let content = app.path("downloads/Frieren.S01.1080p");
+    let (download, item) = (DownloadId::generate(), Some(ItemId::Series(app.frieren.id)));
+
+    let early = app.planner.plan(download, &content, item, None).await;
+    for path in partial {
+        std::fs::remove_file(path).unwrap();
+    }
+    app.write("downloads/Frieren.S01.1080p/Frieren.S01E01.1080p.mkv", 10);
+    let planned = app.planner.plan(download, &content, item, None).await.unwrap().unwrap();
+
+    assert!(matches!(early, Err(MediaError::ContentNotReady(_))), "{early:?}");
+    assert_eq!(planned.status, ImportStatus::Approved);
     assert!(app.events().await.is_empty());
 }
 

@@ -17,7 +17,9 @@ added → downloading → finished → matched → imported → Jellyfin rescan
 2. **Downloading.** Yokoku checks Transmission every 30 seconds, and every 5
    while something downloads.
 3. **Matched.** When the download finishes, Yokoku matches its video files to
-   episodes or the movie by their names. Samples, extras and other files are
+   episodes or the movie by their names. Until Transmission has moved the files
+   out of its incomplete folder and dropped their `.part` names, Yokoku waits
+   and tries again. Samples, extras and other files are
    left alone; subtitles and external audio tracks go with their video.
 4. **Imported.** Matched files are placed in the item's folder under your
    naming patterns, by the **Import mode** setting. Jellyfin is asked to
