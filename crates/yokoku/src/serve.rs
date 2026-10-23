@@ -1,4 +1,4 @@
-use std::{io, sync::Arc};
+use std::io;
 
 use anyhow::{Context, Result};
 use tokio::signal::unix::{SignalKind, signal};
@@ -7,30 +7,22 @@ use tracing::{error, info};
 
 use crate::{app::App, background::Background};
 
+const ROOTS_INVALID: &str = concat!(
+    "The root folders in the config file are invalid; fix them, or remove the stored root folder they ",
+    "conflict with using `yokoku root remove`",
+);
+
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
 pub async fn run(app: &App, background: &Background) -> Result<()> {
-    app.roots.check().await.context(
-        "The root folders in the config file are invalid; fix them, or remove the stored root folder they \
-         conflict with using `yokoku root remove`",
-    )?;
+    app.roots.check().await.context(ROOTS_INVALID)?;
     let (stop_jobs, stop_service) = (CancellationToken::new(), CancellationToken::new());
-    let state = yokoku_web::AppState {
-        services: app.services.clone(),
-        settings: Arc::new(app.settings.clone()),
-        connections: Arc::new(app.settings.clone()),
-        add: Arc::new(yokoku_web::AddSettings {
-            tmdb_token_set: app.settings.live(|config| config.metadata.tmdb.token.is_some()),
-            monitor: app.settings.live(|config| config.add.monitor),
-        }),
-        shutdown: Arc::new(stop_service.clone()),
-    };
-    let web = yokoku_web::Server::bind(app.settings.current().web.address(), state)
+    let web = yokoku_web::Server::bind(app.settings.current().web.address(), app.into())
         .await
         .context("Failed to start the web server")?;
 
     let jobs = background.scheduler().spawn(&stop_jobs);
     let deliveries = background.spawn_deliveries(&stop_service);
-    let web = tokio::spawn(web.serve(stop_service.clone().cancelled_owned()));
+    let web = tokio::spawn(web.serve(stop_service.clone()));
     info!("running");
     let signal = stop_signal().await;
 

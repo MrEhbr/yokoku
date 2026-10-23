@@ -54,10 +54,12 @@ Six crates under `crates/`, layered strictly inward:
   `yokoku_core::Services`), pulled from an axum `Extension` as `Dep<T>`. Components in `src/components/` are vendored Dioxus Components restyled to the "Paper"
   design (`styles/`, Tailwind). `gallery/` is a separate bin for previewing components.
 - `yokoku` — the binary and composition root. `app.rs` wires every use case to its adapters into `App`
-  (`yokoku_core::Services`, only what the web UI, CLI and jobs call, plus `Settings`) and lists every event subscriber and `core::jobs::Job` for
-  `Background` (`background.rs`); a job's cron schedule sits in `[serve]` under its name in snake case
-  (`config/schedules.rs`). `service.rs` runs the web server, event deliveries and jobs until
-  SIGINT/SIGTERM; `config/` handles configuration; `cli/` holds setup/maintenance commands.
+  (`yokoku_core::Services`, only what the web UI, CLI and jobs call, plus `Settings`), builds the web
+  `AppState` from it, and lists every event subscriber and `core::jobs::Job` for `Background`
+  (`background.rs`); a job's cron schedule sits in `[serve]` under its name in snake case
+  (`config/schedules.rs`). `serve.rs` is `yokoku` without a subcommand: it runs the web server, event
+  deliveries and jobs until SIGINT/SIGTERM. `config/` handles configuration; `cli/` holds
+  setup/maintenance commands.
 - `test-support` — fakes, fixtures, wiremock servers and live-service helpers shared by tests.
 
 ### Events

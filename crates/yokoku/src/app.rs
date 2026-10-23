@@ -23,6 +23,7 @@ use yokoku_infra::{
     ratings::ImdbDataset,
     system::{ArtworkFiles, FfMpeg, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
+use yokoku_web::{AddSettings, AppState};
 
 use crate::{
     background::Background,
@@ -194,5 +195,20 @@ impl App {
         let app = Self { services, settings: settings.clone() };
         let background = Background::new(log, events, subscribers, jobs, &settings)?;
         Ok((app, background))
+    }
+}
+
+/// What the web server's functions call.
+impl From<&App> for AppState {
+    fn from(app: &App) -> Self {
+        Self {
+            services: app.services.clone(),
+            settings: Arc::new(app.settings.clone()),
+            connections: Arc::new(app.settings.clone()),
+            add: Arc::new(AddSettings {
+                tmdb_token_set: app.settings.live(|config| config.metadata.tmdb.token.is_some()),
+                monitor: app.settings.live(|config| config.add.monitor),
+            }),
+        }
     }
 }

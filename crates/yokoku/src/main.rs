@@ -7,7 +7,7 @@ mod app;
 mod background;
 mod config;
 mod logging;
-mod service;
+mod serve;
 
 use std::io;
 

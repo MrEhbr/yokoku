@@ -1,5 +1,4 @@
 use std::{
-    future::Future,
     io::{self, ErrorKind},
     net::SocketAddr,
     path::PathBuf,
@@ -7,6 +6,7 @@ use std::{
 
 use dioxus::server::axum::{self, Extension, Router, routing::get};
 use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 
 use crate::{AppState, api::artwork};
 
@@ -43,8 +43,11 @@ impl Server {
         Ok(Self { listener, router })
     }
 
-    pub async fn serve(self, shutdown: impl Future<Output = ()> + Send + 'static) -> io::Result<()> {
-        axum::serve(self.listener, self.router).with_graceful_shutdown(shutdown).await
+    /// Serves until `shutdown` is cancelled; server functions receive it as `Extension<CancellationToken>`
+    /// so long-lived responses end with it.
+    pub async fn serve(self, shutdown: CancellationToken) -> io::Result<()> {
+        let router = self.router.layer(Extension(shutdown.clone()));
+        axum::serve(self.listener, router).with_graceful_shutdown(shutdown.cancelled_owned()).await
     }
 }
 

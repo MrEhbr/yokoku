@@ -5,7 +5,6 @@ use dioxus::server::axum::{
     extract::{FromRequestParts, rejection::ExtensionRejection},
     http::request::Parts,
 };
-use tokio_util::sync::CancellationToken;
 use yokoku_core::{
     Services,
     downloads::{Downloads, ReleaseSearch},
@@ -23,8 +22,6 @@ pub struct AppState {
     pub add: Arc<AddSettings>,
     pub settings: Arc<dyn SettingsAccess>,
     pub connections: Arc<dyn ConnectionTest>,
-    /// Cancelled when the service stops; long-lived responses end with it.
-    pub shutdown: Arc<CancellationToken>,
 }
 
 /// The settings adding an item reads.
@@ -103,7 +100,6 @@ provides! {
     dyn SettingsAccess => settings,
     dyn ConnectionTest => connections,
     AddSettings => add,
-    CancellationToken => shutdown,
 }
 
 impl Provides<QueueChanges> for AppState {

@@ -97,7 +97,7 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
     };
     let (app, background) = App::open(config, args.config.as_deref()).await?;
     let Some(command) = command else {
-        return crate::service::run(&app, &background).await;
+        return crate::serve::run(&app, &background).await;
     };
     let result = match command {
         Refresh(cmd_args) => commands::refresh::run(&app, cmd_args).await,

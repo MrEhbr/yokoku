@@ -57,7 +57,19 @@ impl Background {
                 Delivery::new(self.log.clone(), subscriber.clone(), self.delivery.clone()).run(shutdown.clone())
             })
             .collect();
-        deliveries.spawn(flush_kept(self.events.clone(), shutdown.clone()));
+        let (events, shutdown) = (self.events.clone(), shutdown.clone());
+        deliveries.spawn(async move {
+            shutdown
+                .run_until_cancelled(async {
+                    loop {
+                        if let Err(error) = events.flush().await {
+                            warn!(%error, "kept events are still waiting for the event log");
+                        }
+                        sleep(FLUSH_INTERVAL).await;
+                    }
+                })
+                .await;
+        });
         deliveries
     }
 
@@ -65,17 +77,4 @@ impl Background {
     pub async fn flush(&self) -> Result<(), StorageError> {
         self.events.flush().await
     }
-}
-
-async fn flush_kept(events: Publisher, shutdown: CancellationToken) {
-    shutdown
-        .run_until_cancelled(async {
-            loop {
-                if let Err(error) = events.flush().await {
-                    warn!(%error, "kept events are still waiting for the event log");
-                }
-                sleep(FLUSH_INTERVAL).await;
-            }
-        })
-        .await;
 }

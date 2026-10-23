@@ -3,9 +3,11 @@
 use dioxus::{fullstack::ServerEvents, prelude::*};
 use serde::{Deserialize, Serialize};
 use yokoku_domain::{DiskSpace, DownloadId, ImportId, ItemId};
-
 #[cfg(feature = "server")]
-use crate::api::{CancellationToken, Dep, Downloads, Importer, Library, QueueChanges, Reviewer, RootFolders};
+use {
+    crate::api::{CancellationToken, Dep, Downloads, Importer, Library, QueueChanges, Reviewer, RootFolders},
+    dioxus::server::axum::Extension,
+};
 
 /// A series or movie in the library.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -91,7 +93,7 @@ pub async fn downloads() -> Result<Vec<DownloadEntry>, ServerFnError> {
     importer: Dep<Importer>,
     library: Dep<Library>,
     changes: Dep<QueueChanges>,
-    shutdown: Dep<CancellationToken>
+    shutdown: Extension<CancellationToken>
 )]
 pub async fn live_downloads() -> Result<ServerEvents<Vec<DownloadEntry>>, ServerFnError> {
     let sources = server::Sources {
@@ -100,7 +102,7 @@ pub async fn live_downloads() -> Result<ServerEvents<Vec<DownloadEntry>>, Server
         importer: importer.into_inner(),
         library: library.into_inner(),
     };
-    Ok(server::live(sources, changes.into_inner(), shutdown.into_inner()))
+    Ok(server::live(sources, changes.into_inner(), shutdown.0))
 }
 
 /// A torrent to add.
@@ -185,7 +187,7 @@ mod server {
     pub(super) fn live(
         sources: Sources,
         changes: Arc<QueueChanges>,
-        shutdown: Arc<CancellationToken>,
+        shutdown: CancellationToken,
     ) -> ServerEvents<Vec<DownloadEntry>> {
         ServerEvents::new(move |mut tx| async move {
             let mut watch = changes.watch();
