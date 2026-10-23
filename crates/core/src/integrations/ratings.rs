@@ -6,7 +6,8 @@ use yokoku_domain::{ItemId, Rating, StorageError, events::Event};
 
 use crate::{
     events::{HandlerError, Subscriber},
-    integrations::ports::{RatedItem, RatingsError, RatingsProvider, RatingsStore},
+    integrations::ports::{RatedItem, RatingsProvider, RatingsStore},
+    jobs::{Job, JobError},
     media::ports::Catalog,
 };
 
@@ -15,14 +16,6 @@ pub struct Ratings {
     provider: Arc<dyn RatingsProvider>,
     catalog: Arc<dyn Catalog>,
     store: Arc<dyn RatingsStore>,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum RatingsRefreshError {
-    #[error(transparent)]
-    Provider(#[from] RatingsError),
-    #[error(transparent)]
-    Storage(#[from] StorageError),
 }
 
 impl Ratings {
@@ -34,10 +27,17 @@ impl Ratings {
     pub async fn of(&self, item: ItemId) -> Result<Vec<Rating>, StorageError> {
         self.store.ratings(item).await
     }
+}
 
-    /// Saves the provider's ratings of every item; returns how many items have one.
+/// Saves the provider's ratings of every item.
+#[async_trait]
+impl Job for Ratings {
+    fn name(&self) -> &'static str {
+        "refresh-ratings"
+    }
+
     #[instrument(skip_all)]
-    pub async fn refresh(&self) -> Result<usize, RatingsRefreshError> {
+    async fn run(&self) -> Result<(), JobError> {
         let series = self.catalog.all_series().await?.iter().map(RatedItem::from).collect::<Vec<_>>();
         let movies = self.catalog.all_movies().await?.iter().map(RatedItem::from).collect::<Vec<_>>();
         let items = [series, movies].concat();
@@ -45,7 +45,7 @@ impl Ratings {
         self.store.save_ratings(&ratings).await?;
         let rated: HashSet<ItemId> = ratings.iter().map(|&(item, _)| item).collect();
         info!(items = items.len(), rated = rated.len(), "ratings refreshed");
-        Ok(rated.len())
+        Ok(())
     }
 }
 

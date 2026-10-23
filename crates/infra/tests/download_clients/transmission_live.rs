@@ -14,6 +14,7 @@ use yokoku_core::{
         ports::{DownloadClient, TorrentSource},
     },
     events::{EventLog, QueueChanges},
+    jobs::Job,
 };
 use yokoku_domain::{
     Clock, Live, MediaFileId,
@@ -92,7 +93,7 @@ async fn a_torrent_of_local_data_is_added_and_completes() {
     assert_eq!(added.name, name);
 
     let completed = wait_for(async || {
-        use_case.sync().await.unwrap();
+        use_case.run().await.unwrap();
         let download = use_case.list().await.unwrap().pop()?;
         download.completed_at.is_some().then_some(download)
     })

@@ -1,6 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
-use tracing::{debug, info, instrument};
+use async_trait::async_trait;
+use tracing::{debug, info, instrument, warn};
 use yokoku_domain::{
     Clock, ExternalId, ItemFolder, ItemId, Live, MediaKind, MonitorPreset, Movie, MovieId, Series, SeriesId,
     events::{EpisodesRenumbered, MovieAdded, SeriesAdded},
@@ -9,6 +10,7 @@ use yokoku_domain::{
 
 use crate::{
     events::Publisher,
+    jobs::{Job, JobError},
     library::{
         LibraryError,
         ports::{MetadataProvider, MovieRepo, SearchResult, SeriesRepo},
@@ -181,12 +183,6 @@ impl MetadataService {
         self.refresh_many(false).await
     }
 
-    /// Refreshes the items whose `needs_refresh` holds; one item's failure does not stop the others.
-    #[instrument(skip_all)]
-    pub async fn refresh_due(&self) -> Result<RefreshReport, LibraryError> {
-        self.refresh_many(true).await
-    }
-
     async fn refresh_many(&self, due_only: bool) -> Result<RefreshReport, LibraryError> {
         let now = self.clock.now();
         let (timestamp, today) = (now.timestamp(), now.date());
@@ -204,6 +200,24 @@ impl MetadataService {
             report.record(ItemId::Movie(id), self.refresh_movie(id).await.map(drop));
         }
         Ok(report)
+    }
+}
+
+/// Refreshes the items whose `needs_refresh` holds; one item's failure does not stop the others.
+#[async_trait]
+impl Job for MetadataService {
+    fn name(&self) -> &'static str {
+        "refresh-metadata"
+    }
+
+    #[instrument(skip_all)]
+    async fn run(&self) -> Result<(), JobError> {
+        let report = self.refresh_many(true).await?;
+        for failure in &report.failures {
+            warn!(item = ?failure.item, error = %failure.error, "metadata refresh failed");
+        }
+        info!(refreshed = report.refreshed, failed = report.failures.len(), "metadata refreshed");
+        Ok(())
     }
 }
 

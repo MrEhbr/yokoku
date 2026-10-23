@@ -13,6 +13,7 @@ use yokoku_core::{
         WatchSync,
         ports::{MediaServer, Played, PlayedItem, Watched, WatchedStore},
     },
+    jobs::Job,
     library::ports::{MovieRepo, SeriesRepo},
     media::{
         MediaFile,
@@ -197,7 +198,7 @@ async fn played_items_become_watched_library_files() {
     let mut played = client.played().await.unwrap();
     let (db, [library_e01, _, library_movie]) = library(&e01).await;
     let repo = Arc::new(db.clone());
-    WatchSync::new(client, repo.clone(), repo.clone(), repo).sync().await.unwrap();
+    WatchSync::new(client, repo.clone(), repo.clone(), repo).run().await.unwrap();
 
     played.sort_by(|a, b| a.path.cmp(&b.path));
     let paths: Vec<&Path> = played.iter().map(|played| played.path.as_path()).collect();

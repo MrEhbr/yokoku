@@ -8,13 +8,15 @@ use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_core::{
     downloads::{
-        Download, DownloadError, DownloadOptions, DownloadState, Downloads, ReleaseSearch, TorrentStatus,
+        Download, DownloadError, DownloadOptions, DownloadState, Downloads, ReleaseSearch, SyncActiveDownloads,
+        TorrentStatus,
         ports::{
             AddedTorrent, ClientError, DownloadClient, Indexer, IndexerError, LABEL, Release, ReleaseQuery, Torrent,
             TorrentSource, Tracker,
         },
     },
     events::{EventLog, QueueChanges, Subscriber},
+    jobs::Job,
 };
 use yokoku_domain::{
     Clock, DiskSpace, DownloadId, FileTarget, ImportId, ItemId, Live, MediaFileId, MediaKind, MovieId, SeriesId,
@@ -206,17 +208,16 @@ async fn a_torrent_is_added_only_once() {
 #[tokio::test]
 async fn a_download_completes_once_however_often_it_syncs() {
     let setup = setup().await;
-    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.set(500, 1000);
-    let halfway = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
+    let halfway = setup.events().await.len();
     setup.client.set(1000, 1000);
 
-    let finished = setup.downloads.sync().await.unwrap();
-    let again = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
-    assert!(halfway.completed.is_empty());
-    assert_eq!(finished.completed, [added.id]);
-    assert!(again.completed.is_empty());
+    assert_eq!(halfway, 1, "only TorrentAdded");
     let download = setup.only_download().await;
     assert_eq!(download.status.state, DownloadState::Seeding);
     assert_eq!(download.completed_at, Some(TestClock::default().now().timestamp()));
@@ -254,12 +255,10 @@ async fn torrents_gone_from_the_client_are_marked_removed_and_left_alone() {
     setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.forget();
 
-    let report = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
     setup.client.set(1000, 1000);
-    let later = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
-    assert_eq!((report.synced, report.removed), (1, 1));
-    assert_eq!(later.synced, 0);
     let download = setup.only_download().await;
     assert_eq!(download.status.state, DownloadState::Removed);
     assert_eq!((download.status.done, download.status.download_rate, download.status.eta), (500, 0, None));
@@ -272,9 +271,9 @@ async fn an_unreachable_client_changes_nothing() {
     let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
     *setup.client.unavailable.lock().unwrap() = true;
 
-    let sync = setup.downloads.sync().await.unwrap_err();
+    let sync = setup.downloads.run().await.unwrap_err();
 
-    assert!(matches!(sync, DownloadError::Client(ClientError::Unavailable(_))), "{sync}");
+    assert!(matches!(sync.downcast_ref(), Some(ClientError::Unavailable(_))), "{sync}");
     assert_eq!(setup.only_download().await, added);
 }
 
@@ -282,15 +281,16 @@ async fn an_unreachable_client_changes_nothing() {
 async fn concurrent_syncs_complete_a_download_once() {
     let setup = setup().await;
     setup.client.set(500, 1000);
-    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.set(1000, 1000);
 
-    let (first, second) = tokio::join!(setup.downloads.sync(), setup.downloads.sync());
+    let (first, second) = tokio::join!(setup.downloads.run(), setup.downloads.run());
 
-    let completed = [first.unwrap().completed, second.unwrap().completed].concat();
-    assert_eq!(completed, [added.id]);
+    first.unwrap();
+    second.unwrap();
     let events = setup.events().await;
     assert_eq!(events.iter().filter_map(Event::get::<DownloadCompleted>).count(), 1);
+    assert_eq!(events.last(), Some(&completed(&setup.only_download().await)));
 }
 
 fn imported(download: Option<DownloadId>) -> FilesImported {
@@ -348,10 +348,9 @@ async fn an_imported_download_is_removed_with_its_data_once_seeded() {
     setup.downloads.handle(&imported(Some(added.id)).into()).await.unwrap();
     setup.client.finish_seeding();
 
-    let report = setup.downloads.sync().await.unwrap();
-    let again = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
-    assert_eq!((report.cleaned_up, again.synced), (1, 0));
     assert_eq!(*setup.client.removed.lock().unwrap(), [(HASH.to_owned(), true)]);
     assert_eq!(setup.only_download().await.status.state, DownloadState::Removed);
     assert_eq!(
@@ -380,9 +379,8 @@ async fn other_downloads_stay_in_the_client(
         setup.client.finish_seeding();
     }
 
-    let report = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
-    assert_eq!(report.cleaned_up, 0);
     assert!(setup.client.removed.lock().unwrap().is_empty());
     assert_eq!(setup.only_download().await.status.state, DownloadState::Seeding);
 }
@@ -414,13 +412,11 @@ async fn qualifying_torrents_from_outside_are_taken_on_once(#[case] options: Dow
     setup.client.put(outside("aa", &["tv"], "/downloads/tv/shows"));
     setup.client.put(outside("bb", &["music"], "/downloads/music"));
 
-    let first = setup.downloads.sync().await.unwrap();
-    let second = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
-    assert_eq!((first.picked_up, second.picked_up, second.synced), (1, 0, 1));
     let download = setup.only_download().await;
     assert_eq!((download.hash.as_str(), download.item), ("aa", None));
-    assert_eq!(first.completed, [download.id]);
     assert_eq!(
         setup.events().await,
         [
@@ -442,9 +438,10 @@ async fn concurrent_syncs_take_on_an_outside_torrent_once() {
     let setup = setup_with(picking_up(&["tv"], None)).await;
     setup.client.put(outside("aa", &["tv"], "/downloads/tv/shows"));
 
-    let (first, second) = tokio::join!(setup.downloads.sync(), setup.downloads.sync());
+    let (first, second) = tokio::join!(setup.downloads.run(), setup.downloads.run());
 
-    assert_eq!(first.unwrap().picked_up + second.unwrap().picked_up, 1);
+    first.unwrap();
+    second.unwrap();
     assert_eq!(setup.downloads.list().await.unwrap().len(), 1);
     assert_eq!(setup.events().await.iter().filter_map(Event::get::<TorrentAdded>).count(), 1);
 }
@@ -454,9 +451,8 @@ async fn torrents_from_outside_are_left_alone_unless_asked_for() {
     let setup = setup().await;
     setup.client.put(outside("aa", &["tv"], "/downloads/tv"));
 
-    let report = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
-    assert_eq!(report.picked_up, 0);
     assert!(setup.downloads.list().await.unwrap().is_empty());
 }
 
@@ -466,14 +462,13 @@ async fn a_download_that_was_removed_is_not_taken_on_again() {
     setup.client.set(1000, 1000);
     setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.forget();
-    setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
     let mut back = torrent(1000, 1000);
     back.labels = vec!["yokoku".into()];
     setup.client.put(back);
 
-    let report = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
-    assert_eq!(report.picked_up, 0);
     assert_eq!(setup.only_download().await.status.state, DownloadState::Removed);
 }
 
@@ -482,9 +477,8 @@ async fn a_torrent_yokoku_added_but_never_saved_is_taken_on_without_asking() {
     let setup = setup().await;
     setup.client.put(outside("aa", &[LABEL], "/downloads"));
 
-    let report = setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
-    assert_eq!(report.picked_up, 1);
     let download = setup.only_download().await;
     assert_eq!((download.hash.as_str(), download.item), ("aa", None));
 }
@@ -497,9 +491,8 @@ async fn active_syncs_leave_the_client_alone_while_nothing_downloads() {
     *setup.client.unavailable.lock().unwrap() = true;
     let watch = setup.changes.watch();
 
-    let report = setup.downloads.sync_active().await.unwrap();
+    SyncActiveDownloads::new(setup.downloads.clone()).run().await.unwrap();
 
-    assert_eq!(report, None);
     assert!(!watch.has_changed().unwrap());
 }
 
@@ -510,9 +503,8 @@ async fn active_syncs_sync_while_a_download_is_in_progress() {
     setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.set(500, 1000);
 
-    let report = setup.downloads.sync_active().await.unwrap();
+    SyncActiveDownloads::new(setup.downloads.clone()).run().await.unwrap();
 
-    assert_eq!(report.map(|report| report.synced), Some(1));
     assert_eq!(setup.only_download().await.percent_done(), 50);
 }
 
@@ -525,7 +517,7 @@ async fn adding_and_syncing_are_announced() {
     setup.downloads.add(&magnet(), None, None).await.unwrap();
     let after_add = watch.has_changed().unwrap();
     watch.borrow_and_update();
-    setup.downloads.sync().await.unwrap();
+    setup.downloads.run().await.unwrap();
 
     assert!(after_add);
     assert!(watch.has_changed().unwrap());

@@ -3,6 +3,7 @@
 
 mod fields;
 mod log;
+mod schedules;
 mod sections;
 mod settings;
 mod web;
@@ -24,12 +25,12 @@ use yokoku_infra::{
     system::{ClockSettings, MediaTools},
 };
 
+use crate::config::schedules::ScheduleSettings;
 pub use crate::config::{
     log::{LogConfig, LogFormat, LogOutput},
     sections::{AddConfig, DatabaseConfig, EventsConfig, RootConfig, WebConfig},
     settings::Settings,
 };
-use crate::jobs::ScheduleSettings;
 
 const ENV_PREFIX: &str = "YOKOKU";
 const ENV_SEPARATOR: &str = "__";

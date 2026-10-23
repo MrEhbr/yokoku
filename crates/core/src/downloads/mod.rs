@@ -23,7 +23,10 @@ use yokoku_domain::{
 };
 
 use self::ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource};
-use crate::events::{HandlerError, Publisher, QueueChanges, Subscriber};
+use crate::{
+    events::{HandlerError, Publisher, QueueChanges, Subscriber},
+    jobs::{Job, JobError},
+};
 
 /// Torrents Yokoku tracks and their state in the download client.
 pub struct Downloads {
@@ -53,19 +56,6 @@ impl DownloadOptions {
             || self.pick_up_labels.iter().any(|label| torrent.labels.contains(label))
             || self.pick_up_folder.as_ref().is_some_and(|folder| torrent.status.download_dir.starts_with(folder))
     }
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct SyncReport {
-    pub synced: usize,
-    /// Downloads that finished since the last sync.
-    pub completed: Vec<DownloadId>,
-    /// Downloads the client no longer has.
-    pub removed: usize,
-    /// Imported downloads removed from the client after seeding.
-    pub cleaned_up: usize,
-    /// Torrents added outside Yokoku and taken on.
-    pub picked_up: usize,
 }
 
 impl Downloads {
@@ -112,15 +102,22 @@ impl Downloads {
         self.events.publish_all(events).await;
         Ok(download)
     }
+}
 
-    /// Records each download's progress and state; a download that finished emits
-    /// `DownloadCompleted` once, however often and however many syncs run. A download another
-    /// sync saved in the meantime is left to that sync. With `remove_after_seeding`, an imported
-    /// download whose seeding finished is removed from the client, emitting `TorrentRemoved`. Unknown
-    /// torrents labelled `LABEL`, which Yokoku added but never saved, or matching `pick_up_labels` or
-    /// `pick_up_folder`, become unlinked downloads, emitting `TorrentAdded`.
+/// Records each download's progress and state; a download that finished emits
+/// `DownloadCompleted` once, however often and however many syncs run. A download another
+/// sync saved in the meantime is left to that sync. With `remove_after_seeding`, an imported
+/// download whose seeding finished is removed from the client, emitting `TorrentRemoved`. Unknown
+/// torrents labelled `LABEL`, which Yokoku added but never saved, or matching `pick_up_labels` or
+/// `pick_up_folder`, become unlinked downloads, emitting `TorrentAdded`.
+#[async_trait]
+impl Job for Downloads {
+    fn name(&self) -> &'static str {
+        "sync-downloads"
+    }
+
     #[instrument(skip_all)]
-    pub async fn sync(&self) -> Result<SyncReport, DownloadError> {
+    async fn run(&self) -> Result<(), JobError> {
         let options = self.options.current();
         let known = self.repo.list().await?;
         let active: Vec<Download> =
@@ -128,7 +125,7 @@ impl Downloads {
         let mut torrents: HashMap<String, Torrent> =
             self.client.all_torrents().await?.into_iter().map(|torrent| (torrent.hash.clone(), torrent)).collect();
 
-        let mut report = SyncReport::default();
+        let (mut synced, mut picked_up) = (0, 0);
         for mut download in active {
             let torrent = torrents.remove(&download.hash);
             let removed = torrent.is_none();
@@ -162,12 +159,7 @@ impl Downloads {
             if clean_up {
                 info!(download = %id, name, "torrent removed after seeding");
             }
-            report.synced += 1;
-            report.removed += usize::from(removed);
-            report.cleaned_up += usize::from(clean_up);
-            if completed.is_some() {
-                report.completed.push(download.id);
-            }
+            synced += 1;
         }
 
         let known: HashSet<&str> = known.iter().map(|download| download.hash.as_str()).collect();
@@ -189,15 +181,14 @@ impl Downloads {
             self.changes.notify();
             self.events.publish_all(events).await;
             info!(download = %download.id, name = %download.name, "torrent taken on");
-            report.picked_up += 1;
-            if download.completed_at.is_some() {
-                report.completed.push(download.id);
-            }
+            picked_up += 1;
         }
-        debug!(synced = report.synced, picked_up = report.picked_up, "downloads synced");
-        Ok(report)
+        debug!(synced, picked_up, "downloads synced");
+        Ok(())
     }
+}
 
+impl Downloads {
     /// A new download and its `TorrentAdded`, with `DownloadCompleted` when the torrent is complete.
     fn take_on(
         &self,
@@ -222,21 +213,6 @@ impl Downloads {
         let mut events = vec![TorrentAdded { download: download.id, name: download.name.clone(), item }.into()];
         events.extend(self.apply(&mut download, torrent));
         (download, events)
-    }
-
-    /// Syncs like `sync`, but only while a download is queued, checking or downloading; `None` when
-    /// none is.
-    pub async fn sync_active(&self) -> Result<Option<SyncReport>, DownloadError> {
-        let active = self.repo.list().await?.iter().any(|download| {
-            matches!(
-                download.status.state,
-                DownloadState::Queued | DownloadState::Checking | DownloadState::Downloading
-            )
-        });
-        if !active {
-            return Ok(None);
-        }
-        self.sync().await.map(Some)
     }
 
     /// Returns `DownloadCompleted` when the download has just finished.
@@ -283,5 +259,34 @@ impl Subscriber for Downloads {
             self.changes.notify();
         }
         Ok(())
+    }
+}
+
+/// The `sync-downloads` job, only while a download is queued, checking or downloading.
+pub struct SyncActiveDownloads(Arc<Downloads>);
+
+impl SyncActiveDownloads {
+    pub fn new(downloads: Arc<Downloads>) -> Self {
+        Self(downloads)
+    }
+}
+
+#[async_trait]
+impl Job for SyncActiveDownloads {
+    fn name(&self) -> &'static str {
+        "sync-active-downloads"
+    }
+
+    async fn run(&self) -> Result<(), JobError> {
+        let active = self.0.repo.list().await?.iter().any(|download| {
+            matches!(
+                download.status.state,
+                DownloadState::Queued | DownloadState::Checking | DownloadState::Downloading
+            )
+        });
+        if !active {
+            return Ok(());
+        }
+        self.0.run().await
     }
 }

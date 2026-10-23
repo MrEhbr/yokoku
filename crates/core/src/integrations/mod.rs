@@ -5,6 +5,6 @@ mod ratings;
 mod rescans;
 mod watched;
 
-pub use ratings::{Ratings, RatingsRefreshError};
+pub use ratings::Ratings;
 pub use rescans::{RescanError, Rescans};
-pub use watched::{WatchSync, WatchSyncError};
+pub use watched::WatchSync;

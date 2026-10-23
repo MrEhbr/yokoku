@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
 use yokoku_domain::{
@@ -15,6 +16,7 @@ use yokoku_domain::{
 
 use crate::{
     events::{Publisher, QueueChanges},
+    jobs::{Job, JobError},
     media::{
         Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
         detect::{Classified, ListedFile, Sidecar},
@@ -113,25 +115,6 @@ impl Importer {
         Ok(imports)
     }
 
-    /// Carries out approved imports one at a time until none is left; concurrent runners never share
-    /// one. Returns each import with the status it ended in. An import still `Importing` once the
-    /// library lock is held is queued again.
-    pub async fn run_pending(&self) -> Result<Vec<Import>, MediaError> {
-        let mut finished = Vec::new();
-        loop {
-            let _lock = self.lock.acquire().await?;
-            let recovered = self.repo.reset_importing().await?;
-            if recovered > 0 {
-                self.changes.notify();
-                info!(recovered, "queued interrupted imports again");
-            }
-            let Some(import) = self.repo.claim_next_approved().await? else { break };
-            self.changes.notify();
-            finished.push(self.execute(import).await?);
-        }
-        Ok(finished)
-    }
-
     /// Queues a failed import again.
     #[instrument(skip_all, fields(import = %id))]
     pub async fn retry(&self, id: ImportId) -> Result<(), MediaError> {
@@ -149,7 +132,7 @@ impl Importer {
 
     /// Stores what the import changed on disk, whether it finished or failed part way.
     #[instrument(skip_all, fields(import = %import.id, source = %import.source.display()))]
-    async fn execute(&self, mut import: Import) -> Result<Import, MediaError> {
+    async fn execute(&self, mut import: Import) -> Result<(), MediaError> {
         let mut placed = Placed::default();
         let outcome = self.place_all(&import, &mut placed).await;
 
@@ -193,13 +176,13 @@ impl Importer {
         let changes = Changes {
             removed_files: placed.replaced.iter().map(|file| file.id).collect(),
             added_files: placed.added,
-            imports: vec![import.clone()],
+            imports: vec![import],
             ..Changes::default()
         };
         self.repo.save(&changes).await?;
         self.changes.notify();
         self.events.publish_all(events).await;
-        Ok(import)
+        Ok(())
     }
 
     /// Places every row that is not skipped, collecting each change in `placed` as it happens; the
@@ -473,4 +456,28 @@ fn track(sidecar: &Sidecar) -> Track {
     });
     let title = Some(sidecar.suffix.replace('.', " ")).filter(|title| !title.is_empty());
     Track { path: sidecar.path.clone(), language, title, forced: sidecar.tags.forced }
+}
+
+/// Carries out approved imports one at a time until none is left; concurrent runners never share
+/// one. An import still `Importing` once the library lock is held is queued again.
+#[async_trait]
+impl Job for Importer {
+    fn name(&self) -> &'static str {
+        "execute-imports"
+    }
+
+    async fn run(&self) -> Result<(), JobError> {
+        loop {
+            let _lock = self.lock.acquire().await?;
+            let recovered = self.repo.reset_importing().await?;
+            if recovered > 0 {
+                self.changes.notify();
+                info!(recovered, "queued interrupted imports again");
+            }
+            let Some(import) = self.repo.claim_next_approved().await? else { break };
+            self.changes.notify();
+            self.execute(import).await?;
+        }
+        Ok(())
+    }
 }

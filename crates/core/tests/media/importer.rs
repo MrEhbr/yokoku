@@ -3,6 +3,7 @@ use std::{fs, os::unix::fs::MetadataExt, path::Path, sync::Arc};
 use common::{App, FakeMerger, relative};
 use rstest::rstest;
 use yokoku_core::{
+    jobs::Job,
     library::ports::SeriesRepo,
     media::{
         Approval, ImportMode, ImportStatus, MediaError, MediaFile,
@@ -42,7 +43,8 @@ async fn hard_links_the_video_and_its_subtitles_into_the_library() {
     let app = App::new().await;
     let id = approved(&app).await;
 
-    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(
         finished.iter().map(|import| (import.id, import.status)).collect::<Vec<_>>(),
@@ -80,7 +82,8 @@ async fn places_external_audio_and_subtitles_named_after_their_folders() {
         .unwrap();
     assert_eq!(import.unwrap().status, ImportStatus::Approved);
 
-    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(finished[0].status, ImportStatus::Done);
     let episode = "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01 - Episode 1";
@@ -94,7 +97,7 @@ async fn copies_leave_the_download_untouched() {
     let app = App::new().await;
     approved(&app).await;
 
-    app.importer(ImportMode::Copy).run_pending().await.unwrap();
+    app.importer(ImportMode::Copy).run().await.unwrap();
 
     assert_ne!(inode(&app.path(E01)), inode(&app.path(SOURCE)));
     assert_eq!(fs::read(app.path(E01)).unwrap().len(), 10);
@@ -105,7 +108,7 @@ async fn moves_take_the_files_out_of_the_download() {
     let app = App::new().await;
     approved(&app).await;
 
-    app.importer(ImportMode::Move).run_pending().await.unwrap();
+    app.importer(ImportMode::Move).run().await.unwrap();
 
     assert!(app.path(E01).exists());
     assert!(!app.path(SOURCE).exists());
@@ -118,7 +121,8 @@ async fn an_import_interrupted_after_placing_files_completes_on_retry() {
     fs::create_dir_all(app.path(E01).parent().unwrap()).unwrap();
     fs::hard_link(app.path(SOURCE), app.path(E01)).unwrap();
 
-    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(finished[0].status, ImportStatus::Done);
     assert_eq!(MediaRepo::import(&app.db, id).await.unwrap().unwrap().status, ImportStatus::Done);
@@ -131,10 +135,12 @@ async fn a_blocked_destination_fails_the_import_until_retried() {
     let blocker = app.write(E01, 99);
     let importer = app.importer(ImportMode::HardLink);
 
-    let failed = importer.run_pending().await.unwrap();
+    importer.run().await.unwrap();
+    let failed = app.imports().await;
     fs::remove_file(&blocker).unwrap();
     importer.retry(id).await.unwrap();
-    let retried = importer.run_pending().await.unwrap();
+    importer.run().await.unwrap();
+    let retried = app.imports().await;
 
     assert_eq!(failed[0].status, ImportStatus::Failed);
     let reason = failed[0].error.clone().unwrap();
@@ -153,7 +159,8 @@ async fn a_retried_import_without_videos_fails_again_and_imports_nothing() {
     let importer = app.importer(ImportMode::HardLink);
 
     importer.retry(import.id).await.unwrap();
-    let retried = importer.run_pending().await.unwrap();
+    importer.run().await.unwrap();
+    let retried = app.imports().await;
 
     assert_eq!(retried[0].status, ImportStatus::Failed);
     assert_eq!(retried[0].error.as_deref(), Some("the download holds no video files"));
@@ -176,7 +183,7 @@ async fn replacing_removes_the_old_library_file() {
     app.reviewer.replace_row(import.id, 1).await.unwrap();
     assert_eq!(app.reviewer.approve(import.id).await.unwrap(), Approval::Queued);
 
-    app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
 
     assert!(!old.exists());
     let files = app.db_files().await;
@@ -195,7 +202,7 @@ async fn files_go_to_the_item_folder_after_its_title_changes() {
     frieren.title = "Sousou no Frieren".into();
     SeriesRepo::save(&app.db, &mut frieren).await.unwrap();
 
-    app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
 
     assert!(app.path("tv/Frieren (2023)/Season 01/Sousou no Frieren (2023) - S01E01 - Episode 1.mkv").exists());
 }
@@ -206,9 +213,11 @@ async fn concurrent_runners_import_each_import_once() {
     approved(&app).await;
     let (first, second) = (app.importer(ImportMode::HardLink), app.importer(ImportMode::HardLink));
 
-    let (a, b) = tokio::join!(first.run_pending(), second.run_pending());
+    let (a, b) = tokio::join!(first.run(), second.run());
 
-    assert_eq!(a.unwrap().len() + b.unwrap().len(), 1);
+    a.unwrap();
+    b.unwrap();
+    assert_eq!(app.imports().await.iter().map(|import| import.status).collect::<Vec<_>>(), [ImportStatus::Done]);
     let imported = app.events().await.iter().filter_map(Event::get::<FilesImported>).count();
     assert_eq!(imported, 1);
 }
@@ -221,7 +230,8 @@ async fn interrupted_imports_are_queued_again() {
     let importer = app.importer(ImportMode::HardLink);
 
     assert_eq!(importer.list().await.unwrap()[0].status, ImportStatus::Importing);
-    let finished = importer.run_pending().await.unwrap();
+    importer.run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(
         finished.iter().map(|import| (import.id, import.status)).collect::<Vec<_>>(),
@@ -252,11 +262,13 @@ async fn a_failed_import_keeps_the_files_it_placed_and_completes_on_retry() {
     let blocker = app.write(E02, 99);
     let importer = app.importer(ImportMode::HardLink);
 
-    let failed = importer.run_pending().await.unwrap();
+    importer.run().await.unwrap();
+    let failed = app.imports().await;
     let placed = app.db_files().await;
     fs::remove_file(&blocker).unwrap();
     importer.retry(id).await.unwrap();
-    let retried = importer.run_pending().await.unwrap();
+    importer.run().await.unwrap();
+    let retried = app.imports().await;
 
     assert_eq!(failed[0].status, ImportStatus::Failed);
     assert_eq!(relative(&app, placed.iter().map(|file| file.path.as_path())), [E01]);
@@ -303,7 +315,8 @@ async fn a_file_kept_beside_the_library_file_gets_the_next_free_name(#[case] tak
     let rows = MediaRepo::import(&app.db, id).await.unwrap().unwrap().rows;
     let planned = app.importer(ImportMode::HardLink).destinations(&rows).await.unwrap();
 
-    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
+    let finished = app.imports().await;
 
     let kept = format!("tv/Frieren (2023)/Season 01/{name}");
     assert_eq!(finished[0].status, ImportStatus::Done);
@@ -353,7 +366,8 @@ async fn a_failed_replacement_keeps_the_old_file() {
     let old_file = approved_replacement(&app, "tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.720p.mkv", 5).await;
     app.write(E01, 99);
 
-    let failed = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
+    let failed = app.imports().await;
 
     assert_eq!(failed[0].status, ImportStatus::Failed);
     assert_eq!(fs::read(&old_file.path).unwrap().len(), 5);
@@ -366,7 +380,8 @@ async fn replaces_a_file_at_the_same_path() {
     let app = App::new().await;
     let old_file = approved_replacement(&app, E01, 5).await;
 
-    let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(finished[0].status, ImportStatus::Done);
     assert_eq!(inode(&app.path(E01)), inode(&app.path(SOURCE)));
@@ -380,7 +395,8 @@ async fn a_failed_replacement_at_the_same_path_restores_the_old_file() {
     let old_file = approved_replacement(&app, E01, 5).await;
     fs::remove_file(app.path(SOURCE)).unwrap();
 
-    let failed = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
+    app.importer(ImportMode::HardLink).run().await.unwrap();
+    let failed = app.imports().await;
 
     assert_eq!(failed[0].status, ImportStatus::Failed);
     assert_eq!(fs::read(app.path(E01)).unwrap().len(), 5);
@@ -397,7 +413,8 @@ async fn a_different_file_of_the_same_size_blocks_the_destination() {
     fs::create_dir_all(blocker.parent().unwrap()).unwrap();
     fs::write(&blocker, [1; 10]).unwrap();
 
-    let finished = app.importer(ImportMode::Copy).run_pending().await.unwrap();
+    app.importer(ImportMode::Copy).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(finished[0].status, ImportStatus::Failed);
     assert_eq!(fs::read(&blocker).unwrap(), [1; 10]);
@@ -410,7 +427,8 @@ async fn an_interrupted_copy_completes_on_retry() {
     fs::create_dir_all(app.path(E01).parent().unwrap()).unwrap();
     fs::copy(app.path(SOURCE), app.path(E01)).unwrap();
 
-    let finished = app.importer(ImportMode::Copy).run_pending().await.unwrap();
+    app.importer(ImportMode::Copy).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(finished[0].status, ImportStatus::Done);
 }
@@ -423,7 +441,7 @@ async fn running_and_retrying_imports_is_announced() {
     let mut watch = app.changes.watch();
     let importer = app.importer(ImportMode::HardLink);
 
-    importer.run_pending().await.unwrap();
+    importer.run().await.unwrap();
     let after_run = watch.has_changed().unwrap();
     watch.borrow_and_update();
     importer.retry(id).await.unwrap();
@@ -457,7 +475,8 @@ async fn merges_external_tracks_into_the_video_with_their_language_and_title() {
     let (_, tracks) = approved_with_tracks(&app).await;
     let merger = Arc::new(FakeMerger::default());
 
-    let finished = app.merging_importer(ImportMode::HardLink, true, merger.clone()).run_pending().await.unwrap();
+    app.merging_importer(ImportMode::HardLink, true, merger.clone()).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(finished[0].status, ImportStatus::Done);
     assert_eq!(fs::metadata(app.path(E01)).unwrap().len(), 15);
@@ -493,7 +512,8 @@ async fn a_failed_merge_places_the_tracks_beside_the_video() {
     approved_with_tracks(&app).await;
     let merger = Arc::new(FakeMerger { fails: true, ..FakeMerger::default() });
 
-    let finished = app.merging_importer(ImportMode::HardLink, true, merger).run_pending().await.unwrap();
+    app.merging_importer(ImportMode::HardLink, true, merger).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(finished[0].status, ImportStatus::Done);
     assert_eq!(inode(&app.path(E01)), inode(&app.path(SOURCE)));
@@ -513,8 +533,8 @@ async fn moving_deletes_the_merged_download_files() {
     let app = App::new().await;
     let (_, tracks) = approved_with_tracks(&app).await;
 
-    let finished =
-        app.merging_importer(ImportMode::Move, true, Arc::new(FakeMerger::default())).run_pending().await.unwrap();
+    app.merging_importer(ImportMode::Move, true, Arc::new(FakeMerger::default())).run().await.unwrap();
+    let finished = app.imports().await;
 
     assert_eq!(finished[0].status, ImportStatus::Done);
     assert!(app.path(E01).exists());

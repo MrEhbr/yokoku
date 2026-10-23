@@ -1,11 +1,13 @@
 use std::{collections::HashMap, hash::Hash, path::Path, sync::Arc};
 
+use async_trait::async_trait;
 use jiff::Timestamp;
 use tracing::{debug, info, instrument};
 use yokoku_domain::{ExternalId, FileTarget, ItemId, StorageError};
 
 use crate::{
     integrations::ports::{MediaServer, MediaServerError, Played, PlayedItem, Watched, WatchedStore},
+    jobs::{Job, JobError},
     media::{
         MediaFile,
         ports::{Catalog, MediaRepo},
@@ -20,14 +22,6 @@ pub struct WatchSync {
     store: Arc<dyn WatchedStore>,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum WatchSyncError {
-    #[error(transparent)]
-    Server(#[from] MediaServerError),
-    #[error(transparent)]
-    Storage(#[from] StorageError),
-}
-
 impl WatchSync {
     pub fn new(
         server: Arc<dyn MediaServer>,
@@ -38,11 +32,26 @@ impl WatchSync {
         Self { server, catalog, media, store }
     }
 
-    /// Replaces the watched files with the library files the user has played: one at the same path,
-    /// or else one whose series or movie and episodes the media server knows it by. Leaves them as
-    /// they are while no media server or user is configured.
+    /// Each series' and movie's id at its metadata source.
+    async fn sources(&self) -> Result<HashMap<ItemId, ExternalId>, StorageError> {
+        let series =
+            self.catalog.all_series().await?.into_iter().map(|series| (ItemId::Series(series.id), series.source));
+        let movies = self.catalog.all_movies().await?.into_iter().map(|movie| (ItemId::Movie(movie.id), movie.source));
+        Ok(series.chain(movies).collect())
+    }
+}
+
+/// Replaces the watched files with the library files the user has played: one at the same path, or
+/// else one whose series or movie and episodes the media server knows it by. Leaves them as they are
+/// while no media server or user is configured.
+#[async_trait]
+impl Job for WatchSync {
+    fn name(&self) -> &'static str {
+        "sync-watched"
+    }
+
     #[instrument(skip_all)]
-    pub async fn sync(&self) -> Result<(), WatchSyncError> {
+    async fn run(&self) -> Result<(), JobError> {
         let played = match self.server.played().await {
             Err(MediaServerError::NotConfigured) => {
                 debug!("watched sync skipped: no media server user");
@@ -62,14 +71,6 @@ impl WatchSync {
         self.store.replace_watched(&watched).await?;
         info!(played = played.len(), watched = watched.len(), "watched files synced");
         Ok(())
-    }
-
-    /// Each series' and movie's id at its metadata source.
-    async fn sources(&self) -> Result<HashMap<ItemId, ExternalId>, StorageError> {
-        let series =
-            self.catalog.all_series().await?.into_iter().map(|series| (ItemId::Series(series.id), series.source));
-        let movies = self.catalog.all_movies().await?.into_iter().map(|movie| (ItemId::Movie(movie.id), movie.source));
-        Ok(series.chain(movies).collect())
     }
 }
 

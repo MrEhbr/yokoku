@@ -8,6 +8,7 @@ use yokoku_core::{
         Ratings,
         ports::{RatedItem, RatingsError, RatingsProvider, RatingsStore},
     },
+    jobs::Job,
     library::ports::{MovieRepo, SeriesRepo},
 };
 use yokoku_domain::{
@@ -91,9 +92,8 @@ async fn a_refresh_asks_about_every_item_by_its_ids_and_stores_the_answers() {
     let setup = setup().await;
     let (frieren, dune) = (ItemId::Series(setup.frieren.id), ItemId::Movie(setup.dune.id));
 
-    let rated = setup.ratings.refresh().await.unwrap();
+    setup.ratings.run().await.unwrap();
 
-    assert_eq!(rated, 2);
     assert_eq!(
         setup.asked(),
         [vec![
@@ -113,10 +113,10 @@ async fn a_refresh_asks_about_every_item_by_its_ids_and_stores_the_answers() {
 async fn a_failed_refresh_keeps_the_stored_ratings() {
     let setup = setup().await;
     let frieren = ItemId::Series(setup.frieren.id);
-    setup.ratings.refresh().await.unwrap();
+    setup.ratings.run().await.unwrap();
     setup.rate(None);
 
-    assert!(setup.ratings.refresh().await.is_err());
+    assert!(setup.ratings.run().await.is_err());
     assert!(
         setup.ratings.handle(&SeriesAdded { series: setup.frieren.id, title: "Frieren".into() }.into()).await.is_err()
     );
@@ -128,7 +128,7 @@ async fn a_failed_refresh_keeps_the_stored_ratings() {
 async fn refreshing_one_item_leaves_the_others() {
     let setup = setup().await;
     let (frieren, dune) = (ItemId::Series(setup.frieren.id), ItemId::Movie(setup.dune.id));
-    setup.ratings.refresh().await.unwrap();
+    setup.ratings.run().await.unwrap();
     setup.rate(Some(9.0));
 
     setup.ratings.handle(&MovieAdded { movie: setup.dune.id, title: "Dune".into() }.into()).await.unwrap();

@@ -6344,6 +6344,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "tracing-subscriber",
  "unicode-normalization",
  "yokoku-domain",
  "yokoku-infra",

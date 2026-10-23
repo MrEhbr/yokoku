@@ -8,7 +8,11 @@ use yokoku_domain::{Clock, StorageError, events::Event};
 use crate::{
     events::{HandlerError, Subscriber},
     integrations::ports::{MediaServer, MediaServerError, RescanStore},
+    jobs::{Job, JobError},
 };
+
+/// Changes must stop arriving for this long before the media server rescans.
+const QUIET: SignedDuration = SignedDuration::from_secs(30);
 
 /// Tells the media server to rescan after library files change; a burst of changes
 /// leads to one rescan.
@@ -33,23 +37,6 @@ impl Rescans {
 
     pub async fn test_connection(&self) -> Result<String, RescanError> {
         Ok(self.server.version().await?)
-    }
-
-    /// Rescans when a request is pending and nothing newer arrived for `quiet`; returns whether it
-    /// did. A request made while the rescan runs, or while no media server is configured, stays pending.
-    #[instrument(skip_all)]
-    pub async fn run_due(&self, quiet: SignedDuration) -> Result<bool, RescanError> {
-        let Some(requested_at) = self.store.requested_at().await? else { return Ok(false) };
-        if self.clock.now().timestamp().duration_since(requested_at) < quiet {
-            return Ok(false);
-        }
-        match self.server.refresh_library().await {
-            Err(MediaServerError::NotConfigured) => return Ok(false),
-            result => result?,
-        }
-        info!("media server rescanning");
-        self.store.clear(requested_at).await?;
-        Ok(true)
     }
 
     /// Rescans now, pending request or not.
@@ -77,6 +64,30 @@ impl Subscriber for Rescans {
             self.store.request(self.clock.now().timestamp()).await?;
             debug!("media server rescan requested");
         }
+        Ok(())
+    }
+}
+
+/// Rescans when a request is pending and nothing newer arrived for `QUIET`. A request made while
+/// the rescan runs, or while no media server is configured, stays pending.
+#[async_trait]
+impl Job for Rescans {
+    fn name(&self) -> &'static str {
+        "rescan-media-server"
+    }
+
+    #[instrument(skip_all)]
+    async fn run(&self) -> Result<(), JobError> {
+        let Some(requested_at) = self.store.requested_at().await? else { return Ok(()) };
+        if self.clock.now().timestamp().duration_since(requested_at) < QUIET {
+            return Ok(());
+        }
+        match self.server.refresh_library().await {
+            Err(MediaServerError::NotConfigured) => return Ok(()),
+            result => result?,
+        }
+        info!("media server rescanning");
+        self.store.clear(requested_at).await?;
         Ok(())
     }
 }

@@ -8,6 +8,7 @@ use yokoku_core::{
         Rescans,
         ports::{MediaServer, MediaServerError, Played, RescanStore},
     },
+    jobs::Job,
 };
 use yokoku_domain::{
     Clock, MediaFileId, MovieId,
@@ -92,7 +93,8 @@ fn deleted() -> FileDeleted {
 async fn nothing_pending_means_no_rescan() {
     let setup = setup().await;
 
-    assert!(!setup.rescans.run_due(QUIET).await.unwrap());
+    setup.rescans.run().await.unwrap();
+
     assert_eq!(setup.refreshes(), 0);
 }
 
@@ -104,13 +106,14 @@ async fn a_burst_of_changes_rescans_once_after_a_quiet_period() {
         setup.clock.advance(SignedDuration::from_secs(10));
     }
 
-    let during = setup.rescans.run_due(QUIET).await.unwrap();
+    setup.rescans.run().await.unwrap();
+    let during = setup.refreshes();
     setup.clock.advance(SignedDuration::from_secs(21));
-    let after = setup.rescans.run_due(QUIET).await.unwrap();
-    let again = setup.rescans.run_due(QUIET).await.unwrap();
+    setup.rescans.run().await.unwrap();
+    let after = setup.refreshes();
+    setup.rescans.run().await.unwrap();
 
-    assert_eq!((during, after, again), (false, true, false));
-    assert_eq!(setup.refreshes(), 1);
+    assert_eq!((during, after, setup.refreshes()), (0, 1, 1));
     assert_eq!(setup.db.requested_at().await.unwrap(), None);
 }
 
@@ -122,8 +125,9 @@ async fn a_change_during_the_rescan_stays_pending() {
     let later = setup.clock.now().timestamp();
     *setup.server.request_during_refresh.lock().unwrap() = Some((setup.db.clone(), later));
 
-    assert!(setup.rescans.run_due(QUIET).await.unwrap());
+    setup.rescans.run().await.unwrap();
 
+    assert_eq!(setup.refreshes(), 1);
     assert_eq!(
         setup.db.requested_at().await.unwrap(),
         Some(Timestamp::from_millisecond(later.as_millisecond()).unwrap())
@@ -137,7 +141,7 @@ async fn a_failed_rescan_stays_pending() {
     setup.clock.advance(QUIET);
     *setup.server.failing.lock().unwrap() = true;
 
-    assert!(setup.rescans.run_due(QUIET).await.is_err());
+    assert!(setup.rescans.run().await.is_err());
 
     assert!(setup.db.requested_at().await.unwrap().is_some());
 }
@@ -149,8 +153,9 @@ async fn a_due_rescan_waits_while_no_media_server_is_configured() {
     setup.clock.advance(QUIET);
     *setup.server.unconfigured.lock().unwrap() = true;
 
-    assert!(!setup.rescans.run_due(QUIET).await.unwrap());
+    setup.rescans.run().await.unwrap();
 
+    assert_eq!(setup.refreshes(), 0);
     assert!(setup.db.requested_at().await.unwrap().is_some());
 }
 

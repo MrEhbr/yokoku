@@ -149,6 +149,17 @@ async fn a_job_runs_once_on_request() {
 }
 
 #[tokio::test]
+async fn an_unknown_job_is_refused_with_the_jobs_there_are() {
+    let setup = Setup::new().await;
+
+    let output = setup.command().args(["job", "sync-everything"]).output().unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("No job named sync-everything; the jobs are sync-downloads,"), "{stderr}");
+}
+
+#[tokio::test]
 async fn a_scan_records_its_files_and_leaves_their_handling_to_the_service() {
     let setup = Setup::new().await;
     setup.write("tv/Frieren (2023)/Season 01/Frieren (2023) - S01E01.mkv");

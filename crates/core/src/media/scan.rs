@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+use async_trait::async_trait;
 use jiff::Timestamp;
 use tracing::{info, instrument};
 use yokoku_domain::{
@@ -13,6 +14,7 @@ use yokoku_domain::{
 
 use crate::{
     events::{Publisher, QueueChanges},
+    jobs::{Job, JobError},
     media::{
         Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
         detect::{ImportPlan, ListedFile, MatchScope},
@@ -158,6 +160,18 @@ impl Scanner {
         let paths = files.iter().map(|file| file.path.clone()).collect();
         let claimed = self.repo.claimed_paths().await?.into_iter().collect();
         Ok(Known { files, paths, claimed })
+    }
+}
+
+#[async_trait]
+impl Job for Scanner {
+    fn name(&self) -> &'static str {
+        "scan-library"
+    }
+
+    async fn run(&self) -> Result<(), JobError> {
+        self.scan().await?;
+        Ok(())
     }
 }
 

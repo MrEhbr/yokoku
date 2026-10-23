@@ -12,8 +12,8 @@ use yokoku_core::{
     events::{EventLog, HandlerError, Publisher, QueueChanges, Subscriber},
     library::ports::{MovieRepo, SeriesRepo},
     media::{
-        Import, ImportMode, ImportPlanner, ImportSettings, Importer, Renamer, Reviewer, RootFolder, RootFolders,
-        RootKind, Scanner,
+        Import, ImportMode, ImportPlanner, ImportSettings, ImportStatus, Importer, Renamer, Reviewer, RootFolder,
+        RootFolders, RootKind, Scanner,
         ports::{MediaRepo, MergeError, Merger, Track},
     },
 };
@@ -143,6 +143,22 @@ impl App {
         let completed = DownloadCompleted { download, name, content_path: content.to_owned(), item, season };
         self.planner.handle(&completed.into()).await?;
         Ok(self.db.import_for_download(download).await.unwrap())
+    }
+
+    /// Every stored import, oldest first.
+    pub async fn imports(&self) -> Vec<Import> {
+        let mut imports = Vec::new();
+        for status in [
+            ImportStatus::NeedsReview,
+            ImportStatus::Approved,
+            ImportStatus::Importing,
+            ImportStatus::Done,
+            ImportStatus::Failed,
+        ] {
+            imports.extend(self.db.imports(status).await.unwrap());
+        }
+        imports.sort_by_key(|import| (import.created_at, import.id));
+        imports
     }
 
     pub async fn events(&self) -> Vec<Event> {

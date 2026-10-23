@@ -5,6 +5,7 @@ use rstest::rstest;
 use tokio::time::timeout;
 use yokoku_core::{
     events::Subscriber,
+    jobs::Job,
     media::{ImportMode, RenameScope, ports::LibraryLock},
 };
 use yokoku_domain::{ItemId, events::SeriesRemoved};
@@ -23,7 +24,7 @@ enum Change {
 async fn run(app: &App, change: Change) {
     match change {
         Change::Scan => drop(app.scanner.scan().await),
-        Change::Import => drop(app.importer(ImportMode::HardLink).run_pending().await),
+        Change::Import => drop(app.importer(ImportMode::HardLink).run().await),
         Change::Rename => drop(app.renamer.apply(RenameScope::All, None).await),
         Change::Delete => drop(app.deleter().delete_files(ItemId::Movie(app.dune.id), &[]).await),
         Change::RemoveSeries => {

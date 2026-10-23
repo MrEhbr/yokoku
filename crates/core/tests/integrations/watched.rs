@@ -10,6 +10,7 @@ use yokoku_core::{
         WatchSync,
         ports::{MediaServer, MediaServerError, Played, PlayedItem, Watched, WatchedStore},
     },
+    jobs::Job,
     library::ports::{MovieRepo, SeriesRepo},
     media::{
         MediaFile,
@@ -102,7 +103,7 @@ async fn setup() -> Setup {
 impl Setup {
     async fn sync(&self, played: Result<Vec<Played>, MediaServerError>) -> Vec<Watched> {
         *self.server.played.lock().unwrap() = played;
-        _ = self.sync.sync().await;
+        _ = self.sync.run().await;
         self.watched().await
     }
 
@@ -194,7 +195,7 @@ async fn watched_files_stay_while_the_server_is_unconfigured_or_unavailable() {
 
     let unconfigured = setup.sync(Err(MediaServerError::NotConfigured)).await;
     *setup.server.played.lock().unwrap() = Err(MediaServerError::Refused("down".into()));
-    let failed = setup.sync.sync().await;
+    let failed = setup.sync.run().await;
 
     assert_eq!(unconfigured, before);
     assert!(failed.is_err());
