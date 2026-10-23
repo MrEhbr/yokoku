@@ -53,18 +53,18 @@ Six crates under `crates/`, layered strictly inward:
   functions (`src/api/`) that call use cases through `AppState` (`src/state.rs`), pulled from an axum
   `Extension`. Components in `src/components/` are vendored Dioxus Components restyled to the "Paper"
   design (`styles/`, Tailwind). `gallery/` is a separate bin for previewing components.
-- `yokoku` — the binary and composition root. `app.rs` wires every use case to its adapters;
-  `service.rs` runs the web server, event deliveries and jobs until SIGINT/SIGTERM; `subscriptions.rs`
-  lists every event subscriber and `jobs.rs` every `core::jobs::Job`, whose cron schedule sits in
-  `[serve]` under the job's name in snake case (`config/schedules.rs`); `config/` handles configuration;
-  `cli/` holds setup/maintenance commands.
+- `yokoku` — the binary and composition root. `app.rs` wires every use case to its adapters into `App`
+  (only what the web UI, CLI and jobs call) and lists every event subscriber and `core::jobs::Job` for
+  `Background` (`background.rs`); a job's cron schedule sits in `[serve]` under its name in snake case
+  (`config/schedules.rs`). `service.rs` runs the web server, event deliveries and jobs until
+  SIGINT/SIGTERM; `config/` handles configuration; `cli/` holds setup/maintenance commands.
 - `test-support` — fakes, fixtures, wiremock servers and live-service helpers shared by tests.
 
 ### Events
 
 Use cases save their change, then publish events through `Publisher` to an SQLite event log — there is no
 transactional outbox, and repositories/aggregates never carry events. A `Delivery` loop per `Subscriber`
-(listed in `crates/yokoku/src/subscriptions.rs`) polls the log and hands it every event; `handle` matches the
+(listed in `App::open`) polls the log and hands it every event; `handle` matches the
 events it reacts to and holds the logic itself, unless the web UI or CLI also call it. A subscriber's name
 keys its stored delivery position, so renaming one redelivers the whole log to it. Events carry a
 `CorrelationId` propagated through task-local context (`core::events::correlation`) so History can group

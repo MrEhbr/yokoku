@@ -1,7 +1,6 @@
 use anyhow::{Result, anyhow, bail};
 use clap::Parser;
-
-use crate::app::App;
+use yokoku_core::jobs::Scheduler;
 
 #[derive(Parser)]
 pub struct Args {
@@ -9,8 +8,7 @@ pub struct Args {
     pub job: String,
 }
 
-pub async fn run(app: &App, args: Args) -> Result<()> {
-    let scheduler = app.scheduler()?;
+pub async fn run(scheduler: &Scheduler, args: Args) -> Result<()> {
     let Some(job) = scheduler.job(&args.job) else {
         let names: Vec<_> = scheduler.jobs().iter().map(|job| job.name()).collect();
         bail!("No job named {}; the jobs are {}", args.job, names.join(", "));

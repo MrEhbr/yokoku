@@ -5,15 +5,14 @@ use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use crate::app::App;
+use crate::{app::App, background::Background};
 
 /// Serves the web UI, delivers events and runs scheduled jobs until SIGINT or SIGTERM.
-pub async fn run(app: &App) -> Result<()> {
+pub async fn run(app: &App, background: &Background) -> Result<()> {
     app.roots.check().await.context(
         "The root folders in the config file are invalid; fix them, or remove the stored root folder they \
          conflict with using `yokoku root remove`",
     )?;
-    let scheduler = app.scheduler()?;
     let (stop_jobs, stop_service) = (CancellationToken::new(), CancellationToken::new());
     let state = yokoku_web::AppState {
         library: app.library.clone(),
@@ -45,8 +44,8 @@ pub async fn run(app: &App) -> Result<()> {
         .await
         .context("Failed to start the web server")?;
 
-    let jobs = scheduler.spawn(&stop_jobs);
-    let deliveries = app.spawn_deliveries(&stop_service);
+    let jobs = background.scheduler().spawn(&stop_jobs);
+    let deliveries = background.spawn_deliveries(&stop_service);
     let web = tokio::spawn(web.serve(stop_service.clone().cancelled_owned()));
     info!("running");
     let signal = stop_signal().await;
@@ -56,7 +55,7 @@ pub async fn run(app: &App) -> Result<()> {
     stop_service.cancel();
     deliveries.join_all().await;
     web.await.context("Web server failed")??;
-    if let Err(error) = app.events.flush().await {
+    if let Err(error) = background.flush().await {
         error!(%error, "events of saved changes were lost; their handlers will not run");
     }
     info!("stopped");

@@ -95,9 +95,9 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
         Some(Settings(cmd_args)) => return commands::settings::run(config, args.config.as_deref(), cmd_args).await,
         command => command,
     };
-    let app = App::open(config, args.config.as_deref()).await?;
+    let (app, background) = App::open(config, args.config.as_deref()).await?;
     let Some(command) = command else {
-        return crate::service::run(&app).await;
+        return crate::service::run(&app, &background).await;
     };
     let result = match command {
         Refresh(cmd_args) => commands::refresh::run(&app, cmd_args).await,
@@ -105,11 +105,11 @@ async fn dispatch(config: &Config, args: Args) -> Result<()> {
         Scan(cmd_args) => commands::scan::run(&app, cmd_args).await,
         Files(cmd_args) => commands::files::run(&app, cmd_args).await,
         Jellyfin(cmd_args) => commands::jellyfin::run(&app, cmd_args).await,
-        Job(cmd_args) => commands::job::run(&app, cmd_args).await,
+        Job(cmd_args) => commands::job::run(background.scheduler(), cmd_args).await,
         Settings(_) => unreachable!("settings run before the app opens"),
         Completions(_) => unreachable!("completions print before the config loads"),
     };
-    result.and(app.events.flush().await.context(EVENTS_LOST))
+    result.and(background.flush().await.context(EVENTS_LOST))
 }
 
 pub const EVENTS_LOST: &str =
