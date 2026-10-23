@@ -1,7 +1,8 @@
-use std::{path::Path, sync::Arc};
+use std::{ops::Deref, path::Path, sync::Arc};
 
 use anyhow::{Context, Result};
 use yokoku_core::{
+    Services,
     downloads::{Downloads, ReleaseSearch, SyncActiveDownloads},
     events::{EventLog, History, Publisher, QueueChanges, Subscriber},
     integrations::{Ratings, Rescans, WatchSync},
@@ -28,30 +29,19 @@ use crate::{
     config::{Config, Settings},
 };
 
-/// The use cases the web UI, the CLI and jobs call, wired to their adapters, each reading the settings
-/// in effect when it runs.
+/// The use cases wired to their adapters, each reading the settings in effect when it runs.
 #[derive(Clone)]
 pub struct App {
+    pub services: Services,
     pub settings: Settings,
-    pub library: Arc<Library>,
-    pub artworks: Arc<Artworks>,
-    pub calendar: Arc<Calendar>,
-    pub roots: Arc<RootFolders>,
-    pub scanner: Arc<Scanner>,
-    pub reviewer: Arc<Reviewer>,
-    pub renamer: Arc<Renamer>,
-    pub downloads: Arc<Downloads>,
-    pub releases: Arc<ReleaseSearch>,
-    pub importer: Arc<Importer>,
-    pub history: Arc<History>,
-    pub clock: Arc<dyn Clock>,
-    /// Wakes after this process changes downloads or imports.
-    pub queue_changes: QueueChanges,
-    pub deleter: Arc<Deleter>,
-    pub prober: Arc<Prober>,
-    pub rescans: Arc<Rescans>,
-    pub ratings: Arc<Ratings>,
-    pub metadata: Arc<MetadataService>,
+}
+
+impl Deref for App {
+    type Target = Services;
+
+    fn deref(&self) -> &Services {
+        &self.services
+    }
 }
 
 impl App {
@@ -172,7 +162,7 @@ impl App {
             ratings.clone(),
         ];
 
-        let app = Self {
+        let services = Services {
             library: Arc::new(Library::new(db.clone(), db.clone(), db.clone(), clock.clone(), events.clone())),
             calendar: Arc::new(Calendar::new(db.clone(), db.clone(), clock.clone())),
             roots: roots.clone(),
@@ -194,7 +184,6 @@ impl App {
             history: Arc::new(History::new(log.clone())),
             clock,
             queue_changes,
-            settings: settings.clone(),
             deleter,
             prober,
             rescans,
@@ -202,6 +191,7 @@ impl App {
             metadata,
             artworks,
         };
+        let app = Self { services, settings: settings.clone() };
         let background = Background::new(log, events, subscribers, jobs, &settings)?;
         Ok((app, background))
     }

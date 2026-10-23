@@ -15,23 +15,7 @@ pub async fn run(app: &App, background: &Background) -> Result<()> {
     )?;
     let (stop_jobs, stop_service) = (CancellationToken::new(), CancellationToken::new());
     let state = yokoku_web::AppState {
-        library: app.library.clone(),
-        artworks: app.artworks.clone(),
-        calendar: app.calendar.clone(),
-        prober: app.prober.clone(),
-        history: app.history.clone(),
-        clock: app.clock.clone(),
-        downloads: app.downloads.clone(),
-        releases: app.releases.clone(),
-        reviewer: app.reviewer.clone(),
-        importer: app.importer.clone(),
-        queue_changes: Arc::new(app.queue_changes.clone()),
-        metadata: app.metadata.clone(),
-        ratings: app.ratings.clone(),
-        roots: app.roots.clone(),
-        deleter: app.deleter.clone(),
-        renamer: app.renamer.clone(),
-        scanner: app.scanner.clone(),
+        services: app.services.clone(),
         settings: Arc::new(app.settings.clone()),
         connections: Arc::new(app.settings.clone()),
         add: Arc::new(yokoku_web::AddSettings {

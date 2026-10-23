@@ -7,6 +7,7 @@ use dioxus::server::axum::{
 };
 use tokio_util::sync::CancellationToken;
 use yokoku_core::{
+    Services,
     downloads::{Downloads, ReleaseSearch},
     events::{History, QueueChanges},
     integrations::Ratings,
@@ -15,27 +16,11 @@ use yokoku_core::{
 };
 use yokoku_domain::{Clock, Live, MonitorPreset};
 
-/// The use cases server functions call, wired by the composition root.
+/// What server functions call: the use cases and the settings, wired by the composition root.
 #[derive(Clone)]
 pub struct AppState {
-    pub library: Arc<Library>,
-    pub artworks: Arc<Artworks>,
-    pub calendar: Arc<Calendar>,
-    pub prober: Arc<Prober>,
-    pub history: Arc<History>,
-    pub clock: Arc<dyn Clock>,
-    pub downloads: Arc<Downloads>,
-    pub releases: Arc<ReleaseSearch>,
-    pub reviewer: Arc<Reviewer>,
-    pub importer: Arc<Importer>,
-    pub queue_changes: Arc<QueueChanges>,
-    pub metadata: Arc<MetadataService>,
-    pub ratings: Arc<Ratings>,
-    pub roots: Arc<RootFolders>,
+    pub services: Services,
     pub add: Arc<AddSettings>,
-    pub deleter: Arc<Deleter>,
-    pub renamer: Arc<Renamer>,
-    pub scanner: Arc<Scanner>,
     pub settings: Arc<dyn SettingsAccess>,
     pub connections: Arc<dyn ConnectionTest>,
     /// Cancelled when the service stops; long-lived responses end with it.
@@ -89,37 +74,42 @@ pub trait Provides<T: ?Sized> {
 }
 
 macro_rules! provides {
-    ($($ty:ty => $field:ident,)*) => {
+    ($($ty:ty => $($field:ident).+,)*) => {
         $(impl Provides<$ty> for AppState {
             fn provide(&self) -> Arc<$ty> {
-                self.$field.clone()
+                self.$($field).+.clone()
             }
         })*
     };
 }
 
 provides! {
-    Library => library,
-    Artworks => artworks,
-    Calendar => calendar,
-    Prober => prober,
-    History => history,
-    dyn Clock => clock,
-    Downloads => downloads,
-    ReleaseSearch => releases,
-    Reviewer => reviewer,
-    Importer => importer,
-    QueueChanges => queue_changes,
-    MetadataService => metadata,
-    Ratings => ratings,
-    RootFolders => roots,
-    Deleter => deleter,
-    Renamer => renamer,
-    Scanner => scanner,
+    Library => services.library,
+    Artworks => services.artworks,
+    Calendar => services.calendar,
+    Prober => services.prober,
+    History => services.history,
+    dyn Clock => services.clock,
+    Downloads => services.downloads,
+    ReleaseSearch => services.releases,
+    Reviewer => services.reviewer,
+    Importer => services.importer,
+    MetadataService => services.metadata,
+    Ratings => services.ratings,
+    RootFolders => services.roots,
+    Deleter => services.deleter,
+    Renamer => services.renamer,
+    Scanner => services.scanner,
     dyn SettingsAccess => settings,
     dyn ConnectionTest => connections,
     AddSettings => add,
     CancellationToken => shutdown,
+}
+
+impl Provides<QueueChanges> for AppState {
+    fn provide(&self) -> Arc<QueueChanges> {
+        Arc::new(self.services.queue_changes.clone())
+    }
 }
 
 /// One dependency of a server function, taken from `AppState`: `library: Dep<Library>`.

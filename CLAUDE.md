@@ -50,11 +50,11 @@ Six crates under `crates/`, layered strictly inward:
   `crates/infra/migrations`), TMDB/TVDB, Transmission, Jackett (Torznab), Jellyfin,
   filesystem/ffprobe/ffmpeg. The single `Database` type implements most storage ports.
 - `web` — Dioxus 0.7 fullstack UI. Feature `web` builds the wasm client; feature `server` adds server
-  functions (`src/api/`) that call use cases through `AppState` (`src/state.rs`), pulled from an axum
-  `Extension`. Components in `src/components/` are vendored Dioxus Components restyled to the "Paper"
+  functions (`src/api/`) that call use cases through `AppState` (`src/state.rs`, wrapping
+  `yokoku_core::Services`), pulled from an axum `Extension` as `Dep<T>`. Components in `src/components/` are vendored Dioxus Components restyled to the "Paper"
   design (`styles/`, Tailwind). `gallery/` is a separate bin for previewing components.
 - `yokoku` — the binary and composition root. `app.rs` wires every use case to its adapters into `App`
-  (only what the web UI, CLI and jobs call) and lists every event subscriber and `core::jobs::Job` for
+  (`yokoku_core::Services`, only what the web UI, CLI and jobs call, plus `Settings`) and lists every event subscriber and `core::jobs::Job` for
   `Background` (`background.rs`); a job's cron schedule sits in `[serve]` under its name in snake case
   (`config/schedules.rs`). `service.rs` runs the web server, event deliveries and jobs until
   SIGINT/SIGTERM; `config/` handles configuration; `cli/` holds setup/maintenance commands.
