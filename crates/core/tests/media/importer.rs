@@ -24,8 +24,10 @@ async fn approved(app: &App) -> ImportId {
     app.write(SOURCE, 10);
     app.write("downloads/Frieren.S01E01.1080p/Frieren.S01E01.1080p.eng.srt", 2);
     let content = app.path("downloads/Frieren.S01E01.1080p");
-    let import =
-        app.planner.plan(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None).await.unwrap();
+    let import = app
+        .complete_download(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None)
+        .await
+        .unwrap();
     let import = import.unwrap();
     assert_eq!(import.status, ImportStatus::Approved);
     import.id
@@ -72,8 +74,10 @@ async fn places_external_audio_and_subtitles_named_after_their_folders() {
     app.write(&format!("{download}/RUS Subs/Crunchyroll/Frieren.S01E01.1080p.ass"), 2);
     app.write(&format!("{download}/RUS Subs/Crunchyroll/Надписи/Frieren.S01E01.1080p.ass"), 1);
     let content = app.path(download);
-    let import =
-        app.planner.plan(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None).await.unwrap();
+    let import = app
+        .complete_download(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None)
+        .await
+        .unwrap();
     assert_eq!(import.unwrap().status, ImportStatus::Approved);
 
     let finished = app.importer(ImportMode::HardLink).run_pending().await.unwrap();
@@ -145,7 +149,7 @@ async fn a_retried_import_without_videos_fails_again_and_imports_nothing() {
     let app = App::new().await;
     app.write("downloads/Soundtrack/01.flac", 10);
     let content = app.path("downloads/Soundtrack");
-    let import = app.planner.plan(DownloadId::generate(), &content, None, None).await.unwrap().unwrap();
+    let import = app.complete_download(DownloadId::generate(), &content, None, None).await.unwrap().unwrap();
     let importer = app.importer(ImportMode::HardLink);
 
     importer.retry(import.id).await.unwrap();
@@ -164,8 +168,7 @@ async fn replacing_removes_the_old_library_file() {
     let old_file = app.db_files().await.remove(0);
     app.write(SOURCE, 10);
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
+        .complete_download(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
         .await
         .unwrap()
         .unwrap();
@@ -233,8 +236,10 @@ async fn approved_pair(app: &App) -> ImportId {
     app.write("downloads/Frieren.S01.1080p/Frieren.S01E01.1080p.mkv", 10);
     app.write("downloads/Frieren.S01.1080p/Frieren.S01E02.1080p.mkv", 10);
     let content = app.path("downloads/Frieren.S01.1080p");
-    let import =
-        app.planner.plan(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None).await.unwrap();
+    let import = app
+        .complete_download(DownloadId::generate(), &content, Some(ItemId::Series(app.frieren.id)), None)
+        .await
+        .unwrap();
     let import = import.unwrap();
     assert_eq!(import.status, ImportStatus::Approved);
     import.id
@@ -276,8 +281,7 @@ async fn approved_beside(app: &App) -> ImportId {
     app.scanner.scan().await.unwrap();
     app.write(SOURCE, 10);
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
+        .complete_download(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
         .await
         .unwrap()
         .unwrap();
@@ -321,8 +325,7 @@ async fn approved_replacement(app: &App, old: &str, size: usize) -> MediaFile {
     let old_file = app.db_files().await.remove(0);
     app.write(SOURCE, 10);
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
+        .complete_download(DownloadId::generate(), &app.path(SOURCE), Some(ItemId::Series(app.frieren.id)), None)
         .await
         .unwrap()
         .unwrap();
@@ -440,8 +443,7 @@ async fn approved_with_tracks(app: &App) -> (ImportId, [&'static str; 2]) {
     app.write(tracks[0], 3);
     app.write(tracks[1], 2);
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &app.path(download), Some(ItemId::Series(app.frieren.id)), None)
+        .complete_download(DownloadId::generate(), &app.path(download), Some(ItemId::Series(app.frieren.id)), None)
         .await
         .unwrap()
         .unwrap();

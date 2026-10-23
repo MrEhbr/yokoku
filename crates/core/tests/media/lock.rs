@@ -4,7 +4,7 @@ use common::App;
 use rstest::rstest;
 use tokio::time::timeout;
 use yokoku_core::{
-    events::Handler,
+    events::Subscriber,
     media::{ImportMode, RenameScope, ports::LibraryLock},
 };
 use yokoku_domain::{ItemId, events::SeriesRemoved};
@@ -28,7 +28,7 @@ async fn run(app: &App, change: Change) {
         Change::Delete => drop(app.deleter().delete_files(ItemId::Movie(app.dune.id), &[]).await),
         Change::RemoveSeries => {
             let removed = SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files: true };
-            drop(app.deleter().handle(&removed).await);
+            drop(app.deleter().handle(&removed.into()).await);
         },
     }
 }

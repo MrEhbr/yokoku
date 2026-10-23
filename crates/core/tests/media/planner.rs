@@ -1,12 +1,12 @@
 use common::{App, relative};
 use rstest::rstest;
 use yokoku_core::{
-    events::Handler,
+    events::Subscriber,
     media::{ImportStatus, MediaError, ports::MediaRepo},
 };
 use yokoku_domain::{
     Confidence, DownloadId, ItemId,
-    events::{DownloadCompleted, ImportFailed, ImportNeedsReview},
+    events::{DownloadCompleted, Event, ImportFailed, ImportNeedsReview},
 };
 
 use crate::common;
@@ -20,8 +20,7 @@ async fn a_certain_download_for_a_linked_series_is_approved() {
     let item = Some(ItemId::Series(app.frieren.id));
 
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &app.path("downloads/Frieren.S01.1080p"), item, None)
+        .complete_download(DownloadId::generate(), &app.path("downloads/Frieren.S01.1080p"), item, None)
         .await
         .unwrap()
         .unwrap();
@@ -52,14 +51,15 @@ async fn a_download_whose_files_are_not_in_place_yet_is_planned_once_they_are(#[
     let content = app.path("downloads/Frieren.S01.1080p");
     let (download, item) = (DownloadId::generate(), Some(ItemId::Series(app.frieren.id)));
 
-    let early = app.planner.plan(download, &content, item, None).await;
+    let early = app.complete_download(download, &content, item, None).await;
     for path in partial {
         std::fs::remove_file(path).unwrap();
     }
     app.write("downloads/Frieren.S01.1080p/Frieren.S01E01.1080p.mkv", 10);
-    let planned = app.planner.plan(download, &content, item, None).await.unwrap().unwrap();
+    let planned = app.complete_download(download, &content, item, None).await.unwrap().unwrap();
 
-    assert!(matches!(early, Err(MediaError::ContentNotReady(_))), "{early:?}");
+    let early = early.unwrap_err();
+    assert!(matches!(early.downcast_ref(), Some(MediaError::ContentNotReady(_))), "{early:?}");
     assert_eq!(planned.status, ImportStatus::Approved);
     assert!(app.events().await.is_empty());
 }
@@ -69,7 +69,7 @@ async fn an_unlinked_single_file_download_is_matched_against_the_library() {
     let app = App::new().await;
     let file = app.write("downloads/Dune.2021.1080p.BluRay.mkv", 10);
 
-    let import = app.planner.plan(DownloadId::generate(), &file, None, None).await.unwrap().unwrap();
+    let import = app.complete_download(DownloadId::generate(), &file, None, None).await.unwrap().unwrap();
 
     assert_eq!((import.status, import.rows[0].target()), (ImportStatus::Approved, Some(app.movie())));
     assert_eq!(import.source, file);
@@ -81,8 +81,7 @@ async fn unsure_downloads_go_to_review() {
     app.write("downloads/Frieren - 02 [1080p].mkv", 10);
 
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &app.path("downloads/Frieren - 02 [1080p].mkv"), None, None)
+        .complete_download(DownloadId::generate(), &app.path("downloads/Frieren - 02 [1080p].mkv"), None, None)
         .await
         .unwrap()
         .unwrap();
@@ -98,8 +97,7 @@ async fn a_season_given_with_the_series_imports_names_without_one_at_once() {
     let file = app.write("downloads/Frieren - 02 [1080p].mkv", 10);
 
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &file, Some(ItemId::Series(app.frieren.id)), Some(1))
+        .complete_download(DownloadId::generate(), &file, Some(ItemId::Series(app.frieren.id)), Some(1))
         .await
         .unwrap()
         .unwrap();
@@ -119,8 +117,7 @@ async fn a_download_of_an_episode_that_has_a_file_goes_to_review() {
     let file = app.write("downloads/Frieren.S01E01.2160p.mkv", 20);
 
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &file, Some(ItemId::Series(app.frieren.id)), None)
+        .complete_download(DownloadId::generate(), &file, Some(ItemId::Series(app.frieren.id)), None)
         .await
         .unwrap()
         .unwrap();
@@ -133,8 +130,11 @@ async fn a_download_without_videos_fails_visibly() {
     let app = App::new().await;
     app.write("downloads/Soundtrack/01.flac", 10);
 
-    let import =
-        app.planner.plan(DownloadId::generate(), &app.path("downloads/Soundtrack"), None, None).await.unwrap().unwrap();
+    let import = app
+        .complete_download(DownloadId::generate(), &app.path("downloads/Soundtrack"), None, None)
+        .await
+        .unwrap()
+        .unwrap();
 
     assert_eq!(import.status, ImportStatus::Failed);
     assert_eq!(
@@ -149,13 +149,14 @@ async fn a_redelivered_completion_plans_once() {
     let app = App::new().await;
     let file = app.write("downloads/Dune.2021.1080p.mkv", 10);
     let download = DownloadId::generate();
-    let completed = DownloadCompleted {
+    let completed: Event = DownloadCompleted {
         download,
         name: "Dune.2021.1080p.mkv".into(),
         content_path: file,
         item: None,
         season: None,
-    };
+    }
+    .into();
 
     app.planner.handle(&completed).await.unwrap();
     app.planner.handle(&completed).await.unwrap();
@@ -172,8 +173,7 @@ async fn a_planned_import_is_announced() {
     let watch = app.changes.watch();
 
     let item = Some(ItemId::Series(app.frieren.id));
-    app.planner
-        .plan(DownloadId::generate(), &app.path("downloads/Frieren.S01E01.1080p.mkv"), item, None)
+    app.complete_download(DownloadId::generate(), &app.path("downloads/Frieren.S01E01.1080p.mkv"), item, None)
         .await
         .unwrap();
 

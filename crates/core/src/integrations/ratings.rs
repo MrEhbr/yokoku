@@ -2,13 +2,10 @@ use std::{collections::HashSet, sync::Arc};
 
 use async_trait::async_trait;
 use tracing::{info, instrument};
-use yokoku_domain::{
-    ItemId, Rating, StorageError,
-    events::{MovieAdded, SeriesAdded},
-};
+use yokoku_domain::{ItemId, Rating, StorageError, events::Event};
 
 use crate::{
-    events::{Handler, HandlerError},
+    events::{HandlerError, Subscriber},
     integrations::ports::{RatedItem, RatingsError, RatingsProvider, RatingsStore},
     media::ports::Catalog,
 };
@@ -50,31 +47,24 @@ impl Ratings {
         info!(items = items.len(), rated = rated.len(), "ratings refreshed");
         Ok(rated.len())
     }
+}
 
-    /// Saves the provider's ratings of `item`; does nothing when the library no longer holds it.
-    #[instrument(skip(self))]
-    pub async fn refresh_item(&self, item: ItemId) -> Result<(), RatingsRefreshError> {
-        let rated = match item {
-            ItemId::Series(id) => self.catalog.series(id).await?.as_ref().map(RatedItem::from),
-            ItemId::Movie(id) => self.catalog.movie(id).await?.as_ref().map(RatedItem::from),
+/// Saves the provider's ratings of each added item; does nothing when the library no longer holds it.
+#[async_trait]
+impl Subscriber for Ratings {
+    fn name(&self) -> &'static str {
+        "integrations.ratings"
+    }
+
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        let rated = match event {
+            Event::SeriesAdded(added) => self.catalog.series(added.series).await?.as_ref().map(RatedItem::from),
+            Event::MovieAdded(added) => self.catalog.movie(added.movie).await?.as_ref().map(RatedItem::from),
+            _ => return Ok(()),
         };
         let Some(rated) = rated else { return Ok(()) };
         let ratings = self.provider.ratings(&[rated]).await?;
         self.store.save_ratings(&ratings).await?;
         Ok(())
-    }
-}
-
-#[async_trait]
-impl Handler<SeriesAdded> for Ratings {
-    async fn handle(&self, event: &SeriesAdded) -> Result<(), HandlerError> {
-        Ok(self.refresh_item(ItemId::Series(event.series)).await?)
-    }
-}
-
-#[async_trait]
-impl Handler<MovieAdded> for Ratings {
-    async fn handle(&self, event: &MovieAdded) -> Result<(), HandlerError> {
-        Ok(self.refresh_item(ItemId::Movie(event.movie)).await?)
     }
 }

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use jiff::{Timestamp, civil::date};
 use yokoku_core::{
-    events::Handler,
+    events::Subscriber,
     integrations::{
         Ratings,
         ports::{RatedItem, RatingsError, RatingsProvider, RatingsStore},
@@ -12,7 +12,8 @@ use yokoku_core::{
 };
 use yokoku_domain::{
     ExternalId, ExternalIds, ItemFolder, ItemId, MonitorPreset, Movie, MovieId, Rating, RatingSource, Releases, Series,
-    SourceStatus, events::MovieAdded,
+    SourceStatus,
+    events::{MovieAdded, SeriesAdded},
 };
 use yokoku_infra::db::Database;
 use yokoku_test_support::metadata::{movie_metadata, series_metadata};
@@ -116,7 +117,9 @@ async fn a_failed_refresh_keeps_the_stored_ratings() {
     setup.rate(None);
 
     assert!(setup.ratings.refresh().await.is_err());
-    assert!(setup.ratings.refresh_item(frieren).await.is_err());
+    assert!(
+        setup.ratings.handle(&SeriesAdded { series: setup.frieren.id, title: "Frieren".into() }.into()).await.is_err()
+    );
 
     assert_eq!(setup.stored(frieren).await, [imdb(8.0)]);
 }
@@ -128,7 +131,7 @@ async fn refreshing_one_item_leaves_the_others() {
     setup.ratings.refresh().await.unwrap();
     setup.rate(Some(9.0));
 
-    setup.ratings.refresh_item(dune).await.unwrap();
+    setup.ratings.handle(&MovieAdded { movie: setup.dune.id, title: "Dune".into() }.into()).await.unwrap();
 
     assert_eq!(setup.stored(frieren).await, [imdb(8.0)]);
     assert_eq!(setup.stored(dune).await, [imdb(9.0)]);
@@ -139,7 +142,7 @@ async fn an_added_item_is_rated() {
     let setup = setup().await;
     let dune = ItemId::Movie(setup.dune.id);
 
-    setup.ratings.handle(&MovieAdded { movie: setup.dune.id, title: "Dune".into() }).await.unwrap();
+    setup.ratings.handle(&MovieAdded { movie: setup.dune.id, title: "Dune".into() }.into()).await.unwrap();
 
     assert_eq!(setup.stored(dune).await, [imdb(8.0)]);
     assert_eq!(setup.asked().concat().iter().map(|rated| rated.item).collect::<Vec<_>>(), [dune]);
@@ -149,7 +152,7 @@ async fn an_added_item_is_rated() {
 async fn an_item_no_longer_in_the_library_is_not_asked_about() {
     let setup = setup().await;
 
-    setup.ratings.handle(&MovieAdded { movie: MovieId::generate(), title: "Gone".into() }).await.unwrap();
+    setup.ratings.handle(&MovieAdded { movie: MovieId::generate(), title: "Gone".into() }.into()).await.unwrap();
 
     assert_eq!(setup.asked(), Vec::<Vec<RatedItem>>::new());
 }

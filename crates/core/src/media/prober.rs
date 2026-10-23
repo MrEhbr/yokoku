@@ -8,11 +8,11 @@ use async_trait::async_trait;
 use tracing::{debug, warn};
 use yokoku_domain::{
     ItemId, SubtitleTags,
-    events::{FilesFound, FilesImported, LinkedFile},
+    events::{Event, FilesFound, FilesImported},
 };
 
 use crate::{
-    events::{Handler, HandlerError},
+    events::{HandlerError, Subscriber},
     media::{
         MediaError, MediaFile, MediaInfo,
         detect::{ListedFile, SidecarKind},
@@ -87,9 +87,21 @@ impl Prober {
         }
         Ok(report)
     }
+}
 
-    /// A file that cannot be probed, or a missing probe, is only logged; `probe_missing` tries it again.
-    async fn probe_new(&self, files: &[LinkedFile]) -> Result<(), MediaError> {
+/// Probes found and imported files; a file that cannot be probed, or a missing probe, is only
+/// logged, and `probe_missing` tries it again.
+#[async_trait]
+impl Subscriber for Prober {
+    fn name(&self) -> &'static str {
+        "media.probe"
+    }
+
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        let (Event::FilesFound(FilesFound { files }) | Event::FilesImported(FilesImported { files, .. })) = event
+        else {
+            return Ok(());
+        };
         for file in files {
             match self.probe.probe(&file.path).await {
                 Ok(info) => {
@@ -104,19 +116,5 @@ impl Prober {
             }
         }
         Ok(())
-    }
-}
-
-#[async_trait]
-impl Handler<FilesFound> for Prober {
-    async fn handle(&self, event: &FilesFound) -> Result<(), HandlerError> {
-        Ok(self.probe_new(&event.files).await?)
-    }
-}
-
-#[async_trait]
-impl Handler<FilesImported> for Prober {
-    async fn handle(&self, event: &FilesImported) -> Result<(), HandlerError> {
-        Ok(self.probe_new(&event.files).await?)
     }
 }

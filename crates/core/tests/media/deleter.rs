@@ -2,7 +2,7 @@ use std::{fs, os::unix::fs::PermissionsExt};
 
 use common::{App, TODAY, frieren_metadata, now};
 use yokoku_core::{
-    events::Handler,
+    events::Subscriber,
     library::ports::SeriesRepo,
     media::{MediaError, MediaFile},
 };
@@ -75,8 +75,8 @@ async fn removing_a_series_with_its_files_deletes_them_all() {
     let removed = |delete_files| SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files };
     let deleter = app.deleter();
 
-    deleter.handle(&removed(true)).await.unwrap();
-    deleter.handle(&removed(true)).await.unwrap();
+    deleter.handle(&removed(true).into()).await.unwrap();
+    deleter.handle(&removed(true).into()).await.unwrap();
 
     assert_eq!((app.path(E01).exists(), app.path(E02).exists()), (false, false));
     assert_eq!(app.db_files().await.len(), 1);
@@ -88,7 +88,10 @@ async fn removing_a_movie_with_its_file_deletes_only_it() {
     let app = App::new().await;
     app.linked(&[E01, DUNE]).await;
 
-    app.deleter().handle(&MovieRemoved { movie: app.dune.id, title: "Dune".into(), delete_files: true }).await.unwrap();
+    app.deleter()
+        .handle(&MovieRemoved { movie: app.dune.id, title: "Dune".into(), delete_files: true }.into())
+        .await
+        .unwrap();
 
     assert_eq!((app.path(DUNE).exists(), app.path(E01).exists()), (false, true));
     assert_eq!(app.db_files().await.len(), 1);
@@ -102,13 +105,13 @@ async fn files_kept_when_removing_a_series_return_when_it_is_added_again() {
     SeriesRepo::remove(&app.db, app.frieren.id).await.unwrap();
 
     app.deleter()
-        .handle(&SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files: false })
+        .handle(&SeriesRemoved { series: app.frieren.id, title: "Frieren".into(), delete_files: false }.into())
         .await
         .unwrap();
     let folder = ItemFolder::new(app.path("tv"), "Frieren (2023)".into()).unwrap();
     let mut readded = Series::new(frieren_metadata(), folder, MonitorPreset::All, TODAY, now());
     SeriesRepo::save(&app.db, &mut readded).await.unwrap();
-    app.scanner.handle(&SeriesAdded { series: readded.id, title: "Frieren".into() }).await.unwrap();
+    app.scanner.handle(&SeriesAdded { series: readded.id, title: "Frieren".into() }.into()).await.unwrap();
 
     assert_eq!((app.path(E01).exists(), app.path(E02).exists()), (true, true));
     let series_files: Vec<_> =

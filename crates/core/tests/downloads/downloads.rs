@@ -14,7 +14,7 @@ use yokoku_core::{
             TorrentSource, Tracker,
         },
     },
-    events::{EventLog, Handler, QueueChanges},
+    events::{EventLog, QueueChanges, Subscriber},
 };
 use yokoku_domain::{
     Clock, DiskSpace, DownloadId, FileTarget, ImportId, ItemId, Live, MediaFileId, MediaKind, MovieId, SeriesId,
@@ -307,7 +307,7 @@ async fn an_import_that_placed_no_files_leaves_its_download_unimported() {
     let setup = setup().await;
     let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
 
-    setup.downloads.handle(&FilesImported { files: Vec::new(), ..imported(Some(added.id)) }).await.unwrap();
+    setup.downloads.handle(&FilesImported { files: Vec::new(), ..imported(Some(added.id)) }.into()).await.unwrap();
 
     assert_eq!(setup.only_download().await.imported_at, None);
 }
@@ -318,9 +318,9 @@ async fn an_import_from_a_download_marks_it_imported_once() {
     setup.client.set(1000, 1000);
     let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
 
-    setup.downloads.handle(&imported(Some(added.id))).await.unwrap();
+    setup.downloads.handle(&imported(Some(added.id)).into()).await.unwrap();
     let first = setup.only_download().await;
-    setup.downloads.handle(&imported(Some(added.id))).await.unwrap();
+    setup.downloads.handle(&imported(Some(added.id)).into()).await.unwrap();
 
     assert_eq!(first.imported_at, Some(TestClock::default().now().timestamp()));
     assert_eq!(setup.only_download().await.revision, first.revision);
@@ -331,8 +331,8 @@ async fn imports_of_scanned_files_or_unknown_downloads_change_nothing() {
     let setup = setup().await;
     let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
 
-    setup.downloads.handle(&imported(None)).await.unwrap();
-    setup.downloads.handle(&imported(Some(DownloadId::generate()))).await.unwrap();
+    setup.downloads.handle(&imported(None).into()).await.unwrap();
+    setup.downloads.handle(&imported(Some(DownloadId::generate())).into()).await.unwrap();
 
     assert_eq!(setup.only_download().await, added);
 }
@@ -345,7 +345,7 @@ async fn an_imported_download_is_removed_with_its_data_once_seeded() {
     let setup = setup_with(CLEAN_UP).await;
     setup.client.set(1000, 1000);
     let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
-    setup.downloads.mark_imported(added.id).await.unwrap();
+    setup.downloads.handle(&imported(Some(added.id)).into()).await.unwrap();
     setup.client.finish_seeding();
 
     let report = setup.downloads.sync().await.unwrap();
@@ -367,14 +367,14 @@ async fn an_imported_download_is_removed_with_its_data_once_seeded() {
 #[tokio::test]
 async fn other_downloads_stay_in_the_client(
     #[case] options: DownloadOptions,
-    #[case] imported: bool,
+    #[case] was_imported: bool,
     #[case] seeded: bool,
 ) {
     let setup = setup_with(options).await;
     setup.client.set(1000, 1000);
     let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
-    if imported {
-        setup.downloads.mark_imported(added.id).await.unwrap();
+    if was_imported {
+        setup.downloads.handle(&imported(Some(added.id)).into()).await.unwrap();
     }
     if seeded {
         setup.client.finish_seeding();

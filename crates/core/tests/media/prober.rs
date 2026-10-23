@@ -7,7 +7,7 @@ use std::{
 use async_trait::async_trait;
 use common::App;
 use yokoku_core::{
-    events::{EventLog, Handler},
+    events::{EventLog, Subscriber},
     media::{
         MediaError, MediaInfo, Prober, VideoStream,
         ports::{MediaProbe, ProbeError},
@@ -64,8 +64,8 @@ impl Setup {
     async fn scan_and_deliver(&self) {
         self.app.scanner.scan().await.unwrap();
         for recorded in EventLog::new(self.app.db.clone()).read_after(None, 100).await.unwrap() {
-            if let Some(found) = recorded.event.get::<FilesFound>() {
-                self.prober.handle(found).await.unwrap();
+            if recorded.event.get::<FilesFound>().is_some() {
+                self.prober.handle(&recorded.event).await.unwrap();
             }
         }
     }

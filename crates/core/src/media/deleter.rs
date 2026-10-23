@@ -4,11 +4,11 @@ use async_trait::async_trait;
 use tracing::{info, instrument, warn};
 use yokoku_domain::{
     ItemId, MediaFileId,
-    events::{DeleteReason, FileDeleted, MovieRemoved, SeriesRemoved},
+    events::{DeleteReason, Event, FileDeleted},
 };
 
 use crate::{
-    events::{Handler, HandlerError, Publisher},
+    events::{HandlerError, Publisher, Subscriber},
     media::{
         MediaError, MediaFile, RootFolders, files,
         ports::{Changes, FileSystem, LibraryLock, MediaRepo},
@@ -79,9 +79,22 @@ impl Deleter {
         }
         Ok(files)
     }
+}
 
-    /// Kept files leave the library but stay on disk.
-    async fn remove_item(&self, item: ItemId, delete_files: bool) -> Result<(), MediaError> {
+/// Deletes the files of a removed item, or only takes them out of the library when the item's
+/// removal keeps them on disk.
+#[async_trait]
+impl Subscriber for Deleter {
+    fn name(&self) -> &'static str {
+        "media.removals"
+    }
+
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        let (item, delete_files) = match event {
+            Event::SeriesRemoved(removed) => (ItemId::Series(removed.series), removed.delete_files),
+            Event::MovieRemoved(removed) => (ItemId::Movie(removed.movie), removed.delete_files),
+            _ => return Ok(()),
+        };
         let _lock = self.lock.acquire().await?;
         let files = self.files_of_item(item).await?;
         if files.is_empty() {
@@ -95,22 +108,6 @@ impl Deleter {
                 .await?;
             info!(kept = files.len(), "files of a removed item left the library");
         }
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl Handler<SeriesRemoved> for Deleter {
-    async fn handle(&self, event: &SeriesRemoved) -> Result<(), HandlerError> {
-        self.remove_item(ItemId::Series(event.series), event.delete_files).await?;
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl Handler<MovieRemoved> for Deleter {
-    async fn handle(&self, event: &MovieRemoved) -> Result<(), HandlerError> {
-        self.remove_item(ItemId::Movie(event.movie), event.delete_files).await?;
         Ok(())
     }
 }

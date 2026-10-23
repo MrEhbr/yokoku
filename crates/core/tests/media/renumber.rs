@@ -1,6 +1,6 @@
 use common::{App, relative};
 use yokoku_core::{
-    events::Handler,
+    events::Subscriber,
     media::{ImportStatus, ports::MediaRepo},
 };
 use yokoku_domain::{
@@ -23,7 +23,7 @@ async fn a_renumbered_file_follows_its_episodes() {
         series: app.frieren.id,
         files: vec![RenumberedFile { file, span: EpisodeSpan::new(2, 3, 3) }, gone],
     };
-    app.scanner.handle(&event).await.unwrap();
+    app.scanner.handle(&event.into()).await.unwrap();
 
     let files = app.db_files().await;
     assert_eq!(relative(&app, files.iter().map(|file| file.path.as_path())), [E01]);
@@ -36,7 +36,7 @@ async fn a_file_whose_episodes_split_goes_to_review() {
     let file = app.linked(&[E01_E02]).await[0].id;
 
     let event = EpisodesRenumbered { series: app.frieren.id, files: vec![RenumberedFile { file, span: None }] };
-    app.scanner.handle(&event).await.unwrap();
+    app.scanner.handle(&event.into()).await.unwrap();
     app.scanner.scan().await.unwrap();
 
     assert!(app.path(E01_E02).exists());
@@ -58,7 +58,7 @@ async fn renumbering_a_series_no_longer_in_the_library_changes_nothing() {
         series: SeriesId::generate(),
         files: vec![RenumberedFile { file, span: EpisodeSpan::new(2, 3, 3) }],
     };
-    app.scanner.handle(&event).await.unwrap();
+    app.scanner.handle(&event.into()).await.unwrap();
 
     assert_eq!(app.db_files().await[0].target, app.episodes(1, 1, 1));
 }

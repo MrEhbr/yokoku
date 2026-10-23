@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use jiff::{SignedDuration, Timestamp, tz::TimeZone};
 use yokoku_core::{
-    events::Handler,
+    events::Subscriber,
     integrations::{
         Rescans,
         ports::{MediaServer, MediaServerError, Played, RescanStore},
@@ -11,7 +11,7 @@ use yokoku_core::{
 };
 use yokoku_domain::{
     Clock, MediaFileId, MovieId,
-    events::{DeleteReason, EventKind, FileDeleted, FileRenamed},
+    events::{DeleteReason, Event, FileDeleted, FileRenamed},
 };
 use yokoku_infra::db::Database;
 use yokoku_test_support::clock::TestClock;
@@ -70,11 +70,8 @@ async fn setup() -> Setup {
 }
 
 impl Setup {
-    async fn handle<E: EventKind>(&self, event: E)
-    where
-        Rescans: Handler<E>,
-    {
-        self.rescans.handle(&event).await.unwrap();
+    async fn handle(&self, event: impl Into<Event>) {
+        self.rescans.handle(&event.into()).await.unwrap();
     }
 
     fn refreshes(&self) -> u32 {

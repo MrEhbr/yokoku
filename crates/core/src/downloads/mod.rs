@@ -23,7 +23,7 @@ use yokoku_domain::{
 };
 
 use self::ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource};
-use crate::events::{Handler, HandlerError, Publisher, QueueChanges};
+use crate::events::{HandlerError, Publisher, QueueChanges, Subscriber};
 
 /// Torrents Yokoku tracks and their state in the download client.
 pub struct Downloads {
@@ -239,17 +239,6 @@ impl Downloads {
         self.sync().await.map(Some)
     }
 
-    /// Records that files from the download reached the library; the first import counts.
-    pub async fn mark_imported(&self, id: DownloadId) -> Result<(), DownloadError> {
-        let Some(mut download) = self.repo.get(id).await? else { return Ok(()) };
-        if download.imported_at.is_none() {
-            download.imported_at = Some(self.clock.now().timestamp());
-            self.repo.save(&mut download).await?;
-            self.changes.notify();
-        }
-        Ok(())
-    }
-
     /// Returns `DownloadCompleted` when the download has just finished.
     fn apply(&self, download: &mut Download, torrent: Option<Torrent>) -> Option<Event> {
         let Some(torrent) = torrent else {
@@ -275,13 +264,23 @@ impl Downloads {
     }
 }
 
+/// Records that files from a download reached the library; the first import counts.
 #[async_trait]
-impl Handler<FilesImported> for Downloads {
-    async fn handle(&self, event: &FilesImported) -> Result<(), HandlerError> {
-        if let Some(download) = event.download
-            && !event.files.is_empty()
-        {
-            self.mark_imported(download).await?;
+impl Subscriber for Downloads {
+    fn name(&self) -> &'static str {
+        "downloads.imports"
+    }
+
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        let Event::FilesImported(FilesImported { download: Some(id), files, .. }) = event else { return Ok(()) };
+        if files.is_empty() {
+            return Ok(());
+        }
+        let Some(mut download) = self.repo.get(*id).await? else { return Ok(()) };
+        if download.imported_at.is_none() {
+            download.imported_at = Some(self.clock.now().timestamp());
+            self.repo.save(&mut download).await?;
+            self.changes.notify();
         }
         Ok(())
     }

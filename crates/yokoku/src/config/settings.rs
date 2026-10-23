@@ -7,8 +7,8 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_json::Value;
 use tracing::info;
-use yokoku_core::events::{Handler, HandlerError};
-use yokoku_domain::{Live, SettingsStore, events::SettingsChanged};
+use yokoku_core::events::{HandlerError, Subscriber};
+use yokoku_domain::{Live, SettingsStore, events::Event};
 
 use crate::config::Config;
 
@@ -96,9 +96,17 @@ async fn read(path: Option<&PathBuf>, store: &dyn SettingsStore) -> Result<Confi
     Ok(config)
 }
 
+/// Reloads the settings after a stored setting changes.
 #[async_trait]
-impl Handler<SettingsChanged> for Settings {
-    async fn handle(&self, _: &SettingsChanged) -> Result<(), HandlerError> {
-        Ok(self.reload().await?)
+impl Subscriber for Settings {
+    fn name(&self) -> &'static str {
+        "config.settings"
+    }
+
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        if let Event::SettingsChanged(_) = event {
+            self.reload().await?;
+        }
+        Ok(())
     }
 }

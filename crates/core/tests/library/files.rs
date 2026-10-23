@@ -6,7 +6,7 @@ use std::{
 use async_trait::async_trait;
 use common::{App, ROOT, TODAY, movie_metadata, series_metadata};
 use yokoku_core::{
-    events::Handler,
+    events::Subscriber,
     library::{FileTracker, ports::MediaFiles},
 };
 use yokoku_domain::{
@@ -48,13 +48,13 @@ impl Setup {
     /// Places `file` and delivers the `FilesFound` for it.
     async fn find(&self, file: MediaFileId, target: FileTarget) {
         self.place(file, target);
-        self.tracker.handle(&found(file, target)).await.unwrap();
+        self.tracker.handle(&found(file, target).into()).await.unwrap();
     }
 
     /// Removes `file` and delivers the `FileDeleted` for it.
     async fn delete(&self, file: MediaFileId, target: FileTarget) {
         self.remove(file);
-        self.tracker.handle(&deleted(file, target)).await.unwrap();
+        self.tracker.handle(&deleted(file, target).into()).await.unwrap();
     }
 }
 
@@ -112,7 +112,7 @@ async fn imported_files_are_linked_like_found_ones() {
         sources: Vec::new(),
     };
 
-    setup.tracker.handle(&event).await.unwrap();
+    setup.tracker.handle(&event.into()).await.unwrap();
 
     assert_eq!(episode_files(&setup).await, [None, None, Some(file)]);
 }
@@ -137,8 +137,8 @@ async fn redelivered_events_change_nothing() {
     setup.find(file, movie).await;
     setup.delete(file, movie).await;
 
-    setup.tracker.handle(&found(file, movie)).await.unwrap();
-    setup.tracker.handle(&deleted(file, movie)).await.unwrap();
+    setup.tracker.handle(&found(file, movie).into()).await.unwrap();
+    setup.tracker.handle(&deleted(file, movie).into()).await.unwrap();
 
     assert_eq!(setup.app.library.movie(setup.movie.id).await.unwrap().file, None);
 }
@@ -151,7 +151,7 @@ async fn a_retried_link_of_a_file_deleted_since_is_skipped() {
     setup.place(file, target);
 
     setup.delete(file, target).await;
-    setup.tracker.handle(&found(file, target)).await.unwrap();
+    setup.tracker.handle(&found(file, target).into()).await.unwrap();
 
     assert_eq!(episode_files(&setup).await, [None, None, None]);
 }
@@ -162,7 +162,7 @@ async fn a_file_is_linked_where_media_holds_it_now() {
     let file = MediaFileId::generate();
     setup.place(file, episodes(setup.series.id, 3, 3));
 
-    setup.tracker.handle(&found(file, episodes(setup.series.id, 1, 1))).await.unwrap();
+    setup.tracker.handle(&found(file, episodes(setup.series.id, 1, 1)).into()).await.unwrap();
 
     assert_eq!(episode_files(&setup).await, [None, None, Some(file)]);
 }

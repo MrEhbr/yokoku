@@ -13,10 +13,12 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 use yokoku_core::events::{
-    Correlated, Delivery, DeliveryConfig, DeliveryFailure, EventId, EventLog, Handler, HandlerError, Subscription,
-    correlation,
+    Correlated, Delivery, DeliveryConfig, DeliveryFailure, EventId, EventLog, HandlerError, Subscriber, correlation,
 };
-use yokoku_domain::{CorrelationId, SeriesId, events::SeriesAdded};
+use yokoku_domain::{
+    CorrelationId, SeriesId,
+    events::{Event, SeriesAdded},
+};
 use yokoku_infra::db::Database;
 
 const SUBSCRIBER: &str = "recorder";
@@ -31,8 +33,13 @@ struct Recorder {
 
 /// Takes event n from its title, `Series n`.
 #[async_trait]
-impl Handler<SeriesAdded> for Recorder {
-    async fn handle(&self, event: &SeriesAdded) -> Result<(), HandlerError> {
+impl Subscriber for Recorder {
+    fn name(&self) -> &'static str {
+        SUBSCRIBER
+    }
+
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        let Event::SeriesAdded(event) = event else { return Ok(()) };
         let id = EventId(event.title.trim_start_matches("Series ").parse()?);
         if let Some(left @ 1..) = self.failures_left.lock().unwrap().get_mut(&id) {
             *left -= 1;
@@ -79,7 +86,7 @@ impl Harness {
             retry_interval: RETRY_INTERVAL,
         };
         let recorder = Arc::new(self.recorder.take().expect("started once"));
-        Delivery::new(self.log.clone(), Arc::new(Subscription::new(SUBSCRIBER).on::<SeriesAdded>(recorder)), config)
+        Delivery::new(self.log.clone(), recorder, config)
     }
 
     fn start(&mut self, poll_interval: Duration) {
@@ -267,8 +274,12 @@ async fn wakes_up_when_events_are_appended(#[future(awt)] mut harness: Harness) 
 struct CorrelationRecorder(Mutex<Vec<Option<CorrelationId>>>);
 
 #[async_trait]
-impl Handler<SeriesAdded> for CorrelationRecorder {
-    async fn handle(&self, _: &SeriesAdded) -> Result<(), HandlerError> {
+impl Subscriber for CorrelationRecorder {
+    fn name(&self) -> &'static str {
+        "correlations"
+    }
+
+    async fn handle(&self, _: &Event) -> Result<(), HandlerError> {
         self.0.lock().unwrap().push(correlation::current());
         Ok(())
     }
@@ -281,11 +292,7 @@ async fn handlers_run_under_the_correlation_id_of_their_event() {
     let log = EventLog::new(db.clone());
     log.append(std::slice::from_ref(&event)).await.unwrap();
     let recorder = Arc::new(CorrelationRecorder::default());
-    let delivery = Delivery::new(
-        log,
-        Arc::new(Subscription::new("correlations").on::<SeriesAdded>(recorder.clone())),
-        DeliveryConfig::default(),
-    );
+    let delivery = Delivery::new(log, recorder.clone(), DeliveryConfig::default());
     let shutdown = CancellationToken::new();
     let task = tokio::spawn(delivery.run(shutdown.clone()));
 

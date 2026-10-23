@@ -4,16 +4,15 @@ use std::{
     sync::Arc,
 };
 
-use async_trait::async_trait;
 use jiff::Timestamp;
 use tracing::{info, instrument};
 use yokoku_domain::{
     Clock, Confidence, FileTarget, ImportId, ItemFolder, ItemId, MediaFileId,
-    events::{DeleteReason, Event, FileDeleted, FilesFound, ImportNeedsReview, MovieAdded, SeriesAdded},
+    events::{DeleteReason, Event, FileDeleted, FilesFound, ImportNeedsReview},
 };
 
 use crate::{
-    events::{Handler, HandlerError, Publisher, QueueChanges},
+    events::{Publisher, QueueChanges},
     media::{
         Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution,
         detect::{ImportPlan, ListedFile, MatchScope},
@@ -21,7 +20,7 @@ use crate::{
     },
 };
 
-mod renumber;
+mod events;
 
 pub struct Scanner {
     repo: Arc<dyn MediaRepo>,
@@ -159,22 +158,6 @@ impl Scanner {
         let paths = files.iter().map(|file| file.path.clone()).collect();
         let claimed = self.repo.claimed_paths().await?.into_iter().collect();
         Ok(Known { files, paths, claimed })
-    }
-}
-
-#[async_trait]
-impl Handler<SeriesAdded> for Scanner {
-    async fn handle(&self, event: &SeriesAdded) -> Result<(), HandlerError> {
-        self.scan_item(ItemId::Series(event.series)).await?;
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl Handler<MovieAdded> for Scanner {
-    async fn handle(&self, event: &MovieAdded) -> Result<(), HandlerError> {
-        self.scan_item(ItemId::Movie(event.movie)).await?;
-        Ok(())
     }
 }
 

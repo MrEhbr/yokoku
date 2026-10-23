@@ -62,8 +62,9 @@ Six crates under `crates/`, layered strictly inward:
 ### Events
 
 Use cases save their change, then publish events through `Publisher` to an SQLite event log — there is no
-transactional outbox, and repositories/aggregates never carry events. A `Delivery` loop per `Subscription`
-(declared in `crates/yokoku/src/subscriptions.rs`) polls the log and calls handlers. A subscription's name
+transactional outbox, and repositories/aggregates never carry events. A `Delivery` loop per `Subscriber`
+(listed in `crates/yokoku/src/subscriptions.rs`) polls the log and hands it every event; `handle` matches the
+events it reacts to and holds the logic itself, unless the web UI or CLI also call it. A subscriber's name
 keys its stored delivery position, so renaming one redelivers the whole log to it. Events carry a
 `CorrelationId` propagated through task-local context (`core::events::correlation`) so History can group
 related changes. `QueueChanges` is an in-process signal that wakes live UI streams.

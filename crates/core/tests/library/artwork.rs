@@ -8,7 +8,7 @@ use common::{App, ROOT, movie_metadata, series_metadata};
 use rstest::rstest;
 use tempfile::TempDir;
 use yokoku_core::{
-    events::Handler,
+    events::Subscriber,
     library::{
         Artworks, Image, LibraryError, artwork_name,
         ports::{ArtworkSource, MetadataError, SeriesRepo},
@@ -196,7 +196,11 @@ async fn a_removed_series_loses_its_cached_images() {
     setup.artworks.image(ItemId::Series(id), ArtworkKind::Poster).await.unwrap();
     setup.artworks.image(ItemId::Series(id), ArtworkKind::Backdrop).await.unwrap();
 
-    setup.artworks.handle(&SeriesRemoved { series: id, title: "Frieren".into(), delete_files: false }).await.unwrap();
+    setup
+        .artworks
+        .handle(&SeriesRemoved { series: id, title: "Frieren".into(), delete_files: false }.into())
+        .await
+        .unwrap();
 
     assert_eq!(setup.cached(), 0);
 }

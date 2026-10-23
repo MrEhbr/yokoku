@@ -1,33 +1,50 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use tracing::{info, instrument};
+use tracing::info;
 use yokoku_domain::{
-    Confidence, FileTarget, ImportId, MediaFileId,
-    events::{EpisodesRenumbered, Event, ImportNeedsReview},
+    Confidence, FileTarget, ImportId, ItemId, MediaFileId,
+    events::{Event, ImportNeedsReview},
 };
 
 use super::Scanner;
 use crate::{
-    events::{Handler, HandlerError},
-    media::{Import, ImportRow, ImportStatus, MediaError, MediaFile, Resolution, RowMatch, ports::Changes},
+    events::{HandlerError, Subscriber},
+    media::{Import, ImportRow, ImportStatus, MediaFile, Resolution, RowMatch, ports::Changes},
 };
 
-impl Scanner {
-    /// Moves each file to the episodes now holding it; a file whose episodes split leaves the
-    /// library and goes to review. Files and series no longer in the library are skipped.
-    #[instrument(skip_all, fields(series = %event.series))]
-    async fn retarget(&self, event: &EpisodesRenumbered) -> Result<(), MediaError> {
+/// Scans the folder of each added item. On renumbered episodes, moves each file to the episodes now
+/// holding it; a file whose episodes split leaves the library and goes to review. Files and series
+/// no longer in the library are skipped.
+#[async_trait]
+impl Subscriber for Scanner {
+    fn name(&self) -> &'static str {
+        "media.scanner"
+    }
+
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        let renumbered = match event {
+            Event::SeriesAdded(added) => {
+                self.scan_item(ItemId::Series(added.series)).await?;
+                return Ok(());
+            },
+            Event::MovieAdded(added) => {
+                self.scan_item(ItemId::Movie(added.movie)).await?;
+                return Ok(());
+            },
+            Event::EpisodesRenumbered(renumbered) => renumbered,
+            _ => return Ok(()),
+        };
         let _lock = self.lock.acquire().await?;
-        let Some(series) = self.catalog.series(event.series).await? else { return Ok(()) };
+        let Some(series) = self.catalog.series(renumbered.series).await? else { return Ok(()) };
         let files: HashMap<MediaFileId, MediaFile> =
             self.repo.files().await?.into_iter().map(|file| (file.id, file)).collect();
 
         let mut changes = Changes::default();
         let mut rows = Vec::new();
-        for renumbered in &event.files {
-            let Some(file) = files.get(&renumbered.file) else { continue };
-            match renumbered.span {
+        for moved in &renumbered.files {
+            let Some(file) = files.get(&moved.file) else { continue };
+            match moved.span {
                 Some(span) => {
                     changes.retargeted_files.push((file.id, FileTarget::Episodes { series: series.id, span }));
                 },
@@ -61,15 +78,12 @@ impl Scanner {
         }
         self.repo.save(&changes).await?;
         self.events.publish_all(events).await;
-        info!(retargeted = changes.retargeted_files.len(), to_review = changes.removed_files.len(), "files renumbered");
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl Handler<EpisodesRenumbered> for Scanner {
-    async fn handle(&self, event: &EpisodesRenumbered) -> Result<(), HandlerError> {
-        self.retarget(event).await?;
+        info!(
+            series = %series.id,
+            retargeted = changes.retargeted_files.len(),
+            to_review = changes.removed_files.len(),
+            "files renumbered"
+        );
         Ok(())
     }
 }

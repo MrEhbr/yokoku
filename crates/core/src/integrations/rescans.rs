@@ -3,13 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use jiff::SignedDuration;
 use tracing::{debug, info, instrument};
-use yokoku_domain::{
-    Clock, StorageError,
-    events::{FileDeleted, FileRenamed, FilesImported},
-};
+use yokoku_domain::{Clock, StorageError, events::Event};
 
 use crate::{
-    events::{Handler, HandlerError},
+    events::{HandlerError, Subscriber},
     integrations::ports::{MediaServer, MediaServerError, RescanStore},
 };
 
@@ -68,31 +65,18 @@ impl Rescans {
     }
 }
 
-impl Rescans {
-    async fn request(&self) -> Result<(), HandlerError> {
-        self.store.request(self.clock.now().timestamp()).await?;
-        debug!("media server rescan requested");
+/// Requests a rescan when library files are imported, renamed or deleted.
+#[async_trait]
+impl Subscriber for Rescans {
+    fn name(&self) -> &'static str {
+        "integrations.rescans"
+    }
+
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        if matches!(event, Event::FilesImported(_) | Event::FileRenamed(_) | Event::FileDeleted(_)) {
+            self.store.request(self.clock.now().timestamp()).await?;
+            debug!("media server rescan requested");
+        }
         Ok(())
-    }
-}
-
-#[async_trait]
-impl Handler<FilesImported> for Rescans {
-    async fn handle(&self, _: &FilesImported) -> Result<(), HandlerError> {
-        self.request().await
-    }
-}
-
-#[async_trait]
-impl Handler<FileRenamed> for Rescans {
-    async fn handle(&self, _: &FileRenamed) -> Result<(), HandlerError> {
-        self.request().await
-    }
-}
-
-#[async_trait]
-impl Handler<FileDeleted> for Rescans {
-    async fn handle(&self, _: &FileDeleted) -> Result<(), HandlerError> {
-        self.request().await
     }
 }

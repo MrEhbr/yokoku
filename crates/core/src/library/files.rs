@@ -3,11 +3,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use yokoku_domain::{
     FileTarget, MediaFileId,
-    events::{FileDeleted, FilesFound, FilesImported, LinkedFile},
+    events::{Event, FilesFound, FilesImported},
 };
 
 use crate::{
-    events::{Handler, HandlerError},
+    events::{HandlerError, Subscriber},
     library::{
         LibraryError,
         ports::{MediaFiles, MovieRepo, SeriesRepo},
@@ -25,25 +25,6 @@ pub struct FileTracker {
 impl FileTracker {
     pub fn new(series: Arc<dyn SeriesRepo>, movies: Arc<dyn MovieRepo>, files: Arc<dyn MediaFiles>) -> Self {
         Self { series, movies, files }
-    }
-
-    /// Links each file where media holds it now; files no longer in the library are skipped.
-    async fn link(&self, files: &[LinkedFile]) -> Result<(), LibraryError> {
-        for linked in files {
-            if let Some(target) = self.files.target(linked.file).await? {
-                self.update(target, |file| *file = Some(linked.file)).await?;
-            }
-        }
-        Ok(())
-    }
-
-    async fn unlink(&self, deleted: MediaFileId, target: FileTarget) -> Result<(), LibraryError> {
-        self.update(target, |file| {
-            if *file == Some(deleted) {
-                *file = None;
-            }
-        })
-        .await
     }
 
     /// Items and episodes no longer in the library are skipped.
@@ -72,23 +53,33 @@ impl FileTracker {
     }
 }
 
+/// Links found and imported files where media holds them now, and unlinks deleted ones; files no
+/// longer in the library are skipped.
 #[async_trait]
-impl Handler<FilesFound> for FileTracker {
-    async fn handle(&self, event: &FilesFound) -> Result<(), HandlerError> {
-        Ok(self.link(&event.files).await?)
+impl Subscriber for FileTracker {
+    fn name(&self) -> &'static str {
+        "library.files"
     }
-}
 
-#[async_trait]
-impl Handler<FilesImported> for FileTracker {
-    async fn handle(&self, event: &FilesImported) -> Result<(), HandlerError> {
-        Ok(self.link(&event.files).await?)
-    }
-}
-
-#[async_trait]
-impl Handler<FileDeleted> for FileTracker {
-    async fn handle(&self, event: &FileDeleted) -> Result<(), HandlerError> {
-        Ok(self.unlink(event.file, event.target).await?)
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        match event {
+            Event::FilesFound(FilesFound { files }) | Event::FilesImported(FilesImported { files, .. }) => {
+                for linked in files {
+                    if let Some(target) = self.files.target(linked.file).await? {
+                        self.update(target, |file| *file = Some(linked.file)).await?;
+                    }
+                }
+            },
+            Event::FileDeleted(deleted) => {
+                self.update(deleted.target, |file| {
+                    if *file == Some(deleted.file) {
+                        *file = None;
+                    }
+                })
+                .await?;
+            },
+            _ => {},
+        }
+        Ok(())
     }
 }

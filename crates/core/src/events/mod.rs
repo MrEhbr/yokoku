@@ -7,11 +7,11 @@ mod event_log;
 mod history;
 mod publisher;
 mod signal;
-mod subscription;
+mod subscriber;
 
 pub use delivery::{Delivery, DeliveryConfig};
 pub use event_log::{Correlated, DeliveryFailure, EventId, EventLog, EventStore, Recorded};
 pub use history::History;
 pub use publisher::Publisher;
 pub use signal::QueueChanges;
-pub use subscription::{Handler, HandlerError, Subscription};
+pub use subscriber::{HandlerError, Subscriber};

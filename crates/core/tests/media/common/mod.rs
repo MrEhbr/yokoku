@@ -9,17 +9,19 @@ use std::{
 use jiff::{Timestamp, civil::date};
 use tempfile::TempDir;
 use yokoku_core::{
-    events::{EventLog, Publisher, QueueChanges},
+    events::{EventLog, HandlerError, Publisher, QueueChanges, Subscriber},
     library::ports::{MovieRepo, SeriesRepo},
     media::{
-        ImportMode, ImportPlanner, ImportSettings, Importer, Renamer, Reviewer, RootFolder, RootFolders, RootKind,
-        Scanner,
-        ports::{MergeError, Merger, Track},
+        Import, ImportMode, ImportPlanner, ImportSettings, Importer, Renamer, Reviewer, RootFolder, RootFolders,
+        RootKind, Scanner,
+        ports::{MediaRepo, MergeError, Merger, Track},
     },
 };
 use yokoku_domain::{
-    Clock, EpisodeSpan, FileTarget, ItemFolder, Live, MonitorPreset, Movie, MovieMetadata, Releases, Series,
-    SeriesMetadata, SourceStatus, events::Event, naming::Naming,
+    Clock, DownloadId, EpisodeSpan, FileTarget, ItemFolder, ItemId, Live, MonitorPreset, Movie, MovieMetadata,
+    Releases, Series, SeriesMetadata, SourceStatus,
+    events::{DownloadCompleted, Event},
+    naming::Naming,
 };
 use yokoku_infra::{
     db::Database,
@@ -127,6 +129,20 @@ impl App {
 
     pub fn movie(&self) -> FileTarget {
         FileTarget::Movie(self.dune.id)
+    }
+
+    /// Delivers `DownloadCompleted` for `content` to the planner; the download's import afterwards.
+    pub async fn complete_download(
+        &self,
+        download: DownloadId,
+        content: &Path,
+        item: Option<ItemId>,
+        season: Option<u16>,
+    ) -> Result<Option<Import>, HandlerError> {
+        let name = content.file_name().unwrap().to_string_lossy().into_owned();
+        let completed = DownloadCompleted { download, name, content_path: content.to_owned(), item, season };
+        self.planner.handle(&completed.into()).await?;
+        Ok(self.db.import_for_download(download).await.unwrap())
     }
 
     pub async fn events(&self) -> Vec<Event> {

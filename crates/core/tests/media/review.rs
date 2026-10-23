@@ -341,8 +341,7 @@ async fn a_planned_pack_whose_season_the_series_lacks_keeps_the_series() {
     let item = Some(ItemId::Series(app.frieren.id));
 
     let import = app
-        .planner
-        .plan(DownloadId::generate(), &app.path("downloads/Frieren.S13.1080p"), item, None)
+        .complete_download(DownloadId::generate(), &app.path("downloads/Frieren.S13.1080p"), item, None)
         .await
         .unwrap()
         .unwrap();

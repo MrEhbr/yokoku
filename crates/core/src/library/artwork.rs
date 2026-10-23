@@ -1,13 +1,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use yokoku_domain::{
-    Artwork, ArtworkKind, ExternalId, ItemId,
-    events::{MovieRemoved, SeriesRemoved},
-};
+use yokoku_domain::{Artwork, ArtworkKind, ExternalId, ItemId, events::Event};
 
 use crate::{
-    events::{Handler, HandlerError},
+    events::{HandlerError, Subscriber},
     library::{
         LibraryError,
         ports::{ArtworkCache, ArtworkSource, MovieRepo, SeriesRepo},
@@ -95,16 +92,19 @@ fn content_type(name: &str) -> &'static str {
     }
 }
 
+/// Drops the cached artwork of removed items.
 #[async_trait]
-impl Handler<SeriesRemoved> for Artworks {
-    async fn handle(&self, event: &SeriesRemoved) -> Result<(), HandlerError> {
-        Ok(self.cache.remove(ItemId::Series(event.series)).await?)
+impl Subscriber for Artworks {
+    fn name(&self) -> &'static str {
+        "library.artwork"
     }
-}
 
-#[async_trait]
-impl Handler<MovieRemoved> for Artworks {
-    async fn handle(&self, event: &MovieRemoved) -> Result<(), HandlerError> {
-        Ok(self.cache.remove(ItemId::Movie(event.movie)).await?)
+    async fn handle(&self, event: &Event) -> Result<(), HandlerError> {
+        let item = match event {
+            Event::SeriesRemoved(removed) => ItemId::Series(removed.series),
+            Event::MovieRemoved(removed) => ItemId::Movie(removed.movie),
+            _ => return Ok(()),
+        };
+        Ok(self.cache.remove(item).await?)
     }
 }
