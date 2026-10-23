@@ -35,8 +35,9 @@ pub(crate) enum Route {
     Downloads {},
     #[route("/history")]
     History {},
-    #[route("/settings#:part")]
-    Settings { part: SettingsPart },
+    #[redirect("/settings", || Route::Settings { page: SettingsPage::default() })]
+    #[route("/settings/:page")]
+    Settings { page: SettingsPage },
 }
 
 impl Route {
@@ -63,40 +64,53 @@ impl Route {
     }
 
     pub(crate) fn settings() -> Self {
-        Self::Settings { part: SettingsPart::Top }
+        Self::Settings { page: SettingsPage::Connections }
     }
 }
 
-/// The part of the Settings page scrolled to, as the URL's hash fragment.
+/// A page of Settings, as the URL's last segment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum SettingsPart {
+pub(crate) enum SettingsPage {
     #[default]
-    Top,
-    RootFolders,
+    Connections,
+    Metadata,
+    Library,
+    Import,
+    Naming,
+    Schedules,
+    Server,
 }
 
-impl SettingsPart {
-    /// The element id; empty for the top.
-    pub(crate) fn id(self) -> &'static str {
+impl SettingsPage {
+    /// In sidebar order.
+    pub(crate) const ALL: [Self; 7] =
+        [Self::Connections, Self::Metadata, Self::Library, Self::Import, Self::Naming, Self::Schedules, Self::Server];
+
+    pub(crate) fn title(self) -> &'static str {
         match self {
-            Self::Top => "",
-            Self::RootFolders => "root-folders",
+            Self::Connections => "Connections",
+            Self::Metadata => "Metadata",
+            Self::Library => "Library",
+            Self::Import => "Import",
+            Self::Naming => "Naming",
+            Self::Schedules => "Schedules",
+            Self::Server => "Server",
         }
     }
 }
 
-impl fmt::Display for SettingsPart {
+impl fmt::Display for SettingsPage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.id())
+        f.write_str(&self.title().to_lowercase())
     }
 }
 
-impl FromStr for SettingsPart {
+impl FromStr for SettingsPage {
     type Err = Infallible;
 
-    /// The top for an unknown part.
+    /// The first page for an unknown one.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(if value == Self::RootFolders.id() { Self::RootFolders } else { Self::Top })
+        Ok(Self::ALL.into_iter().find(|page| page.to_string() == value).unwrap_or_default())
     }
 }
 
@@ -140,18 +154,26 @@ pub fn App() -> Element {
 mod tests {
     use rstest::rstest;
 
-    use super::{Kind, Route, SearchText, SettingsPart};
+    use super::{Kind, Route, SearchText, SettingsPage};
+
+    #[test]
+    fn each_settings_page_survives_the_route_url() {
+        for page in SettingsPage::ALL {
+            let route = Route::Settings { page };
+
+            let parsed: Route = route.to_string().parse().unwrap();
+
+            assert!(parsed == route, "{route} parsed as {parsed}");
+        }
+    }
 
     #[rstest]
-    #[case::top(SettingsPart::Top, "/settings")]
-    #[case::root_folders(SettingsPart::RootFolders, "/settings#root-folders")]
-    fn a_settings_part_is_the_hash_fragment(#[case] part: SettingsPart, #[case] url: &str) {
-        let route = Route::Settings { part };
-
+    #[case::bare("/settings")]
+    #[case::unknown_page("/settings/root-folders")]
+    fn settings_without_a_known_page_opens_the_first(#[case] url: &str) {
         let parsed: Route = url.parse().unwrap();
 
-        assert_eq!(route.to_string(), url);
-        assert!(parsed == route, "{url} parsed as {parsed}");
+        assert!(parsed == Route::settings(), "{url} parsed as {parsed}");
     }
 
     #[rstest]

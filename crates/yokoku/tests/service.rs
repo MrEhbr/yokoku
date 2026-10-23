@@ -409,16 +409,15 @@ async fn settings_can_be_changed_and_reset() {
     let dir = tempfile::tempdir().unwrap();
     let service = Service::start(dir.path());
 
-    let page = service.get("/settings");
+    let pages = ["/settings", "/settings/import", "/settings/server"].map(|path| service.get(path));
     let saved = service.post_json("/api/settings", r#"{"key":"import.mode","value":"copy"}"#);
     let wrong = service.post_json("/api/settings", r#"{"key":"import.mode","value":"teleport"}"#);
     let hidden = service.post_json("/api/settings", r#"{"key":"web.port","value":9000}"#);
     let reset = service.post_json("/api/settings/reset", r#"{"key":"import.mode"}"#);
 
-    assert!(
-        page.starts_with("HTTP/1.1 200") && page.contains("Import mode") && page.contains("Listen address"),
-        "{page}"
-    );
+    for (page, field) in pages.iter().zip(["Transmission address", "Import mode", "Listen address"]) {
+        assert!(page.starts_with("HTTP/1.1 200") && page.contains(field), "{field}: {page}");
+    }
     assert!(saved.contains(r#""value":"copy","stored":true"#), "{saved}");
     assert!(!wrong.starts_with("HTTP/1.1 200") && wrong.contains("teleport"), "{wrong}");
     assert!(hidden.contains("cannot be changed here"), "{hidden}");

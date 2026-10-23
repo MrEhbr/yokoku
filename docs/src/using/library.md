@@ -19,7 +19,7 @@ or a table. **Add** opens the [search](./adding.md).
 :   From the Jellyfin user's played files: **Watched** when every file has been
     played, **In progress** when some have, **Unwatched** when none have.
     *Unwatched* also matches items without files. Needs the Jellyfin
-    [**User**](./settings.md#sections) setting.
+    [**User**](./settings.md#pages) setting.
 
 **Sort by**
 :   **Title**, **Date added** (newest first) or **Next release** (soonest

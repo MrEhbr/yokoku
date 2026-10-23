@@ -6,7 +6,7 @@ use crate::{
         settings::{Root, roots},
     },
     components::alert::{Alert, AlertDescription, AlertTitle, AlertVariant},
-    route::{Route, SettingsPart},
+    route::{Route, SettingsPage},
 };
 
 /// Asks for a root folder in Settings while there is none of `kind`, or none at all without one.
@@ -30,7 +30,7 @@ pub(crate) fn RootPrompt(kind: Option<Kind>) -> Element {
                 Link {
                     class: "underline",
                     to: Route::Settings {
-                        part: SettingsPart::RootFolders,
+                        page: SettingsPage::Library,
                     },
                     "Settings"
                 }

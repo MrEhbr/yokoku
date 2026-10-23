@@ -57,7 +57,7 @@ pick_up_folder = "/srv/media/downloads/yokoku"
 Yokoku asks Transmission for its torrents every 30 seconds, and every 5
 while one is queued, checking or downloading. A download counts as finished
 once all its wanted files are complete and it isn't being checked. Change the
-timing under [Schedules](../using/settings.md#sections).
+timing under [Schedules](../using/settings.md#pages).
 
 ## After Seeding
 

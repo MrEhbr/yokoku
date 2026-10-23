@@ -1,7 +1,8 @@
 # Settings
 
 **Settings** (the gear icon) shows every setting in effect and lets you change
-most of them while Yokoku runs.
+most of them while Yokoku runs. The pages are listed beside the settings, or
+above them on a narrow screen.
 
 ## Saving
 
@@ -22,18 +23,16 @@ Secrets (passwords, API keys and tokens) start empty and show as
 *Set (abcd…wxyz)*, the first and last four characters, once they have a
 value. Type a new value to replace one.
 
-## Sections
+## Pages
 
-**Download client**
-:   Transmission's RPC address, username and password.
+**Connections**
+:   **Download client**: Transmission's RPC address, username and password.
 
-**Indexer**
-:   Jackett's address and API key, for **Search releases**. Leave the address
-    empty to not search.
+    **Indexer**: Jackett's address and API key, for **Search releases**. Leave
+    the address empty to not search.
 
-**Media server**
-:   Jellyfin's address, an API key and the user whose played items count as
-    watched. Leave the address empty to not use Jellyfin.
+    **Media server**: Jellyfin's address, an API key and the user whose played
+    items count as watched. Leave the address empty to not use Jellyfin.
 
 **Metadata**
 :   The TMDB token, the TVDB API key and subscriber PIN, the **Language** of
@@ -46,13 +45,11 @@ value. Type a new value to replace one.
 
 **Import**
 :   Import mode (hard link, copy or move), removing torrents after seeding,
-    and the labels and folder of Transmission torrents to pick up.
+    the labels and folder of Transmission torrents to pick up, and where
+    `ffprobe` and `ffmpeg` are.
 
 **Naming**
 :   Patterns for folders and files.
-
-**Files**
-:   Where `ffprobe` is.
 
 **Schedules**
 :   When the background jobs run.
@@ -64,7 +61,8 @@ value. Type a new value to replace one.
 
 ## Test a Connection
 
-**Download client**, **Indexer** and **Media server** have **Test connection**. It tries
+**Download client**, **Indexer** and **Media server** on **Connections** each have
+**Test connection**. It tries
 the values as typed, saved or not, and shows *Connected* with the server's
 version, or the error.
 

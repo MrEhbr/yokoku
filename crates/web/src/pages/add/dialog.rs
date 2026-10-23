@@ -18,7 +18,7 @@ use crate::{
         select::{Select, SelectOption},
         skeleton::Skeleton,
     },
-    route::{Route, SettingsPart},
+    route::{Route, SettingsPage},
 };
 
 /// The options of the picked result; adding it opens its page. Closing it
@@ -134,7 +134,7 @@ fn OptionsForm(hit: SearchHit, roots: Vec<RootChoice>, monitor: MonitorPreset, o
                     Link {
                         class: "underline",
                         to: Route::Settings {
-                            part: SettingsPart::RootFolders,
+                            page: SettingsPage::Library,
                         },
                         "Settings"
                     }
