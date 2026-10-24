@@ -67,6 +67,8 @@ pub struct ScheduleSettings {
     pub refresh_metadata: Cron,
     /// Cron schedule with seconds for scanning root folders for outside changes.
     pub scan_library: Cron,
+    /// Cron schedule with seconds for sending the notifications due.
+    pub send_notifications: Cron,
 }
 
 impl ScheduleSettings {
@@ -89,6 +91,7 @@ impl Default for ScheduleSettings {
             refresh_ratings: cron("0 0 6 * * *"),
             refresh_metadata: cron("0 0 */12 * * *"),
             scan_library: cron("0 0 5 * * *"),
+            send_notifications: cron("*/10 * * * * *"),
         }
     }
 }

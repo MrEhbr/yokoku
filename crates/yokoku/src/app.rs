@@ -12,6 +12,7 @@ use yokoku_core::{
         Deleter, ImportPlanner, Importer, Prober, Renamer, Reviewer, RootFolders, Scanner,
         ports::{FileSystem, LibraryLock},
     },
+    notifications::Notifications,
 };
 use yokoku_domain::Clock;
 use yokoku_infra::{
@@ -20,6 +21,7 @@ use yokoku_infra::{
     indexers::JackettClient,
     media_servers::JellyfinClient,
     metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient},
+    notifiers::NtfyClient,
     ratings::ImdbDataset,
     system::{ArtworkFiles, FfMpeg, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
@@ -133,6 +135,13 @@ impl App {
             queue_changes.clone(),
         ));
 
+        let notifications = Arc::new(Notifications::new(
+            Arc::new(NtfyClient::new(settings.live(|config| config.notifications.ntfy.clone()))),
+            db.clone(),
+            db.clone(),
+            settings.live(|config| config.notifications.events.clone()),
+            clock.clone(),
+        ));
         let subscribers: Vec<Arc<dyn Subscriber>> = vec![
             scanner.clone(),
             ratings.clone(),
@@ -150,6 +159,7 @@ impl App {
             downloads.clone(),
             prober.clone(),
             rescans.clone(),
+            notifications.clone(),
             Arc::new(settings.clone()),
         ];
         let jobs: Vec<Arc<dyn Job>> = vec![
@@ -161,6 +171,7 @@ impl App {
             rescans.clone(),
             Arc::new(WatchSync::new(jellyfin, db.clone(), db.clone(), db.clone())),
             ratings.clone(),
+            notifications,
         ];
 
         let services = Services {

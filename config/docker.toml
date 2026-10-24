@@ -104,6 +104,8 @@ refresh_ratings = "0 0 6 * * *"
 refresh_metadata = "0 0 */12 * * *"
 # Looks for files changed outside Yokoku in the root folders.
 scan_library = "0 0 5 * * *"
+# Sends the notifications that went 30 s without another about the same series or movie.
+send_notifications = "*/10 * * * * *"
 
 # How finished downloads reach the library: hardlink, copy or move.
 [import]
@@ -128,7 +130,18 @@ merge = true
 # From the top of Jackett's dashboard.
 # api_key = { file = "/run/secrets/jackett_api_key" }
 
-[ntfy]
+# What sends a notification, while ntfy has a topic.
+[notifications.events]
+# Files placed in the library.
+imported = true
+needs_review = true
+failed = true
+# Torrents added to Transmission.
+grabbed = true
+# Torrents that finished downloading.
+downloaded = true
+
+[notifications.ntfy]
 # The public ntfy.sh or a self-hosted server.
 url = "https://ntfy.sh"
 # Notifications are off while unset. Anyone who knows a topic on ntfy.sh can read it.

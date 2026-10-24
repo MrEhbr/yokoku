@@ -67,13 +67,15 @@ impl ConnectionTest for Settings {
                 .await
                 .map_err(|error| error.to_string()),
             Connection::Ntfy => {
-                let Some(topic) = config.ntfy.topic.clone() else { return Err("Set the topic first".to_owned()) };
+                let Some(topic) = config.notifications.ntfy.topic.clone() else {
+                    return Err("Set the topic first".to_owned());
+                };
                 let test = Notification {
                     title: "Yokoku".to_owned(),
                     message: "Notifications from Yokoku reach this topic.".to_owned(),
                     priority: Priority::Normal,
                 };
-                NtfyClient::new(Live::fixed(config.ntfy.clone()))
+                NtfyClient::new(Live::fixed(config.notifications.ntfy.clone()))
                     .send(&test)
                     .await
                     .map(|()| topic)

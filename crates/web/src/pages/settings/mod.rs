@@ -156,12 +156,10 @@ fn Groups(settings: Vec<Setting>, page: SettingsPage) -> Element {
                 },
                 SettingsPage::Notifications => rsx! {
                     Group { title: "ntfy",
-                        {fields(Section::Notifications)}
-                        Test {
-                            connection: Connection::Ntfy,
-                            keys: keys(Section::Notifications),
-                        }
+                        {fields(Section::Ntfy)}
+                        Test { connection: Connection::Ntfy, keys: keys(Section::Ntfy) }
                     }
+                    Group { title: "Notify about", {fields(Section::Notifications)} }
                 },
                 SettingsPage::Schedules => rsx! {
                     Group { title: "Schedules",

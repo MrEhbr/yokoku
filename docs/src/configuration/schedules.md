@@ -14,6 +14,7 @@ sync_watched          = "0 */15 * * * *"
 refresh_ratings       = "0 0 6 * * *"
 refresh_metadata      = "0 0 */12 * * *"
 scan_library          = "0 0 5 * * *"
+send_notifications    = "*/10 * * * * *"
 ```
 
 | Setting | Default | Job |
@@ -26,6 +27,7 @@ scan_library          = "0 0 5 * * *"
 | `refresh_ratings` | 06:00 daily | Refreshes every item's [IMDb rating](../integrations/ratings.md) |
 | `refresh_metadata` | every 12 h | Refreshes the items that are [due](../integrations/metadata.md#refreshing) |
 | `scan_library` | 05:00 daily | Looks for files added or deleted outside Yokoku in the root folders |
+| `send_notifications` | every 10 s | Sends the [notifications](../integrations/ntfy.md#what-notifies) that went 30 s without another about the same series or movie |
 
 Schedules follow the **Time zone** setting (`clock.timezone`), or the server's own
 zone when it's empty: `0 0 5 * * *` is 05:00 there.

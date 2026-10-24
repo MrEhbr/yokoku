@@ -53,7 +53,7 @@ value. Type a new value to replace one.
 
 **Notifications**
 :   The [ntfy](../integrations/ntfy.md) server, topic and access token, with
-    **Send test notification**.
+    **Send test notification**, and a switch for each kind of notification.
 
 **Schedules**
 :   When the background jobs run.

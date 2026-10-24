@@ -44,10 +44,10 @@ Six crates under `crates/`, layered strictly inward:
 - `domain` — value types, rules, naming templates, the event contract (`yokoku_domain::events`) and shared
   ports (`Clock`, `SettingsStore` in `ports.rs`). No I/O.
 - `core` — use cases (`Library`, `Downloads`, `Scanner`, `Importer`, `Renamer`, ...) grouped by module
-  (`library`, `downloads`, `media`, `integrations`, `events`). Each module declares its own `ports.rs`
-  traits; use cases take `Arc<dyn Port>`.
+  (`library`, `downloads`, `media`, `integrations`, `notifications`, `events`). Each module declares its
+  own `ports.rs` traits; use cases take `Arc<dyn Port>`.
 - `infra` — adapters implementing those ports: SQLite via sqlx (runtime queries, migrations in
-  `crates/infra/migrations`), TMDB/TVDB, Transmission, Jackett (Torznab), Jellyfin,
+  `crates/infra/migrations`), TMDB/TVDB, Transmission, Jackett (Torznab), Jellyfin, ntfy,
   filesystem/ffprobe/ffmpeg. The single `Database` type implements most storage ports.
 - `web` — Dioxus 0.7 fullstack UI. Feature `web` builds the wasm client; feature `server` adds server
   functions (`src/api/`) that call use cases through `AppState` (`src/state.rs`, wrapping

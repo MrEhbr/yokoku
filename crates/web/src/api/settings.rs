@@ -19,6 +19,7 @@ pub enum Section {
     DownloadClient,
     Indexer,
     MediaServer,
+    Ntfy,
     Notifications,
     Metadata,
     Library,

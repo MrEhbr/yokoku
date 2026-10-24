@@ -4,8 +4,12 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use yokoku_core::media::{RootFolder, RootKind};
+use yokoku_core::{
+    media::{RootFolder, RootKind},
+    notifications::NotificationSettings,
+};
 use yokoku_domain::MonitorPreset;
+use yokoku_infra::notifiers::NtfySettings;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DatabaseConfig {
@@ -39,6 +43,13 @@ impl WebConfig {
     pub fn address(&self) -> SocketAddr {
         SocketAddr::new(self.host, self.port)
     }
+}
+
+/// What notifies, and the service notifications go through.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct NotificationsConfig {
+    pub events: NotificationSettings,
+    pub ntfy: NtfySettings,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

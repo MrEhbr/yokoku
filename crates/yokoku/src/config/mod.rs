@@ -21,7 +21,6 @@ use yokoku_infra::{
     indexers::JackettSettings,
     media_servers::JellyfinSettings,
     metadata::MetadataSettings,
-    notifiers::NtfySettings,
     ratings::RatingsSettings,
     system::{ClockSettings, MediaTools},
 };
@@ -29,7 +28,7 @@ use yokoku_infra::{
 use crate::config::schedules::ScheduleSettings;
 pub use crate::config::{
     log::{LogConfig, LogFormat, LogOutput},
-    sections::{AddConfig, DatabaseConfig, EventsConfig, RootConfig, WebConfig},
+    sections::{AddConfig, DatabaseConfig, EventsConfig, NotificationsConfig, RootConfig, WebConfig},
     settings::Settings,
 };
 
@@ -55,7 +54,7 @@ pub struct Config {
     pub import: ImportSettings,
     pub jellyfin: JellyfinSettings,
     pub jackett: JackettSettings,
-    pub ntfy: NtfySettings,
+    pub notifications: NotificationsConfig,
     pub files: MediaTools,
     pub naming: Naming,
     #[serde(skip_serializing_if = "Vec::is_empty")]
