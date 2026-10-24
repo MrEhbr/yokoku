@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.11.0](https://github.com/MrEhbr/yokoku/compare/v0.10.0..v0.11.0) - 2026-10-24
+
+### Features
+
+- **(notifications)** add ntfy and a test notification in Settings - ([6bf8108](https://github.com/MrEhbr/yokoku/commit/6bf810883056f55b64e4293175fb7b04e9d6872d)) `+354 / -9 across 19 file(s)` - Aleksei Burmistrov
+- **(notifications)** notify about imports, reviews, failures and torrents - ([66bc5db](https://github.com/MrEhbr/yokoku/commit/66bc5db5928964154e353be294eaab079202ff02)) `+741 / -27 across 19 file(s)` - Aleksei Burmistrov
+- **(web)** split Settings into pages with a sidebar - ([7c72f78](https://github.com/MrEhbr/yokoku/commit/7c72f78b533309d0820ef085429d28c4bb035a5b)) `+201 / -167 across 9 file(s)` - Aleksei Burmistrov
+
+### Refactoring
+
+- share the use cases between App and the web AppState as Services - ([ad99495](https://github.com/MrEhbr/yokoku/commit/ad99495ffea0b4f8668c223779103f8e89417a3e)) `+83 / -81 across 6 file(s)` - Aleksei Burmistrov
+- tidy the serve entry point and its web state - ([43f7e5b](https://github.com/MrEhbr/yokoku/commit/43f7e5b42e45b3969326f49168dc84e48841f956)) `+97 / -87 across 10 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 5 commit(s) contributed to the release.
+- 1 day(s) between first and last commit.
+- 5 commit(s) parsed as conventional.
+- Diff totals: +1476 / -371 across 63 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 13 day(s) since the previous release.
+
 ## [0.10.0](https://github.com/MrEhbr/yokoku/compare/v0.9.0..v0.10.0) - 2026-10-11
 
 ### Features

@@ -3,6 +3,44 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.11.0](https://github.com/MrEhbr/yokoku/compare/v0.10.0..v0.11.0) - 2026-10-24
+
+### Bug Fixes
+
+- **(deps)** update rustls-webpki and webpki roots for RUSTSEC-2026-0381/0382/0383 - ([e356f21](https://github.com/MrEhbr/yokoku/commit/e356f215779902a6774251305dc0b8b9c176c505)) `+6 / -6 across 1 file(s)` - Aleksei Burmistrov
+- **(deps)** update yanked yoke-derive to 0.8.4 - ([1a95754](https://github.com/MrEhbr/yokoku/commit/1a9575406d5c1f13915d6ed465f427017c5f7499)) `+2 / -2 across 1 file(s)` - Aleksei Burmistrov
+
+### Features
+
+- **(notifications)** add ntfy and a test notification in Settings - ([6bf8108](https://github.com/MrEhbr/yokoku/commit/6bf810883056f55b64e4293175fb7b04e9d6872d)) `+354 / -9 across 19 file(s)` - Aleksei Burmistrov
+- **(notifications)** notify about imports, reviews, failures and torrents - ([66bc5db](https://github.com/MrEhbr/yokoku/commit/66bc5db5928964154e353be294eaab079202ff02)) `+741 / -27 across 19 file(s)` - Aleksei Burmistrov
+- **(web)** split Settings into pages with a sidebar - ([7c72f78](https://github.com/MrEhbr/yokoku/commit/7c72f78b533309d0820ef085429d28c4bb035a5b)) `+201 / -167 across 9 file(s)` - Aleksei Burmistrov
+
+### Refactoring
+
+- replace Handler&lt;E> and Subscription with a Subscriber trait - ([bca60b8](https://github.com/MrEhbr/yokoku/commit/bca60b83b3dc81b4f239880e71edd6bd172b9c15)) `+459 / -626 across 35 file(s)` - Aleksei Burmistrov
+- add a Job trait and run each job's logic in its own run - ([abb8ec8](https://github.com/MrEhbr/yokoku/commit/abb8ec87b7d08a4d4a7776b58e047df413fd5570)) `+674 / -519 across 29 file(s)` - Aleksei Burmistrov
+- move subscribers, jobs and event plumbing from App into Background - ([a08346b](https://github.com/MrEhbr/yokoku/commit/a08346b8ee3c3710f265fdf9b0fdc3e3f9adc2b1)) `+168 / -169 across 9 file(s)` - Aleksei Burmistrov
+- share the use cases between App and the web AppState as Services - ([ad99495](https://github.com/MrEhbr/yokoku/commit/ad99495ffea0b4f8668c223779103f8e89417a3e)) `+83 / -81 across 6 file(s)` - Aleksei Burmistrov
+- tidy the serve entry point and its web state - ([43f7e5b](https://github.com/MrEhbr/yokoku/commit/43f7e5b42e45b3969326f49168dc84e48841f956)) `+97 / -87 across 10 file(s)` - Aleksei Burmistrov
+
+### Tests
+
+- **(service)** wait for the service's own start before sending requests - ([98af4e7](https://github.com/MrEhbr/yokoku/commit/98af4e777e4bfc394377c4fd0a7e21b452dbb959)) `+31 / -22 across 1 file(s)` - Aleksei Burmistrov
+
+### Build
+
+- **(deps)** bump crate-ci/typos (#8) - ([56e797f](https://github.com/MrEhbr/yokoku/commit/56e797fd2f7d1cae72d17c961bbf2c5797435979)) `+1 / -1 across 1 file(s)` - dependabot[bot]
+- **(deps)** bump the patch-and-minor group across 1 directory with 10 updates (#11) - ([1d1a154](https://github.com/MrEhbr/yokoku/commit/1d1a154e1cb67c630b7ba087529e9e1124e024cb)) `+78 / -33 across 1 file(s)` - dependabot[bot]
+
+### Statistics
+
+- 13 commit(s) contributed to the release.
+- 1 day(s) between first and last commit.
+- 13 commit(s) parsed as conventional.
+- Diff totals: +2895 / -1749 across 141 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 13 day(s) since the previous release.
+
 ## [0.10.0](https://github.com/MrEhbr/yokoku/compare/v0.9.0..v0.10.0) - 2026-10-11
 
 ### Features

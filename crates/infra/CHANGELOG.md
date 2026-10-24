@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.11.0](https://github.com/MrEhbr/yokoku/compare/v0.8.0..v0.11.0) - 2026-10-24
+
+### Features
+
+- **(notifications)** add ntfy and a test notification in Settings - ([6bf8108](https://github.com/MrEhbr/yokoku/commit/6bf810883056f55b64e4293175fb7b04e9d6872d)) `+354 / -9 across 19 file(s)` - Aleksei Burmistrov
+- **(notifications)** notify about imports, reviews, failures and torrents - ([66bc5db](https://github.com/MrEhbr/yokoku/commit/66bc5db5928964154e353be294eaab079202ff02)) `+741 / -27 across 19 file(s)` - Aleksei Burmistrov
+
+### Refactoring
+
+- replace Handler&lt;E> and Subscription with a Subscriber trait - ([bca60b8](https://github.com/MrEhbr/yokoku/commit/bca60b83b3dc81b4f239880e71edd6bd172b9c15)) `+459 / -626 across 35 file(s)` - Aleksei Burmistrov
+- add a Job trait and run each job's logic in its own run - ([abb8ec8](https://github.com/MrEhbr/yokoku/commit/abb8ec87b7d08a4d4a7776b58e047df413fd5570)) `+674 / -519 across 29 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 4 commit(s) contributed to the release.
+- 1 day(s) between first and last commit.
+- 4 commit(s) parsed as conventional.
+- Diff totals: +2228 / -1181 across 102 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 17 day(s) since the previous release.
+
 ## [0.8.0](https://github.com/MrEhbr/yokoku/compare/v0.7.0..v0.8.0) - 2026-10-07
 
 ### Features
