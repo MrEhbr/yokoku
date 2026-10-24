@@ -55,35 +55,44 @@ impl Service {
     }
 
     /// Like `start`, with the environment variables `env` set. Scheduled jobs run only when `env`
-    /// or a stored setting gives them a schedule.
+    /// or a stored setting gives them a schedule. Ready once its own log says it is running; a port
+    /// taken by another test's service meanwhile is retried with a new one.
     fn start_with(dir: &Path, env: &[(&str, &str)]) -> Self {
-        let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         std::fs::create_dir_all(dir.join("public")).unwrap();
         std::fs::write(dir.join("app.toml"), NEVER).unwrap();
         let log = dir.join("service.log");
-        let child = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
-            .arg("--config")
-            .arg(dir.join("app.toml"))
-            .env("YOKOKU__DATABASE__PATH", dir.join("yokoku.db"))
-            .env("DIOXUS_PUBLIC_PATH", dir.join("public"))
-            .env("YOKOKU__WEB__PORT", port.to_string())
-            .env_remove("YOKOKU__METADATA__TMDB__TOKEN")
-            .env_remove("YOKOKU__METADATA__TVDB__API_KEY")
-            .envs(env.iter().copied())
-            .stdout(Stdio::null())
-            .stderr(std::fs::File::create(&log).unwrap())
-            .spawn()
-            .unwrap();
-        let mut service = Self { child, port };
         let deadline = Instant::now() + Duration::from_secs(30);
-        while TcpStream::connect(("127.0.0.1", port)).is_err() {
-            if let Some(status) = service.child.try_wait().unwrap() {
-                panic!("the service exited with {status}:\n{}", std::fs::read_to_string(&log).unwrap());
+        'start: loop {
+            let port = TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+            let child = Command::new(assert_cmd::cargo::cargo_bin!("yokoku"))
+                .arg("--config")
+                .arg(dir.join("app.toml"))
+                .env("YOKOKU__DATABASE__PATH", dir.join("yokoku.db"))
+                .env("DIOXUS_PUBLIC_PATH", dir.join("public"))
+                .env("YOKOKU__WEB__PORT", port.to_string())
+                .env_remove("YOKOKU__METADATA__TMDB__TOKEN")
+                .env_remove("YOKOKU__METADATA__TVDB__API_KEY")
+                .env_remove("RUST_LOG")
+                .envs(env.iter().copied())
+                .stdout(Stdio::null())
+                .stderr(std::fs::File::create(&log).unwrap())
+                .spawn()
+                .unwrap();
+            let mut service = Self { child, port };
+            let running = |line: &str| line.contains("yokoku::serve") && line.contains(" running ");
+            while !std::fs::read_to_string(&log).unwrap().lines().any(running) {
+                if let Some(status) = service.child.try_wait().unwrap() {
+                    let output = std::fs::read_to_string(&log).unwrap();
+                    if output.contains("Address already in use") {
+                        continue 'start;
+                    }
+                    panic!("the service exited with {status}:\n{output}");
+                }
+                assert!(Instant::now() < deadline, "the service did not start listening");
+                sleep(Duration::from_millis(50));
             }
-            assert!(Instant::now() < deadline, "the service did not start listening");
-            sleep(Duration::from_millis(50));
+            return service;
         }
-        service
     }
 
     /// The response to `GET path`, status line and headers included.
