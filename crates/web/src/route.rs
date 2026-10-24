@@ -77,14 +77,23 @@ pub(crate) enum SettingsPage {
     Library,
     Import,
     Naming,
+    Notifications,
     Schedules,
     Server,
 }
 
 impl SettingsPage {
     /// In sidebar order.
-    pub(crate) const ALL: [Self; 7] =
-        [Self::Connections, Self::Metadata, Self::Library, Self::Import, Self::Naming, Self::Schedules, Self::Server];
+    pub(crate) const ALL: [Self; 8] = [
+        Self::Connections,
+        Self::Metadata,
+        Self::Library,
+        Self::Import,
+        Self::Naming,
+        Self::Notifications,
+        Self::Schedules,
+        Self::Server,
+    ];
 
     pub(crate) fn title(self) -> &'static str {
         match self {
@@ -93,6 +102,7 @@ impl SettingsPage {
             Self::Library => "Library",
             Self::Import => "Import",
             Self::Naming => "Naming",
+            Self::Notifications => "Notifications",
             Self::Schedules => "Schedules",
             Self::Server => "Server",
         }

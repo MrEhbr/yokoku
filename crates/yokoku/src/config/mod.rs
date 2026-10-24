@@ -21,6 +21,7 @@ use yokoku_infra::{
     indexers::JackettSettings,
     media_servers::JellyfinSettings,
     metadata::MetadataSettings,
+    notifiers::NtfySettings,
     ratings::RatingsSettings,
     system::{ClockSettings, MediaTools},
 };
@@ -54,6 +55,7 @@ pub struct Config {
     pub import: ImportSettings,
     pub jellyfin: JellyfinSettings,
     pub jackett: JackettSettings,
+    pub ntfy: NtfySettings,
     pub files: MediaTools,
     pub naming: Naming,
     #[serde(skip_serializing_if = "Vec::is_empty")]

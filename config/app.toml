@@ -128,6 +128,14 @@ merge = true
 # From the top of Jackett's dashboard.
 # api_key = { file = "/run/secrets/jackett_api_key" }
 
+[ntfy]
+# The public ntfy.sh or a self-hosted server.
+url = "https://ntfy.sh"
+# Notifications are off while unset. Anyone who knows a topic on ntfy.sh can read it.
+# topic = "yokoku-3f9c2a"
+# For a topic that needs one.
+# token = { file = "/run/secrets/ntfy_token" }
+
 # Path patterns for library files. Tokens: {title}, {year}, {season} (two digits), {episodes}
 # (S01E01 or S01E01-E02), {episode_title}; a [...] group is dropped when a token in it has no value.
 [naming]

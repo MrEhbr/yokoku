@@ -51,6 +51,10 @@ value. Type a new value to replace one.
 **Naming**
 :   Patterns for folders and files.
 
+**Notifications**
+:   The [ntfy](../integrations/ntfy.md) server, topic and access token, with
+    **Send test notification**.
+
 **Schedules**
 :   When the background jobs run.
 

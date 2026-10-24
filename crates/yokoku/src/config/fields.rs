@@ -57,6 +57,27 @@ impl Config {
                 Control::Secret,
             ),
             Field::new(
+                Section::Notifications,
+                "ntfy.url",
+                "ntfy server",
+                "The public ntfy.sh or a self-hosted server.",
+                Control::text("https://ntfy.sh"),
+            ),
+            Field::new(
+                Section::Notifications,
+                "ntfy.topic",
+                "Topic",
+                "Subscribe to it in the ntfy app; empty for no notifications. Anyone who knows a topic on ntfy.sh can read it, so pick one that is hard to guess.",
+                Control::text(""),
+            ),
+            Field::new(
+                Section::Notifications,
+                "ntfy.token",
+                "Access token",
+                "For a topic that needs one; empty otherwise.",
+                Control::Secret,
+            ),
+            Field::new(
                 Section::Metadata,
                 "metadata.tmdb.token",
                 "TMDB token",

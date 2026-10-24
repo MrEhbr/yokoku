@@ -8,9 +8,12 @@ use yokoku_core::{
         ports::{DownloadClient, Indexer},
     },
     integrations::ports::MediaServer,
+    notifications::ports::{Notification, Notifier, Priority},
 };
 use yokoku_domain::{Live, StorageError};
-use yokoku_infra::{download_clients::TransmissionClient, indexers::JackettClient, media_servers::JellyfinClient};
+use yokoku_infra::{
+    download_clients::TransmissionClient, indexers::JackettClient, media_servers::JellyfinClient, notifiers::NtfyClient,
+};
 use yokoku_web::{Connection, ConnectionTest, Field, SettingsAccess};
 
 use crate::config::{Config, Settings};
@@ -42,7 +45,8 @@ impl SettingsAccess for Settings {
     }
 }
 
-/// Reaches Transmission, Jellyfin or Jackett with settings that are not stored yet.
+/// Reaches Transmission, Jellyfin or Jackett, or sends a test notification through ntfy, with
+/// settings that are not stored yet.
 #[async_trait]
 impl ConnectionTest for Settings {
     async fn test(&self, connection: Connection, changes: Vec<(String, Option<Value>)>) -> Result<String, String> {
@@ -62,6 +66,19 @@ impl ConnectionTest for Settings {
                 .version()
                 .await
                 .map_err(|error| error.to_string()),
+            Connection::Ntfy => {
+                let Some(topic) = config.ntfy.topic.clone() else { return Err("Set the topic first".to_owned()) };
+                let test = Notification {
+                    title: "Yokoku".to_owned(),
+                    message: "Notifications from Yokoku reach this topic.".to_owned(),
+                    priority: Priority::Normal,
+                };
+                NtfyClient::new(Live::fixed(config.ntfy.clone()))
+                    .send(&test)
+                    .await
+                    .map(|()| topic)
+                    .map_err(|error| error.to_string())
+            },
         }
     }
 }

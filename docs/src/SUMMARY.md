@@ -23,6 +23,7 @@
 - [Transmission](./integrations/transmission.md)
 - [Jackett](./integrations/jackett.md)
 - [Jellyfin](./integrations/jellyfin.md)
+- [ntfy](./integrations/ntfy.md)
 - [TMDB and TVDB](./integrations/metadata.md)
 - [IMDb Ratings](./integrations/ratings.md)
 

@@ -154,6 +154,15 @@ fn Groups(settings: Vec<Setting>, page: SettingsPage) -> Element {
                         {fields(Section::Naming)}
                     }
                 },
+                SettingsPage::Notifications => rsx! {
+                    Group { title: "ntfy",
+                        {fields(Section::Notifications)}
+                        Test {
+                            connection: Connection::Ntfy,
+                            keys: keys(Section::Notifications),
+                        }
+                    }
+                },
                 SettingsPage::Schedules => rsx! {
                     Group { title: "Schedules",
                         p { class: "text-caption text-muted",
@@ -187,9 +196,11 @@ fn Group(title: &'static str, children: Element) -> Element {
     }
 }
 
-/// Checks the connection with the section's values as typed, saved or not.
+/// Checks the connection, or sends a test notification, with the section's values as typed,
+/// saved or not.
 #[component]
 fn Test(connection: Connection, keys: Vec<String>) -> Element {
+    let notifies = connection == Connection::Ntfy;
     let mut busy = use_signal(|| false);
     let mut outcome = use_signal(|| None::<Result<String, String>>);
     let Unsaved(unsaved) = use_context();
@@ -219,7 +230,11 @@ fn Test(connection: Connection, keys: Vec<String>) -> Element {
                         );
                     busy.set(false);
                 },
-                "Test connection"
+                if notifies {
+                    "Send test notification"
+                } else {
+                    "Test connection"
+                }
             }
             if outcome().is_none() && !changes().is_empty() {
                 span { class: "text-caption text-muted",
@@ -228,6 +243,9 @@ fn Test(connection: Connection, keys: Vec<String>) -> Element {
             }
             span { role: "status", class: "text-caption",
                 match outcome() {
+                    Some(Ok(topic)) if notifies => rsx! {
+                        span { class: "text-success", "Sent a test notification to {topic}" }
+                    },
                     Some(Ok(version)) => rsx! {
                         span { class: "text-success", "Connected: {version}" }
                     },

@@ -19,6 +19,7 @@ pub enum Section {
     DownloadClient,
     Indexer,
     MediaServer,
+    Notifications,
     Metadata,
     Library,
     Import,
@@ -91,6 +92,7 @@ pub enum Connection {
     Transmission,
     Jellyfin,
     Jackett,
+    Ntfy,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
