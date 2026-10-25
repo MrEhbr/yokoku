@@ -155,9 +155,14 @@ fn Groups(settings: Vec<Setting>, page: SettingsPage) -> Element {
                     }
                 },
                 SettingsPage::Notifications => rsx! {
+                    Group { title: "Service", {fields(Section::NotificationService)} }
                     Group { title: "ntfy",
                         {fields(Section::Ntfy)}
                         Test { connection: Connection::Ntfy, keys: keys(Section::Ntfy) }
+                    }
+                    Group { title: "Telegram",
+                        {fields(Section::Telegram)}
+                        Test { connection: Connection::Telegram, keys: keys(Section::Telegram) }
                     }
                     Group { title: "Notify about", {fields(Section::Notifications)} }
                 },
@@ -198,7 +203,7 @@ fn Group(title: &'static str, children: Element) -> Element {
 /// saved or not.
 #[component]
 fn Test(connection: Connection, keys: Vec<String>) -> Element {
-    let notifies = connection == Connection::Ntfy;
+    let notifies = matches!(connection, Connection::Ntfy | Connection::Telegram);
     let mut busy = use_signal(|| false);
     let mut outcome = use_signal(|| None::<Result<String, String>>);
     let Unsaved(unsaved) = use_context();
@@ -241,8 +246,8 @@ fn Test(connection: Connection, keys: Vec<String>) -> Element {
             }
             span { role: "status", class: "text-caption",
                 match outcome() {
-                    Some(Ok(topic)) if notifies => rsx! {
-                        span { class: "text-success", "Sent a test notification to {topic}" }
+                    Some(Ok(recipient)) if notifies => rsx! {
+                        span { class: "text-success", "Sent a test notification to {recipient}" }
                     },
                     Some(Ok(version)) => rsx! {
                         span { class: "text-success", "Connected: {version}" }

@@ -57,6 +57,13 @@ impl Config {
                 Control::Secret,
             ),
             Field::new(
+                Section::NotificationService,
+                "notifications.service",
+                "Send through",
+                "The service notifications go to; set it up below.",
+                Control::choice(&[("ntfy", "ntfy"), ("telegram", "Telegram")]),
+            ),
+            Field::new(
                 Section::Ntfy,
                 "notifications.ntfy.url",
                 "ntfy server",
@@ -76,6 +83,27 @@ impl Config {
                 "Access token",
                 "For a topic that needs one; empty otherwise.",
                 Control::Secret,
+            ),
+            Field::new(
+                Section::Telegram,
+                "notifications.telegram.token",
+                "Bot token",
+                "From @BotFather when you create the bot.",
+                Control::Secret,
+            ),
+            Field::new(
+                Section::Telegram,
+                "notifications.telegram.chat_id",
+                "Chat",
+                "The chat's numeric id, or @name for a public channel; empty for no notifications. Message the bot first so it may write to you.",
+                Control::text("123456789"),
+            ),
+            Field::new(
+                Section::Telegram,
+                "notifications.telegram.url",
+                "Bot API address",
+                "Change it only for a self-hosted Bot API server.",
+                Control::text("https://api.telegram.org"),
             ),
             Field::new(
                 Section::Notifications,

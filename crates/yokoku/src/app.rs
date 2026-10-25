@@ -21,7 +21,7 @@ use yokoku_infra::{
     indexers::JackettClient,
     media_servers::JellyfinClient,
     metadata::{ArtworkFetcher, Sources, TmdbClient, TvdbClient},
-    notifiers::NtfyClient,
+    notifiers::{ChosenNotifier, NtfyClient, TelegramClient},
     ratings::ImdbDataset,
     system::{ArtworkFiles, FfMpeg, FfProbe, LocalFileSystem, LockFile, SystemClock},
 };
@@ -136,7 +136,11 @@ impl App {
         ));
 
         let notifications = Arc::new(Notifications::new(
-            Arc::new(NtfyClient::new(settings.live(|config| config.notifications.ntfy.clone()))),
+            Arc::new(ChosenNotifier::new(
+                settings.live(|config| config.notifications.service),
+                NtfyClient::new(settings.live(|config| config.notifications.ntfy.clone())),
+                TelegramClient::new(settings.live(|config| config.notifications.telegram.clone())),
+            )),
             db.clone(),
             db.clone(),
             settings.live(|config| config.notifications.events.clone()),

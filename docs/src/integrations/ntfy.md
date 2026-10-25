@@ -4,6 +4,10 @@ With [ntfy](https://ntfy.sh) set up, Yokoku sends notifications to a topic you
 subscribe to in the ntfy app on your phone or desktop. It's optional: without
 a topic, nothing is sent.
 
+ntfy is the service notifications go through at first; to use
+[Telegram](./telegram.md) instead, set `notifications.service` to `telegram`,
+or pick it under **Send through** on the Settings page's **Notifications**.
+
 ## Connect
 
 | Setting | |
@@ -47,6 +51,6 @@ grabbed one after another, give one notification listing them, like
 *Imported 12 files*. A notification lists up to ten lines and counts the
 rest. Those not sent yet are lost when Yokoku stops.
 
-When ntfy can't be reached, a notification is tried again on the next runs of
+When ntfy or Telegram can't be reached, a notification is tried again on the next runs of
 the [`send_notifications`](../configuration/schedules.md) schedule, then
 dropped after five tries.

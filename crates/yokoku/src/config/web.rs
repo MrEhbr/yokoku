@@ -12,7 +12,10 @@ use yokoku_core::{
 };
 use yokoku_domain::{Live, StorageError};
 use yokoku_infra::{
-    download_clients::TransmissionClient, indexers::JackettClient, media_servers::JellyfinClient, notifiers::NtfyClient,
+    download_clients::TransmissionClient,
+    indexers::JackettClient,
+    media_servers::JellyfinClient,
+    notifiers::{NtfyClient, TelegramClient},
 };
 use yokoku_web::{Connection, ConnectionTest, Field, SettingsAccess};
 
@@ -45,12 +48,17 @@ impl SettingsAccess for Settings {
     }
 }
 
-/// Reaches Transmission, Jellyfin or Jackett, or sends a test notification through ntfy, with
-/// settings that are not stored yet.
+/// Reaches Transmission, Jellyfin or Jackett, or sends a test notification through ntfy or
+/// Telegram, with settings that are not stored yet.
 #[async_trait]
 impl ConnectionTest for Settings {
     async fn test(&self, connection: Connection, changes: Vec<(String, Option<Value>)>) -> Result<String, String> {
         let config = self.preview(&changes).await.map_err(message)?;
+        let test = Notification {
+            title: "Yokoku".to_owned(),
+            message: "Notifications from Yokoku arrive here.".to_owned(),
+            priority: Priority::Normal,
+        };
         match connection {
             Connection::Transmission => TransmissionClient::new(Live::fixed(config.transmission.clone()))
                 .version()
@@ -67,18 +75,28 @@ impl ConnectionTest for Settings {
                 .await
                 .map_err(|error| error.to_string()),
             Connection::Ntfy => {
-                let Some(topic) = config.notifications.ntfy.topic.clone() else {
+                let ntfy = &config.notifications.ntfy;
+                let Some(topic) = ntfy.topic.clone() else {
                     return Err("Set the topic first".to_owned());
                 };
-                let test = Notification {
-                    title: "Yokoku".to_owned(),
-                    message: "Notifications from Yokoku reach this topic.".to_owned(),
-                    priority: Priority::Normal,
-                };
-                NtfyClient::new(Live::fixed(config.notifications.ntfy.clone()))
+                NtfyClient::new(Live::fixed(ntfy.clone()))
                     .send(&test)
                     .await
                     .map(|()| topic)
+                    .map_err(|error| error.to_string())
+            },
+            Connection::Telegram => {
+                let telegram = &config.notifications.telegram;
+                if telegram.token.is_none() {
+                    return Err("Set the bot token first".to_owned());
+                }
+                let Some(chat) = telegram.chat_id.clone() else {
+                    return Err("Set the chat first".to_owned());
+                };
+                TelegramClient::new(Live::fixed(telegram.clone()))
+                    .send(&test)
+                    .await
+                    .map(|()| chat)
                     .map_err(|error| error.to_string())
             },
         }

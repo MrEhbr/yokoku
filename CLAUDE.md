@@ -47,7 +47,7 @@ Six crates under `crates/`, layered strictly inward:
   (`library`, `downloads`, `media`, `integrations`, `notifications`, `events`). Each module declares its
   own `ports.rs` traits; use cases take `Arc<dyn Port>`.
 - `infra` — adapters implementing those ports: SQLite via sqlx (runtime queries, migrations in
-  `crates/infra/migrations`), TMDB/TVDB, Transmission, Jackett (Torznab), Jellyfin, ntfy,
+  `crates/infra/migrations`), TMDB/TVDB, Transmission, Jackett (Torznab), Jellyfin, ntfy, Telegram,
   filesystem/ffprobe/ffmpeg. The single `Database` type implements most storage ports.
 - `web` — Dioxus 0.7 fullstack UI. Feature `web` builds the wasm client; feature `server` adds server
   functions (`src/api/`) that call use cases through `AppState` (`src/state.rs`, wrapping

@@ -19,7 +19,9 @@ pub enum Section {
     DownloadClient,
     Indexer,
     MediaServer,
+    NotificationService,
     Ntfy,
+    Telegram,
     Notifications,
     Metadata,
     Library,
@@ -94,6 +96,7 @@ pub enum Connection {
     Jellyfin,
     Jackett,
     Ntfy,
+    Telegram,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

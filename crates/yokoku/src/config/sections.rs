@@ -9,7 +9,7 @@ use yokoku_core::{
     notifications::NotificationSettings,
 };
 use yokoku_domain::MonitorPreset;
-use yokoku_infra::notifiers::NtfySettings;
+use yokoku_infra::notifiers::{NotificationService, NtfySettings, TelegramSettings};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct DatabaseConfig {
@@ -48,8 +48,10 @@ impl WebConfig {
 /// What notifies, and the service notifications go through.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct NotificationsConfig {
+    pub service: NotificationService,
     pub events: NotificationSettings,
     pub ntfy: NtfySettings,
+    pub telegram: TelegramSettings,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

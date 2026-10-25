@@ -52,8 +52,10 @@ value. Type a new value to replace one.
 :   Patterns for folders and files.
 
 **Notifications**
-:   The [ntfy](../integrations/ntfy.md) server, topic and access token, with
-    **Send test notification**, and a switch for each kind of notification.
+:   Which service notifications go through, the [ntfy](../integrations/ntfy.md)
+    server, topic and access token, the [Telegram](../integrations/telegram.md)
+    bot token and chat, each with **Send test notification**, and a switch for
+    each kind of notification.
 
 **Schedules**
 :   When the background jobs run.

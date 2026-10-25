@@ -24,6 +24,7 @@
 - [Jackett](./integrations/jackett.md)
 - [Jellyfin](./integrations/jellyfin.md)
 - [ntfy](./integrations/ntfy.md)
+- [Telegram](./integrations/telegram.md)
 - [TMDB and TVDB](./integrations/metadata.md)
 - [IMDb Ratings](./integrations/ratings.md)
 

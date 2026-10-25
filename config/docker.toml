@@ -130,7 +130,11 @@ merge = true
 # From the top of Jackett's dashboard.
 # api_key = { file = "/run/secrets/jackett_api_key" }
 
-# What sends a notification, while ntfy has a topic.
+[notifications]
+# ntfy or telegram: the service notifications go through.
+service = "ntfy"
+
+# What sends a notification, while the chosen service is set up.
 [notifications.events]
 # Files placed in the library.
 imported = true
@@ -148,6 +152,14 @@ url = "https://ntfy.sh"
 # topic = "yokoku-3f9c2a"
 # For a topic that needs one.
 # token = { file = "/run/secrets/ntfy_token" }
+
+[notifications.telegram]
+# Change it only for a self-hosted Bot API server.
+url = "https://api.telegram.org"
+# From @BotFather when you create the bot.
+# token = { file = "/run/secrets/telegram_token" }
+# The chat's numeric id, or @name for a public channel; notifications are off while unset.
+# chat_id = "123456789"
 
 # Path patterns for library files. Tokens: {title}, {year}, {season} (two digits), {episodes}
 # (S01E01 or S01E01-E02), {episode_title}; a [...] group is dropped when a token in it has no value.
