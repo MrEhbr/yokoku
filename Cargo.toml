@@ -31,7 +31,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"]
 uuid = { version = "1.26", features = ["v7", "serde"] }
 
 proptest = "1.11"
-rstest = "0.27"
+rstest = "0.28"
 tempfile = "3.14"
 wiremock = "0.6"
 
