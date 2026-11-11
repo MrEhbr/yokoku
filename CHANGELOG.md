@@ -3,6 +3,30 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.12.0](https://github.com/MrEhbr/yokoku/compare/v0.11.0..v0.12.0) - 2026-11-11
+
+### Features
+
+- **(notifications)** add Telegram as an alternative notification service - ([05d251d](https://github.com/MrEhbr/yokoku/commit/05d251df56d98893e330dc97de09311f87a0039a)) `+454 / -23 across 18 file(s)` - Aleksei Burmistrov
+
+### Miscellaneous Chores
+
+- **(deps)** ignore RUSTSEC-2026-0459 until sqlx supports libsqlite3-sys 0.39 - ([5f75e2a](https://github.com/MrEhbr/yokoku/commit/5f75e2a02842baa70788c09eff8b21a9aa651ec3)) `+3 / -1 across 1 file(s)` - Aleksei Burmistrov
+
+### Build
+
+- **(deps)** bump crate-ci/typos (#14) - ([d3abc40](https://github.com/MrEhbr/yokoku/commit/d3abc4049cb0e2d4bdcd12da9186ee865e5e251d)) `+1 / -1 across 1 file(s)` - dependabot[bot]
+- **(deps)** bump rstest from 0.27.0 to 0.28.0 (#12) - ([5008915](https://github.com/MrEhbr/yokoku/commit/50089152c1d19821e53c98773e3cbb95456a6dd8)) `+5 / -5 across 2 file(s)` - dependabot[bot]
+- **(deps)** bump the patch-and-minor group across 1 directory with 4 updates (#15) - ([206579b](https://github.com/MrEhbr/yokoku/commit/206579b3c83c9116c5f923c93ca841e683ca985c)) `+15 / -48 across 1 file(s)` - dependabot[bot]
+
+### Statistics
+
+- 5 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 5 commit(s) parsed as conventional.
+- Diff totals: +478 / -78 across 23 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 18 day(s) since the previous release.
+
 ## [0.11.0](https://github.com/MrEhbr/yokoku/compare/v0.10.0..v0.11.0) - 2026-10-24
 
 ### Bug Fixes

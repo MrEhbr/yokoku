@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.12.0](https://github.com/MrEhbr/yokoku/compare/v0.11.0..v0.12.0) - 2026-11-11
+
+### Features
+
+- **(notifications)** add Telegram as an alternative notification service - ([05d251d](https://github.com/MrEhbr/yokoku/commit/05d251df56d98893e330dc97de09311f87a0039a)) `+454 / -23 across 18 file(s)` - Aleksei Burmistrov
+
+### Statistics
+
+- 1 commit(s) contributed to the release.
+- 0 day(s) between first and last commit.
+- 1 commit(s) parsed as conventional.
+- Diff totals: +454 / -23 across 18 file change(s) (sum across commits, may double-count files touched in multiple commits).
+- 18 day(s) since the previous release.
+
 ## [0.11.0](https://github.com/MrEhbr/yokoku/compare/v0.10.0..v0.11.0) - 2026-10-24
 
 ### Features
