@@ -15,7 +15,6 @@ fn any_state() -> impl Strategy<Value = DownloadState> {
         Just(DownloadState::Downloading),
         Just(DownloadState::Seeding),
         Just(DownloadState::Stopped),
-        Just(DownloadState::Removed),
     ]
 }
 
@@ -143,4 +142,46 @@ async fn a_download_saved_from_an_older_revision_conflicts(#[future(awt)] db: Da
 
     assert!(matches!(error, StorageError::Conflict), "{error}");
     assert_eq!(stale.revision, 1);
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_removed_download_frees_its_hash(#[future(awt)] db: Database) {
+    let mut gone = download("a", "2026-09-25T12:00:00Z");
+    db.save(&mut gone).await.unwrap();
+
+    db.remove(&gone).await.unwrap();
+    let mut again = download("a", "2026-09-26T12:00:00Z");
+    db.save(&mut again).await.unwrap();
+
+    assert_eq!(db.get(gone.id).await.unwrap(), None);
+    assert_eq!(db.find_by_hash("a").await.unwrap(), Some(again));
+}
+
+#[rstest]
+#[tokio::test]
+async fn a_download_removed_from_an_older_revision_conflicts(#[future(awt)] db: Database) {
+    let mut download = download("a", "2026-09-25T12:00:00Z");
+    db.save(&mut download).await.unwrap();
+    let stale = download.clone();
+    db.save(&mut download).await.unwrap();
+
+    let error = db.remove(&stale).await.unwrap_err();
+
+    assert!(matches!(error, StorageError::Conflict), "{error}");
+    assert_eq!(db.list().await.unwrap(), [download]);
+}
+
+#[rstest]
+#[tokio::test]
+async fn saving_a_removed_download_conflicts(#[future(awt)] db: Database) {
+    let mut download = download("a", "2026-09-25T12:00:00Z");
+    db.save(&mut download).await.unwrap();
+    let mut stale = download.clone();
+    db.remove(&download).await.unwrap();
+
+    let error = db.save(&mut stale).await.unwrap_err();
+
+    assert!(matches!(error, StorageError::Conflict), "{error}");
+    assert!(db.list().await.unwrap().is_empty());
 }

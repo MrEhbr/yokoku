@@ -174,12 +174,23 @@ pub struct DownloadCompleted {
     pub season: Option<u16>,
 }
 
-/// Removed from the download client, with its data, after its import once seeding finished.
+/// No longer in the download client; Yokoku stops tracking it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TorrentRemoved {
     pub download: DownloadId,
     pub name: String,
     pub item: Option<ItemId>,
+    #[serde(default)]
+    pub reason: RemoveReason,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RemoveReason {
+    /// Yokoku removed it with its data after its import once seeding finished.
+    #[default]
+    Seeded,
+    /// It left the client outside Yokoku.
+    GoneFromClient,
 }
 
 /// A stored setting was set or unset; carries the key only.
@@ -267,7 +278,10 @@ impl fmt::Display for Event {
             },
             Self::TorrentAdded(TorrentAdded { name, .. }) => write!(f, "Added torrent {name}"),
             Self::DownloadCompleted(DownloadCompleted { name, .. }) => write!(f, "Finished downloading {name}"),
-            Self::TorrentRemoved(TorrentRemoved { name, .. }) => write!(f, "Removed torrent {name} after seeding"),
+            Self::TorrentRemoved(TorrentRemoved { name, reason, .. }) => match reason {
+                RemoveReason::Seeded => write!(f, "Removed torrent {name} after seeding"),
+                RemoveReason::GoneFromClient => write!(f, "Torrent {name} left the download client"),
+            },
             Self::SettingsChanged(SettingsChanged { key }) => write!(f, "Changed setting {key}"),
         }
     }

@@ -23,6 +23,7 @@ An entry about several files folds them under **Show N files**.
 | Renamed | Files were renamed to the naming patterns, with old and new paths |
 | Renumbered | A series' episode numbering changed, so its files were matched again |
 | Removed torrent … after seeding | The torrent finished seeding and was removed from Transmission |
+| Torrent … left the download client | The torrent was removed in Transmission, not by Yokoku |
 | Changed setting | A setting was changed |
 
 An item that's been removed keeps its name in the entries, without a link.

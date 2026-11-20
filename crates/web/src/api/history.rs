@@ -70,7 +70,7 @@ mod server {
         events::{
             DeleteReason, DownloadCompleted, EpisodesRenumbered, Event, FileDeleted, FileRenamed, FilesFound,
             FilesImported, ImportFailed, ImportNeedsReview, ImportedFrom, LinkedFile, MovieAdded, MovieRemoved,
-            SeriesAdded, SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
+            RemoveReason, SeriesAdded, SeriesRemoved, SettingsChanged, TorrentAdded, TorrentRemoved,
         },
     };
 
@@ -208,8 +208,9 @@ mod server {
                 Event::DownloadCompleted(DownloadCompleted { name, item, .. }) => {
                     with_download(name, item, "Finished downloading", "")
                 },
-                Event::TorrentRemoved(TorrentRemoved { name, item, .. }) => {
-                    with_download(name, item, "Removed torrent", " after seeding")
+                Event::TorrentRemoved(TorrentRemoved { name, item, reason, .. }) => match reason {
+                    RemoveReason::Seeded => with_download(name, item, "Removed torrent", " after seeding"),
+                    RemoveReason::GoneFromClient => with_download(name, item, "Torrent", " left the download client"),
                 },
                 Event::SettingsChanged(SettingsChanged { key }) => {
                     (vec![text("Changed setting "), Part::Code(key.clone())], Vec::new())

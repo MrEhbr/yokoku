@@ -4,7 +4,7 @@ use yokoku_domain::{
     EpisodeSpan, FileTarget, ImportId, ItemId, MediaFileId, MovieId, SeriesId,
     events::{
         DeleteReason, Event, FileDeleted, FileRenamed, FilesFound, ImportNeedsReview, LinkedFile, MovieRemoved,
-        SeriesAdded, TorrentAdded, TorrentRemoved,
+        RemoveReason, SeriesAdded, TorrentAdded, TorrentRemoved,
     },
 };
 
@@ -37,7 +37,7 @@ fn linked(target: FileTarget) -> LinkedFile {
 )]
 #[case::renamed_before_targets(FileRenamed { file: MediaFileId::generate(), from: "/a".into(), to: "/b".into(), target: None }.into(), vec![])]
 #[case::unlinked_torrent(TorrentAdded { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: None }.into(), vec![])]
-#[case::removed_torrent(TorrentRemoved { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: Some(ItemId::Movie(movie())) }.into(), vec![ItemId::Movie(movie())])]
+#[case::removed_torrent(TorrentRemoved { download: yokoku_domain::DownloadId::generate(), name: "x".into(), item: Some(ItemId::Movie(movie())), reason: RemoveReason::Seeded }.into(), vec![ItemId::Movie(movie())])]
 #[case::review(ImportNeedsReview { import: ImportId::generate(), source: "/x".into() }.into(), vec![])]
 fn events_name_the_items_they_concern(#[case] event: Event, #[case] items: Vec<ItemId>) {
     assert_eq!(event.items(), items);
@@ -79,6 +79,14 @@ mod stored {
     #[case::a_line_per_file(
         FilesFound { files: vec![linked("/a.mkv"), linked("/b.mkv")] }.into(),
         "Found 2 files\n/a.mkv\n/b.mkv",
+    )]
+    #[case::removed_after_seeding(
+        TorrentRemoved { download: DownloadId(Uuid::from_u128(4)), name: "Dune".into(), item: None, reason: RemoveReason::Seeded }.into(),
+        "Removed torrent Dune after seeding",
+    )]
+    #[case::gone_from_client(
+        TorrentRemoved { download: DownloadId(Uuid::from_u128(4)), name: "Dune".into(), item: None, reason: RemoveReason::GoneFromClient }.into(),
+        "Torrent Dune left the download client",
     )]
     fn describes_the_event(#[case] event: Event, #[case] expected: &str) {
         assert_eq!(event.to_string(), expected);
@@ -189,8 +197,8 @@ mod stored {
         }),
     )]
     #[case::torrent_removed(
-        TorrentRemoved { download: DownloadId(Uuid::from_u128(4)), name: "Dune.2021.1080p".into(), item: None }.into(),
-        json!({ "type": "TorrentRemoved", "download": "00000000-0000-0000-0000-000000000004", "name": "Dune.2021.1080p", "item": null }),
+        TorrentRemoved { download: DownloadId(Uuid::from_u128(4)), name: "Dune.2021.1080p".into(), item: None, reason: RemoveReason::GoneFromClient }.into(),
+        json!({ "type": "TorrentRemoved", "download": "00000000-0000-0000-0000-000000000004", "name": "Dune.2021.1080p", "item": null, "reason": "GoneFromClient" }),
     )]
     #[case::download_completed(
         DownloadCompleted {
@@ -252,8 +260,13 @@ mod stored {
             json!({ "type": "FileRenamed", "file": "00000000-0000-0000-0000-000000000005", "from": "/a", "to": "/b" });
         let imported =
             json!({ "type": "FilesImported", "import": "00000000-0000-0000-0000-000000000009", "files": [] });
+        let removed = json!({ "type": "TorrentRemoved", "download": "00000000-0000-0000-0000-000000000004", "name": "Dune", "item": null });
 
         assert!(matches!(serde_json::from_value(deleted).unwrap(), Event::FileDeleted(_)));
+        assert!(matches!(
+            serde_json::from_value(removed).unwrap(),
+            Event::TorrentRemoved(TorrentRemoved { reason: RemoveReason::Seeded, .. })
+        ));
         assert!(matches!(
             serde_json::from_value(renamed).unwrap(),
             Event::FileRenamed(FileRenamed { target: None, .. })
@@ -371,9 +384,15 @@ mod stored {
             (any_id(), any::<String>(), proptest::option::of(any_item())).prop_map(|(download, name, item)| {
                 TorrentAdded { download: DownloadId(download), name, item }.into()
             }),
-            (any_id(), any::<String>(), proptest::option::of(any_item())).prop_map(|(download, name, item)| {
-                TorrentRemoved { download: DownloadId(download), name, item }.into()
-            }),
+            (
+                any_id(),
+                any::<String>(),
+                proptest::option::of(any_item()),
+                prop_oneof![Just(RemoveReason::Seeded), Just(RemoveReason::GoneFromClient)]
+            )
+                .prop_map(|(download, name, item, reason)| {
+                    TorrentRemoved { download: DownloadId(download), name, item, reason }.into()
+                }),
             (
                 any_id(),
                 any::<String>(),

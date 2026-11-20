@@ -45,8 +45,6 @@ pub enum DownloadState {
     Downloading,
     Seeding,
     Stopped,
-    /// No longer in the client.
-    Removed,
 }
 
 yokoku_domain::string_enum!(DownloadState, "download state" {
@@ -55,7 +53,6 @@ yokoku_domain::string_enum!(DownloadState, "download state" {
     Downloading => "downloading",
     Seeding => "seeding",
     Stopped => "stopped",
-    Removed => "removed",
 });
 
 impl Download {
@@ -70,11 +67,6 @@ impl Download {
             0 => 0,
             size => u8::try_from(self.status.done.min(size) * 100 / size).unwrap_or(100),
         }
-    }
-
-    pub(crate) fn mark_removed(&mut self) {
-        self.status =
-            TorrentStatus { state: DownloadState::Removed, download_rate: 0, eta: None, ..self.status.clone() };
     }
 }
 

@@ -127,8 +127,9 @@ pub enum IndexerError {
 }
 
 /// A save inserts a download at revision 0 and otherwise updates it only when the stored revision
-/// matches, then bumps `revision`; a save made from an older revision, or a new download whose hash
-/// is already stored, fails with `StorageError::Conflict`.
+/// matches, then bumps `revision`; a save or remove made from an older revision, a save of a
+/// removed download, or a new download whose hash is already stored, fails with
+/// `StorageError::Conflict`.
 #[async_trait]
 pub trait DownloadRepo: Send + Sync {
     async fn get(&self, id: DownloadId) -> Result<Option<Download>, StorageError>;
@@ -136,4 +137,5 @@ pub trait DownloadRepo: Send + Sync {
     /// Newest first.
     async fn list(&self) -> Result<Vec<Download>, StorageError>;
     async fn save(&self, download: &mut Download) -> Result<(), StorageError>;
+    async fn remove(&self, download: &Download) -> Result<(), StorageError>;
 }

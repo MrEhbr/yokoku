@@ -21,7 +21,7 @@ use yokoku_core::{
 use yokoku_domain::{
     Clock, DiskSpace, DownloadId, FileTarget, ImportId, ItemId, Live, MediaFileId, MediaKind, MovieId, SeriesId,
     Trackers,
-    events::{DownloadCompleted, Event, FilesImported, LinkedFile, TorrentAdded, TorrentRemoved},
+    events::{DownloadCompleted, Event, FilesImported, LinkedFile, RemoveReason, TorrentAdded, TorrentRemoved},
 };
 use yokoku_infra::db::Database;
 use yokoku_test_support::{clock::TestClock, events::publisher};
@@ -248,20 +248,49 @@ async fn the_season_given_for_a_series_reaches_its_completion() {
     assert_eq!(setup.events().await[1..], [completed(&added)]);
 }
 
+fn removed(download: &Download, reason: RemoveReason) -> Event {
+    TorrentRemoved { download: download.id, name: download.name.clone(), item: download.item, reason }.into()
+}
+
 #[tokio::test]
-async fn torrents_gone_from_the_client_are_marked_removed_and_left_alone() {
+async fn a_torrent_gone_from_the_client_is_no_longer_tracked() {
     let setup = setup().await;
     setup.client.set(500, 1000);
-    setup.downloads.add(&magnet(), None, None).await.unwrap();
+    let added = setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.forget();
 
     setup.downloads.run().await.unwrap();
-    setup.client.set(1000, 1000);
-    setup.downloads.run().await.unwrap();
 
-    let download = setup.only_download().await;
-    assert_eq!(download.status.state, DownloadState::Removed);
-    assert_eq!((download.status.done, download.status.download_rate, download.status.eta), (500, 0, None));
+    assert!(setup.downloads.list().await.unwrap().is_empty());
+    assert_eq!(setup.events().await.last(), Some(&removed(&added, RemoveReason::GoneFromClient)));
+}
+
+#[tokio::test]
+async fn concurrent_syncs_remove_a_gone_torrent_once() {
+    let setup = setup().await;
+    setup.downloads.add(&magnet(), None, None).await.unwrap();
+    setup.client.forget();
+
+    let (first, second) = tokio::join!(setup.downloads.run(), setup.downloads.run());
+
+    first.unwrap();
+    second.unwrap();
+    assert_eq!(setup.events().await.iter().filter_map(Event::get::<TorrentRemoved>).count(), 1);
+}
+
+#[tokio::test]
+async fn a_torrent_added_again_after_leaving_the_client_is_a_new_download() {
+    let setup = setup().await;
+    let gone = setup.downloads.add(&magnet(), None, None).await.unwrap();
+    setup.client.forget();
+    setup.downloads.run().await.unwrap();
+    let item = Some(ItemId::Series(SeriesId::generate()));
+
+    let added = setup.downloads.add(&magnet(), item, Some(3)).await.unwrap();
+
+    assert_ne!(added.id, gone.id);
+    assert_eq!((added.item, added.season), (item, Some(3)));
+    assert_eq!(setup.only_download().await, added);
 }
 
 #[tokio::test]
@@ -352,11 +381,8 @@ async fn an_imported_download_is_removed_with_its_data_once_seeded() {
     setup.downloads.run().await.unwrap();
 
     assert_eq!(*setup.client.removed.lock().unwrap(), [(HASH.to_owned(), true)]);
-    assert_eq!(setup.only_download().await.status.state, DownloadState::Removed);
-    assert_eq!(
-        setup.events().await.last(),
-        Some(&TorrentRemoved { download: added.id, name: added.name, item: None }.into())
-    );
+    assert!(setup.downloads.list().await.unwrap().is_empty());
+    assert_eq!(setup.events().await.last(), Some(&removed(&added, RemoveReason::Seeded)));
 }
 
 #[rstest]
@@ -457,19 +483,20 @@ async fn torrents_from_outside_are_left_alone_unless_asked_for() {
 }
 
 #[tokio::test]
-async fn a_download_that_was_removed_is_not_taken_on_again() {
-    let setup = setup_with(picking_up(&["yokoku"], None)).await;
-    setup.client.set(1000, 1000);
-    setup.downloads.add(&magnet(), None, None).await.unwrap();
+async fn a_labelled_torrent_back_in_the_client_is_taken_on_again() {
+    let setup = setup().await;
+    let gone = setup.downloads.add(&magnet(), None, None).await.unwrap();
     setup.client.forget();
     setup.downloads.run().await.unwrap();
     let mut back = torrent(1000, 1000);
-    back.labels = vec!["yokoku".into()];
+    back.labels = vec![LABEL.to_owned()];
     setup.client.put(back);
 
     setup.downloads.run().await.unwrap();
 
-    assert_eq!(setup.only_download().await.status.state, DownloadState::Removed);
+    let download = setup.only_download().await;
+    assert_ne!(download.id, gone.id);
+    assert_eq!(download.hash, HASH);
 }
 
 #[tokio::test]

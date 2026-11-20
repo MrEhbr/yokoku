@@ -71,4 +71,5 @@ Set those limits in Transmission. The library files stay: hard links and
 copies don't depend on the download.
 
 A torrent you remove in Transmission yourself leaves the Queue on the next
-sync.
+sync. Adding it again, from a search or in Transmission with a pick-up label,
+tracks it as a new download.

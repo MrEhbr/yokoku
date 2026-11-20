@@ -837,8 +837,7 @@ async fn seed_downloads(path: &Path, frieren: SeriesId, dune: MovieId) -> Seeded
         imported_at: Some(now),
         ..download("Frieren.S01E02.1080p", status(DownloadState::Seeding, 1_000_000_000), Some(ItemId::Series(frieren)))
     };
-    let gone = download("Gone.Torrent", status(DownloadState::Removed, 0), None);
-    for download in [&downloading, &review, &failed, &imported, &gone] {
+    for download in [&downloading, &review, &failed, &imported] {
         DownloadRepo::save(&db, &mut download.clone()).await.unwrap();
     }
 
@@ -894,7 +893,6 @@ async fn the_downloads_page_shows_each_torrent_with_its_import() {
     ] {
         assert!(page.contains(text), "{text}: {page}");
     }
-    assert!(!page.contains("Gone.Torrent"), "torrents no longer in the client are left out: {page}");
     assert!(page.contains(&format!("href=\"/movies/{dune}\"")), "{page}");
 }
 

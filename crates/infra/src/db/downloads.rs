@@ -75,6 +75,19 @@ impl DownloadRepo for Database {
     async fn save(&self, download: &mut Download) -> Result<(), StorageError> {
         Ok(self.save_download(download).await?)
     }
+
+    async fn remove(&self, download: &Download) -> Result<(), StorageError> {
+        let result = sqlx::query("DELETE FROM downloads WHERE id = ? AND revision = ?")
+            .bind(download.id.to_string())
+            .bind(Int(download.revision))
+            .execute(self.pool())
+            .await
+            .map_err(DbError::from)?;
+        match result.rows_affected() {
+            0 => Err(StorageError::Conflict),
+            _ => Ok(()),
+        }
+    }
 }
 
 impl Database {

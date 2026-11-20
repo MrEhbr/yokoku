@@ -79,7 +79,7 @@ impl DownloadState {
     }
 }
 
-/// Newest first; torrents removed from the client are left out.
+/// Newest first.
 #[get("/api/downloads", downloads: Dep<Downloads>, reviewer: Dep<Reviewer>, importer: Dep<Importer>, library: Dep<Library>)]
 pub async fn downloads() -> Result<Vec<DownloadEntry>, ServerFnError> {
     server::downloads(&downloads, &reviewer, &importer, &library).await
@@ -236,7 +236,6 @@ mod server {
 
         Ok(listed
             .into_iter()
-            .filter(|download| download.status.state != yokoku_core::downloads::DownloadState::Removed)
             .map(|download| {
                 let item =
                     download.item.and_then(|id| titles.get(&id).map(|title| ItemLink { id, title: title.clone() }));
@@ -320,8 +319,8 @@ mod server {
             (None, Client::Checking) => DownloadState::Checking,
             (None, Client::Downloading) => DownloadState::Downloading,
             (None, Client::Seeding) => DownloadState::Seeding,
-            (None, Client::Stopped | Client::Removed) if download.completed_at.is_some() => DownloadState::Finished,
-            (None, Client::Stopped | Client::Removed) => DownloadState::Paused,
+            (None, Client::Stopped) if download.completed_at.is_some() => DownloadState::Finished,
+            (None, Client::Stopped) => DownloadState::Paused,
         };
         DownloadEntry {
             id: download.id,

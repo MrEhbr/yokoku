@@ -5,11 +5,7 @@ mod model;
 pub mod ports;
 mod search;
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use async_trait::async_trait;
 pub use error::DownloadError;
@@ -19,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
 use yokoku_domain::{
     Clock, DiskSpace, DownloadId, ItemId, Live, StorageError,
-    events::{DownloadCompleted, Event, FilesImported, TorrentAdded, TorrentRemoved},
+    events::{DownloadCompleted, Event, FilesImported, RemoveReason, TorrentAdded, TorrentRemoved},
 };
 
 use self::ports::{DownloadClient, DownloadRepo, LABEL, Torrent, TorrentSource};
@@ -106,10 +102,11 @@ impl Downloads {
 
 /// Records each download's progress and state; a download that finished emits
 /// `DownloadCompleted` once, however often and however many syncs run. A download another
-/// sync saved in the meantime is left to that sync. With `remove_after_seeding`, an imported
-/// download whose seeding finished is removed from the client, emitting `TorrentRemoved`. Unknown
-/// torrents labelled `LABEL`, which Yokoku added but never saved, or matching `pick_up_labels` or
-/// `pick_up_folder`, become unlinked downloads, emitting `TorrentAdded`.
+/// sync saved in the meantime is left to that sync. A download whose torrent left the client is
+/// removed, emitting `TorrentRemoved`; with `remove_after_seeding`, so is an imported download
+/// whose seeding finished, together with its torrent and data. Unknown torrents labelled `LABEL`,
+/// which Yokoku added but never saved, or matching `pick_up_labels` or `pick_up_folder`, become
+/// unlinked downloads, emitting `TorrentAdded`.
 #[async_trait]
 impl Job for Downloads {
     fn name(&self) -> &'static str {
@@ -119,26 +116,21 @@ impl Job for Downloads {
     #[instrument(skip_all)]
     async fn run(&self) -> Result<(), JobError> {
         let options = self.options.current();
-        let known = self.repo.list().await?;
-        let active: Vec<Download> =
-            known.iter().filter(|download| download.status.state != DownloadState::Removed).cloned().collect();
         let mut torrents: HashMap<String, Torrent> =
             self.client.all_torrents().await?.into_iter().map(|torrent| (torrent.hash.clone(), torrent)).collect();
 
         let (mut synced, mut picked_up) = (0, 0);
-        for mut download in active {
-            let torrent = torrents.remove(&download.hash);
-            let removed = torrent.is_none();
-            let seeded = torrent.as_ref().is_some_and(|torrent| torrent.seeding_done);
-            let completed = self.apply(&mut download, torrent);
-            let mut events: Vec<Event> = completed.iter().cloned().collect();
-            let clean_up = seeded && options.remove_after_seeding && download.imported_at.is_some();
-            if clean_up {
+        for mut download in self.repo.list().await? {
+            let Some(torrent) = torrents.remove(&download.hash) else {
+                synced += usize::from(self.forget(&download, RemoveReason::GoneFromClient, Vec::new()).await?);
+                continue;
+            };
+            let seeded = torrent.seeding_done;
+            let completed: Vec<Event> = self.apply(&mut download, torrent).into_iter().collect();
+            if seeded && options.remove_after_seeding && download.imported_at.is_some() {
                 self.client.remove(&download.hash, true).await?;
-                download.mark_removed();
-                events.push(
-                    TorrentRemoved { download: download.id, name: download.name.clone(), item: download.item }.into(),
-                );
+                synced += usize::from(self.forget(&download, RemoveReason::Seeded, completed).await?);
+                continue;
             }
             match self.repo.save(&mut download).await {
                 Err(StorageError::Conflict) => {
@@ -148,25 +140,14 @@ impl Job for Downloads {
                 result => result?,
             }
             self.changes.notify();
-            self.events.publish_all(events).await;
-            let (id, name) = (&download.id, &download.name);
-            if completed.is_some() {
-                info!(download = %id, name, "download completed");
+            if !completed.is_empty() {
+                info!(download = %download.id, name = %download.name, "download completed");
             }
-            if removed {
-                info!(download = %id, name, "torrent is gone from the client");
-            }
-            if clean_up {
-                info!(download = %id, name, "torrent removed after seeding");
-            }
+            self.events.publish_all(completed).await;
             synced += 1;
         }
 
-        let known: HashSet<&str> = known.iter().map(|download| download.hash.as_str()).collect();
-        let mut new: Vec<Torrent> = torrents
-            .into_values()
-            .filter(|torrent| !known.contains(torrent.hash.as_str()) && options.takes_on(torrent))
-            .collect();
+        let mut new: Vec<Torrent> = torrents.into_values().filter(|torrent| options.takes_on(torrent)).collect();
         new.sort_by(|a, b| a.hash.cmp(&b.hash));
         for torrent in new {
             let (mut download, events) =
@@ -211,16 +192,36 @@ impl Downloads {
             revision: 0,
         };
         let mut events = vec![TorrentAdded { download: download.id, name: download.name.clone(), item }.into()];
-        events.extend(self.apply(&mut download, torrent));
+        events.extend(torrent.and_then(|torrent| self.apply(&mut download, torrent)));
         (download, events)
     }
 
+    /// Stops tracking `download`, emitting `events` and `TorrentRemoved`; `false` when another sync
+    /// changed it first.
+    async fn forget(
+        &self,
+        download: &Download,
+        reason: RemoveReason,
+        mut events: Vec<Event>,
+    ) -> Result<bool, StorageError> {
+        match self.repo.remove(download).await {
+            Err(StorageError::Conflict) => {
+                debug!(download = %download.id, "another sync changed the download first");
+                return Ok(false);
+            },
+            result => result?,
+        }
+        self.changes.notify();
+        info!(download = %download.id, name = %download.name, ?reason, "torrent removed");
+        events.push(
+            TorrentRemoved { download: download.id, name: download.name.clone(), item: download.item, reason }.into(),
+        );
+        self.events.publish_all(events).await;
+        Ok(true)
+    }
+
     /// Returns `DownloadCompleted` when the download has just finished.
-    fn apply(&self, download: &mut Download, torrent: Option<Torrent>) -> Option<Event> {
-        let Some(torrent) = torrent else {
-            download.mark_removed();
-            return None;
-        };
+    fn apply(&self, download: &mut Download, torrent: Torrent) -> Option<Event> {
         download.name = torrent.name;
         download.status = torrent.status;
         if !torrent.complete || download.completed_at.is_some() {
